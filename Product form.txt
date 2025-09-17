@@ -1,0 +1,1123 @@
+import { useMutation, useQuery } from 'convex/react';
+import * as ImagePicker from 'expo-image-picker';
+import { router, useLocalSearchParams } from 'expo-router';
+import {
+  ArrowLeft,
+  Camera,
+  ChevronDown,
+  FileText,
+  Save,
+  X
+} from 'lucide-react-native';
+import React, { useEffect, useState } from 'react';
+import {
+  Alert,
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
+} from 'react-native';
+import { api } from '../../../convex/_generated/api';
+import { Id } from '../../../convex/_generated/dataModel';
+
+interface ProductFormData {
+  // Base product fields
+  name: string;
+  description: string;
+  price: string;
+  originalPrice: string;
+  categoryId: string;
+  category: string;
+  image: string;
+  images: string[];
+  certificateImages: string[];
+  stock: string;
+  badge: string;
+  isActive: boolean;
+  sku: string;
+  status: string;
+  featured: boolean;
+  lifespan: string;
+  
+  // Fish specific fields
+  scientificName: string;
+  fishSize: string;
+  fishTemperature: string;
+  fishAge: string;
+  phLevel: string;
+  fishLifespan: string;
+  origin: string;
+  diet: string;
+  
+  // Tank specific fields
+  tankType: string;
+  material: string;
+  capacity: string;
+  length: string;
+  width: string;
+  height: string;
+  thickness: string;
+  lighting: string;
+  filtration: string;
+}
+
+interface UploadingImage {
+  uri: string;
+  uploading: boolean;
+  storageId?: Id<"_storage">;
+  url?: string;
+}
+
+export default function ProductFormScreen() {
+  const { id } = useLocalSearchParams();
+  const [formData, setFormData] = useState<ProductFormData>({
+    // Base product fields
+    name: '',
+    description: '',
+    price: '',
+    originalPrice: '',
+    categoryId: '',
+    category: '',
+    image: '',
+    images: [],
+    certificateImages: [],
+    stock: '',
+    badge: '',
+    isActive: true,
+    sku: '',
+    status: 'active',
+    featured: false,
+    lifespan: '',
+    
+    // Fish specific fields
+    scientificName: '',
+    fishSize: '',
+    fishTemperature: '',
+    fishAge: '',
+    phLevel: '',
+    fishLifespan: '',
+    origin: '',
+    diet: '',
+    
+    // Tank specific fields
+    tankType: '',
+    material: '',
+    capacity: '',
+    length: '',
+    width: '',
+    height: '',
+    thickness: '',
+    lighting: '',
+    filtration: ''
+  });
+  
+  const [uploadingImages, setUploadingImages] = useState<UploadingImage[]>([]);
+  const [uploadingCertificates, setUploadingCertificates] = useState<UploadingImage[]>([]);
+  
+  const isEditing = !!id;
+  
+  // Convex mutations
+  const generateUploadUrl = useMutation(api.files.generateUploadUrl);
+  const getFileUrl = useMutation(api.files.getFileUrl);
+  const [formLoading, setFormLoading] = useState(false);
+
+  // Fetch data for editing
+  const existingProduct = useQuery(
+    api.services.products.getProduct,
+    isEditing && id ? { productId: id as any } : "skip"
+  );
+
+  // Fetch fish data if editing and product exists
+  const existingFishData = useQuery(
+    api.services.products.getFishByProductId,
+    isEditing && id ? { productId: id as any } : "skip"
+  );
+
+  // Fetch tank data if editing and product exists
+  const existingTankData = useQuery(
+    api.services.products.getTankByProductId,
+    isEditing && id ? { productId: id as any } : "skip"
+  );
+
+  const categories = useQuery(api.services.categories.getCategories, {}) || [];
+
+  // Mutations
+  const createProduct = useMutation(api.services.admin.createProduct);
+  const updateProduct = useMutation(api.services.products.updateProduct);
+  const createFishData = useMutation(api.services.admin.createFishData);
+  const createTankData = useMutation(api.services.admin.createTankData);
+
+  // Load basic product data
+  useEffect(() => {
+    if (existingProduct && isEditing && categories.length > 0) {
+      const category = categories.find(cat => cat._id === existingProduct.categoryId);
+      
+      // Parse certificate images from certificate string if it contains URLs
+      let certificateImages: string[] = [];
+      if (existingProduct.certificate && existingProduct.certificate !== 'No certificate provided') {
+        // Check if certificate contains URLs (comma-separated or space-separated)
+        if (existingProduct.certificate.includes('http')) {
+          certificateImages = existingProduct.certificate
+            .split(/[,\s]+/)
+            .filter(url => url.trim().startsWith('http'))
+            .map(url => url.trim());
+        }
+      }
+      
+      setFormData(prev => ({
+        ...prev,
+        name: existingProduct.name,
+        description: existingProduct.description || '',
+        price: existingProduct.price.toString(),
+        originalPrice: existingProduct.originalPrice?.toString() || existingProduct.price.toString(),
+        categoryId: existingProduct.categoryId,
+        category: category?.name || '',
+        image: existingProduct.image,
+        images: existingProduct.images || [existingProduct.image],
+        certificateImages: certificateImages,
+        stock: existingProduct.stock.toString(),
+        badge: existingProduct.badge || '',
+        isActive: existingProduct.isActive,
+        sku: (existingProduct.sku || '').toString(),
+        status: existingProduct.productStatus || 'active',
+        lifespan: existingProduct.lifespan || '',
+      }));
+    }
+  }, [existingProduct, isEditing, categories]);
+
+  // Load fish data when available
+  useEffect(() => {
+    if (existingFishData && isEditing) {
+      setFormData(prev => ({
+        ...prev,
+        scientificName: existingFishData.scientificName || '',
+        fishSize: existingFishData.size?.toString() || '',
+        fishTemperature: existingFishData.temperature?.toString() || '',
+        fishAge: existingFishData.age?.toString() || '',
+        phLevel: existingFishData.phLevel || '',
+        fishLifespan: existingFishData.lifespan || '',
+        origin: existingFishData.origin || '',
+        diet: existingFishData.diet || '',
+      }));
+    }
+  }, [existingFishData, isEditing]);
+
+  // Load tank data when available
+  useEffect(() => {
+    if (existingTankData && isEditing) {
+      setFormData(prev => ({
+        ...prev,
+        tankType: existingTankData.tankType || '',
+        material: existingTankData.material || '',
+        capacity: existingTankData.capacity?.toString() || '',
+        length: existingTankData.dimensions?.length?.toString() || '',
+        width: existingTankData.dimensions?.width?.toString() || '',
+        height: existingTankData.dimensions?.height?.toString() || '',
+        thickness: existingTankData.thickness?.toString() || '',
+        lighting: existingTankData.lighting?.toString() || '',
+        filtration: existingTankData.filtation?.toString() || '', // Note: using 'filtation' as per schema
+      }));
+    }
+  }, [existingTankData, isEditing]);
+
+  const [showCategoryPicker, setShowCategoryPicker] = useState(false);
+  const [showTankTypePicker, setShowTankTypePicker] = useState(false);
+  const [showMaterialPicker, setShowMaterialPicker] = useState(false);
+  const [showDietPicker, setShowDietPicker] = useState(false);
+
+  const isFishProduct = formData.category.toLowerCase().includes('fish');
+  const isTankProduct = formData.category.toLowerCase().includes('tank') || formData.category.toLowerCase().includes('aquarium');
+  
+  // Define options arrays
+  const tankTypes = ['Standard', 'Bowfront', 'Corner', 'Cube', 'Hexagon', 'Rimless', 'All-in-One', 'Nano'];
+  const materials = ['Glass', 'Acrylic', 'Tempered Glass', 'Low-Iron Glass', 'Plastic'];
+  const dietOptions = ['Carnivore', 'Herbivore', 'Omnivore', 'Piscivore', 'Planktivore', 'Detritivore'];
+
+  const handleInputChange = (field: string, value: string | boolean) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const uploadImageToConvex = async (uri: string): Promise<string> => {
+    try {
+      // Generate upload URL
+      const uploadUrl = await generateUploadUrl();
+      
+      // Convert URI to blob
+      const response = await fetch(uri);
+      const blob = await response.blob();
+      
+      // Upload to Convex
+      const result = await fetch(uploadUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': blob.type },
+        body: blob,
+      });
+      
+      if (!result.ok) {
+        throw new Error(`Upload failed: ${result.statusText}`);
+      }
+      
+      const { storageId } = await result.json();
+      
+      // Get the public URL
+      const fileUrl = await getFileUrl({ storageId });
+      
+      if (!fileUrl) {
+        throw new Error('Failed to get file URL');
+      }
+      
+      return fileUrl;
+    } catch (error) {
+      console.error('Upload error:', error);
+      throw error;
+    }
+  };
+
+  const handleImagePicker = async (type: 'product' | 'certificate' = 'product') => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission needed', 'Please grant camera roll permissions to upload images.');
+      return;
+    }
+
+    const title = type === 'certificate' ? 'Add Certificate/Document' : 'Add Product Image';
+    const description = type === 'certificate' ? 'Upload health certificates, quality documents, or certifications' : 'Choose an option';
+
+    const processImage = async (imageUri: string) => {
+      const uploadingImage: UploadingImage = {
+        uri: imageUri,
+        uploading: true
+      };
+      
+      // Add to uploading state
+      if (type === 'certificate') {
+        setUploadingCertificates(prev => [...prev, uploadingImage]);
+      } else {
+        setUploadingImages(prev => [...prev, uploadingImage]);
+      }
+      
+      try {
+        // Upload to Convex
+        const uploadedUrl = await uploadImageToConvex(imageUri);
+        
+        // Update form data with uploaded URL
+        if (type === 'certificate') {
+          setFormData(prev => ({ 
+            ...prev, 
+            certificateImages: [...prev.certificateImages, uploadedUrl]
+          }));
+          setUploadingCertificates(prev => prev.filter(img => img.uri !== imageUri));
+        } else {
+          setFormData(prev => ({ 
+            ...prev, 
+            image: prev.image || uploadedUrl,
+            images: [...prev.images, uploadedUrl]
+          }));
+          setUploadingImages(prev => prev.filter(img => img.uri !== imageUri));
+        }
+        
+        Alert.alert('Success', 'Image uploaded successfully!');
+      } catch (error) {
+        Alert.alert('Upload Error', 'Failed to upload image. Please try again.');
+        
+        // Remove from uploading state
+        if (type === 'certificate') {
+          setUploadingCertificates(prev => prev.filter(img => img.uri !== imageUri));
+        } else {
+          setUploadingImages(prev => prev.filter(img => img.uri !== imageUri));
+        }
+      }
+    };
+
+    Alert.alert(
+      title,
+      description,
+      [
+        { 
+          text: 'Camera', 
+          onPress: async () => {
+            const cameraStatus = await ImagePicker.requestCameraPermissionsAsync();
+            if (cameraStatus.status !== 'granted') {
+              Alert.alert('Permission needed', 'Please grant camera permissions.');
+              return;
+            }
+            const result = await ImagePicker.launchCameraAsync({
+              mediaTypes: 'images',
+              allowsEditing: true,
+              aspect: type === 'certificate' ? [4, 3] : [1, 1],
+              quality: 0.8,
+            });
+            if (!result.canceled && result.assets[0]) {
+              await processImage(result.assets[0].uri);
+            }
+          }
+        },
+        { 
+          text: 'Gallery', 
+          onPress: async () => {
+            const result = await ImagePicker.launchImageLibraryAsync({
+              mediaTypes: 'images',
+              allowsEditing: true,
+              aspect: type === 'certificate' ? [4, 3] : [1, 1],
+              quality: 0.8,
+            });
+            if (!result.canceled && result.assets[0]) {
+              await processImage(result.assets[0].uri);
+            }
+          }
+        },
+        { text: 'Cancel', style: 'cancel' }
+      ]
+    );
+  };
+
+  const removeCertificateImage = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      certificateImages: prev.certificateImages.filter((_, i) => i !== index)
+    }));
+  };
+
+  const handleSaveProduct = async () => {
+    // Basic validation
+    if (!formData.name || !formData.categoryId || !formData.price) {
+      Alert.alert('Error', 'Please fill in all required fields (Name, Category, Price)');
+      return;
+    }
+
+    // Validate image
+    if (!formData.image) {
+      Alert.alert('Error', 'Please add at least one product image');
+      return;
+    }
+
+    // Additional validation for fish products
+    if (isFishProduct) {
+      if (!formData.scientificName || !formData.fishSize || 
+          !formData.fishTemperature || !formData.fishAge || !formData.phLevel || 
+          !formData.origin || !formData.diet) {
+        Alert.alert('Error', 'Please fill in all required fish details');
+        return;
+      }
+    }
+
+    // Additional validation for tank products
+    if (isTankProduct) {
+      if (!formData.tankType || !formData.material || !formData.capacity || 
+          !formData.length || !formData.width || !formData.height || 
+          !formData.thickness) {
+        Alert.alert('Error', 'Please fill in all required tank specifications');
+        return;
+      }
+    }
+
+    setFormLoading(true);
+    
+    try {
+      // Find the selected category ID
+      const selectedCategory = categories.find(cat => cat.name === formData.category);
+      const categoryId = selectedCategory ? selectedCategory._id : (formData.categoryId as any);
+
+      // Create certificate string from images - store URLs separated by commas
+      const certificateString = formData.certificateImages.length > 0
+        ? formData.certificateImages.join(',')
+        : 'No certificate provided';
+
+      // Use SKU as string
+      const skuString = formData.sku || `SKU-${Math.floor(Math.random() * 1000000)}`;
+
+      const baseProductData = {
+        name: formData.name.trim(),
+        description: formData.description.trim() || undefined,
+        price: parseFloat(formData.price),
+        originalPrice: formData.originalPrice ? parseFloat(formData.originalPrice) : undefined,
+        categoryId: categoryId as any,
+        certificate: certificateString,
+        image: formData.image,
+        images: formData.images.length > 0 ? formData.images : [formData.image],
+        stock: parseInt(formData.stock) || 0,
+        badge: formData.badge.trim() || undefined,
+        productStatus: formData.status,
+        sku: skuString,
+        lifespan: formData.lifespan || undefined,
+        isActive: formData.status === 'active',
+      };
+
+      let productId: any;
+
+      if (isEditing && id) {
+        // Prepare fish data for update
+        let fishDataForUpdate = undefined;
+        if (isFishProduct) {
+          fishDataForUpdate = {
+            scientificName: formData.scientificName.trim(),
+            size: parseFloat(formData.fishSize),
+            temperature: parseFloat(formData.fishTemperature),
+            age: parseFloat(formData.fishAge),
+            phLevel: formData.phLevel.trim(),
+            lifespan: formData.fishLifespan.trim() || formData.lifespan || '2-4 years',
+            origin: formData.origin.trim(),
+            diet: formData.diet
+          };
+        }
+
+        // Prepare tank data for update
+        let tankDataForUpdate = undefined;
+        if (isTankProduct) {
+          tankDataForUpdate = {
+            tankType: formData.tankType,
+            material: formData.material,
+            capacity: parseFloat(formData.capacity),
+            dimensions: {
+              length: parseFloat(formData.length),
+              width: parseFloat(formData.width),
+              height: parseFloat(formData.height),
+            },
+            thickness: parseFloat(formData.thickness),
+            lighting: parseFloat(formData.lighting) || 0,
+            filtation: parseFloat(formData.filtration) || 0,
+          };
+        }
+
+        await updateProduct({
+          productId: id as any,
+          ...baseProductData,
+          fishData: fishDataForUpdate,
+          tankData: tankDataForUpdate,
+        });
+        productId = id;
+      } else {
+        productId = await createProduct(baseProductData);
+
+        // Handle fish-specific data for new products
+        if (isFishProduct && productId) {
+          const fishData = {
+            productId: productId as any,
+            scientificName: formData.scientificName.trim(),
+            size: parseFloat(formData.fishSize),
+            temperature: parseFloat(formData.fishTemperature),
+            age: parseFloat(formData.fishAge),
+            phLevel: formData.phLevel.trim(),
+            lifespan: formData.fishLifespan.trim() || formData.lifespan || '2-4 years',
+            origin: formData.origin.trim(),
+            diet: formData.diet
+          };
+
+          await createFishData(fishData);
+        }
+
+        // Handle tank-specific data for new products
+        if (isTankProduct && productId) {
+          const tankData = {
+            productId: productId as any,
+            tankType: formData.tankType,
+            material: formData.material,
+            capacity: parseFloat(formData.capacity),
+            dimensions: {
+              length: parseFloat(formData.length),
+              width: parseFloat(formData.width),
+              height: parseFloat(formData.height),
+            },
+            thickness: parseFloat(formData.thickness),
+            lighting: parseFloat(formData.lighting) || 0,
+            filtation: parseFloat(formData.filtration) || 0,
+          };
+
+          await createTankData(tankData);
+        }
+      }
+
+      Alert.alert(
+        'Success',
+        `Product ${isEditing ? 'updated' : 'created'} successfully!`,
+        [{ text: 'OK', onPress: () => router.back() }]
+      );
+    } catch (error) {
+      console.error('Error saving product:', error);
+      Alert.alert(
+        'Error',
+        `Failed to ${isEditing ? 'update' : 'create'} product. Please try again.`
+      );
+    } finally {
+      setFormLoading(false);
+    }
+  };
+
+  const renderFormField = (label: string, required = false) => (
+    <View className="mb-1">
+      <Text className="font-euclid-medium text-sm mb-2" style={{ color: '#FFFFFF' }}>
+        {label} {required && <Text style={{ color: '#FF6B00' }}>*</Text>}
+      </Text>
+    </View>
+  );
+
+  const renderDropdownPicker = (
+    label: string,
+    value: string,
+    options: string[],
+    showPicker: boolean,
+    setShowPicker: (show: boolean) => void,
+    onSelect: (value: string) => void,
+    required = false
+  ) => (
+    <View className="mb-4">
+      {renderFormField(label, required)}
+      <TouchableOpacity
+        onPress={() => setShowPicker(!showPicker)}
+        className="flex-row items-center justify-between p-4 rounded-xl"
+        style={{ backgroundColor: '#1A1A1A', borderColor: '#333333', borderWidth: 1 }}
+      >
+        <Text className="font-euclid-medium text-base" style={{ color: value ? '#FFFFFF' : '#666666' }}>
+          {value || `Select ${label}`}
+        </Text>
+        <ChevronDown size={20} color="#666666" />
+      </TouchableOpacity>
+      
+      {showPicker && (
+        <View className="mt-2 rounded-xl" style={{ backgroundColor: '#1A1A1A', borderColor: '#333333', borderWidth: 1 }}>
+          {options.map((option) => (
+            <TouchableOpacity
+              key={option}
+              onPress={() => {
+                onSelect(option);
+                setShowPicker(false);
+              }}
+              className="p-4 border-b border-gray-700 last:border-b-0"
+            >
+              <Text className="font-euclid-medium text-base" style={{ color: '#FFFFFF' }}>
+                {option}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+    </View>
+  );
+
+  return (
+    <View className="flex-1" style={{ backgroundColor: '#0A0A0A' }}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        className="flex-1"
+      >
+        {/* Header */}
+        <View className="flex-row items-center justify-between px-6 pt-16 pb-4">
+          <TouchableOpacity
+            onPress={() => router.back()}
+            className="w-10 h-10 rounded-full items-center justify-center" 
+            style={{ backgroundColor: '#FFFFFF08' }}
+          >
+            <ArrowLeft size={20} color="#FFFFFF" />
+          </TouchableOpacity>
+          <Text className="font-euclid-bold text-xl" style={{ color: '#FFFFFF' }}>
+            {isEditing ? 'Edit Product' : 'Add Product'}
+          </Text>
+          <TouchableOpacity
+            onPress={handleSaveProduct}
+            disabled={formLoading}
+            className="px-4 py-2 rounded-lg flex-row items-center"
+            style={{ 
+              backgroundColor: formLoading ? '#FF6B0060' : '#FF6B00',
+              opacity: formLoading ? 0.7 : 1
+            }}
+          >
+            <Save size={16} color="#FFFFFF" />
+            <Text className="font-euclid-bold text-sm ml-2" style={{ color: '#FFFFFF' }}>
+              {formLoading ? `${isEditing ? 'Updating' : 'Saving'}...` : `${isEditing ? 'Update' : 'Save'}`}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        <ScrollView className="flex-1 px-6" showsVerticalScrollIndicator={false}>
+          {/* Basic Information */}
+          <View className="mb-6">
+            <Text className="font-euclid-bold text-lg mb-4" style={{ color: '#FFFFFF' }}>
+              Basic Information
+            </Text>
+            
+            {/* Product Name */}
+            {renderFormField('Product Name', true)}
+            <TextInput
+              className="p-4 rounded-xl text-white font-euclid-regular mb-4"
+              style={{ backgroundColor: '#1A1A1A', borderColor: '#333333', borderWidth: 1 }}
+              placeholder="Enter product name"
+              placeholderTextColor="#666666"
+              value={formData.name}
+              onChangeText={(text) => handleInputChange('name', text)}
+            />
+
+            {/* Description */}
+            {renderFormField('Description')}
+            <TextInput
+              className="p-4 rounded-xl text-white font-euclid-regular mb-4"
+              style={{ backgroundColor: '#1A1A1A', borderColor: '#333333', borderWidth: 1 }}
+              placeholder="Product description..."
+              placeholderTextColor="#666666"
+              multiline
+              numberOfLines={4}
+              value={formData.description}
+              onChangeText={(text) => handleInputChange('description', text)}
+            />
+
+            {/* Category */}
+            {isEditing ? (
+              // Read-only category for editing
+              <View className="mb-4">
+                {renderFormField('Category', true)}
+                <View
+                  className="flex-row items-center justify-between p-4 rounded-xl"
+                  style={{ backgroundColor: '#2A2A2A', borderColor: '#444444', borderWidth: 1 }}
+                >
+                  <Text className="font-euclid-medium text-base" style={{ color: '#CCCCCC' }}>
+                    {formData.category || 'No category selected'}
+                  </Text>
+                </View>
+              </View>
+            ) : (
+              // Editable category for new products
+              renderDropdownPicker(
+                'Category',
+                formData.category,
+                categories.map(cat => cat.name),
+                showCategoryPicker,
+                setShowCategoryPicker,
+                (value) => {
+                  const selectedCategory = categories.find(cat => cat.name === value);
+                  handleInputChange('category', value);
+                  if (selectedCategory) {
+                    handleInputChange('categoryId', selectedCategory._id);
+                  }
+                },
+                true
+              )
+            )}
+
+            {/* Price */}
+            <View className="flex-row mb-4" style={{ gap: 16 }}>
+              <View className="flex-1">
+                {renderFormField('Price (₱)', true)}
+                <TextInput
+                  className="p-4 rounded-xl text-white font-euclid-regular"
+                  style={{ backgroundColor: '#1A1A1A', borderColor: '#333333', borderWidth: 1 }}
+                  placeholder="0.00"
+                  placeholderTextColor="#666666"
+                  keyboardType="numeric"
+                  value={formData.price}
+                  onChangeText={(text) => handleInputChange('price', text)}
+                />
+              </View>
+              <View className="flex-1">
+                {renderFormField('Original Price (₱)')}
+                <TextInput
+                  className="p-4 rounded-xl text-white font-euclid-regular"
+                  style={{ backgroundColor: '#1A1A1A', borderColor: '#333333', borderWidth: 1 }}
+                  placeholder="0.00"
+                  placeholderTextColor="#666666"
+                  keyboardType="numeric"
+                  value={formData.originalPrice}
+                  onChangeText={(text) => handleInputChange('originalPrice', text)}
+                />
+              </View>
+            </View>
+
+            {/* Stock and SKU */}
+            <View className="flex-row mb-4" style={{ gap: 16 }}>
+              <View className="flex-1">
+                {renderFormField('Stock Quantity', true)}
+                <TextInput
+                  className="p-4 rounded-xl text-white font-euclid-regular"
+                  style={{ backgroundColor: '#1A1A1A', borderColor: '#333333', borderWidth: 1 }}
+                  placeholder="0"
+                  placeholderTextColor="#666666"
+                  keyboardType="numeric"
+                  value={formData.stock}
+                  onChangeText={(text) => handleInputChange('stock', text)}
+                />
+              </View>
+              <View className="flex-1">
+                {renderFormField('SKU')}
+                <TextInput
+                  className="p-4 rounded-xl text-white font-euclid-regular"
+                  style={{ backgroundColor: '#1A1A1A', borderColor: '#333333', borderWidth: 1 }}
+                  placeholder="Auto-generated"
+                  placeholderTextColor="#666666"
+                  value={formData.sku}
+                  onChangeText={(text) => handleInputChange('sku', text)}
+                />
+              </View>
+            </View>
+
+            {/* Badge */}
+            {renderFormField('Badge (e.g., "New", "Sale", "Limited")')}
+            <TextInput
+              className="p-4 rounded-xl text-white font-euclid-regular mb-4"
+              style={{ backgroundColor: '#1A1A1A', borderColor: '#333333', borderWidth: 1 }}
+              placeholder="Optional badge text"
+              placeholderTextColor="#666666"
+              value={formData.badge}
+              onChangeText={(text) => handleInputChange('badge', text)}
+            />
+
+            {/* General Lifespan (for non-fish and non-tank products) */}
+            {!isFishProduct && !isTankProduct && (
+              <>
+                {renderFormField('Product Lifespan')}
+                <TextInput
+                  className="p-4 rounded-xl text-white font-euclid-regular mb-4"
+                  style={{ backgroundColor: '#1A1A1A', borderColor: '#333333', borderWidth: 1 }}
+                  placeholder="Expected lifespan (e.g., 2-4 years)"
+                  placeholderTextColor="#666666"
+                  value={formData.lifespan}
+                  onChangeText={(text) => handleInputChange('lifespan', text)}
+                />
+              </>
+            )}
+          </View>
+
+          {/* Product Images */}
+          <View className="mb-6">
+            <Text className="font-euclid-bold text-lg mb-4" style={{ color: '#FFFFFF' }}>
+              Product Images
+            </Text>
+            
+            <TouchableOpacity
+              onPress={() => handleImagePicker('product')}
+              className="border-2 border-dashed rounded-xl p-8 items-center justify-center mb-4"
+              style={{ borderColor: '#333333' }}
+              disabled={uploadingImages.length > 0}
+            >
+              <Camera size={32} color={uploadingImages.length > 0 ? '#999999' : '#666666'} />
+              <Text className="font-euclid-medium text-base mt-2" style={{ color: uploadingImages.length > 0 ? '#999999' : '#666666' }}>
+                {uploadingImages.length > 0 ? 'Uploading...' : 'Add Product Image'}
+              </Text>
+            </TouchableOpacity>
+
+            {/* Uploading Images */}
+            {uploadingImages.map((uploadingImg, index) => (
+              <View key={`uploading-${index}`} className="mb-4 relative">
+                <Image
+                  source={{ uri: uploadingImg.uri }}
+                  className="w-full h-48 rounded-xl opacity-50"
+                  resizeMode="cover"
+                />
+                <View className="absolute inset-0 items-center justify-center">
+                  <Text className="font-euclid-medium text-base" style={{ color: '#FF6B00' }}>
+                    Uploading...
+                  </Text>
+                </View>
+              </View>
+            ))}
+
+            {/* Uploaded Images */}
+            {formData.images.map((imageUrl, index) => (
+              <View key={`uploaded-${index}`} className="mb-4 relative">
+                <Image
+                  source={{ uri: imageUrl }}
+                  className="w-full h-48 rounded-xl"
+                  resizeMode="cover"
+                />
+                <TouchableOpacity
+                  onPress={() => {
+                    setFormData(prev => ({
+                      ...prev,
+                      images: prev.images.filter((_, i) => i !== index),
+                      image: prev.images.length === 1 ? '' : (index === 0 ? prev.images[1] : prev.image)
+                    }));
+                  }}
+                  className="absolute top-2 right-2 w-8 h-8 rounded-full items-center justify-center"
+                  style={{ backgroundColor: '#FF4444' }}
+                >
+                  <X size={16} color="#FFFFFF" />
+                </TouchableOpacity>
+              </View>
+            ))}
+          </View>
+
+          {/* Certificate Images */}
+          <View className="mb-6">
+            <Text className="font-euclid-bold text-lg mb-4" style={{ color: '#FFFFFF' }}>
+              Certificates & Documents
+            </Text>
+            
+            <TouchableOpacity
+              onPress={() => handleImagePicker('certificate')}
+              className="border-2 border-dashed rounded-xl p-6 items-center justify-center mb-4"
+              style={{ borderColor: '#4A90E2' }}
+              disabled={uploadingCertificates.length > 0}
+            >
+              <FileText size={28} color={uploadingCertificates.length > 0 ? '#999999' : '#4A90E2'} />
+              <Text className="font-euclid-medium text-base mt-2" style={{ color: uploadingCertificates.length > 0 ? '#999999' : '#4A90E2' }}>
+                {uploadingCertificates.length > 0 ? 'Uploading...' : 'Add Certificate'}
+              </Text>
+            </TouchableOpacity>
+
+            {/* Uploading and Uploaded Certificates */}
+            {(uploadingCertificates.length > 0 || formData.certificateImages.length > 0) && (
+              <View className="flex-row flex-wrap">
+                {/* Uploading Certificates */}
+                {uploadingCertificates.map((uploadingCert, index) => (
+                  <View key={`uploading-cert-${index}`} className="relative w-24 h-24 rounded-xl mr-3 mb-3">
+                    <Image source={{ uri: uploadingCert.uri }} className="w-full h-full rounded-xl opacity-50" />
+                    <View className="absolute inset-0 items-center justify-center">
+                      <Text className="font-euclid-medium text-xs" style={{ color: '#FF6B00' }}>
+                        Uploading...
+                      </Text>
+                    </View>
+                  </View>
+                ))}
+                
+                {/* Uploaded Certificates */}
+                {formData.certificateImages.map((certImage: string, index: number) => (
+                  <View key={`cert-${index}`} className="relative w-24 h-24 rounded-xl mr-3 mb-3">
+                    <Image source={{ uri: certImage }} className="w-full h-full rounded-xl" />
+                    <TouchableOpacity
+                      onPress={() => removeCertificateImage(index)}
+                      className="absolute -top-2 -right-2 w-6 h-6 rounded-full items-center justify-center"
+                      style={{ backgroundColor: '#FF4444' }}
+                    >
+                      <X size={14} color="#FFFFFF" />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
+
+          {/* Fish-specific fields */}
+          {isFishProduct && (
+            <View className="mb-6">
+              <Text className="font-euclid-bold text-lg mb-4" style={{ color: '#FF6B00' }}>
+                Fish Specifications
+              </Text>
+              
+              {/* Scientific Name */}
+              {renderFormField('Scientific Name', true)}
+              <TextInput
+                className="p-4 rounded-xl text-white font-euclid-regular mb-4"
+                style={{ backgroundColor: '#1A1A1A', borderColor: '#333333', borderWidth: 1 }}
+                placeholder="e.g., Pterophyllum scalare"
+                placeholderTextColor="#666666"
+                value={formData.scientificName}
+                onChangeText={(text) => handleInputChange('scientificName', text)}
+              />
+
+              {/* Size */}
+              {renderFormField('Size (cm)', true)}
+              <TextInput
+                className="p-4 rounded-xl text-white font-euclid-regular mb-4"
+                style={{ backgroundColor: '#1A1A1A', borderColor: '#333333', borderWidth: 1 }}
+                placeholder="10"
+                placeholderTextColor="#666666"
+                keyboardType="numeric"
+                value={formData.fishSize}
+                onChangeText={(text) => handleInputChange('fishSize', text)}
+              />
+
+              {/* Temperature and Age */}
+              <View className="flex-row mb-4" style={{ gap: 16 }}>
+                <View className="flex-1">
+                  {renderFormField('Temperature (°C)', true)}
+                  <TextInput
+                    className="p-4 rounded-xl text-white font-euclid-regular"
+                    style={{ backgroundColor: '#1A1A1A', borderColor: '#333333', borderWidth: 1 }}
+                    placeholder="26"
+                    placeholderTextColor="#666666"
+                    keyboardType="numeric"
+                    value={formData.fishTemperature}
+                    onChangeText={(text) => handleInputChange('fishTemperature', text)}
+                  />
+                </View>
+                <View className="flex-1">
+                  {renderFormField('Age (years)', true)}
+                  <TextInput
+                    className="p-4 rounded-xl text-white font-euclid-regular"
+                    style={{ backgroundColor: '#1A1A1A', borderColor: '#333333', borderWidth: 1 }}
+                    placeholder="1"
+                    placeholderTextColor="#666666"
+                    keyboardType="numeric"
+                    value={formData.fishAge}
+                    onChangeText={(text) => handleInputChange('fishAge', text)}
+                  />
+                </View>
+              </View>
+
+              {/* pH Level */}
+              {renderFormField('pH Level', true)}
+              <TextInput
+                className="p-4 rounded-xl text-white font-euclid-regular mb-4"
+                style={{ backgroundColor: '#1A1A1A', borderColor: '#333333', borderWidth: 1 }}
+                placeholder="e.g., 6.5-7.5"
+                placeholderTextColor="#666666"
+                value={formData.phLevel}
+                onChangeText={(text) => handleInputChange('phLevel', text)}
+              />
+
+              {/* Fish Lifespan */}
+              {renderFormField('Lifespan', true)}
+              <TextInput
+                className="p-4 rounded-xl text-white font-euclid-regular mb-4"
+                style={{ backgroundColor: '#1A1A1A', borderColor: '#333333', borderWidth: 1 }}
+                placeholder="e.g., 2-4 years"
+                placeholderTextColor="#666666"
+                value={formData.fishLifespan}
+                onChangeText={(text) => handleInputChange('fishLifespan', text)}
+              />
+
+              {/* Origin */}
+              {renderFormField('Origin', true)}
+              <TextInput
+                className="p-4 rounded-xl text-white font-euclid-regular mb-4"
+                style={{ backgroundColor: '#1A1A1A', borderColor: '#333333', borderWidth: 1 }}
+                placeholder="e.g., Amazon Basin, South America"
+                placeholderTextColor="#666666"
+                value={formData.origin}
+                onChangeText={(text) => handleInputChange('origin', text)}
+              />
+
+              {/* Diet */}
+              {renderDropdownPicker(
+                'Diet',
+                formData.diet,
+                dietOptions,
+                showDietPicker,
+                setShowDietPicker,
+                (value) => handleInputChange('diet', value),
+                true
+              )}
+            </View>
+          )}
+
+          {/* Tank-specific fields */}
+          {isTankProduct && (
+            <View className="mb-6">
+              <Text className="font-euclid-bold text-lg mb-4" style={{ color: '#4A90E2' }}>
+                Tank Specifications
+              </Text>
+              
+              {/* Tank Type */}
+              {renderDropdownPicker(
+                'Tank Type',
+                formData.tankType,
+                tankTypes,
+                showTankTypePicker,
+                setShowTankTypePicker,
+                (value) => handleInputChange('tankType', value),
+                true
+              )}
+
+              {/* Material */}
+              {renderDropdownPicker(
+                'Material',
+                formData.material,
+                materials,
+                showMaterialPicker,
+                setShowMaterialPicker,
+                (value) => handleInputChange('material', value),
+                true
+              )}
+
+              {/* Capacity */}
+              {renderFormField('Capacity (Liters)', true)}
+              <TextInput
+                className="p-4 rounded-xl text-white font-euclid-regular mb-4"
+                style={{ backgroundColor: '#1A1A1A', borderColor: '#333333', borderWidth: 1 }}
+                placeholder="50"
+                placeholderTextColor="#666666"
+                keyboardType="numeric"
+                value={formData.capacity}
+                onChangeText={(text) => handleInputChange('capacity', text)}
+              />
+
+              {/* Dimensions */}
+              <Text className="font-euclid-medium text-sm mb-2" style={{ color: '#FFFFFF' }}>
+                Dimensions (cm) <Text style={{ color: '#FF6B00' }}>*</Text>
+              </Text>
+              <View className="flex-row mb-4" style={{ gap: 12 }}>
+                <View className="flex-1">
+                  <TextInput
+                    className="p-4 rounded-xl text-white font-euclid-regular"
+                    style={{ backgroundColor: '#1A1A1A', borderColor: '#333333', borderWidth: 1 }}
+                    placeholder="Length"
+                    placeholderTextColor="#666666"
+                    keyboardType="numeric"
+                    value={formData.length}
+                    onChangeText={(text) => handleInputChange('length', text)}
+                  />
+                </View>
+                <View className="flex-1">
+                  <TextInput
+                    className="p-4 rounded-xl text-white font-euclid-regular"
+                    style={{ backgroundColor: '#1A1A1A', borderColor: '#333333', borderWidth: 1 }}
+                    placeholder="Width"
+                    placeholderTextColor="#666666"
+                    keyboardType="numeric"
+                    value={formData.width}
+                    onChangeText={(text) => handleInputChange('width', text)}
+                  />
+                </View>
+                <View className="flex-1">
+                  <TextInput
+                    className="p-4 rounded-xl text-white font-euclid-regular"
+                    style={{ backgroundColor: '#1A1A1A', borderColor: '#333333', borderWidth: 1 }}
+                    placeholder="Height"
+                    placeholderTextColor="#666666"
+                    keyboardType="numeric"
+                    value={formData.height}
+                    onChangeText={(text) => handleInputChange('height', text)}
+                  />
+                </View>
+              </View>
+
+              {/* Glass Thickness */}
+              {renderFormField('Glass Thickness (mm)', true)}
+              <TextInput
+                className="p-4 rounded-xl text-white font-euclid-regular mb-4"
+                style={{ backgroundColor: '#1A1A1A', borderColor: '#333333', borderWidth: 1 }}
+                placeholder="6"
+                placeholderTextColor="#666666"
+                keyboardType="numeric"
+                value={formData.thickness}
+                onChangeText={(text) => handleInputChange('thickness', text)}
+              />
+
+              {/* Lighting and Filtration */}
+              <View className="flex-row mb-4" style={{ gap: 16 }}>
+                <View className="flex-1">
+                  {renderFormField('Lighting (Watts)')}
+                  <TextInput
+                    className="p-4 rounded-xl text-white font-euclid-regular"
+                    style={{ backgroundColor: '#1A1A1A', borderColor: '#333333', borderWidth: 1 }}
+                    placeholder="0"
+                    placeholderTextColor="#666666"
+                    keyboardType="numeric"
+                    value={formData.lighting}
+                    onChangeText={(text) => handleInputChange('lighting', text)}
+                  />
+                </View>
+                <View className="flex-1">
+                  {renderFormField('Filtration (L/hr)')}
+                  <TextInput
+                    className="p-4 rounded-xl text-white font-euclid-regular"
+                    style={{ backgroundColor: '#1A1A1A', borderColor: '#333333', borderWidth: 1 }}
+                    placeholder="0"
+                    placeholderTextColor="#666666"
+                    keyboardType="numeric"
+                    value={formData.filtration}
+                    onChangeText={(text) => handleInputChange('filtration', text)}
+                  />
+                </View>
+              </View>
+            </View>
+          )}
+
+          {/* Bottom spacing */}
+          <View className="h-20" />
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </View>
+  );
+}
