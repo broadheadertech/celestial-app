@@ -1,726 +1,879 @@
 'use client';
 
-import { useState } from 'react';
+import { useMutation, useQuery } from 'convex/react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft,
-  Save,
-  Upload,
-  Plus,
-  X,
   Camera,
-  FileImage,
-  Package,
-  DollarSign,
-  Tag,
-  Info,
-  AlertCircle,
-  Check
+  ChevronDown,
+  FileText,
+  Save,
+  X,
+  Plus,
+  Upload
 } from 'lucide-react';
 import Button from '@/components/ui/Button';
-import Card from '@/components/ui/Card';
-import Input from '@/components/ui/Input';
+import { api } from '@/convex/_generated/api';
+import { Id } from '@/convex/_generated/dataModel';
 
 interface ProductFormData {
+  // Base product fields
   name: string;
   description: string;
   price: string;
   originalPrice: string;
   categoryId: string;
-  sku: string;
-  stock: string;
+  category: string;
   image: string;
   images: string[];
+  certificateImages: string[];
+  stock: string;
+  badge: string;
   isActive: boolean;
-  productType: 'fish' | 'tank' | 'accessory' | 'food';
+  sku: string;
+  status: string;
+  featured: boolean;
+  lifespan: string;
+
   // Fish specific fields
-  scientificName?: string;
-  size?: string;
-  temperature?: string;
-  age?: string;
-  phLevel?: string;
-  lifespan?: string;
-  origin?: string;
-  diet?: string;
+  scientificName: string;
+  fishSize: string;
+  fishTemperature: string;
+  fishAge: string;
+  phLevel: string;
+  fishLifespan: string;
+  origin: string;
+  diet: string;
+
   // Tank specific fields
-  tankType?: string;
-  material?: string;
-  capacity?: string;
-  dimensions?: {
-    length: string;
-    width: string;
-    height: string;
-  };
-  weight?: string;
-  thickness?: string;
-  lighting?: string;
-  filtration?: string;
+  tankType: string;
+  material: string;
+  capacity: string;
+  length: string;
+  width: string;
+  height: string;
+  thickness: string;
+  lighting: string;
+  filtration: string;
 }
 
-const initialFormData: ProductFormData = {
-  name: '',
-  description: '',
-  price: '',
-  originalPrice: '',
-  categoryId: '',
-  sku: '',
-  stock: '',
-  image: '',
-  images: [],
-  isActive: true,
-  productType: 'fish',
-  dimensions: {
-    length: '',
-    width: '',
-    height: ''
-  }
-};
+interface UploadingImage {
+  uri: string;
+  uploading: boolean;
+  storageId?: Id<"_storage">;
+  url?: string;
+}
 
-const mockCategories = [
-  { id: '1', name: 'Tropical Fish' },
-  { id: '2', name: 'Freshwater Fish' },
-  { id: '3', name: 'Aquarium Tanks' },
-  { id: '4', name: 'Filters & Equipment' },
-  { id: '5', name: 'Fish Food' },
-  { id: '6', name: 'Decorations' },
-];
+const tankTypes = ['Standard', 'Bowfront', 'Corner', 'Cube', 'Hexagon', 'Rimless', 'All-in-One', 'Nano'];
+const materials = ['Glass', 'Acrylic', 'Tempered Glass', 'Low-Iron Glass', 'Plastic'];
+const dietOptions = ['Carnivore', 'Herbivore', 'Omnivore', 'Piscivore', 'Planktivore', 'Detritivore'];
 
 export default function AddProductPage() {
   const router = useRouter();
-  const [formData, setFormData] = useState<ProductFormData>(initialFormData);
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [uploadingImage, setUploadingImage] = useState(false);
 
-  const handleInputChange = (field: string, value: any) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
+  const [formData, setFormData] = useState<ProductFormData>({
+    // Base product fields
+    name: '',
+    description: '',
+    price: '',
+    originalPrice: '',
+    categoryId: '',
+    category: '',
+    image: '',
+    images: [],
+    certificateImages: [],
+    stock: '',
+    badge: '',
+    isActive: true,
+    sku: '',
+    status: 'active',
+    featured: false,
+    lifespan: '',
 
-    // Clear error when user starts typing
-    if (errors[field]) {
-      setErrors(prev => ({
-        ...prev,
-        [field]: ''
-      }));
-    }
+    // Fish specific fields
+    scientificName: '',
+    fishSize: '',
+    fishTemperature: '',
+    fishAge: '',
+    phLevel: '',
+    fishLifespan: '',
+    origin: '',
+    diet: '',
+
+    // Tank specific fields
+    tankType: '',
+    material: '',
+    capacity: '',
+    length: '',
+    width: '',
+    height: '',
+    thickness: '',
+    lighting: '',
+    filtration: ''
+  });
+
+  const [uploadingImages, setUploadingImages] = useState<UploadingImage[]>([]);
+  const [uploadingCertificates, setUploadingCertificates] = useState<UploadingImage[]>([]);
+
+  const [showCategoryPicker, setShowCategoryPicker] = useState(false);
+  const [showTankTypePicker, setShowTankTypePicker] = useState(false);
+  const [showMaterialPicker, setShowMaterialPicker] = useState(false);
+  const [showDietPicker, setShowDietPicker] = useState(false);
+
+  const isFishProduct = formData.category.toLowerCase().includes('fish');
+  const isTankProduct = formData.category.toLowerCase().includes('tank') || formData.category.toLowerCase().includes('aquarium');
+
+  // Convex queries and mutations
+  const categories = useQuery(api.services.categories.getCategories, {}) || [];
+  const generateUploadUrl = useMutation(api.files.generateUploadUrl);
+  const getFileUrl = useMutation(api.files.getFileUrl);
+  const createProduct = useMutation(api.services.admin.createProduct);
+  const createFishData = useMutation(api.services.admin.createFishData);
+  const createTankData = useMutation(api.services.admin.createTankData);
+
+  const [formLoading, setFormLoading] = useState(false);
+
+  const handleInputChange = (field: string, value: string | boolean) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleDimensionChange = (dimension: string, value: string) => {
-    setFormData(prev => ({
-      ...prev,
-      dimensions: {
-        ...prev.dimensions!,
-        [dimension]: value
+  const uploadImageToConvex = async (uri: string): Promise<string> => {
+    try {
+      // Generate upload URL
+      const uploadUrl = await generateUploadUrl();
+
+      // Convert URI to blob (for web, this will be a File object)
+      const response = await fetch(uri);
+      const blob = await response.blob();
+
+      // Upload to Convex
+      const result = await fetch(uploadUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': blob.type },
+        body: blob,
+      });
+
+      if (!result.ok) {
+        throw new Error(`Upload failed: ${result.statusText}`);
       }
+
+      const { storageId } = await result.json();
+
+      // Get the public URL
+      const fileUrl = await getFileUrl({ storageId });
+
+      if (!fileUrl) {
+        throw new Error('Failed to get file URL');
+      }
+
+      return fileUrl;
+    } catch (error) {
+      console.error('Upload error:', error);
+      throw error;
+    }
+  };
+
+  const handleImagePicker = async (type: 'product' | 'certificate' = 'product') => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.multiple = false;
+
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+
+      const processImage = async (file: File) => {
+        const uploadingImage: UploadingImage = {
+          uri: URL.createObjectURL(file),
+          uploading: true
+        };
+
+        // Add to uploading state
+        if (type === 'certificate') {
+          setUploadingCertificates(prev => [...prev, uploadingImage]);
+        } else {
+          setUploadingImages(prev => [...prev, uploadingImage]);
+        }
+
+        try {
+          // Upload to Convex
+          const uploadedUrl = await uploadImageToConvex(URL.createObjectURL(file));
+
+          // Update form data with uploaded URL
+          if (type === 'certificate') {
+            setFormData(prev => ({
+              ...prev,
+              certificateImages: [...prev.certificateImages, uploadedUrl]
+            }));
+            setUploadingCertificates(prev => prev.filter(img => img.uri !== uploadingImage.uri));
+          } else {
+            setFormData(prev => ({
+              ...prev,
+              image: prev.image || uploadedUrl,
+              images: [...prev.images, uploadedUrl]
+            }));
+            setUploadingImages(prev => prev.filter(img => img.uri !== uploadingImage.uri));
+          }
+
+          alert('Image uploaded successfully!');
+        } catch (error) {
+          alert('Upload Error', 'Failed to upload image. Please try again.');
+
+          // Remove from uploading state
+          if (type === 'certificate') {
+            setUploadingCertificates(prev => prev.filter(img => img.uri !== uploadingImage.uri));
+          } else {
+            setUploadingImages(prev => prev.filter(img => img.uri !== uploadingImage.uri));
+          }
+        }
+      };
+
+      await processImage(file);
+    };
+
+    input.click();
+  };
+
+  const removeCertificateImage = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      certificateImages: prev.certificateImages.filter((_, i) => i !== index)
     }));
   };
 
-  const validateForm = () => {
-    const newErrors: Record<string, string> = {};
-
-    if (!formData.name.trim()) newErrors.name = 'Product name is required';
-    if (!formData.price.trim()) newErrors.price = 'Price is required';
-    if (!formData.categoryId) newErrors.categoryId = 'Category is required';
-    if (!formData.stock.trim()) newErrors.stock = 'Stock quantity is required';
-    if (!formData.image.trim()) newErrors.image = 'Main product image is required';
-
-    // Product type specific validation
-    if (formData.productType === 'fish') {
-      if (!formData.scientificName?.trim()) newErrors.scientificName = 'Scientific name is required for fish';
-      if (!formData.size?.trim()) newErrors.size = 'Size is required for fish';
-      if (!formData.temperature?.trim()) newErrors.temperature = 'Temperature requirement is required';
-      if (!formData.phLevel?.trim()) newErrors.phLevel = 'pH level is required';
-    } else if (formData.productType === 'tank') {
-      if (!formData.tankType?.trim()) newErrors.tankType = 'Tank type is required';
-      if (!formData.material?.trim()) newErrors.material = 'Material is required';
-      if (!formData.capacity?.trim()) newErrors.capacity = 'Capacity is required';
-      if (!formData.dimensions?.length?.trim()) newErrors.length = 'Length is required';
-      if (!formData.dimensions?.width?.trim()) newErrors.width = 'Width is required';
-      if (!formData.dimensions?.height?.trim()) newErrors.height = 'Height is required';
+  const handleSaveProduct = async () => {
+    // Basic validation
+    if (!formData.name || !formData.categoryId || !formData.price) {
+      alert('Error', 'Please fill in all required fields (Name, Category, Price)');
+      return;
     }
 
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleImageUpload = async (type: 'main' | 'gallery') => {
-    setUploadingImage(true);
-    // Simulate image upload
-    await new Promise(resolve => setTimeout(resolve, 1500));
-
-    const mockImageUrl = `https://images.unsplash.com/photo-${Date.now()}?w=400&h=400&fit=crop`;
-
-    if (type === 'main') {
-      handleInputChange('image', mockImageUrl);
-    } else {
-      handleInputChange('images', [...formData.images, mockImageUrl]);
+    // Validate image
+    if (!formData.image) {
+      alert('Error', 'Please add at least one product image');
+      return;
     }
 
-    setUploadingImage(false);
-  };
+    // Additional validation for fish products
+    if (isFishProduct) {
+      if (!formData.scientificName || !formData.fishSize ||
+          !formData.fishTemperature || !formData.fishAge || !formData.phLevel ||
+          !formData.origin || !formData.diet) {
+        alert('Error', 'Please fill in all required fish details');
+        return;
+      }
+    }
 
-  const removeGalleryImage = (index: number) => {
-    const newImages = formData.images.filter((_, i) => i !== index);
-    handleInputChange('images', newImages);
-  };
+    // Additional validation for tank products
+    if (isTankProduct) {
+      if (!formData.tankType || !formData.material || !formData.capacity ||
+          !formData.length || !formData.width || !formData.height ||
+          !formData.thickness) {
+        alert('Error', 'Please fill in all required tank specifications');
+        return;
+      }
+    }
 
-  const handleSubmit = async () => {
-    if (!validateForm()) return;
-
-    setIsSubmitting(true);
+    setFormLoading(true);
 
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Find the selected category ID
+      const selectedCategory = categories.find(cat => cat.name === formData.category);
+      const categoryId = selectedCategory ? selectedCategory._id : (formData.categoryId as any);
 
-      // In real app, submit to API
-      console.log('Submitting product:', formData);
+      // Create certificate string from images - store URLs separated by commas
+      const certificateString = formData.certificateImages.length > 0
+        ? formData.certificateImages.join(',')
+        : 'No certificate provided';
 
-      // Success
-      router.push('/admin/products?success=Product created successfully');
+      // Use SKU as string
+      const skuString = formData.sku || `SKU-${Math.floor(Math.random() * 1000000)}`;
+
+      const baseProductData = {
+        name: formData.name.trim(),
+        description: formData.description.trim() || undefined,
+        price: parseFloat(formData.price),
+        originalPrice: formData.originalPrice ? parseFloat(formData.originalPrice) : undefined,
+        categoryId: categoryId as any,
+        certificate: certificateString,
+        image: formData.image,
+        images: formData.images.length > 0 ? formData.images : [formData.image],
+        stock: parseInt(formData.stock) || 0,
+        badge: formData.badge.trim() || undefined,
+        productStatus: formData.status,
+        sku: skuString,
+        lifespan: formData.lifespan || undefined,
+        isActive: formData.status === 'active',
+      };
+
+      let productId: any;
+
+      productId = await createProduct(baseProductData);
+
+      // Handle fish-specific data for new products
+      if (isFishProduct && productId) {
+        const fishData = {
+          productId: productId as any,
+          scientificName: formData.scientificName.trim(),
+          size: parseFloat(formData.fishSize),
+          temperature: parseFloat(formData.fishTemperature),
+          age: parseFloat(formData.fishAge),
+          phLevel: formData.phLevel.trim(),
+          lifespan: formData.fishLifespan.trim() || formData.lifespan || '2-4 years',
+          origin: formData.origin.trim(),
+          diet: formData.diet
+        };
+
+        await createFishData(fishData);
+      }
+
+      // Handle tank-specific data for new products
+      if (isTankProduct && productId) {
+        const tankData = {
+          productId: productId as any,
+          tankType: formData.tankType,
+          material: formData.material,
+          capacity: parseFloat(formData.capacity),
+          dimensions: {
+            length: parseFloat(formData.length),
+            width: parseFloat(formData.width),
+            height: parseFloat(formData.height),
+          },
+          thickness: parseFloat(formData.thickness),
+          lighting: parseFloat(formData.lighting) || 0,
+          filtation: parseFloat(formData.filtration) || 0,
+        };
+
+        await createTankData(tankData);
+      }
+
+      alert('Success', `Product created successfully!`);
+      router.back();
     } catch (error) {
-      console.error('Error creating product:', error);
-      alert('Error creating product. Please try again.');
+      console.error('Error saving product:', error);
+      alert('Error', `Failed to create product. Please try again.`);
     } finally {
-      setIsSubmitting(false);
+      setFormLoading(false);
     }
   };
 
-  return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-white/10">
-        <div className="px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <button
-                onClick={() => router.back()}
-                className="p-2 rounded-full bg-secondary border border-white/10 hover:bg-white/10 transition-colors"
-              >
-                <ArrowLeft className="w-5 h-5 text-white" />
-              </button>
-              <div>
-                <h1 className="text-2xl font-bold text-white">Add New Product</h1>
-                <p className="text-sm text-muted">Create a new product listing</p>
-              </div>
-            </div>
+  const renderFormField = (label: string, required = false) => (
+    <div className="mb-1">
+      <p className="font-euclid-medium text-sm mb-2" style={{ color: '#FFFFFF' }}>
+        {label} {required && <span style={{ color: '#FF6B00' }}>*</span>}
+      </p>
+    </div>
+  );
 
-            <div className="flex items-center space-x-3">
-              <Button
-                onClick={() => router.push('/admin/products')}
-                variant="outline"
-                size="sm"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleSubmit}
-                disabled={isSubmitting}
-                loading={isSubmitting}
-                size="sm"
-              >
-                <Save className="w-4 h-4 mr-2" />
-                {isSubmitting ? 'Creating...' : 'Create Product'}
-              </Button>
-            </div>
-          </div>
+  const renderDropdownPicker = (
+    label: string,
+    value: string,
+    options: string[],
+    showPicker: boolean,
+    setShowPicker: (show: boolean) => void,
+    onSelect: (value: string) => void,
+    required = false
+  ) => (
+    <div className="mb-4">
+      {renderFormField(label, required)}
+      <button
+        onClick={() => setShowPicker(!showPicker)}
+        className="w-full flex items-center justify-between p-4 rounded-xl"
+        style={{ backgroundColor: '#1A1A1A', borderColor: '#333333', borderWidth: 1 }}
+      >
+        <p className="font-euclid-medium text-base" style={{ color: value ? '#FFFFFF' : '#666666' }}>
+          {value || `Select ${label}`}
+        </p>
+        <ChevronDown size={20} color="#666666" />
+      </button>
+
+      {showPicker && (
+        <div className="mt-2 rounded-xl" style={{ backgroundColor: '#1A1A1A', borderColor: '#333333', borderWidth: 1 }}>
+          {options.map((option) => (
+            <button
+              key={option}
+              onClick={() => {
+                onSelect(option);
+                setShowPicker(false);
+              }}
+              className="w-full p-4 border-b border-gray-700 last:border-b-0 text-left"
+            >
+              <p className="font-euclid-medium text-base" style={{ color: '#FFFFFF' }}>
+                {option}
+              </p>
+            </button>
+          ))}
         </div>
+      )}
+    </div>
+  );
+
+  return (
+    <div className="flex-1" style={{ backgroundColor: '#0A0A0A' }}>
+      {/* Header */}
+      <div className="flex items-center justify-between px-6 pt-8 pb-4">
+        <button
+          onClick={() => router.back()}
+          className="w-10 h-10 rounded-full flex items-center justify-center"
+          style={{ backgroundColor: '#FFFFFF08' }}
+        >
+          <ArrowLeft size={20} color="#FFFFFF" />
+        </button>
+        <p className="font-euclid-bold text-xl" style={{ color: '#FFFFFF' }}>
+          Add Product
+        </p>
+        <button
+          onClick={handleSaveProduct}
+          disabled={formLoading}
+          className="px-4 py-2 rounded-lg flex items-center"
+          style={{
+            backgroundColor: formLoading ? '#FF6B0060' : '#FF6B00',
+            opacity: formLoading ? 0.7 : 1
+          }}
+        >
+          <Save size={16} color="#FFFFFF" />
+          <p className="font-euclid-bold text-sm ml-2" style={{ color: '#FFFFFF' }}>
+            {formLoading ? 'Saving...' : 'Save'}
+          </p>
+        </button>
       </div>
 
-      <div className="px-4 sm:px-6 py-5 max-w-4xl mx-auto">
+      {/* ScrollView */}
+      <div className="flex-1 px-6" style={{ maxHeight: 'calc(100vh - 120px)', overflowY: 'auto' }}>
+
         {/* Basic Information */}
-        <Card className="p-5 sm:p-6 mb-5">
-          <div className="flex items-center space-x-3 mb-6">
-            <div className="p-3 bg-primary/20 rounded-xl">
-              <Package className="w-6 h-6 text-primary" />
-            </div>
-            <div>
-              <h3 className="text-lg font-bold text-white">Basic Information</h3>
-              <p className="text-sm text-muted">Essential product details</p>
-            </div>
-          </div>
+        <div className="mb-6">
+          <p className="font-euclid-bold text-lg mb-4" style={{ color: '#FFFFFF' }}>
+            Basic Information
+          </p>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-            <div>
-              <Input
-                label="Product Name *"
-                value={formData.name}
-                onChange={(value) => handleInputChange('name', value)}
-                placeholder="Enter product name"
-                error={errors.name}
-              />
-            </div>
+          {/* Product Name */}
+          {renderFormField('Product Name', true)}
+          <input
+            className="w-full p-4 rounded-xl text-white font-euclid-regular mb-4"
+            style={{ backgroundColor: '#1A1A1A', borderColor: '#333333', borderWidth: 1 }}
+            placeholder="Enter product name"
+            value={formData.name}
+            onChange={(e) => handleInputChange('name', e.target.value)}
+          />
 
-            <div>
-              <label className="block text-sm font-medium text-white mb-2">
-                Product Type *
-              </label>
-              <select
-                value={formData.productType}
-                onChange={(e) => handleInputChange('productType', e.target.value)}
-                className="w-full bg-secondary border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-primary"
-              >
-                <option value="fish">Fish</option>
-                <option value="tank">Tank</option>
-                <option value="accessory">Accessory</option>
-                <option value="food">Food</option>
-              </select>
-            </div>
+          {/* Description */}
+          {renderFormField('Description')}
+          <textarea
+            className="w-full p-4 rounded-xl text-white font-euclid-regular mb-4 resize-none"
+            style={{ backgroundColor: '#1A1A1A', borderColor: '#333333', borderWidth: 1 }}
+            placeholder="Product description..."
+            value={formData.description}
+            onChange={(e) => handleInputChange('description', e.target.value)}
+            rows={4}
+          />
 
-            <div className="sm:col-span-2">
-              <label className="block text-sm font-medium text-white mb-2">
-                Description
-              </label>
-              <textarea
-                value={formData.description}
-                onChange={(e) => handleInputChange('description', e.target.value)}
-                placeholder="Enter product description"
-                rows={4}
-                className="w-full bg-secondary border border-white/10 rounded-lg px-4 py-3 text-white placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary resize-none"
-              />
-            </div>
+          {/* Category */}
+          {categories.length > 0 && renderDropdownPicker(
+            'Category',
+            formData.category,
+            categories.map(cat => cat.name),
+            showCategoryPicker,
+            setShowCategoryPicker,
+            (value) => {
+              const selectedCategory = categories.find(cat => cat.name === value);
+              handleInputChange('category', value);
+              if (selectedCategory) {
+                handleInputChange('categoryId', selectedCategory._id);
+              }
+            },
+            true
+          )}
 
-            <div>
-              <Input
-                label="Price (PHP) *"
+          {/* Price */}
+          <div className="flex gap-4 mb-4">
+            <div className="flex-1">
+              {renderFormField('Price (₱)', true)}
+              <input
+                className="w-full p-4 rounded-xl text-white font-euclid-regular"
+                style={{ backgroundColor: '#1A1A1A', borderColor: '#333333', borderWidth: 1 }}
+                placeholder="0.00"
                 value={formData.price}
-                onChange={(value) => handleInputChange('price', value)}
-                type="number"
-                placeholder="0.00"
-                error={errors.price}
+                onChange={(e) => handleInputChange('price', e.target.value)}
               />
             </div>
-
-            <div>
-              <Input
-                label="Original Price (PHP)"
+            <div className="flex-1">
+              {renderFormField('Original Price (₱)')}
+              <input
+                className="w-full p-4 rounded-xl text-white font-euclid-regular"
+                style={{ backgroundColor: '#1A1A1A', borderColor: '#333333', borderWidth: 1 }}
+                placeholder="0.00"
                 value={formData.originalPrice}
-                onChange={(value) => handleInputChange('originalPrice', value)}
-                type="number"
-                placeholder="0.00"
+                onChange={(e) => handleInputChange('originalPrice', e.target.value)}
               />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-white mb-2">
-                Category *
-              </label>
-              <select
-                value={formData.categoryId}
-                onChange={(e) => handleInputChange('categoryId', e.target.value)}
-                className={`w-full bg-secondary border rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-primary ${
-                  errors.categoryId ? 'border-error' : 'border-white/10'
-                }`}
-              >
-                <option value="">Select category</option>
-                {mockCategories.map(category => (
-                  <option key={category.id} value={category.id}>
-                    {category.name}
-                  </option>
-                ))}
-              </select>
-              {errors.categoryId && (
-                <p className="text-error text-sm mt-1 flex items-center">
-                  <AlertCircle className="w-4 h-4 mr-1" />
-                  {errors.categoryId}
-                </p>
-              )}
-            </div>
-
-            <div>
-              <Input
-                label="Stock Quantity *"
-                value={formData.stock}
-                onChange={(value) => handleInputChange('stock', value)}
-                type="number"
-                placeholder="0"
-                error={errors.stock}
-              />
-            </div>
-
-            <div>
-              <Input
-                label="SKU"
-                value={formData.sku}
-                onChange={(value) => handleInputChange('sku', value)}
-                placeholder="Product SKU"
-              />
-            </div>
-
-            <div className="flex items-center space-x-3">
-              <button
-                onClick={() => handleInputChange('isActive', !formData.isActive)}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  formData.isActive ? 'bg-primary' : 'bg-secondary'
-                }`}
-              >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    formData.isActive ? 'translate-x-6' : 'translate-x-1'
-                  }`}
-                />
-              </button>
-              <span className="text-white font-medium">
-                Product is {formData.isActive ? 'Active' : 'Inactive'}
-              </span>
             </div>
           </div>
-        </Card>
+
+          {/* Stock and SKU */}
+          <div className="flex gap-4 mb-4">
+            <div className="flex-1">
+              {renderFormField('Stock Quantity', true)}
+              <input
+                className="w-full p-4 rounded-xl text-white font-euclid-regular"
+                style={{ backgroundColor: '#1A1A1A', borderColor: '#333333', borderWidth: 1 }}
+                placeholder="0"
+                value={formData.stock}
+                onChange={(e) => handleInputChange('stock', e.target.value)}
+              />
+            </div>
+            <div className="flex-1">
+              {renderFormField('SKU')}
+              <input
+                className="w-full p-4 rounded-xl text-white font-euclid-regular"
+                style={{ backgroundColor: '#1A1A1A', borderColor: '#333333', borderWidth: 1 }}
+                placeholder="Auto-generated"
+                value={formData.sku}
+                onChange={(e) => handleInputChange('sku', e.target.value)}
+              />
+            </div>
+          </div>
+
+          {/* Badge */}
+          {renderFormField('Badge (e.g., "New", "Sale", "Limited")')}
+          <input
+            className="w-full p-4 rounded-xl text-white font-euclid-regular mb-4"
+            style={{ backgroundColor: '#1A1A1A', borderColor: '#333333', borderWidth: 1 }}
+            placeholder="Optional badge text"
+            value={formData.badge}
+            onChange={(e) => handleInputChange('badge', e.target.value)}
+          />
+
+          {/* General Lifespan (for non-fish and non-tank products) */}
+          {!isFishProduct && !isTankProduct && (
+            <>
+              {renderFormField('Product Lifespan')}
+              <input
+                className="w-full p-4 rounded-xl text-white font-euclid-regular mb-4"
+                style={{ backgroundColor: '#1A1A1A', borderColor: '#333333', borderWidth: 1 }}
+                placeholder="Expected lifespan (e.g., 2-4 years)"
+                value={formData.lifespan}
+                onChange={(e) => handleInputChange('lifespan', e.target.value)}
+              />
+            </>
+          )}
+        </div>
 
         {/* Product Images */}
-        <Card className="p-5 sm:p-6 mb-5">
-          <div className="flex items-center space-x-3 mb-6">
-            <div className="p-3 bg-info/20 rounded-xl">
-              <FileImage className="w-6 h-6 text-info" />
-            </div>
-            <div>
-              <h3 className="text-lg font-bold text-white">Product Images</h3>
-              <p className="text-sm text-muted">Upload product photos</p>
-            </div>
-          </div>
+        <div className="mb-6">
+          <p className="font-euclid-bold text-lg mb-4" style={{ color: '#FFFFFF' }}>
+            Product Images
+          </p>
 
-          {/* Main Image */}
-          <div className="mb-5">
-            <label className="block text-sm font-medium text-white mb-3">
-              Main Product Image *
-            </label>
+          <button
+            onClick={() => handleImagePicker('product')}
+            className="border-2 border-dashed rounded-xl p-8 items-center justify-center mb-4"
+            style={{ borderColor: '#333333' }}
+            disabled={uploadingImages.length > 0}
+          >
+            <Camera size={32} color={uploadingImages.length > 0 ? '#999999' : '#666666'} />
+            <p className="font-euclid-medium text-base mt-2" style={{ color: uploadingImages.length > 0 ? '#999999' : '#666666' }}>
+              {uploadingImages.length > 0 ? 'Uploading...' : 'Add Product Image'}
+            </p>
+          </button>
 
-            {formData.image ? (
-              <div className="relative inline-block">
-                <img
-                  src={formData.image}
-                  alt="Main product"
-                  className="w-32 h-32 object-cover rounded-lg border border-white/10"
-                />
-                <button
-                  onClick={() => handleInputChange('image', '')}
-                  className="absolute -top-2 -right-2 w-6 h-6 bg-error rounded-full flex items-center justify-center"
-                >
-                  <X className="w-4 h-4 text-white" />
-                </button>
+          {/* Uploading Images */}
+          {uploadingImages.map((uploadingImg, index) => (
+            <div key={`uploading-${index}`} className="mb-4 relative">
+              <img
+                src={uploadingImg.uri}
+                className="w-full h-48 rounded-xl opacity-50"
+                style={{ objectFit: 'cover' }}
+              />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <p className="font-euclid-medium text-base" style={{ color: '#FF6B00' }}>
+                  Uploading...
+                </p>
               </div>
-            ) : (
+            </div>
+          ))}
+
+          {/* Uploaded Images */}
+          {formData.images.map((imageUrl, index) => (
+            <div key={`uploaded-${index}`} className="mb-4 relative">
+              <img
+                src={imageUrl}
+                className="w-full h-48 rounded-xl"
+                style={{ objectFit: 'cover' }}
+              />
               <button
-                onClick={() => handleImageUpload('main')}
-                disabled={uploadingImage}
-                className={`w-32 h-32 border-2 border-dashed rounded-lg flex flex-col items-center justify-center transition-colors ${
-                  errors.image ? 'border-error' : 'border-white/20 hover:border-primary'
-                } ${uploadingImage ? 'opacity-50' : ''}`}
+                onClick={() => {
+                  setFormData(prev => ({
+                    ...prev,
+                    images: prev.images.filter((_, i) => i !== index),
+                    image: prev.images.length === 1 ? '' : (index === 0 ? prev.images[1] : prev.image)
+                  }));
+                }}
+                className="absolute top-2 right-2 w-8 h-8 rounded-full flex items-center justify-center"
+                style={{ backgroundColor: '#FF4444' }}
               >
-                {uploadingImage ? (
-                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
-                ) : (
-                  <>
-                    <Upload className="w-6 h-6 text-muted mb-2" />
-                    <span className="text-xs text-muted text-center">Upload Image</span>
-                  </>
-                )}
+                <X size={16} color="#FFFFFF" />
               </button>
-            )}
+            </div>
+          ))}
+        </div>
 
-            {errors.image && (
-              <p className="text-error text-sm mt-2 flex items-center">
-                <AlertCircle className="w-4 h-4 mr-1" />
-                {errors.image}
-              </p>
-            )}
-          </div>
+        {/* Certificate Images */}
+        <div className="mb-6">
+          <p className="font-euclid-bold text-lg mb-4" style={{ color: '#FFFFFF' }}>
+            Certificates & Documents
+          </p>
 
-          {/* Gallery Images */}
-          <div>
-            <label className="block text-sm font-medium text-white mb-3">
-              Additional Images (Optional)
-            </label>
+          <button
+            onClick={() => handleImagePicker('certificate')}
+            className="border-2 border-dashed rounded-xl p-6 items-center justify-center mb-4"
+            style={{ borderColor: '#4A90E2' }}
+            disabled={uploadingCertificates.length > 0}
+          >
+            <FileText size={28} color={uploadingCertificates.length > 0 ? '#999999' : '#4A90E2'} />
+            <p className="font-euclid-medium text-base mt-2" style={{ color: uploadingCertificates.length > 0 ? '#999999' : '#4A90E2' }}>
+              {uploadingCertificates.length > 0 ? 'Uploading...' : 'Add Certificate'}
+            </p>
+          </button>
 
-            <div className="flex items-center flex-wrap gap-4">
-              {formData.images.map((image, index) => (
-                <div key={index} className="relative">
-                  <img
-                    src={image}
-                    alt={`Product ${index + 1}`}
-                    className="w-24 h-24 object-cover rounded-lg border border-white/10"
-                  />
-                  <button
-                    onClick={() => removeGalleryImage(index)}
-                    className="absolute -top-2 -right-2 w-6 h-6 bg-error rounded-full flex items-center justify-center"
-                  >
-                    <X className="w-4 h-4 text-white" />
-                  </button>
+          {/* Uploading and Uploaded Certificates */}
+          {(uploadingCertificates.length > 0 || formData.certificateImages.length > 0) && (
+            <div className="flex flex-wrap gap-3">
+              {/* Uploading Certificates */}
+              {uploadingCertificates.map((uploadingCert, index) => (
+                <div key={`uploading-cert-${index}`} className="relative w-24 h-24 rounded-xl">
+                  <img src={uploadingCert.uri} className="w-full h-full rounded-xl opacity-50" />
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <p className="font-euclid-medium text-xs" style={{ color: '#FF6B00' }}>
+                      Uploading...
+                    </p>
+                  </div>
                 </div>
               ))}
 
-              {formData.images.length < 5 && (
-                <button
-                  onClick={() => handleImageUpload('gallery')}
-                  disabled={uploadingImage}
-                  className="w-24 h-24 border-2 border-dashed border-white/20 rounded-lg flex flex-col items-center justify-center hover:border-primary transition-colors"
-                >
-                  {uploadingImage ? (
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary"></div>
-                  ) : (
-                    <>
-                      <Plus className="w-5 h-5 text-muted mb-1" />
-                      <span className="text-xs text-muted">Add</span>
-                    </>
-                  )}
-                </button>
-              )}
+              {/* Uploaded Certificates */}
+              {formData.certificateImages.map((certImage: string, index: number) => (
+                <div key={`cert-${index}`} className="relative w-24 h-24 rounded-xl">
+                  <img src={certImage} className="w-full h-full rounded-xl" />
+                  <button
+                    onClick={() => removeCertificateImage(index)}
+                    className="absolute -top-2 -right-2 w-6 h-6 rounded-full flex items-center justify-center"
+                    style={{ backgroundColor: '#FF4444' }}
+                  >
+                    <X size={14} color="#FFFFFF" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Fish-specific fields */}
+        {isFishProduct && (
+          <div className="mb-6">
+            <p className="font-euclid-bold text-lg mb-4" style={{ color: '#FF6B00' }}>
+              Fish Specifications
+            </p>
+
+            {/* Scientific Name */}
+            {renderFormField('Scientific Name', true)}
+            <input
+              className="w-full p-4 rounded-xl text-white font-euclid-regular mb-4"
+              style={{ backgroundColor: '#1A1A1A', borderColor: '#333333', borderWidth: 1 }}
+              placeholder="e.g., Pterophyllum scalare"
+              value={formData.scientificName}
+              onChange={(e) => handleInputChange('scientificName', e.target.value)}
+            />
+
+            {/* Size */}
+            {renderFormField('Size (cm)', true)}
+            <input
+              className="w-full p-4 rounded-xl text-white font-euclid-regular mb-4"
+              style={{ backgroundColor: '#1A1A1A', borderColor: '#333333', borderWidth: 1 }}
+              placeholder="10"
+              value={formData.fishSize}
+              onChange={(e) => handleInputChange('fishSize', e.target.value)}
+            />
+
+            {/* Temperature and Age */}
+            <div className="flex gap-4 mb-4">
+              <div className="flex-1">
+                {renderFormField('Temperature (°C)', true)}
+                <input
+                  className="w-full p-4 rounded-xl text-white font-euclid-regular"
+                  style={{ backgroundColor: '#1A1A1A', borderColor: '#333333', borderWidth: 1 }}
+                  placeholder="26"
+                  value={formData.fishTemperature}
+                  onChange={(e) => handleInputChange('fishTemperature', e.target.value)}
+                />
+              </div>
+              <div className="flex-1">
+                {renderFormField('Age (years)', true)}
+                <input
+                  className="w-full p-4 rounded-xl text-white font-euclid-regular"
+                  style={{ backgroundColor: '#1A1A1A', borderColor: '#333333', borderWidth: 1 }}
+                  placeholder="1"
+                  value={formData.fishAge}
+                  onChange={(e) => handleInputChange('fishAge', e.target.value)}
+                />
+              </div>
+            </div>
+
+            {/* pH Level */}
+            {renderFormField('pH Level', true)}
+            <input
+              className="w-full p-4 rounded-xl text-white font-euclid-regular mb-4"
+              style={{ backgroundColor: '#1A1A1A', borderColor: '#333333', borderWidth: 1 }}
+              placeholder="e.g., 6.5-7.5"
+              value={formData.phLevel}
+              onChange={(e) => handleInputChange('phLevel', e.target.value)}
+            />
+
+            {/* Fish Lifespan */}
+            {renderFormField('Lifespan', true)}
+            <input
+              className="w-full p-4 rounded-xl text-white font-euclid-regular mb-4"
+              style={{ backgroundColor: '#1A1A1A', borderColor: '#333333', borderWidth: 1 }}
+              placeholder="e.g., 2-4 years"
+              value={formData.fishLifespan}
+              onChange={(e) => handleInputChange('fishLifespan', e.target.value)}
+            />
+
+            {/* Origin */}
+            {renderFormField('Origin', true)}
+            <input
+              className="w-full p-4 rounded-xl text-white font-euclid-regular mb-4"
+              style={{ backgroundColor: '#1A1A1A', borderColor: '#333333', borderWidth: 1 }}
+              placeholder="e.g., Amazon Basin, South America"
+              value={formData.origin}
+              onChange={(e) => handleInputChange('origin', e.target.value)}
+            />
+
+            {/* Diet */}
+            {renderDropdownPicker(
+              'Diet',
+              formData.diet,
+              dietOptions,
+              showDietPicker,
+              setShowDietPicker,
+              (value) => handleInputChange('diet', value),
+              true
+            )}
+          </div>
+        )}
+
+        {/* Tank-specific fields */}
+        {isTankProduct && (
+          <div className="mb-6">
+            <p className="font-euclid-bold text-lg mb-4" style={{ color: '#4A90E2' }}>
+              Tank Specifications
+            </p>
+
+            {/* Tank Type */}
+            {renderDropdownPicker(
+              'Tank Type',
+              formData.tankType,
+              tankTypes,
+              showTankTypePicker,
+              setShowTankTypePicker,
+              (value) => handleInputChange('tankType', value),
+              true
+            )}
+
+            {/* Material */}
+            {renderDropdownPicker(
+              'Material',
+              formData.material,
+              materials,
+              showMaterialPicker,
+              setShowMaterialPicker,
+              (value) => handleInputChange('material', value),
+              true
+            )}
+
+            {/* Capacity */}
+            {renderFormField('Capacity (Liters)', true)}
+            <input
+              className="w-full p-4 rounded-xl text-white font-euclid-regular mb-4"
+              style={{ backgroundColor: '#1A1A1A', borderColor: '#333333', borderWidth: 1 }}
+              placeholder="50"
+              value={formData.capacity}
+              onChange={(e) => handleInputChange('capacity', e.target.value)}
+            />
+
+            {/* Dimensions */}
+            <p className="font-euclid-medium text-sm mb-2" style={{ color: '#FFFFFF' }}>
+              Dimensions (cm) <span style={{ color: '#FF6B00' }}>*</span>
+            </p>
+            <div className="flex gap-3 mb-4">
+              <div className="flex-1">
+                <input
+                  className="w-full p-4 rounded-xl text-white font-euclid-regular"
+                  style={{ backgroundColor: '#1A1A1A', borderColor: '#333333', borderWidth: 1 }}
+                  placeholder="Length"
+                  value={formData.length}
+                  onChange={(e) => handleInputChange('length', e.target.value)}
+                />
+              </div>
+              <div className="flex-1">
+                <input
+                  className="w-full p-4 rounded-xl text-white font-euclid-regular"
+                  style={{ backgroundColor: '#1A1A1A', borderColor: '#333333', borderWidth: 1 }}
+                  placeholder="Width"
+                  value={formData.width}
+                  onChange={(e) => handleInputChange('width', e.target.value)}
+                />
+              </div>
+              <div className="flex-1">
+                <input
+                  className="w-full p-4 rounded-xl text-white font-euclid-regular"
+                  style={{ backgroundColor: '#1A1A1A', borderColor: '#333333', borderWidth: 1 }}
+                  placeholder="Height"
+                  value={formData.height}
+                  onChange={(e) => handleInputChange('height', e.target.value)}
+                />
+              </div>
+            </div>
+
+            {/* Glass Thickness */}
+            {renderFormField('Glass Thickness (mm)', true)}
+            <input
+              className="w-full p-4 rounded-xl text-white font-euclid-regular mb-4"
+              style={{ backgroundColor: '#1A1A1A', borderColor: '#333333', borderWidth: 1 }}
+              placeholder="6"
+              value={formData.thickness}
+              onChange={(e) => handleInputChange('thickness', e.target.value)}
+            />
+
+            {/* Lighting and Filtration */}
+            <div className="flex gap-4 mb-4">
+              <div className="flex-1">
+                {renderFormField('Lighting (Watts)')}
+                <input
+                  className="w-full p-4 rounded-xl text-white font-euclid-regular"
+                  style={{ backgroundColor: '#1A1A1A', borderColor: '#333333', borderWidth: 1 }}
+                  placeholder="0"
+                  value={formData.lighting}
+                  onChange={(e) => handleInputChange('lighting', e.target.value)}
+                />
+              </div>
+              <div className="flex-1">
+                {renderFormField('Filtration (L/hr)')}
+                <input
+                  className="w-full p-4 rounded-xl text-white font-euclid-regular"
+                  style={{ backgroundColor: '#1A1A1A', borderColor: '#333333', borderWidth: 1 }}
+                  placeholder="0"
+                  value={formData.filtration}
+                  onChange={(e) => handleInputChange('filtration', e.target.value)}
+                />
+              </div>
             </div>
           </div>
-        </Card>
-
-        {/* Product Type Specific Fields */}
-        {formData.productType === 'fish' && (
-          <Card className="p-5 sm:p-6 mb-5">
-            <div className="flex items-center space-x-3 mb-6">
-              <div className="p-3 bg-success/20 rounded-xl">
-                <Info className="w-6 h-6 text-success" />
-              </div>
-              <div>
-                <h3 className="text-lg font-bold text-white">Fish Specifications</h3>
-                <p className="text-sm text-muted">Detailed fish information</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-              <div>
-                <Input
-                  label="Scientific Name *"
-                  value={formData.scientificName || ''}
-                  onChange={(value) => handleInputChange('scientificName', value)}
-                  placeholder="e.g., Betta splendens"
-                  error={errors.scientificName}
-                />
-              </div>
-
-              <div>
-                <Input
-                  label="Size (cm) *"
-                  value={formData.size || ''}
-                  onChange={(value) => handleInputChange('size', value)}
-                  type="number"
-                  placeholder="Fish size in cm"
-                  error={errors.size}
-                />
-              </div>
-
-              <div>
-                <Input
-                  label="Temperature (°C) *"
-                  value={formData.temperature || ''}
-                  onChange={(value) => handleInputChange('temperature', value)}
-                  placeholder="e.g., 24-28"
-                  error={errors.temperature}
-                />
-              </div>
-
-              <div>
-                <Input
-                  label="Age (months)"
-                  value={formData.age || ''}
-                  onChange={(value) => handleInputChange('age', value)}
-                  type="number"
-                  placeholder="Age in months"
-                />
-              </div>
-
-              <div>
-                <Input
-                  label="pH Level *"
-                  value={formData.phLevel || ''}
-                  onChange={(value) => handleInputChange('phLevel', value)}
-                  placeholder="e.g., 6.5-7.5"
-                  error={errors.phLevel}
-                />
-              </div>
-
-              <div>
-                <Input
-                  label="Lifespan"
-                  value={formData.lifespan || ''}
-                  onChange={(value) => handleInputChange('lifespan', value)}
-                  placeholder="e.g., 2-3 years"
-                />
-              </div>
-
-              <div>
-                <Input
-                  label="Origin"
-                  value={formData.origin || ''}
-                  onChange={(value) => handleInputChange('origin', value)}
-                  placeholder="e.g., Thailand"
-                />
-              </div>
-
-              <div>
-                <Input
-                  label="Diet"
-                  value={formData.diet || ''}
-                  onChange={(value) => handleInputChange('diet', value)}
-                  placeholder="e.g., Carnivore"
-                />
-              </div>
-            </div>
-          </Card>
         )}
 
-        {formData.productType === 'tank' && (
-          <Card className="p-6 mb-6">
-            <div className="flex items-center space-x-3 mb-6">
-              <div className="p-3 bg-info/20 rounded-xl">
-                <Package className="w-6 h-6 text-info" />
-              </div>
-              <div>
-                <h3 className="text-lg font-bold text-white">Tank Specifications</h3>
-                <p className="text-sm text-muted">Detailed tank information</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div>
-                <Input
-                  label="Tank Type *"
-                  value={formData.tankType || ''}
-                  onChange={(value) => handleInputChange('tankType', value)}
-                  placeholder="e.g., Freshwater, Saltwater"
-                  error={errors.tankType}
-                />
-              </div>
-
-              <div>
-                <Input
-                  label="Material *"
-                  value={formData.material || ''}
-                  onChange={(value) => handleInputChange('material', value)}
-                  placeholder="e.g., Glass, Acrylic"
-                  error={errors.material}
-                />
-              </div>
-
-              <div>
-                <Input
-                  label="Capacity (L) *"
-                  value={formData.capacity || ''}
-                  onChange={(value) => handleInputChange('capacity', value)}
-                  type="number"
-                  placeholder="Tank capacity in liters"
-                  error={errors.capacity}
-                />
-              </div>
-
-              <div>
-                <Input
-                  label="Weight (kg)"
-                  value={formData.weight || ''}
-                  onChange={(value) => handleInputChange('weight', value)}
-                  type="number"
-                  placeholder="Tank weight"
-                />
-              </div>
-
-              <div className="lg:col-span-2">
-                <label className="block text-sm font-medium text-white mb-3">
-                  Dimensions (cm) *
-                </label>
-                <div className="grid grid-cols-3 gap-4">
-                  <div>
-                    <Input
-                      label="Length"
-                      value={formData.dimensions?.length || ''}
-                      onChange={(value) => handleDimensionChange('length', value)}
-                      type="number"
-                      placeholder="Length"
-                      error={errors.length}
-                    />
-                  </div>
-                  <div>
-                    <Input
-                      label="Width"
-                      value={formData.dimensions?.width || ''}
-                      onChange={(value) => handleDimensionChange('width', value)}
-                      type="number"
-                      placeholder="Width"
-                      error={errors.width}
-                    />
-                  </div>
-                  <div>
-                    <Input
-                      label="Height"
-                      value={formData.dimensions?.height || ''}
-                      onChange={(value) => handleDimensionChange('height', value)}
-                      type="number"
-                      placeholder="Height"
-                      error={errors.height}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <Input
-                  label="Glass Thickness (mm)"
-                  value={formData.thickness || ''}
-                  onChange={(value) => handleInputChange('thickness', value)}
-                  type="number"
-                  placeholder="Glass thickness"
-                />
-              </div>
-
-              <div>
-                <Input
-                  label="Lighting (W)"
-                  value={formData.lighting || ''}
-                  onChange={(value) => handleInputChange('lighting', value)}
-                  type="number"
-                  placeholder="Lighting power"
-                />
-              </div>
-
-              <div className="lg:col-span-2">
-                <Input
-                  label="Filtration System"
-                  value={formData.filtration || ''}
-                  onChange={(value) => handleInputChange('filtration', value)}
-                  placeholder="e.g., Internal filter, External canister"
-                />
-              </div>
-            </div>
-          </Card>
-        )}
-
-        {/* Success Message */}
-        {isSubmitting && (
-          <Card className="p-6 mb-6 bg-success/10 border-success/20">
-            <div className="flex items-center space-x-3">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-success"></div>
-              <span className="text-success font-medium">Creating product...</span>
-            </div>
-          </Card>
-        )}
-
-        <div className="h-20" />
-      </div>
-
-      {/* Bottom Navigation */}
-      <div className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur-sm border-t border-white/10">
-        <div className="px-6 py-4 flex justify-between">
-          <Button
-            onClick={() => router.push('/admin/products')}
-            variant="outline"
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={handleSubmit}
-            disabled={isSubmitting}
-            loading={isSubmitting}
-          >
-            <Save className="w-4 h-4 mr-2" />
-            {isSubmitting ? 'Creating...' : 'Create Product'}
-          </Button>
-        </div>
+        {/* Bottom spacing */}
+        <div style={{ height: 20 }} />
       </div>
     </div>
   );

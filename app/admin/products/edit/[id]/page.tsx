@@ -1,58 +1,73 @@
 'use client';
 
+import { useMutation, useQuery } from 'convex/react';
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import {
   ArrowLeft,
+  Camera,
+  ChevronDown,
+  FileText,
   Save,
-  Upload,
-  Plus,
   X,
-  Package,
-  FileImage,
-  Info,
-  AlertCircle,
-  Loader
+  Plus,
+  Upload
 } from 'lucide-react';
 import Button from '@/components/ui/Button';
-import Card from '@/components/ui/Card';
-import Input from '@/components/ui/Input';
+import { api } from '@/convex/_generated/api';
+import { Id } from '@/convex/_generated/dataModel';
 
 interface ProductFormData {
+  // Base product fields
   name: string;
   description: string;
   price: string;
   originalPrice: string;
   categoryId: string;
-  sku: string;
-  stock: string;
+  category: string;
   image: string;
   images: string[];
+  certificateImages: string[];
+  stock: string;
+  badge: string;
   isActive: boolean;
-  productType: 'fish' | 'tank' | 'accessory' | 'food';
+  sku: string;
+  status: string;
+  featured: boolean;
+  lifespan: string;
+
   // Fish specific fields
-  scientificName?: string;
-  size?: string;
-  temperature?: string;
-  age?: string;
-  phLevel?: string;
-  lifespan?: string;
-  origin?: string;
-  diet?: string;
+  scientificName: string;
+  fishSize: string;
+  fishTemperature: string;
+  fishAge: string;
+  phLevel: string;
+  fishLifespan: string;
+  origin: string;
+  diet: string;
+
   // Tank specific fields
-  tankType?: string;
-  material?: string;
-  capacity?: string;
-  dimensions?: {
-    length: string;
-    width: string;
-    height: string;
-  };
-  weight?: string;
-  thickness?: string;
-  lighting?: string;
-  filtration?: string;
+  tankType: string;
+  material: string;
+  capacity: string;
+  length: string;
+  width: string;
+  height: string;
+  thickness: string;
+  lighting: string;
+  filtration: string;
 }
+
+interface UploadingImage {
+  uri: string;
+  uploading: boolean;
+  storageId?: Id<"_storage">;
+  url?: string;
+}
+
+const tankTypes = ['Standard', 'Bowfront', 'Corner', 'Cube', 'Hexagon', 'Rimless', 'All-in-One', 'Nano'];
+const materials = ['Glass', 'Acrylic', 'Tempered Glass', 'Low-Iron Glass', 'Plastic'];
+const dietOptions = ['Carnivore', 'Herbivore', 'Omnivore', 'Piscivore', 'Planktivore', 'Detritivore'];
 
 const mockCategories = [
   { id: '1', name: 'Tropical Fish' },
