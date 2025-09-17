@@ -25,6 +25,20 @@ export default function ProfileEditPage() {
   const { user } = useAuthStore();
   const isAuthenticated = useIsAuthenticated();
 
+  const [activeTab, setActiveTab] = useState<'profile' | 'password'>('profile');
+  const [isLoading, setIsLoading] = useState(false);
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  // Profile form state
+  const [profileData, setProfileData] = useState({
+    firstName: user?.firstName || '',
+    lastName: user?.lastName || '',
+    email: user?.email || '',
+    phone: user?.phone || '',
+  });
+
   // Redirect if not authenticated
   if (!isAuthenticated) {
     router.push('/auth/login');
@@ -41,20 +55,6 @@ export default function ProfileEditPage() {
     router.push('/control_panel');
     return null;
   }
-
-  const [activeTab, setActiveTab] = useState<'profile' | 'password'>('profile');
-  const [isLoading, setIsLoading] = useState(false);
-  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
-  const [showNewPassword, setShowNewPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-
-  // Profile form state
-  const [profileData, setProfileData] = useState({
-    firstName: user?.firstName || '',
-    lastName: user?.lastName || '',
-    email: user?.email || '',
-    phone: user?.phone || '',
-  });
 
   // Password form state
   const [passwordData, setPasswordData] = useState({

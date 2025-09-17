@@ -37,6 +37,13 @@ export default function ProductDetailPage() {
   const isAuthenticated = useIsAuthenticated();
   const { addItem } = useCartStore();
 
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [quantity, setQuantity] = useState(1);
+  const [isWishlisted, setIsWishlisted] = useState(false);
+  const [activeTab, setActiveTab] = useState<'details' | 'specs'>('details');
+  const [addToCartFeedback, setAddToCartFeedback] = useState<string | null>(null);
+  const imageScrollRef = useRef<HTMLDivElement>(null);
+
   // Redirect admins and super_admins to their respective dashboards
   if (isAuthenticated && user?.role === 'admin') {
     router.push('/admin/dashboard');
@@ -47,13 +54,6 @@ export default function ProductDetailPage() {
     router.push('/control_panel');
     return null;
   }
-
-  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
-  const [quantity, setQuantity] = useState(1);
-  const [isWishlisted, setIsWishlisted] = useState(false);
-  const [activeTab, setActiveTab] = useState<'details' | 'specs'>('details');
-  const [addToCartFeedback, setAddToCartFeedback] = useState<string | null>(null);
-  const imageScrollRef = useRef<HTMLDivElement>(null);
 
   // Use real product data from Convex
   const product = productQuery;

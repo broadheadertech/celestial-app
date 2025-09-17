@@ -35,25 +35,14 @@ export default function ReservationsPage() {
   const isAuthenticated = useIsAuthenticated();
   const isGuest = useIsGuest();
 
+  const [selectedFilter, setSelectedFilter] = useState<string>('all');
+  const [showFilters, setShowFilters] = useState(false);
+
   // Fetch real reservations data from Convex
   const reservationsQuery = useQuery(api.services.reservations.getReservations,
     isAuthenticated && user ? { userId: user._id } :
     isGuest && guestId ? { guestId: guestId } : "skip"
   ) || [];
-
-  // Redirect admins and super_admins to their respective dashboards
-  if (isAuthenticated && user?.role === 'admin') {
-    router.push('/admin/dashboard');
-    return null;
-  }
-
-  if (isAuthenticated && user?.role === 'super_admin') {
-    router.push('/control_panel');
-    return null;
-  }
-
-  const [selectedFilter, setSelectedFilter] = useState<string>('all');
-  const [showFilters, setShowFilters] = useState(false);
 
   // Filter reservations based on user authentication and selected filter
   const filteredReservations = useMemo(() => {

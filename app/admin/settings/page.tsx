@@ -34,6 +34,11 @@ export default function AdminSettingsPage() {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [toggleStates, setToggleStates] = useState<Record<string, boolean>>({
+    notifications: true,
+    content_moderation: false,
+    push_notifications: true,
+  });
 
   // Redirect if not authenticated or not admin (avoid redirect during render)
   useEffect(() => {
@@ -177,12 +182,6 @@ export default function AdminSettingsPage() {
       ]
     }
   ];
-
-  const [toggleStates, setToggleStates] = useState<Record<string, boolean>>({
-    notifications: true,
-    content_moderation: false,
-    push_notifications: true,
-  });
 
   const handleToggle = (itemId: string, value: boolean) => {
     setToggleStates(prev => ({ ...prev, [itemId]: value }));

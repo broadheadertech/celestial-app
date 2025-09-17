@@ -26,7 +26,7 @@ export default function LoginPage() {
   // Redirect if already authenticated
   useEffect(() => {
     if (status === 'authenticated' && session?.user) {
-      const role = (session.user as any)?.role;
+      const role = (session.user as { role?: string })?.role;
       const path = role === 'admin' ? '/admin/dashboard' :
                    role === 'super_admin' ? '/control_panel' :
                    '/client/dashboard';
