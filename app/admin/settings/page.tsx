@@ -3,13 +3,13 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { signOut } from 'next-auth/react';
+import BottomNavbar from '@/components/common/BottomNavbar';
 import {
   ArrowLeft,
   User,
   Mail,
   Shield,
   Settings as SettingsIcon,
-  Bell,
   Lock,
   Palette,
   HelpCircle,
@@ -19,10 +19,7 @@ import {
   Smartphone,
   ChevronRight,
   Eye,
-  EyeOff,
-  BarChart3,
-  Package,
-  ShoppingBag
+  EyeOff
 } from 'lucide-react';
 import { useAuthStore, useIsAuthenticated } from '@/store/auth';
 import Button from '@/components/ui/Button';
@@ -368,40 +365,10 @@ export default function AdminSettingsPage() {
       )}
 
       {/* Bottom Navigation */}
-      <div className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur-sm border-t border-white/10">
-        <div className="grid grid-cols-4 py-2">
-          <button
-            onClick={() => router.push('/admin/dashboard')}
-            className="flex flex-col items-center py-2 px-3 text-muted hover:text-white transition-colors"
-          >
-            <BarChart3 className="w-5 h-5 mb-1" />
-            <span className="text-xs">Dashboard</span>
-          </button>
-          <button
-            onClick={() => router.push('/admin/products')}
-            className="flex flex-col items-center py-2 px-3 text-muted hover:text-white transition-colors"
-          >
-            <Package className="w-5 h-5 mb-1" />
-            <span className="text-xs">Products</span>
-          </button>
-          <button
-            onClick={() => router.push('/admin/orders')}
-            className="flex flex-col items-center py-2 px-3 text-muted hover:text-white transition-colors"
-          >
-            <ShoppingBag className="w-5 h-5 mb-1" />
-            <span className="text-xs">Orders</span>
-          </button>
-          <button
-            onClick={() => router.push('/admin/settings')}
-            className="flex flex-col items-center py-2 px-3 text-primary"
-          >
-            <SettingsIcon className="w-5 h-5 mb-1" />
-            <span className="text-xs font-medium">Settings</span>
-          </button>
-        </div>
-      </div>
+      <BottomNavbar />
 
-      <div className="h-16" />
+      {/* Bottom padding for mobile navigation */}
+      <div className="h-16 sm:hidden" />
     </div>
   );
 }

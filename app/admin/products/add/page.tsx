@@ -217,9 +217,9 @@ export default function AddProductPage() {
             setUploadingImages(prev => prev.filter(img => img.uri !== uploadingImage.uri));
           }
 
-          alert('Image uploaded successfully!');
+          // Image uploaded successfully - no alert needed
         } catch (error) {
-          alert('Upload Error', 'Failed to upload image. Please try again.');
+          alert('Upload Error: Failed to upload image. Please try again.');
 
           // Remove from uploading state
           if (type === 'certificate') {
@@ -246,13 +246,13 @@ export default function AddProductPage() {
   const handleSaveProduct = async () => {
     // Basic validation
     if (!formData.name || !formData.categoryId || !formData.price) {
-      alert('Error', 'Please fill in all required fields (Name, Category, Price)');
+      alert('Error: Please fill in all required fields (Name, Category, Price)');
       return;
     }
 
     // Validate image
     if (!formData.image) {
-      alert('Error', 'Please add at least one product image');
+      alert('Error: Please add at least one product image');
       return;
     }
 
@@ -261,7 +261,7 @@ export default function AddProductPage() {
       if (!formData.scientificName || !formData.fishSize ||
           !formData.fishTemperature || !formData.fishAge || !formData.phLevel ||
           !formData.origin || !formData.diet) {
-        alert('Error', 'Please fill in all required fish details');
+        alert('Error: Please fill in all required fish details');
         return;
       }
     }
@@ -271,7 +271,7 @@ export default function AddProductPage() {
       if (!formData.tankType || !formData.material || !formData.capacity ||
           !formData.length || !formData.width || !formData.height ||
           !formData.thickness) {
-        alert('Error', 'Please fill in all required tank specifications');
+        alert('Error: Please fill in all required tank specifications');
         return;
       }
     }
@@ -349,11 +349,11 @@ export default function AddProductPage() {
         await createTankData(tankData);
       }
 
-      alert('Success', `Product created successfully!`);
+      alert('Success: Product created successfully!');
       router.back();
     } catch (error) {
       console.error('Error saving product:', error);
-      alert('Error', `Failed to create product. Please try again.`);
+      alert('Error: Failed to create product. Please try again.');
     } finally {
       setFormLoading(false);
     }
@@ -411,37 +411,42 @@ export default function AddProductPage() {
   );
 
   return (
-    <div className="flex-1" style={{ backgroundColor: '#0A0A0A' }}>
+    <div className="min-h-screen flex flex-col" style={{ backgroundColor: '#0A0A0A' }}>
       {/* Header */}
-      <div className="flex items-center justify-between px-6 pt-8 pb-4">
-        <button
-          onClick={() => router.back()}
-          className="w-10 h-10 rounded-full flex items-center justify-center"
-          style={{ backgroundColor: '#FFFFFF08' }}
-        >
-          <ArrowLeft size={20} color="#FFFFFF" />
-        </button>
-        <p className="font-euclid-bold text-xl" style={{ color: '#FFFFFF' }}>
-          Add Product
-        </p>
-        <button
-          onClick={handleSaveProduct}
-          disabled={formLoading}
-          className="px-4 py-2 rounded-lg flex items-center"
-          style={{
-            backgroundColor: formLoading ? '#FF6B0060' : '#FF6B00',
-            opacity: formLoading ? 0.7 : 1
-          }}
-        >
-          <Save size={16} color="#FFFFFF" />
-          <p className="font-euclid-bold text-sm ml-2" style={{ color: '#FFFFFF' }}>
-            {formLoading ? 'Saving...' : 'Save'}
-          </p>
-        </button>
+      <div className="sticky top-0 z-50 bg-[#0A0A0A] border-b border-white/10 shadow-lg">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4">
+          <button
+            onClick={() => router.push('/admin/products')}
+            className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-white/10 transition-colors"
+            style={{ backgroundColor: '#FFFFFF08' }}
+          >
+            <ArrowLeft size={20} color="#FFFFFF" />
+          </button>
+          <h1 className="font-euclid-bold text-lg sm:text-xl text-white flex-1 text-center pr-16">
+            Add Product
+          </h1>
+          <button
+            onClick={handleSaveProduct}
+            disabled={formLoading}
+            className="px-3 sm:px-4 py-2 rounded-lg flex items-center hover:opacity-80 transition-opacity disabled:cursor-not-allowed"
+            style={{
+              backgroundColor: formLoading ? '#FF6B0060' : '#FF6B00',
+              opacity: formLoading ? 0.7 : 1
+            }}
+          >
+            <Save size={16} color="#FFFFFF" />
+            <span className="font-euclid-bold text-sm ml-2 text-white hidden sm:inline">
+              {formLoading ? 'Saving...' : 'Save'}
+            </span>
+            <span className="font-euclid-bold text-xs ml-1 text-white sm:hidden">
+              {formLoading ? '...' : 'Save'}
+            </span>
+          </button>
+        </div>
       </div>
 
       {/* ScrollView */}
-      <div className="flex-1 px-6" style={{ maxHeight: 'calc(100vh - 120px)', overflowY: 'auto' }}>
+      <div className="px-4 sm:px-6 pb-6" style={{ maxHeight: 'calc(100vh - 72px)', overflowY: 'auto' }}>
 
         {/* Basic Information */}
         <div className="mb-6">

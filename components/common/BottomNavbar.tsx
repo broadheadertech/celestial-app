@@ -32,7 +32,7 @@ const BottomNavbar: React.FC<BottomNavbarProps> = ({ className = '' }) => {
       label: 'Dashboard',
       icon: BarChart3,
       href: '/admin/dashboard',
-      matchPaths: ['/admin', '/admin/dashboard']
+      matchPaths: ['/admin']
     },
     {
       id: 'users',
@@ -45,48 +45,57 @@ const BottomNavbar: React.FC<BottomNavbarProps> = ({ className = '' }) => {
       label: 'Products',
       icon: Package,
       href: '/admin/products',
-      matchPaths: ['/admin/products/add', '/admin/products/form', '/admin/products/edit']
+      matchPaths: ['/admin/products/add', '/admin/products/edit']
     },
     {
       id: 'orders',
       label: 'Orders',
       icon: ShoppingBag,
       href: '/admin/orders',
-      matchPaths: ['/admin/reservations']
+      matchPaths: ['/admin/reservations', '/admin/orders']
     },
     {
       id: 'settings',
       label: 'Settings',
       icon: Settings,
-      href: '/admin/settings'
+      href: '/admin/settings',
+      matchPaths: ['/admin/analytics', '/admin/marketing']
     }
   ];
 
   const isActiveRoute = (item: NavItem): boolean => {
+    // Normalize pathname to remove trailing slashes
+    const normalizedPathname = pathname.replace(/\/$/, '');
+
+    // Special case: dashboard should only be active on exact dashboard
+    if (item.id === 'dashboard') {
+      return normalizedPathname === '/admin/dashboard';
+    }
+
     // Check exact match first
-    if (pathname === item.href) return true;
-    
+    if (normalizedPathname === item.href) {
+      return true;
+    }
+
     // Check additional match paths if they exist
     if (item.matchPaths) {
       for (const path of item.matchPaths) {
         // Exact match
-        if (pathname === path) return true;
+        if (normalizedPathname === path) {
+          return true;
+        }
         // Nested routes (e.g., /admin/products/123)
-        if (pathname.startsWith(path + '/')) return true;
+        if (normalizedPathname.startsWith(path + '/')) {
+          return true;
+        }
       }
     }
-    
-    // For nested routes, check if current path starts with the item href
-    // But exclude root '/admin' to prevent dashboard from being active on all admin pages
-    if (item.href !== '/admin' && pathname.startsWith(item.href + '/')) {
+
+    // For nested routes of the main href
+    if (normalizedPathname.startsWith(item.href + '/')) {
       return true;
     }
-    
-    // Special case for dashboard - only active on exact matches and specified matchPaths
-    if (item.id === 'dashboard') {
-      return pathname === '/admin' || pathname === '/admin/dashboard';
-    }
-    
+
     return false;
   };
 
