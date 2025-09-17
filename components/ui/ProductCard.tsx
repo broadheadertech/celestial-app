@@ -7,8 +7,7 @@ import {
   Minus,
   ShoppingCart,
   Image as ImageIcon,
-  Zap,
-  TrendingUp
+  Zap
 } from 'lucide-react';
 import { formatCurrency, getStockStatus } from '@/lib/utils';
 import { Product } from '@/types';
@@ -36,8 +35,9 @@ const ProductCard: React.FC<ProductCardProps> = ({
   const discountPercent = hasDiscount
     ? Math.round(((product.originalPrice! - product.price) / product.originalPrice!) * 100)
     : 0;
-  const hasBadge = typeof product.badge === 'string' && product.badge.trim().length > 0;
-  const badgeText = hasBadge ? product.badge.trim() : '';
+  const rawBadge = (product as any).badge as string | undefined;
+  const hasBadge = typeof rawBadge === 'string' && rawBadge.trim().length > 0;
+  const badgeText = hasBadge ? rawBadge!.trim() : '';
 
   // Enhanced image component with better fallback
   const ProductImage = ({ className }: { className: string }) => (
