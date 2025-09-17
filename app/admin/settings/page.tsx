@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { signOut } from 'next-auth/react';
 import {
   ArrowLeft,
   User,
@@ -188,8 +189,11 @@ export default function AdminSettingsPage() {
   const handleLogout = async () => {
     setIsLoggingOut(true);
     try {
+      // Sign out of NextAuth without automatic redirect
+      await signOut({ redirect: false });
+      // Clear local auth store and start a guest session
       await logout();
-      router.push('/auth/login');
+      router.replace('/auth/login');
     } catch (error) {
       console.error('Logout error:', error);
     } finally {

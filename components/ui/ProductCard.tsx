@@ -36,6 +36,8 @@ const ProductCard: React.FC<ProductCardProps> = ({
   const discountPercent = hasDiscount
     ? Math.round(((product.originalPrice! - product.price) / product.originalPrice!) * 100)
     : 0;
+  const hasBadge = typeof product.badge === 'string' && product.badge.trim().length > 0;
+  const badgeText = hasBadge ? product.badge.trim() : '';
 
   // Enhanced image component with better fallback
   const ProductImage = ({ className }: { className: string }) => (
@@ -104,7 +106,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
                 {product.name}
               </h3>
               <div className="flex gap-1 flex-shrink-0">
-                {product.badge && <Badge>{product.badge}</Badge>}
+                {hasBadge && <Badge>{badgeText}</Badge>}
                 {hasDiscount && <Badge variant="discount">-{discountPercent}%</Badge>}
               </div>
             </div>
@@ -177,7 +179,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
         {/* Badges overlay */}
         <div className="absolute top-1.5 left-1.5 right-1.5 flex justify-between items-start">
           <div className="flex flex-col gap-0.5">
-            {product.badge && <Badge>{product.badge}</Badge>}
+            {hasBadge && <Badge>{badgeText}</Badge>}
           </div>
           <div className="flex flex-col gap-0.5">
             {/* Stock Badge */}
