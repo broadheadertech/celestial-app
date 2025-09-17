@@ -2,33 +2,34 @@ import { withAuth } from 'next-auth/middleware';
 
 export default withAuth(
   function middleware(req) {
-    // Add any additional middleware logic here
+    // Additional middleware logic if needed
   },
   {
     callbacks: {
       authorized: ({ token, req }) => {
-        console.log('Middleware check', {
-          pathname: req.nextUrl.pathname,
-          hasToken: !!token,
-          tokenRole: token?.role,
-          tokenProvider: token?.provider,
-        });
-        // Allow access to auth pages and API routes
-        if (req.nextUrl.pathname.startsWith('/auth') ||
-            req.nextUrl.pathname.startsWith('/api/auth')) {
+        const { pathname } = req.nextUrl;
+
+        // Always allow auth pages and API routes
+        if (pathname.startsWith('/auth') || pathname.startsWith('/api/auth')) {
           return true;
         }
 
-        // For protected routes, check if user is authenticated
-        if (req.nextUrl.pathname.startsWith('/admin')) {
+        // Admin routes require admin role
+        if (pathname.startsWith('/admin')) {
           return token?.role === 'admin';
         }
 
-        if (req.nextUrl.pathname.startsWith('/client/dashboard')) {
+        // Control panel requires admin or super_admin role
+        if (pathname.startsWith('/control_panel')) {
+          return token?.role === 'admin' || token?.role === 'super_admin';
+        }
+
+        // Client dashboard requires authentication
+        if (pathname.startsWith('/client/dashboard')) {
           return !!token;
         }
 
-        // Allow access to public routes
+        // Allow all other routes
         return true;
       },
     },
@@ -38,11 +39,8 @@ export default withAuth(
 export const config = {
   matcher: [
     /*
-     * Match all request paths except for the ones starting with:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
+     * Match all paths except static files and images
      */
-    '/((?!_next/static|_next/image|favicon.ico).*)',
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.png$|.*\\.jpg$|.*\\.jpeg$|.*\\.gif$|.*\\.svg$).*)',
   ],
 };

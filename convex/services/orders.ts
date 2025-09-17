@@ -198,23 +198,23 @@ export const cancelOrder = mutation({
   },
   handler: async (ctx, { orderId, userId }) => {
     const order = await ctx.db.get(orderId);
-    
+
     if (!order) {
       throw new Error("Order not found");
     }
-    
+
     if (order.userId !== userId) {
       throw new Error("You can only cancel your own orders");
     }
-    
+
     if (order.status === "shipped" || order.status === "delivered") {
       throw new Error("Cannot cancel shipped or delivered orders");
     }
-    
+
     if (order.status === "cancelled") {
       throw new Error("Order is already cancelled");
     }
-    
+
     // Restore product stock
     for (const item of order.items) {
       const product = await ctx.db.get(item.productId);
@@ -225,12 +225,81 @@ export const cancelOrder = mutation({
         });
       }
     }
-    
+
     await ctx.db.patch(orderId, {
       status: "cancelled",
       updatedAt: Date.now(),
     });
-    
+
     return await ctx.db.get(orderId);
+  },
+});
+
+// Get all orders for admin
+export const getAllOrdersAdmin = query({
+  args: {
+    status: v.optional(v.string()),
+    search: v.optional(v.string()),
+  },
+  handler: async (ctx, { status, search }) => {
+    let orders = await ctx.db.query("orders").collect();
+
+    if (status && status !== 'all') {
+      orders = orders.filter(order => order.status === status);
+    }
+
+    // Get product and user details for each order
+    const ordersWithDetails = await Promise.all(
+      orders.map(async (order) => {
+        const itemsWithProducts = await Promise.all(
+          order.items.map(async (item) => {
+            const product = await ctx.db.get(item.productId);
+            return {
+              ...item,
+              product,
+            };
+          })
+        );
+
+        let user = null;
+        if (order.userId) {
+          try {
+            user = await ctx.db.get(order.userId);
+          } catch (error) {
+            console.warn("Could not find user:", order.userId);
+          }
+        }
+
+        return {
+          ...order,
+          items: itemsWithProducts,
+          user: user ? {
+            id: user._id,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            email: user.email,
+            phone: user.phone,
+          } : null,
+        };
+      })
+    );
+
+    // Filter by search if provided
+    let filteredOrders = ordersWithDetails;
+    if (search) {
+      const searchLower = search.toLowerCase();
+      filteredOrders = ordersWithDetails.filter(order => {
+        const productNames = order.items.map(item => item.product?.name || '').join(' ').toLowerCase();
+        const userEmail = order.user?.email?.toLowerCase() || '';
+        const userName = `${order.user?.firstName || ''} ${order.user?.lastName || ''}`.toLowerCase();
+
+        return productNames.includes(searchLower) ||
+               userEmail.includes(searchLower) ||
+               userName.includes(searchLower) ||
+               order._id.toLowerCase().includes(searchLower);
+      });
+    }
+
+    return filteredOrders.sort((a, b) => b.createdAt - a.createdAt);
   },
 });

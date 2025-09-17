@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { signOut } from 'next-auth/react';
 import {
@@ -38,9 +38,14 @@ export default function AdminSettingsPage() {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  // Redirect if not authenticated or not admin
+  // Redirect if not authenticated or not admin (avoid redirect during render)
+  useEffect(() => {
+    if (!isAuthenticated || user?.role !== 'admin') {
+      router.replace('/auth/login');
+    }
+  }, [isAuthenticated, user, router]);
+
   if (!isAuthenticated || user?.role !== 'admin') {
-    router.push('/auth/login');
     return null;
   }
 

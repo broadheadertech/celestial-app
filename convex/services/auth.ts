@@ -67,7 +67,7 @@ export const register = mutation({
     firstName: v.string(),
     lastName: v.string(),
     phone: v.optional(v.string()),
-    role: v.optional(v.union(v.literal("client"), v.literal("admin"))),
+    role: v.optional(v.union(v.literal("client"), v.literal("admin"), v.literal("super_admin"))),
   },
   handler: async (ctx, { email, password, firstName, lastName, phone, role = "client" }) => {
     // Check if user already exists
@@ -351,7 +351,7 @@ export const createFacebookUser = mutation({
       firstName: v.string(),
       lastName: v.string(),
       phone: v.optional(v.string()),
-      role: v.union(v.literal("client"), v.literal("admin")),
+      role: v.union(v.literal("client"), v.literal("admin"), v.literal("super_admin")),
       isActive: v.boolean(),
       facebookId: v.optional(v.string()),
       profilePicture: v.optional(v.string()),

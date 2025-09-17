@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import {
   ArrowLeft,
@@ -26,103 +26,17 @@ import {
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
 import Input from '@/components/ui/Input';
+import { useQuery, useMutation } from 'convex/react';
+import { api } from '@/convex/_generated/api';
+import { Id } from '@/convex/_generated/dataModel';
 
-interface ReservationData {
-  id: string;
-  reservationCode: string;
-  customerName: string;
-  customerEmail: string;
-  customerPhone: string;
-  guestInfo?: {
-    name: string;
-    email: string;
-    phone: string;
-    completeAddress?: string;
-    pickupSchedule?: {
-      date: string;
-      time: string;
-    };
-    notes?: string;
-  };
-  items: Array<{
-    id: string;
-    name: string;
-    image: string;
-    quantity: number;
-    price: number;
-    category: string;
-  }>;
-  totalAmount: number;
-  totalQuantity: number;
-  status: 'pending' | 'confirmed' | 'completed' | 'expired' | 'cancelled';
-  reservationDate: string;
-  expiryDate: string;
-  notes?: string;
-  createdAt: string;
-  updatedAt: string;
-  history: Array<{
-    action: string;
-    timestamp: string;
-    note?: string;
-  }>;
-}
-
-// Mock reservation data
-const mockReservationData: ReservationData = {
-  id: 'res_001',
-  reservationCode: 'RES-001234',
-  customerName: 'Maria Santos',
-  customerEmail: 'maria.santos@email.com',
-  customerPhone: '+63 917 123 4567',
-  guestInfo: {
-    name: 'Maria Santos',
-    email: 'maria.santos@email.com',
-    phone: '+63 917 123 4567',
-    completeAddress: '123 Aquarium Street, Makati City, Metro Manila',
-    pickupSchedule: {
-      date: '2024-01-25',
-      time: '14:30'
-    },
-    notes: 'Please prepare the fish in a secure transport bag. I will bring my own tank.'
-  },
-  items: [
-    {
-      id: '1',
-      name: 'Premium Betta Splendens',
-      image: 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=200&h=200&fit=crop',
-      quantity: 2,
-      price: 1250.00,
-      category: 'Fish'
-    },
-    {
-      id: '2',
-      name: 'Aquarium Heater 25W',
-      image: 'https://images.unsplash.com/photo-1520637736862-4d197d17c55a?w=200&h=200&fit=crop',
-      quantity: 1,
-      price: 850.00,
-      category: 'Equipment'
-    }
-  ],
-  totalAmount: 3350.00,
-  totalQuantity: 3,
-  status: 'confirmed',
-  reservationDate: '2024-01-20T10:30:00Z',
-  expiryDate: '2024-01-27T23:59:59Z',
-  notes: 'Customer specifically requested healthy, active fish with vibrant colors.',
-  createdAt: '2024-01-20T10:30:00Z',
-  updatedAt: '2024-01-20T14:15:00Z',
-  history: [
-    {
-      action: 'Reservation created',
-      timestamp: '2024-01-20T10:30:00Z'
-    },
-    {
-      action: 'Status changed to confirmed',
-      timestamp: '2024-01-20T14:15:00Z',
-      note: 'Items available and reserved for customer'
-    }
-  ]
-};
+// Status options for the modal
+const statusOptions = [
+  { value: 'pending', label: 'Pending', color: 'yellow' },
+  { value: 'confirmed', label: 'Confirmed', color: 'blue' },
+  { value: 'completed', label: 'Completed', color: 'green' },
+  { value: 'cancelled', label: 'Cancelled', color: 'red' }
+];
 
 const statusColors = {
   pending: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
@@ -132,36 +46,23 @@ const statusColors = {
   cancelled: 'bg-gray-500/20 text-gray-400 border-gray-500/30'
 };
 
-const statusOptions = [
-  { value: 'pending', label: 'Pending', color: 'yellow' },
-  { value: 'confirmed', label: 'Confirmed', color: 'blue' },
-  { value: 'completed', label: 'Completed', color: 'green' },
-  { value: 'cancelled', label: 'Cancelled', color: 'red' }
-];
-
 export default function ReservationDetailPage() {
   const router = useRouter();
   const params = useParams();
   const reservationId = params.id as string;
 
-  const [reservation, setReservation] = useState<ReservationData | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [newStatus, setNewStatus] = useState('');
   const [statusNote, setStatusNote] = useState('');
 
-  useEffect(() => {
-    // Simulate API call to fetch reservation data
-    const fetchReservation = async () => {
-      setIsLoading(true);
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      setReservation(mockReservationData);
-      setIsLoading(false);
-    };
+  // Fetch reservation data using Convex
+  const reservation = useQuery(api.services.reservations.getReservationByIdAdmin, {
+    reservationId: reservationId as Id<'reservations'>
+  });
 
-    fetchReservation();
-  }, [reservationId]);
+  // Mutation for updating reservation status
+  const updateReservationStatus = useMutation(api.services.reservations.updateReservationStatus);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-PH', {
@@ -170,8 +71,8 @@ export default function ReservationDetailPage() {
     }).format(amount);
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-PH', {
+  const formatDate = (dateInput: string | number) => {
+    return new Date(dateInput).toLocaleDateString('en-PH', {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
@@ -180,8 +81,8 @@ export default function ReservationDetailPage() {
     });
   };
 
-  const formatDateOnly = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-PH', {
+  const formatDateOnly = (dateInput: string | number) => {
+    return new Date(dateInput).toLocaleDateString('en-PH', {
       year: 'numeric',
       month: 'long',
       day: 'numeric'
@@ -194,25 +95,12 @@ export default function ReservationDetailPage() {
     setIsUpdating(true);
 
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      await updateReservationStatus({
+        reservationId: reservation._id as Id<'reservations'>,
+        status: newStatus as 'pending' | 'confirmed' | 'completed' | 'expired' | 'cancelled',
+        adminNotes: statusNote || undefined
+      });
 
-      // Update reservation status
-      const updatedReservation = {
-        ...reservation,
-        status: newStatus as ReservationData['status'],
-        updatedAt: new Date().toISOString(),
-        history: [
-          ...reservation.history,
-          {
-            action: `Status changed to ${newStatus}`,
-            timestamp: new Date().toISOString(),
-            note: statusNote || undefined
-          }
-        ]
-      };
-
-      setReservation(updatedReservation);
       setShowStatusModal(false);
       setNewStatus('');
       setStatusNote('');
@@ -233,8 +121,13 @@ export default function ReservationDetailPage() {
 
   const handleSendEmail = () => {
     if (!reservation) return;
+    const customerEmail = reservation.guestInfo?.email || reservation.user?.email;
+    if (!customerEmail) {
+      alert('No email address available for this customer');
+      return;
+    }
     // Implementation for sending email to customer
-    alert(`Sending confirmation email to ${reservation.customerEmail}`);
+    alert(`Sending confirmation email to ${customerEmail}`);
   };
 
   const getTimeUntilExpiry = () => {
@@ -252,7 +145,7 @@ export default function ReservationDetailPage() {
     return `${hours} hour${hours > 1 ? 's' : ''} remaining`;
   };
 
-  if (isLoading) {
+  if (reservation === undefined) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
@@ -292,7 +185,7 @@ export default function ReservationDetailPage() {
                 <ArrowLeft className="w-5 h-5 text-white" />
               </button>
               <div>
-                <h1 className="text-2xl font-bold text-white">{reservation.reservationCode}</h1>
+                <h1 className="text-2xl font-bold text-white">{reservation.reservationCode || `RES-${reservation._id.slice(-6).toUpperCase()}`}</h1>
                 <p className="text-sm text-muted">Reservation Details</p>
               </div>
             </div>
@@ -343,7 +236,7 @@ export default function ReservationDetailPage() {
                 </div>
               </div>
               <div className="text-right">
-                <p className="text-2xl font-bold text-white">{formatCurrency(reservation.totalAmount)}</p>
+                <p className="text-2xl font-bold text-white">{formatCurrency(reservation.totalAmount || 0)}</p>
                 <p className="text-sm text-muted">{reservation.totalQuantity} items</p>
               </div>
             </div>
@@ -384,15 +277,21 @@ export default function ReservationDetailPage() {
             <div className="space-y-3">
               <div className="flex items-center space-x-3">
                 <User className="w-4 h-4 text-muted" />
-                <span className="text-white font-medium">{reservation.customerName}</span>
+                  <span className="text-white font-medium">
+                    {reservation.guestInfo?.name || (reservation.user ? `${reservation.user.firstName} ${reservation.user.lastName}` : 'Unknown Customer')}
+                  </span>
               </div>
               <div className="flex items-center space-x-3">
                 <Mail className="w-4 h-4 text-muted" />
-                <span className="text-white">{reservation.customerEmail}</span>
+                <span className="text-white">
+                  {reservation.guestInfo?.email || reservation.user?.email || 'No email provided'}
+                </span>
               </div>
               <div className="flex items-center space-x-3">
                 <Phone className="w-4 h-4 text-muted" />
-                <span className="text-white">{reservation.customerPhone}</span>
+                <span className="text-white">
+                  {reservation.guestInfo?.phone || reservation.user?.phone || 'No phone provided'}
+                </span>
               </div>
               {reservation.guestInfo?.completeAddress && (
                 <div className="flex items-start space-x-3">
@@ -455,24 +354,24 @@ export default function ReservationDetailPage() {
 
           <div className="divide-y divide-white/10">
             {reservation.items.map((item, index) => (
-              <div key={item.id} className="py-4 first:pt-0 last:pb-0">
+              <div key={item.productId} className="py-4 first:pt-0 last:pb-0">
                 <div className="flex items-center space-x-4">
                   <img
-                    src={item.image}
-                    alt={item.name}
+                    src={item.product?.image || '/placeholder-product.png'}
+                    alt={item.product?.name || 'Product'}
                     className="w-16 h-16 object-cover rounded-lg border border-white/10"
                   />
                   <div className="flex-1">
-                    <h4 className="font-medium text-white">{item.name}</h4>
-                    <p className="text-sm text-muted">{item.category}</p>
+                    <h4 className="font-medium text-white">{item.product?.name || 'Unknown Product'}</h4>
+                    <p className="text-sm text-muted">{item.product?.category || 'Unknown Category'}</p>
                     <div className="flex items-center mt-1">
                       <span className="text-sm text-muted">Qty: {item.quantity}</span>
                       <span className="mx-2 text-muted">•</span>
-                      <span className="text-sm font-medium text-primary">{formatCurrency(item.price)} each</span>
+                      <span className="text-sm font-medium text-primary">{formatCurrency(item.reservedPrice || item.product?.price || 0)} each</span>
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="font-bold text-white">{formatCurrency(item.price * item.quantity)}</p>
+                    <p className="font-bold text-white">{formatCurrency((item.reservedPrice || item.product?.price || 0) * item.quantity)}</p>
                   </div>
                 </div>
               </div>
@@ -481,7 +380,7 @@ export default function ReservationDetailPage() {
             <div className="pt-4 border-t border-white/10">
               <div className="flex items-center justify-between">
                 <span className="text-lg font-bold text-white">Total Amount</span>
-                <span className="text-xl font-bold text-primary">{formatCurrency(reservation.totalAmount)}</span>
+                <span className="text-xl font-bold text-primary">{formatCurrency(reservation.totalAmount || 0)}</span>
               </div>
             </div>
           </div>
@@ -506,31 +405,35 @@ export default function ReservationDetailPage() {
           </Card>
         )}
 
-        {/* History */}
+        {/* Basic Info */}
         <Card className="p-6 mb-20">
           <div className="flex items-center space-x-3 mb-6">
             <div className="p-3 bg-info/20 rounded-xl">
               <FileText className="w-6 h-6 text-info" />
             </div>
             <div>
-              <h3 className="text-lg font-bold text-white">Reservation History</h3>
-              <p className="text-sm text-muted">Timeline of reservation events</p>
+              <h3 className="text-lg font-bold text-white">Reservation Info</h3>
+              <p className="text-sm text-muted">Basic reservation information</p>
             </div>
           </div>
 
-          <div className="space-y-4">
-            {reservation.history.map((event, index) => (
-              <div key={index} className="flex items-start space-x-4">
-                <div className="w-2 h-2 bg-primary rounded-full mt-2"></div>
-                <div className="flex-1">
-                  <p className="font-medium text-white">{event.action}</p>
-                  <p className="text-sm text-muted">{formatDate(event.timestamp)}</p>
-                  {event.note && (
-                    <p className="text-sm text-muted mt-1 italic">{event.note}</p>
-                  )}
-                </div>
-              </div>
-            ))}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <span className="text-muted text-sm">Created:</span>
+              <p className="text-white font-medium">{formatDate(reservation.createdAt)}</p>
+            </div>
+            <div>
+              <span className="text-muted text-sm">Last Updated:</span>
+              <p className="text-white font-medium">{formatDate(reservation.updatedAt)}</p>
+            </div>
+            <div>
+              <span className="text-muted text-sm">Reservation Date:</span>
+              <p className="text-white font-medium">{formatDate(reservation.reservationDate)}</p>
+            </div>
+            <div>
+              <span className="text-muted text-sm">Expiry Date:</span>
+              <p className="text-white font-medium">{formatDate(reservation.expiryDate)}</p>
+            </div>
           </div>
         </Card>
       </div>

@@ -8,7 +8,7 @@ export default defineSchema({
     lastName: v.string(),
     phone: v.optional(v.string()),
     passwordHash: v.optional(v.string()), // Optional for Facebook users
-    role: v.union(v.literal("client"), v.literal("admin")),
+    role: v.union(v.literal("client"), v.literal("admin"), v.literal("super_admin")),
     isActive: v.optional(v.boolean()),
     // Facebook integration fields
     facebookId: v.optional(v.string()),

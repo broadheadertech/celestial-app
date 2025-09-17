@@ -566,6 +566,79 @@ export const updateReservationStatus = mutation({
   },
 });
 
+// Get single reservation by ID for admin
+export const getReservationByIdAdmin = query({
+  args: {
+    reservationId: v.id("reservations"),
+  },
+  handler: async (ctx, { reservationId }) => {
+    const reservation = await ctx.db.get(reservationId);
+
+    if (!reservation) {
+      return null;
+    }
+
+    // Get product and user details
+    let itemsWithProducts = [];
+
+    // Handle new multi-item format
+    if (reservation.items && reservation.items.length > 0) {
+      itemsWithProducts = await Promise.all(
+        reservation.items.map(async (item) => {
+          const product = await ctx.db.get(item.productId);
+          return {
+            ...item,
+            product,
+          };
+        })
+      );
+    }
+    // Handle legacy single-item format
+    else if (reservation.productId) {
+      const product = await ctx.db.get(reservation.productId);
+      itemsWithProducts = [{
+        productId: reservation.productId,
+        quantity: reservation.quantity || 1,
+        reservedPrice: product?.price || 0,
+        product,
+      }];
+    }
+
+    let user = null;
+    if (reservation.userId) {
+      try {
+        // Try to get user by ID first (works for Convex IDs)
+        user = await ctx.db.get(reservation.userId);
+      } catch (error) {
+        // If that fails, it might be a Facebook ID, try to find by facebookId
+        try {
+          user = await ctx.db
+            .query("users")
+            .withIndex("by_facebook_id", (q) => q.eq("facebookId", reservation.userId as string))
+            .first();
+        } catch (e) {
+          console.warn("Could not find user:", reservation.userId);
+        }
+      }
+    }
+
+    return {
+      ...reservation,
+      items: itemsWithProducts,
+      // Keep backward compatibility - use first product for main display
+      product: itemsWithProducts[0]?.product || null,
+      quantity: reservation.totalQuantity || reservation.quantity || itemsWithProducts.reduce((sum, item) => sum + item.quantity, 0),
+      user: user ? {
+        id: user._id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        phone: user.phone,
+      } : null,
+    };
+  },
+});
+
 // Get all reservations for admin - UPDATED FOR MULTI-ITEM
 export const getAllReservationsAdmin = query({
   args: {
@@ -609,7 +682,20 @@ export const getAllReservationsAdmin = query({
 
         let user = null;
         if (reservation.userId) {
-          user = await ctx.db.get(reservation.userId);
+          try {
+            // Try to get user by ID first (works for Convex IDs)
+            user = await ctx.db.get(reservation.userId);
+          } catch (error) {
+            // If that fails, it might be a Facebook ID, try to find by facebookId
+            try {
+              user = await ctx.db
+                .query("users")
+                .withIndex("by_facebook_id", (q) => q.eq("facebookId", reservation.userId as string))
+                .first();
+            } catch (e) {
+              console.warn("Could not find user:", reservation.userId);
+            }
+          }
         }
 
         return {

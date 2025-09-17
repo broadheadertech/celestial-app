@@ -7,7 +7,7 @@ export interface User {
   firstName: string;
   lastName: string;
   phone?: string;
-  role: "client" | "admin";
+  role: "client" | "admin" | "super_admin";
   isActive?: boolean;
   // Facebook integration fields
   facebookId?: string;

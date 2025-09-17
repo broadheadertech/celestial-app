@@ -41,9 +41,14 @@ export default function ReservationsPage() {
     isGuest && guestId ? { guestId: guestId } : "skip"
   ) || [];
 
-  // Redirect admins to admin dashboard
+  // Redirect admins and super_admins to their respective dashboards
   if (isAuthenticated && user?.role === 'admin') {
     router.push('/admin/dashboard');
+    return null;
+  }
+
+  if (isAuthenticated && user?.role === 'super_admin') {
+    router.push('/control_panel');
     return null;
   }
 
