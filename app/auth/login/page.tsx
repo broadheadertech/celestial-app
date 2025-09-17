@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { ArrowLeft, Eye, EyeOff } from 'lucide-react';
-import { useIsAuthenticated, useCurrentUser } from '@/store/auth';
 import { useAuth } from '@/hooks/useAuth';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
@@ -14,8 +13,6 @@ import { isValidEmail } from '@/lib/utils';
 export default function LoginPage() {
   const router = useRouter();
   const { data: session, status } = useSession();
-  const isAuthenticated = useIsAuthenticated();
-  const user = useCurrentUser();
   const { loginWithFacebook, loginWithEmail, isLoading } = useAuth();
 
   const [formData, setFormData] = useState({
@@ -25,31 +22,25 @@ export default function LoginPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isFacebookLoading, setIsFacebookLoading] = useState(false);
 
-  // Simple redirect check - if user is authenticated, redirect immediately
+  // Redirect if already authenticated
   useEffect(() => {
-    if (isAuthenticated && user) {
-      const path = user.role === 'admin' ? '/admin/dashboard' : '/client/dashboard';
-      console.log('Redirecting authenticated user to:', path);
-      window.location.href = path; // Force redirect
-      return;
+    if (status === 'authenticated' && session?.user) {
+      const role = (session.user as any)?.role;
+      const path = role === 'admin' ? '/admin/dashboard' :
+                   role === 'super_admin' ? '/control_panel' :
+                   '/client/dashboard';
+      router.push(path);
     }
+  }, [session, status, router]);
 
-    if (session?.user && status === 'authenticated') {
-      console.log('NextAuth session found, redirecting to client dashboard');
-      window.location.href = '/client/dashboard'; // Force redirect
-      return;
-    }
-  }, [isAuthenticated, user, session, status]);
-
-  // Don't render anything if user should be redirected
-  if ((isAuthenticated && user) || (session?.user && status === 'authenticated')) {
+  // Don't render if authenticated
+  if (status === 'loading' || (status === 'authenticated' && session?.user)) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-white">Redirecting...</p>
+          <p className="text-white">Loading...</p>
         </div>
       </div>
     );
@@ -93,16 +84,12 @@ export default function LoginPage() {
   };
 
   const handleFacebookLogin = async () => {
-    setIsFacebookLoading(true);
     setErrors({});
-
     try {
       await loginWithFacebook();
     } catch (error) {
       console.error('Facebook login error:', error);
       setErrors({ general: 'Facebook login failed. Please try again.' });
-    } finally {
-      setIsFacebookLoading(false);
     }
   };
 
@@ -196,8 +183,8 @@ export default function LoginPage() {
           {/* Facebook Login Button */}
           <Button
             onClick={handleFacebookLogin}
-            loading={isFacebookLoading || isLoading}
-            disabled={isFacebookLoading || isLoading}
+            loading={isLoading}
+            disabled={isLoading}
             className="w-full bg-[#1877F2] hover:bg-[#166FE5] border-[#1877F2] text-white hover:text-white"
             size="lg"
           >
@@ -222,7 +209,16 @@ export default function LoginPage() {
         {/* Quick Access */}
         <div className="space-y-3 mb-8">
           <p className="text-center text-sm text-muted">Quick Access</p>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setFormData({ email: 'superadmin@gmail.com', password: 'Admin123!' });
+              }}
+              className="text-xs"
+            >
+              Super Admin
+            </Button>
             <Button
               variant="outline"
               onClick={() => {
@@ -230,7 +226,7 @@ export default function LoginPage() {
               }}
               className="text-xs"
             >
-              Demo Admin
+              Admin
             </Button>
             <Button
               variant="outline"
@@ -239,7 +235,7 @@ export default function LoginPage() {
               }}
               className="text-xs"
             >
-              Demo Client
+              Client
             </Button>
           </div>
         </div>

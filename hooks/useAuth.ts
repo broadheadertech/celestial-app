@@ -1,134 +1,70 @@
 "use client";
 
-import { useSession, signIn, signOut, getSession } from 'next-auth/react';
+import { useSession, signIn, signOut } from 'next-auth/react';
 import { useAuthStore } from '@/store/auth';
 import { useRouter } from 'next/navigation';
 import { useEffect, useCallback } from 'react';
 import { ConvexHttpClient } from 'convex/browser';
 import { api } from '@/convex/_generated/api';
 import type { RegisterData, User } from '@/types';
-import type { Session } from 'next-auth';
 
-const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
-
-if (!convexUrl) {
-  throw new Error('NEXT_PUBLIC_CONVEX_URL is not set');
-}
-
-const convexClient = new ConvexHttpClient(convexUrl);
-
-type Role = User['role'];
-
-interface SessionUserFields {
-  id?: string;
-  email?: string | null;
-  name?: string | null;
-  image?: string | null;
-  firstName?: string;
-  lastName?: string;
-  role?: Role;
-  isActive?: boolean;
-  facebookId?: string;
-  profilePicture?: string;
-  loginMethod?: 'email' | 'facebook';
-  createdAt?: number;
-  updatedAt?: number;
-}
-
-type ExtendedSession = Session & {
-  user?: SessionUserFields;
-  userId?: string;
-  facebookId?: string;
-  role?: Role;
-  loginMethod?: 'email' | 'facebook';
-  isActive?: boolean;
-  createdAt?: number;
-  updatedAt?: number;
-};
+const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
 export function useAuth() {
   const { data: session, status } = useSession();
-  const login = useAuthStore((state) => state.login);
-  const initializeGuestSession = useAuthStore((state) => state.initializeGuestSession);
-  const setLoading = useAuthStore((state) => state.setLoading);
-  const logout = useAuthStore((state) => state.logout);
-  const user = useAuthStore((state) => state.user);
-  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-  const isLoading = useAuthStore((state) => state.isLoading);
+  const {
+    login,
+    logout,
+    setLoading,
+    initializeGuestSession,
+    user,
+    isAuthenticated,
+    isLoading
+  } = useAuthStore();
   const router = useRouter();
 
-  // Sync NextAuth session with auth store
+  // Sync NextAuth session with Zustand store
   useEffect(() => {
     if (status === 'loading') return;
 
-    const extendedSession = session as ExtendedSession | null;
+    if (session?.user) {
+      const sessionUser = session.user as any;
 
-    if (extendedSession?.user && extendedSession.userId) {
-      // Check if user is already logged in to prevent infinite loop
-      if (!user || user._id !== extendedSession.userId) {
-        const sessionUser = extendedSession.user;
-        const sessionUserId = extendedSession.userId || sessionUser.id;
+      // Create user object for Zustand store
+      const storeUser: User = {
+        _id: sessionUser.id,
+        email: sessionUser.email!,
+        firstName: sessionUser.firstName || sessionUser.name?.split(' ')[0] || 'User',
+        lastName: sessionUser.lastName || sessionUser.name?.split(' ').slice(1).join(' ') || '',
+        role: sessionUser.role || 'client',
+        isActive: true,
+        loginMethod: 'facebook',
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      };
 
-        if (!sessionUserId) {
-          console.warn('Session user missing identifier, skipping sync');
-          return;
-        }
-
-        const syncedUser: User = {
-          _id: sessionUserId,
-          email:
-            sessionUser.email ||
-            `facebook_${extendedSession.facebookId ?? sessionUser.id ?? 'user'}@facebook.local`,
-          firstName:
-            sessionUser.firstName ||
-            (sessionUser.name ? sessionUser.name.split(' ')[0] : undefined) ||
-            'Facebook',
-          lastName:
-            sessionUser.lastName ||
-            (sessionUser.name ? sessionUser.name.split(' ').slice(1).join(' ') : undefined) ||
-            'User',
-          role: sessionUser.role || 'client',
-          isActive: sessionUser.isActive ?? true,
-          facebookId: extendedSession.facebookId || sessionUser.facebookId || undefined,
-          profilePicture: sessionUser.profilePicture || sessionUser.image || undefined,
-          loginMethod: sessionUser.loginMethod || 'facebook',
-          createdAt: sessionUser.createdAt ?? Date.now(),
-          updatedAt: sessionUser.updatedAt ?? Date.now(),
-        };
-
-        login(syncedUser);
+      if (!user || user._id !== sessionUser.id) {
+        login(storeUser);
       }
-    } else if (!session && !user) {
-      // No NextAuth session and no user - initialize guest session if not already done
-      if (!isAuthenticated) {
-        console.log('No session, initializing guest session');
-        initializeGuestSession();
+    } else if (status === 'unauthenticated') {
+      if (user) {
+        logout();
       }
+      initializeGuestSession();
     }
-  }, [session, status, login, initializeGuestSession, user, isAuthenticated]);
+  }, [session, status, user, login, logout, initializeGuestSession]);
 
   const loginWithFacebook = useCallback(async () => {
     try {
       setLoading(true);
-      console.log('Starting Facebook login...');
-
-      // Simple Facebook login with automatic redirect
       const result = await signIn('facebook', {
-        callbackUrl: '/client/dashboard'
+        callbackUrl: '/client/dashboard',
       });
-
-      if (result?.error) {
-        console.error('Facebook login failed:', result.error);
-        throw new Error('Facebook login failed');
-      }
-
       return result;
     } catch (error) {
-      console.error('Facebook login error:', error);
       setLoading(false);
       throw error;
     }
-    // Don't set loading to false here as redirect should happen
   }, [setLoading]);
 
   const loginWithEmail = useCallback(async (email: string, password: string) => {
@@ -142,32 +78,30 @@ export function useAuth() {
       });
 
       if (result?.error) {
-        throw new Error(result.error);
+        throw new Error('Invalid email or password');
       }
 
-      const sessionResult = (await getSession()) as ExtendedSession | null;
+      // Wait for session to update
+      setTimeout(() => {
+        const role = (session?.user as any)?.role;
+        const redirectPath = role === 'admin' ? '/admin/dashboard' :
+                           role === 'super_admin' ? '/control_panel' :
+                           '/client/dashboard';
+        router.push(redirectPath);
+      }, 100);
 
-      if (!sessionResult?.role || !sessionResult.user) {
-        throw new Error('Unable to determine user session');
-      }
-
-      const redirectPath = sessionResult.role === 'admin' ? '/admin/dashboard' : '/client/dashboard';
-      router.push(redirectPath);
-
-      return sessionResult;
+      return result;
     } catch (error) {
-      console.error('Email login error:', error);
-      throw error instanceof Error ? error : new Error('Login failed');
-    } finally {
       setLoading(false);
+      throw error;
     }
-  }, [setLoading, router]);
+  }, [setLoading, router, session]);
 
   const registerWithEmail = useCallback(async (data: RegisterData & { password: string }) => {
     try {
       setLoading(true);
 
-      const result = await convexClient.mutation(api.services.auth.register, {
+      const result = await convex.mutation(api.services.auth.register, {
         email: data.email.toLowerCase(),
         password: data.password,
         firstName: data.firstName.trim(),
@@ -176,28 +110,22 @@ export function useAuth() {
         role: 'client',
       });
 
-      if (!result?.success || !result.user) {
+      if (!result?.success) {
         throw new Error(result?.message || 'Registration failed');
       }
 
-      const signInResult = await signIn('credentials', {
+      // Auto-login after registration
+      await signIn('credentials', {
         redirect: false,
         email: data.email,
         password: data.password,
       });
 
-      if (signInResult?.error) {
-        throw new Error(signInResult.error);
-      }
-
       router.push('/client/dashboard');
-
       return result.user as User;
     } catch (error) {
-      console.error('Registration error:', error);
-      throw error instanceof Error ? error : new Error('Registration failed');
-    } finally {
       setLoading(false);
+      throw error;
     }
   }, [setLoading, router]);
 
@@ -231,7 +159,7 @@ export function useAuth() {
     registerWithEmail,
     logout: handleLogout,
 
-    // Auth store methods
+    // Store methods
     setLoading,
     initializeGuestSession,
   };

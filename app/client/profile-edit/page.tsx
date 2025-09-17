@@ -31,9 +31,14 @@ export default function ProfileEditPage() {
     return null;
   }
 
-  // Redirect admins to admin dashboard
+  // Redirect admins and super_admins to their respective dashboards
   if (user?.role === 'admin') {
     router.push('/admin/dashboard');
+    return null;
+  }
+
+  if (user?.role === 'super_admin') {
+    router.push('/control_panel');
     return null;
   }
 
