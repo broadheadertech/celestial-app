@@ -6,12 +6,9 @@ import {
   ArrowLeft,
   Search,
   Filter,
-  MoreVertical,
   Eye,
-  Edit,
   Package,
   ShoppingBag,
-  Users,
   BarChart3,
   Clock,
   CheckCircle,
@@ -19,107 +16,66 @@ import {
   Truck,
   Calendar,
   User,
-  MapPin,
-  Bell
+  Bell,
+  ChevronDown,
+  Settings,
+  Download,
+  RefreshCw,
+  Mail,
+  Phone,
+  AlertCircle
 } from 'lucide-react';
-import { formatCurrency, formatDateTime, getRelativeTime, getOrderStatusColor } from '@/lib/utils';
+import { formatCurrency, formatDateTime } from '@/lib/utils';
 import Button from '@/components/ui/Button';
-import Card from '@/components/ui/Card';
-import { Order, Reservation } from '@/types';
+import { useQuery, useMutation } from 'convex/react';
+import { api } from '@/convex/_generated/api';
+import { Id } from '@/convex/_generated/dataModel';
 
-// Mock orders data
-const mockOrders: Order[] = [
-  {
-    _id: '1',
-    userId: 'user1',
-    status: 'pending',
-    items: [
-      { productId: '1', quantity: 2, price: 250 },
-      { productId: '2', quantity: 1, price: 480 },
-    ],
-    totalAmount: 980,
-    shippingAddress: {
-      street: '123 Main St',
-      city: 'Manila',
-      state: 'Metro Manila',
-      zipCode: '1000',
-      country: 'Philippines',
-    },
-    paymentMethod: 'Cash on Delivery',
-    notes: 'Please call before delivery',
-    createdAt: Date.now() - 3600000, // 1 hour ago
-    updatedAt: Date.now() - 1800000, // 30 minutes ago
-  },
-  {
-    _id: '2',
-    userId: 'user2',
-    status: 'confirmed',
-    items: [
-      { productId: '3', quantity: 1, price: 1200 },
-    ],
-    totalAmount: 1200,
-    shippingAddress: {
-      street: '456 Oak Ave',
-      city: 'Quezon City',
-      state: 'Metro Manila',
-      zipCode: '1100',
-      country: 'Philippines',
-    },
-    paymentMethod: 'GCash',
-    createdAt: Date.now() - 7200000, // 2 hours ago
-    updatedAt: Date.now() - 3600000, // 1 hour ago
-  },
-];
-
-// Mock reservations data (treating as orders for admin view)
-const mockReservations: Reservation[] = [
-  {
-    _id: '3',
-    reservationCode: 'RES-ABC123',
-    userId: 'user1',
-    items: [
-      { productId: '1', quantity: 2, reservedPrice: 250 },
-    ],
-    totalAmount: 500,
-    totalQuantity: 2,
-    reservationDate: Date.now() - 86400000, // 1 day ago
-    expiryDate: Date.now() + 86400000, // 1 day from now
-    status: 'confirmed',
-    notes: 'Customer will pick up tomorrow',
-    createdAt: Date.now() - 86400000,
-    updatedAt: Date.now() - 3600000,
-  },
-  {
-    _id: '4',
-    reservationCode: 'RES-DEF456',
-    guestId: 'guest1',
-    guestInfo: {
-      name: 'John Doe',
-      email: 'john@example.com',
-      phone: '+63 912 345 6789',
-      completeAddress: '789 Pine St, Manila',
-      pickupSchedule: {
-        date: '2024-01-25',
-        time: '14:00',
-      },
-    },
-    items: [
-      { productId: '2', quantity: 1, reservedPrice: 480 },
-    ],
-    totalAmount: 480,
-    totalQuantity: 1,
-    reservationDate: Date.now() - 172800000, // 2 days ago
-    expiryDate: Date.now() - 86400000, // expired
-    status: 'expired',
-    createdAt: Date.now() - 172800000,
-    updatedAt: Date.now() - 172800000,
-  },
-];
-
-// Mock customer data
-const mockCustomers: Record<string, { name: string; email: string; phone?: string }> = {
-  'user1': { name: 'John Doe', email: 'john@example.com', phone: '+63 912 345 6789' },
-  'user2': { name: 'Jane Smith', email: 'jane@example.com', phone: '+63 917 234 5678' },
+type CombinedItem = {
+  _id: string;
+  type: 'order' | 'reservation';
+  code: string;
+  status: string;
+  totalAmount?: number;
+  createdAt: number;
+  updatedAt: number;
+  customer?: {
+    name: string;
+    email: string;
+    phone?: string;
+  };
+  itemCount: number;
+  userId?: string;
+  guestId?: string;
+  guestInfo?: {
+    name: string;
+    email: string;
+    phone: string;
+    completeAddress?: string;
+    pickupSchedule?: {
+      date: string;
+      time: string;
+    };
+  };
+  items?: Array<{
+    productId: string;
+    quantity: number;
+    reservedPrice?: number;
+    price?: number;
+    product?: any; // Using any to avoid complex typing for now
+  }>;
+  totalQuantity?: number;
+  reservationCode?: string;
+  expiryDate?: number;
+  notes?: string;
+  shippingAddress?: {
+    street: string;
+    city: string;
+    state: string;
+    zipCode: string;
+    country: string;
+  };
+  paymentMethod?: string;
 };
 
 export default function AdminOrdersPage() {
@@ -127,30 +83,60 @@ export default function AdminOrdersPage() {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
-  const [selectedType, setSelectedType] = useState<string>('all'); // all, orders, reservations
+  const [selectedType, setSelectedType] = useState<string>('all');
   const [showFilters, setShowFilters] = useState(false);
   const [selectedItem, setSelectedItem] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Fetch real data from Convex
+  const ordersQuery = useQuery(api.services.orders.getAllOrdersAdmin, {});
+  const reservationsQuery = useQuery(api.services.reservations.getAllReservationsAdmin, {});
+
+  // Mutations for updating status
+  const updateOrderStatus = useMutation(api.services.orders.updateOrderStatus);
+  const updateReservationStatus = useMutation(api.services.reservations.updateReservationStatus);
 
   // Combine and transform data for unified display
-  const allItems = useMemo(() => {
-    const orders = mockOrders.map(order => ({
+  const allItems = useMemo((): CombinedItem[] => {
+    if (!ordersQuery || !reservationsQuery) return [];
+
+    // Transform orders data (getAllOrdersAdmin already includes user data)
+    const orders: CombinedItem[] = ordersQuery.map(order => ({
       ...order,
       type: 'order' as const,
-      code: `ORD-${order._id.padStart(6, '0').toUpperCase()}`,
-      customer: mockCustomers[order.userId],
+      code: `ORD-${order._id.slice(-6).toUpperCase()}`,
+      customer: order.user ? {
+        name: `${order.user.firstName || ''} ${order.user.lastName || ''}`.trim(),
+        email: order.user.email || '',
+        phone: order.user.phone
+      } : undefined,
+      itemCount: order.items?.length || 0,
     }));
 
-    const reservations = mockReservations.map(reservation => ({
+    // Transform reservations data (getAllReservationsAdmin already includes user data)
+    const reservations: CombinedItem[] = reservationsQuery.map(reservation => ({
       ...reservation,
       type: 'reservation' as const,
-      code: reservation.reservationCode || `RES-${reservation._id}`,
-      customer: reservation.guestInfo
-        ? { name: reservation.guestInfo.name, email: reservation.guestInfo.email, phone: reservation.guestInfo.phone }
-        : mockCustomers[reservation.userId!],
+      code: reservation.reservationCode || `RES-${reservation._id.slice(-6).toUpperCase()}`,
+      customer: reservation.guestInfo ? {
+        name: reservation.guestInfo.name,
+        email: reservation.guestInfo.email,
+        phone: reservation.guestInfo.phone
+      } : reservation.user ? {
+        name: `${reservation.user.firstName || ''} ${reservation.user.lastName || ''}`.trim(),
+        email: reservation.user.email || '',
+        phone: reservation.user.phone
+      } : undefined,
+      itemCount: reservation.items?.length || reservation.totalQuantity || 0,
+      items: reservation.items,
+      totalQuantity: reservation.totalQuantity,
+      reservationCode: reservation.reservationCode,
+      expiryDate: reservation.expiryDate,
+      notes: reservation.notes,
     }));
 
     return [...orders, ...reservations];
-  }, []);
+  }, [ordersQuery, reservationsQuery]);
 
   // Calculate stats
   const orderStats = useMemo(() => {
@@ -204,10 +190,33 @@ export default function AdminOrdersPage() {
     return filtered.sort((a, b) => b.updatedAt - a.updatedAt);
   }, [searchQuery, selectedType, selectedStatus, allItems]);
 
-  const handleUpdateStatus = (itemId: string, newStatus: string) => {
-    // TODO: Implement API call to update status
-    console.log('Update status for item:', itemId, 'to', newStatus);
-    setSelectedItem(null);
+  const handleUpdateStatus = async (itemId: string, newStatus: string) => {
+    try {
+      const item = allItems.find(i => i._id === itemId);
+      if (!item) return;
+
+      if (item.type === 'order') {
+        await updateOrderStatus({
+          orderId: itemId as Id<'orders'>,
+          status: newStatus as 'pending' | 'confirmed' | 'processing' | 'shipped' | 'delivered' | 'cancelled'
+        });
+      } else {
+        await updateReservationStatus({
+          reservationId: itemId as Id<'reservations'>,
+          status: newStatus as 'pending' | 'confirmed' | 'completed' | 'expired' | 'cancelled'
+        });
+      }
+
+      setSelectedItem(null);
+    } catch (error) {
+      console.error('Failed to update status:', error);
+    }
+  };
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    // The queries will automatically refetch
+    setTimeout(() => setIsRefreshing(false), 1000);
   };
 
   const getStatusIcon = (status: string) => {
@@ -241,87 +250,143 @@ export default function AdminOrdersPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-white/10">
-        <div className="px-6 py-4">
-          <div className="flex items-center space-x-4 mb-4">
-            <button
-              onClick={() => router.back()}
-              className="p-2 rounded-full bg-secondary border border-white/10 hover:bg-white/10 transition-colors"
-            >
-              <ArrowLeft className="w-5 h-5 text-white" />
-            </button>
-            <div className="flex-1">
-              <h1 className="text-xl font-semibold text-white">Orders & Reservations</h1>
-              <p className="text-sm text-muted">{filteredItems.length} items</p>
+      {/* Modern Header */}
+      <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-md border-b border-white/10">
+        <div className="px-4 sm:px-6 py-4">
+          {/* Top Row */}
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => router.back()}
+                className="p-2.5 rounded-xl bg-secondary/60 border border-white/10 hover:bg-secondary/80 transition-all"
+              >
+                <ArrowLeft className="w-5 h-5 text-white" />
+              </button>
+              <div>
+                <h1 className="text-xl font-bold text-white">Management Center</h1>
+                <p className="text-sm text-white/60">Orders & Reservations</p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleRefresh}
+                disabled={isRefreshing}
+                className="border border-white/10 hover:border-primary/30"
+              >
+                <RefreshCw className={`w-4 h-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+                Refresh
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="border border-white/10 hover:border-primary/30"
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Export
+              </Button>
             </div>
           </div>
 
-          {/* Search and Filter */}
-          <div className="flex space-x-3">
+          {/* Search and Filter Row */}
+          <div className="flex gap-3">
             <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted" />
+              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-white/40" />
               <input
                 type="text"
-                placeholder="Search orders..."
+                placeholder="Search by order ID, customer name, or email..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 bg-secondary border border-white/10 rounded-xl text-white placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full pl-12 pr-4 py-3 bg-secondary/60 border border-white/10 rounded-xl text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/30 transition-all"
               />
             </div>
             <button
               onClick={() => setShowFilters(!showFilters)}
-              className="p-2 rounded-xl bg-secondary border border-white/10 hover:bg-white/10 transition-colors"
+              className={`px-4 py-3 rounded-xl border transition-all flex items-center gap-2 ${
+                showFilters
+                  ? 'bg-primary border-primary text-white'
+                  : 'bg-secondary/60 border-white/10 text-white hover:bg-secondary/80'
+              }`}
             >
-              <Filter className="w-5 h-5 text-white" />
+              <Filter className="w-4 h-4" />
+              <span className="hidden sm:inline">Filters</span>
             </button>
           </div>
         </div>
       </div>
 
-      {/* Stats Bar */}
-      <div className="px-6 py-4 border-b border-white/10">
-        <div className="grid grid-cols-4 gap-3">
-          <Card padding="sm" className="text-center">
-            <p className="text-lg font-bold text-warning">{orderStats.pending}</p>
-            <p className="text-xs text-muted">Pending</p>
-          </Card>
-          <Card padding="sm" className="text-center">
-            <p className="text-lg font-bold text-success">{orderStats.confirmed}</p>
-            <p className="text-xs text-muted">Confirmed</p>
-          </Card>
-          <Card padding="sm" className="text-center">
-            <p className="text-lg font-bold text-info">{orderStats.completed}</p>
-            <p className="text-xs text-muted">Completed</p>
-          </Card>
-          <Card padding="sm" className="text-center">
-            <p className="text-lg font-bold text-error">{orderStats.expired}</p>
-            <p className="text-xs text-muted">Expired</p>
-          </Card>
+      {/* Modern Stats Bar */}
+      <div className="px-4 sm:px-6 py-4 border-b border-white/5">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="bg-gradient-to-br from-yellow-500/10 to-orange-500/10 border border-yellow-500/20 rounded-xl p-4 text-center">
+            <div className="flex items-center justify-center gap-2 mb-1">
+              <Clock className="w-4 h-4 text-yellow-400" />
+              <span className="text-2xl font-bold text-yellow-400">{orderStats.pending}</span>
+            </div>
+            <p className="text-xs text-white/60 font-medium">Pending Review</p>
+          </div>
+          <div className="bg-gradient-to-br from-green-500/10 to-emerald-500/10 border border-green-500/20 rounded-xl p-4 text-center">
+            <div className="flex items-center justify-center gap-2 mb-1">
+              <CheckCircle className="w-4 h-4 text-green-400" />
+              <span className="text-2xl font-bold text-green-400">{orderStats.confirmed}</span>
+            </div>
+            <p className="text-xs text-white/60 font-medium">Confirmed</p>
+          </div>
+          <div className="bg-gradient-to-br from-blue-500/10 to-cyan-500/10 border border-blue-500/20 rounded-xl p-4 text-center">
+            <div className="flex items-center justify-center gap-2 mb-1">
+              <Package className="w-4 h-4 text-blue-400" />
+              <span className="text-2xl font-bold text-blue-400">{orderStats.completed}</span>
+            </div>
+            <p className="text-xs text-white/60 font-medium">Completed</p>
+          </div>
+          <div className="bg-gradient-to-br from-red-500/10 to-pink-500/10 border border-red-500/20 rounded-xl p-4 text-center">
+            <div className="flex items-center justify-center gap-2 mb-1">
+              <XCircle className="w-4 h-4 text-red-400" />
+              <span className="text-2xl font-bold text-red-400">{orderStats.expired}</span>
+            </div>
+            <p className="text-xs text-white/60 font-medium">Issues</p>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between mt-4">
+          <p className="text-sm text-white/60">
+            Showing <span className="text-white font-medium">{filteredItems.length}</span> of{' '}
+            <span className="text-white font-medium">{allItems.length}</span> items
+          </p>
+          <div className="flex items-center gap-2 text-xs text-white/40">
+            <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+            <span>Live updates</span>
+          </div>
         </div>
       </div>
 
-      {/* Filters */}
+      {/* Modern Filters */}
       {showFilters && (
-        <div className="bg-secondary border-b border-white/10 px-6 py-4">
-          <div className="space-y-4">
+        <div className="bg-secondary/40 backdrop-blur-sm border-b border-white/10 px-4 sm:px-6 py-4 animate-in slide-in-from-top duration-200">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
             <div>
-              <label className="block text-sm font-medium text-white mb-2">Type</label>
+              <label className="flex items-center gap-2 text-sm font-medium text-white mb-3">
+                <Package className="w-4 h-4 text-primary" />
+                Type Filter
+              </label>
               <div className="flex flex-wrap gap-2">
                 {[
-                  { value: 'all', label: 'All' },
-                  { value: 'order', label: 'Orders' },
-                  { value: 'reservation', label: 'Reservations' },
+                  { value: 'all', label: 'All Items', icon: Settings },
+                  { value: 'order', label: 'Orders', icon: ShoppingBag },
+                  { value: 'reservation', label: 'Reservations', icon: Calendar },
                 ].map((type) => (
                   <button
                     key={type.value}
                     onClick={() => setSelectedType(type.value)}
-                    className={`px-3 py-1.5 rounded-lg text-sm border transition-colors ${
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm border transition-all font-medium ${
                       selectedType === type.value
-                        ? 'bg-primary border-primary text-white'
-                        : 'border-white/10 text-muted hover:text-white hover:border-white/20'
+                        ? 'bg-gradient-to-r from-primary to-primary/80 border-primary text-white shadow-lg scale-95'
+                        : 'border-white/10 text-white/70 hover:text-white hover:border-primary/30 hover:bg-primary/10'
                     }`}
                   >
+                    <type.icon className="w-4 h-4" />
                     {type.label}
                   </button>
                 ))}
@@ -329,22 +394,26 @@ export default function AdminOrdersPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-white mb-2">Status</label>
+              <label className="flex items-center gap-2 text-sm font-medium text-white mb-3">
+                <AlertCircle className="w-4 h-4 text-primary" />
+                Status Filter
+              </label>
               <div className="flex flex-wrap gap-2">
                 {[
-                  { value: 'all', label: 'All' },
-                  { value: 'pending', label: 'Pending' },
-                  { value: 'confirmed', label: 'Confirmed' },
-                  { value: 'completed', label: 'Completed' },
-                  { value: 'expired', label: 'Expired' },
+                  { value: 'all', label: 'All Status', color: 'text-white/70' },
+                  { value: 'pending', label: 'Pending', color: 'text-yellow-400' },
+                  { value: 'confirmed', label: 'Confirmed', color: 'text-green-400' },
+                  { value: 'processing', label: 'Processing', color: 'text-blue-400' },
+                  { value: 'completed', label: 'Completed', color: 'text-emerald-400' },
+                  { value: 'expired', label: 'Issues', color: 'text-red-400' },
                 ].map((status) => (
                   <button
                     key={status.value}
                     onClick={() => setSelectedStatus(status.value)}
-                    className={`px-3 py-1.5 rounded-lg text-sm border transition-colors ${
+                    className={`px-4 py-2.5 rounded-lg text-sm border transition-all font-medium ${
                       selectedStatus === status.value
-                        ? 'bg-primary border-primary text-white'
-                        : 'border-white/10 text-muted hover:text-white hover:border-white/20'
+                        ? 'bg-gradient-to-r from-primary to-primary/80 border-primary text-white shadow-lg scale-95'
+                        : `border-white/10 ${status.color} hover:text-white hover:border-primary/30 hover:bg-primary/10`
                     }`}
                   >
                     {status.label}
@@ -356,92 +425,150 @@ export default function AdminOrdersPage() {
         </div>
       )}
 
-      {/* Orders List */}
-      <div className="px-6 py-4">
+      {/* Modern Orders List */}
+      <div className="px-4 sm:px-6 py-4">
         {filteredItems.length === 0 ? (
-          <div className="text-center py-12">
-            <ShoppingBag className="w-16 h-16 text-muted mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-white mb-2">No orders found</h3>
-            <p className="text-muted mb-6">Try adjusting your search or filters</p>
+          <div className="text-center py-16">
+            <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-primary/20 to-info/20 rounded-full flex items-center justify-center">
+              <ShoppingBag className="w-10 h-10 text-primary" />
+            </div>
+            <h3 className="text-xl font-semibold text-white mb-2">No items found</h3>
+            <p className="text-white/60 mb-6 max-w-sm mx-auto">
+              No orders or reservations match your current filters. Try adjusting your search criteria.
+            </p>
+            <Button
+              onClick={() => {
+                setSearchQuery('');
+                setSelectedStatus('all');
+                setSelectedType('all');
+              }}
+              variant="outline"
+              className="border-primary/30 text-primary hover:bg-primary/10"
+            >
+              Clear Filters
+            </Button>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-3">
             {filteredItems.map((item) => (
-              <Card key={item._id} className="relative">
-                {/* Header */}
-                <div className="flex items-center justify-between p-4 border-b border-white/10">
-                  <div>
-                    <div className="flex items-center space-x-2 mb-1">
-                      <h3 className="font-semibold text-white">{item.code}</h3>
-                      <span className={`inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-xs border ${getStatusBadge(item.status)}`}>
-                        {getStatusIcon(item.status)}
-                        <span className="capitalize">{item.status}</span>
-                      </span>
-                      <span className={`px-2 py-0.5 rounded-full text-xs ${
-                        item.type === 'order'
-                          ? 'bg-primary/20 text-primary border border-primary/30'
-                          : 'bg-info/20 text-info border border-info/30'
-                      }`}>
-                        {item.type}
-                      </span>
+              <div
+                key={item._id}
+                className="bg-secondary/40 backdrop-blur-sm border border-white/10 rounded-xl hover:border-primary/30 transition-all duration-200 overflow-hidden"
+              >
+                {/* Compact Header */}
+                <div className="flex items-center justify-between p-4">
+                  <div className="flex items-center gap-3">
+                    {/* Type Icon */}
+                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                      item.type === 'order'
+                        ? 'bg-gradient-to-br from-blue-500/20 to-blue-600/20 border border-blue-500/30'
+                        : 'bg-gradient-to-br from-purple-500/20 to-purple-600/20 border border-purple-500/30'
+                    }`}>
+                      {item.type === 'order' ? (
+                        <ShoppingBag className="w-5 h-5 text-blue-400" />
+                      ) : (
+                        <Calendar className="w-5 h-5 text-purple-400" />
+                      )}
                     </div>
-                    <p className="text-sm text-muted">
-                      {formatDateTime(item.createdAt)}
-                    </p>
+
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="font-semibold text-white text-sm">{item.code}</h3>
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs border font-medium ${getStatusBadge(item.status)}`}>
+                          {getStatusIcon(item.status)}
+                          <span className="capitalize">{item.status}</span>
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-white/60">
+                        <span>{formatDateTime(item.createdAt)}</span>
+                        <span>•</span>
+                        <span>
+                          {item.type === 'reservation' && item.items && item.items.length > 0
+                            ? item.items.length === 1
+                              ? `${item.items[0].quantity}x ${item.items[0].product?.name || 'Product'}`
+                              : `${item.items.length} items`
+                            : `${item.itemCount} items`
+                          }
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex items-center space-x-2">
+
+                  <div className="flex items-center gap-3">
                     <div className="text-right">
-                      <p className="font-bold text-white">{formatCurrency(item.totalAmount!)}</p>
-                      <p className="text-sm text-muted">
-                        {item.type === 'order'
-                          ? `${(item as any).items.length} items`
-                          : `${item.totalQuantity} items`
-                        }
-                      </p>
+                      <p className="font-bold text-white">{formatCurrency(item.totalAmount || 0)}</p>
+                      <p className="text-xs text-white/60">Total</p>
                     </div>
+
+                    {/* Modern Action Dropdown */}
                     <div className="relative">
                       <button
                         onClick={() => setSelectedItem(selectedItem === item._id ? null : item._id)}
-                        className="p-1 rounded hover:bg-white/10 transition-colors"
+                        className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 hover:border-primary/30 transition-all flex items-center justify-center"
                       >
-                        <MoreVertical className="w-4 h-4 text-muted" />
+                        <ChevronDown className={`w-4 h-4 text-white/70 transition-transform ${selectedItem === item._id ? 'rotate-180' : ''}`} />
                       </button>
 
                       {selectedItem === item._id && (
-                        <div className="absolute right-0 top-8 w-48 bg-secondary border border-white/10 rounded-lg shadow-xl z-10">
-                          <div className="py-1">
+                        <div className="absolute right-0 top-10 w-52 bg-secondary/90 backdrop-blur-md border border-white/20 rounded-xl shadow-2xl z-20 overflow-hidden">
+                          <div className="p-2">
                             <button
                               onClick={() => router.push(`/admin/${item.type}s/${item._id}`)}
-                              className="w-full px-4 py-2 text-left text-white hover:bg-white/10 flex items-center space-x-2"
+                              className="w-full flex items-center gap-3 px-3 py-2.5 text-left text-white hover:bg-white/10 rounded-lg transition-colors"
                             >
-                              <Eye className="w-4 h-4" />
+                              <Eye className="w-4 h-4 text-blue-400" />
                               <span>View Details</span>
                             </button>
+
                             {item.status === 'pending' && (
                               <button
                                 onClick={() => handleUpdateStatus(item._id, 'confirmed')}
-                                className="w-full px-4 py-2 text-left text-white hover:bg-white/10 flex items-center space-x-2"
+                                className="w-full flex items-center gap-3 px-3 py-2.5 text-left text-white hover:bg-green-500/10 rounded-lg transition-colors"
                               >
-                                <CheckCircle className="w-4 h-4" />
-                                <span>Confirm</span>
+                                <CheckCircle className="w-4 h-4 text-green-400" />
+                                <span>Confirm {item.type}</span>
                               </button>
                             )}
+
                             {item.status === 'confirmed' && item.type === 'order' && (
                               <button
                                 onClick={() => handleUpdateStatus(item._id, 'processing')}
-                                className="w-full px-4 py-2 text-left text-white hover:bg-white/10 flex items-center space-x-2"
+                                className="w-full flex items-center gap-3 px-3 py-2.5 text-left text-white hover:bg-blue-500/10 rounded-lg transition-colors"
                               >
-                                <Package className="w-4 h-4" />
-                                <span>Mark Processing</span>
+                                <Package className="w-4 h-4 text-blue-400" />
+                                <span>Start Processing</span>
                               </button>
                             )}
-                            {(item.status === 'pending' || item.status === 'confirmed') && (
+
+                            {item.status === 'confirmed' && item.type === 'reservation' && (
+                              <button
+                                onClick={() => handleUpdateStatus(item._id, 'completed')}
+                                className="w-full flex items-center gap-3 px-3 py-2.5 text-left text-white hover:bg-green-500/10 rounded-lg transition-colors"
+                              >
+                                <CheckCircle className="w-4 h-4 text-green-400" />
+                                <span>Mark Picked Up</span>
+                              </button>
+                            )}
+
+                            {item.status === 'processing' && (
+                              <button
+                                onClick={() => handleUpdateStatus(item._id, 'completed')}
+                                className="w-full flex items-center gap-3 px-3 py-2.5 text-left text-white hover:bg-green-500/10 rounded-lg transition-colors"
+                              >
+                                <Truck className="w-4 h-4 text-green-400" />
+                                <span>Mark Delivered</span>
+                              </button>
+                            )}
+
+                            <div className="h-px bg-white/10 my-2" />
+
+                            {['pending', 'confirmed'].includes(item.status) && (
                               <button
                                 onClick={() => handleUpdateStatus(item._id, 'cancelled')}
-                                className="w-full px-4 py-2 text-left text-error hover:bg-error/10 flex items-center space-x-2"
+                                className="w-full flex items-center gap-3 px-3 py-2.5 text-left text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
                               >
                                 <XCircle className="w-4 h-4" />
-                                <span>Cancel</span>
+                                <span>Cancel {item.type}</span>
                               </button>
                             )}
                           </div>
@@ -451,83 +578,52 @@ export default function AdminOrdersPage() {
                   </div>
                 </div>
 
-                {/* Customer Info */}
-                <div className="p-4 border-b border-white/10">
-                  <div className="flex items-center space-x-3">
-                    <User className="w-4 h-4 text-muted" />
-                    <div>
-                      <p className="text-white font-medium">{item.customer?.name || 'Unknown Customer'}</p>
-                      <p className="text-sm text-muted">{item.customer?.email}</p>
-                      {item.customer?.phone && (
-                        <p className="text-sm text-muted">{item.customer.phone}</p>
-                      )}
+                {/* Customer Info - Compact */}
+                <div className="px-4 pb-4">
+                  <div className="flex items-center gap-3 p-3 bg-white/5 rounded-lg border border-white/5">
+                    <div className="w-8 h-8 bg-primary/20 rounded-full flex items-center justify-center">
+                      <User className="w-4 h-4 text-primary" />
                     </div>
-                  </div>
-
-                  {/* Address or Pickup Info */}
-                  {item.type === 'order' && (item as any).shippingAddress && (
-                    <div className="flex items-start space-x-3 mt-3">
-                      <MapPin className="w-4 h-4 text-muted mt-0.5" />
-                      <div>
-                        <p className="text-sm text-white">
-                          {(item as any).shippingAddress.street}, {(item as any).shippingAddress.city}
-                        </p>
-                        <p className="text-sm text-muted">
-                          {(item as any).shippingAddress.state} {(item as any).shippingAddress.zipCode}
-                        </p>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Reservation pickup info */}
-                  {item.type === 'reservation' && (item as any).guestInfo?.pickupSchedule && (
-                    <div className="flex items-center space-x-3 mt-3">
-                      <Calendar className="w-4 h-4 text-muted" />
-                      <div>
-                        <p className="text-sm text-white">
-                          Pickup: {(item as any).guestInfo.pickupSchedule.date} at {(item as any).guestInfo.pickupSchedule.time}
-                        </p>
-                        {(item as any).guestInfo.completeAddress && (
-                          <p className="text-sm text-muted">{(item as any).guestInfo.completeAddress}</p>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white font-medium text-sm truncate">
+                        {item.customer?.name || 'Guest Customer'}
+                      </p>
+                      <div className="flex items-center gap-4 text-xs text-white/60">
+                        {item.customer?.email && (
+                          <div className="flex items-center gap-1">
+                            <Mail className="w-3 h-3" />
+                            <span className="truncate">{item.customer.email}</span>
+                          </div>
+                        )}
+                        {item.customer?.phone && (
+                          <div className="flex items-center gap-1">
+                            <Phone className="w-3 h-3" />
+                            <span>{item.customer.phone}</span>
+                          </div>
                         )}
                       </div>
                     </div>
-                  )}
-                </div>
-
-                {/* Items Preview */}
-                <div className="p-4">
-                  <p className="text-sm text-muted mb-2">
-                    {item.type === 'order' ? 'Order Items' : 'Reserved Items'}
-                  </p>
-                  <div className="space-y-1">
-                    {(item.type === 'order'
-                      ? (item as any).items
-                      : (item as any).items || [{ productId: (item as any).productId, quantity: (item as any).quantity, price: (item as any).totalAmount }]
-                    ).slice(0, 2).map((orderItem: any, index: number) => (
-                      <div key={index} className="flex items-center justify-between text-sm">
-                        <span className="text-white">Product #{orderItem.productId}</span>
-                        <span className="text-muted">
-                          {orderItem.quantity}x {formatCurrency(orderItem.price || orderItem.reservedPrice)}
-                        </span>
-                      </div>
-                    ))}
-                    {((item.type === 'order' ? (item as any).items : (item as any).items) || []).length > 2 && (
-                      <p className="text-sm text-muted">
-                        +{((item.type === 'order' ? (item as any).items : (item as any).items) || []).length - 2} more items
-                      </p>
-                    )}
                   </div>
 
-                  {/* Notes */}
+                  {/* Special info for reservations */}
+                  {item.type === 'reservation' && item.guestInfo?.pickupSchedule && (
+                    <div className="flex items-center gap-3 mt-2 p-2 bg-purple-500/10 border border-purple-500/20 rounded-lg">
+                      <Calendar className="w-4 h-4 text-purple-400" />
+                      <span className="text-xs text-white/80">
+                        Pickup: {item.guestInfo.pickupSchedule.date} at {item.guestInfo.pickupSchedule.time}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Notes if present */}
                   {item.notes && (
-                    <div className="mt-3 pt-3 border-t border-white/10">
-                      <p className="text-sm text-muted mb-1">Notes:</p>
-                      <p className="text-sm text-white">{item.notes}</p>
+                    <div className="mt-2 p-2 bg-white/5 border border-white/5 rounded-lg">
+                      <p className="text-xs text-white/60 mb-1">Notes:</p>
+                      <p className="text-xs text-white/80">{item.notes}</p>
                     </div>
                   )}
                 </div>
-              </Card>
+              </div>
             ))}
           </div>
         )}

@@ -22,6 +22,7 @@ import { api } from '@/convex/_generated/api';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Card from '@/components/ui/Card';
+import ReservationOverlay from '@/components/ui/ReservationOverlay';
 
 export default function CartPage() {
   const router = useRouter();
@@ -48,6 +49,8 @@ export default function CartPage() {
 
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [showGuestForm, setShowGuestForm] = useState(false);
+  const [showReservationOverlay, setShowReservationOverlay] = useState(false);
+  const [reservationCode, setReservationCode] = useState<string>('');
   const [guestInfo, setGuestInfo] = useState({
     name: '',
     email: '',
@@ -98,9 +101,14 @@ export default function CartPage() {
       return;
     }
 
+    // Show reservation overlay immediately
+    setShowReservationOverlay(true);
     setIsCheckingOut(true);
 
     try {
+      // Simulate minimum loading time for better UX (3 seconds)
+      const minLoadingTime = new Promise(resolve => setTimeout(resolve, 3000));
+
       // Prepare reservation data
       const reservationItems = cartItems.map(item => ({
         productId: item.productId,
@@ -125,28 +133,31 @@ export default function CartPage() {
       } : undefined;
 
       // Create reservation in database
-      const result = await createReservation({
-        userId: isAuthenticated ? user!._id : undefined,
-        guestId: !isAuthenticated ? guestId : undefined,
-        guestInfo: guestInfoData,
-        items: reservationItems,
-        totalAmount,
-        totalQuantity,
-        reservationDate: Date.now(),
-        notes: !isAuthenticated ? guestInfo.notes : undefined
-      });
+      const [result] = await Promise.all([
+        createReservation({
+          userId: isAuthenticated ? user!._id : undefined,
+          guestId: !isAuthenticated ? guestId : undefined,
+          guestInfo: guestInfoData,
+          items: reservationItems,
+          totalAmount,
+          totalQuantity,
+          reservationDate: Date.now(),
+          notes: !isAuthenticated ? guestInfo.notes : undefined
+        }),
+        minLoadingTime
+      ]);
 
       if (result) {
-        // Clear cart
+        setReservationCode(result.reservationCode);
+        // Clear cart after successful reservation
         clearCart();
-
-        // Navigate to success page
-        router.push(`/client/reservation-success?code=${result.reservationCode}`);
       }
 
     } catch (error) {
       console.error('Checkout failed:', error);
-      // Handle error - you might want to show an error message to user
+      // Hide overlay on error and show error message
+      setShowReservationOverlay(false);
+      // You might want to show an error message to user here
     } finally {
       setIsCheckingOut(false);
     }
@@ -157,6 +168,17 @@ export default function CartPage() {
     if (guestErrors[field]) {
       setGuestErrors(prev => ({ ...prev, [field]: '' }));
     }
+  };
+
+  const handleReservationComplete = () => {
+    setShowReservationOverlay(false);
+    router.push('/client/dashboard');
+  };
+
+  const handleReservationSuccess = () => {
+    // This is called when admin approves the reservation
+    // In a real app, this would be triggered by real-time updates
+    console.log('Reservation approved by admin');
   };
 
   if (showGuestForm && !isAuthenticated) {
@@ -274,6 +296,14 @@ export default function CartPage() {
             </Button>
           </div>
         </div>
+
+        {/* Reservation Overlay for Guest Form */}
+        <ReservationOverlay
+          isVisible={showReservationOverlay}
+          onComplete={handleReservationComplete}
+          onSuccess={handleReservationSuccess}
+          reservationCode={reservationCode}
+        />
       </div>
     );
   }
@@ -425,7 +455,7 @@ export default function CartPage() {
               {isCheckingOut
                 ? 'Processing...'
                 : isAuthenticated
-                ? 'Reserve Items'
+                ? 'Reserve Now'
                 : 'Continue as Guest'
               }
             </Button>
@@ -481,6 +511,14 @@ export default function CartPage() {
 
       {/* Bottom padding */}
       <div className="h-16" />
+
+      {/* Reservation Overlay */}
+      <ReservationOverlay
+        isVisible={showReservationOverlay}
+        onComplete={handleReservationComplete}
+        onSuccess={handleReservationSuccess}
+        reservationCode={reservationCode}
+      />
     </div>
   );
 }
