@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import BottomNavbar from '@/components/common/BottomNavbar';
 import {
   ArrowLeft,
   Mail,
@@ -11,15 +12,13 @@ import {
   Copy,
   Trash2,
   Plus,
-  FileText,
-  BarChart3,
   Eye,
-  Calendar,
   Target,
   Filter,
   Search,
   MoreVertical,
-  Download
+  Download,
+  BarChart3
 } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
@@ -420,40 +419,10 @@ export default function EmailMarketingPage() {
       </div>
 
       {/* Bottom Navigation */}
-      <div className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur-sm border-t border-white/10">
-        <div className="grid grid-cols-4 py-2">
-          <button
-            onClick={() => router.push('/admin/dashboard')}
-            className="flex flex-col items-center py-2 px-3 text-muted hover:text-white transition-colors"
-          >
-            <BarChart3 className="w-5 h-5 mb-1" />
-            <span className="text-xs">Dashboard</span>
-          </button>
-          <button
-            onClick={() => router.push('/admin/products')}
-            className="flex flex-col items-center py-2 px-3 text-muted hover:text-white transition-colors"
-          >
-            <FileText className="w-5 h-5 mb-1" />
-            <span className="text-xs">Products</span>
-          </button>
-          <button
-            onClick={() => router.push('/admin/orders')}
-            className="flex flex-col items-center py-2 px-3 text-muted hover:text-white transition-colors"
-          >
-            <Users className="w-5 h-5 mb-1" />
-            <span className="text-xs">Orders</span>
-          </button>
-          <button
-            onClick={() => router.push('/admin/settings')}
-            className="flex flex-col items-center py-2 px-3 text-muted hover:text-white transition-colors"
-          >
-            <Mail className="w-5 h-5 mb-1" />
-            <span className="text-xs">Settings</span>
-          </button>
-        </div>
-      </div>
+      <BottomNavbar />
 
-      <div className="h-16" />
+      {/* Bottom padding for mobile navigation */}
+      <div className="h-16 sm:hidden" />
     </div>
   );
 }

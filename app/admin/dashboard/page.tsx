@@ -1,668 +1,319 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React from 'react';
 import {
-  ArrowLeft,
-  Plus,
-  Search,
-  Filter,
-  MoreVertical,
-  Edit,
-  Trash2,
-  Eye,
-  EyeOff,
+  BarChart3,
+  Users,
   Package,
   ShoppingBag,
-  Users,
-  BarChart3,
-  Bell,
-  Star,
-  TrendingDown,
-  ImageIcon,
-  Tag
+  DollarSign,
+  Activity,
+  RefreshCw,
+  AlertCircle,
+  CheckCircle,
+  Clock
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import BottomNavbar from '@/components/common/BottomNavbar';
 
 // Mock data - replace with your Convex queries
-const mockCategories = [
-  { _id: 'cat1', name: 'Fish' },
-  { _id: 'cat2', name: 'Tanks' },
-  { _id: 'cat3', name: 'Accessories' },
-  { _id: 'cat4', name: 'Food' },
+const mockStats = {
+  totalRevenue: 125000,
+  totalOrders: 456,
+  totalProducts: 89,
+  totalUsers: 1234,
+  revenueChange: 12.5,
+  ordersChange: 8.3,
+  productsChange: 15.7,
+  usersChange: 22.1
+};
+
+const mockRecentOrders = [
+  {
+    id: 'ORD-001',
+    customer: 'John Doe',
+    amount: 2500,
+    status: 'completed',
+    date: Date.now() - 3600000, // 1 hour ago
+    items: 3
+  },
+  {
+    id: 'ORD-002',
+    customer: 'Jane Smith',
+    amount: 1800,
+    status: 'processing',
+    date: Date.now() - 7200000, // 2 hours ago
+    items: 2
+  },
+  {
+    id: 'ORD-003',
+    customer: 'Mike Johnson',
+    amount: 3200,
+    status: 'pending',
+    date: Date.now() - 10800000, // 3 hours ago
+    items: 4
+  },
+  {
+    id: 'ORD-004',
+    customer: 'Sarah Wilson',
+    amount: 950,
+    status: 'completed',
+    date: Date.now() - 14400000, // 4 hours ago
+    items: 1
+  }
 ];
 
-const mockProducts = [
-  {
-    _id: '1',
-    name: 'Premium Goldfish',
-    description: 'Beautiful ornamental goldfish perfect for any aquarium',
-    categoryId: 'cat1',
-    price: 250,
-    originalPrice: 300,
-    stock: 15,
-    isActive: true,
-    image: 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=400',
-    badge: 'Bestseller',
-    rating: 4.8,
-    reviews: 24,
-    createdAt: Date.now() - 86400000
-  },
-  {
-    _id: '2',
-    name: 'Betta Fish - Blue',
-    description: 'Vibrant blue betta fish, perfect for small tanks',
-    categoryId: 'cat1',
-    price: 180,
-    stock: 8,
-    isActive: true,
-    image: 'https://images.unsplash.com/photo-1520637836862-4d197d17c91a?w=400',
-    rating: 4.6,
-    reviews: 18,
-    createdAt: Date.now() - 172800000
-  },
-  {
-    _id: '3',
-    name: 'Glass Aquarium Tank',
-    description: '50L glass aquarium with LED lighting system',
-    categoryId: 'cat2',
-    price: 1200,
-    stock: 0,
-    isActive: true,
-    image: 'https://images.unsplash.com/photo-1524704654690-b56c05c78a00?w=400',
-    badge: 'New',
-    rating: 4.9,
-    reviews: 12,
-    createdAt: Date.now() - 259200000
-  },
-  {
-    _id: '4',
-    name: 'Aquarium Filter System',
-    description: 'High-quality filtration system for clean water',
-    categoryId: 'cat3',
-    price: 350,
-    stock: 25,
-    isActive: false,
-    image: 'https://images.unsplash.com/photo-1583212292454-1fe6229603b7?w=400',
-    rating: 4.3,
-    reviews: 8,
-    createdAt: Date.now() - 345600000
-  },
+const mockLowStockProducts = [
+  { id: '1', name: 'Premium Goldfish', stock: 2, category: 'Fish' },
+  { id: '2', name: 'Betta Fish - Blue', stock: 1, category: 'Fish' },
+  { id: '3', name: 'Glass Aquarium Tank', stock: 0, category: 'Tanks' },
+  { id: '4', name: 'Aquarium Filter System', stock: 3, category: 'Accessories' }
 ];
 
 const formatCurrency = (amount) => {
   return `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`;
 };
 
-const getStockStatus = (stock) => {
-  if (stock === 0) return { 
-    status: 'Out of Stock', 
-    color: 'bg-error/10', 
-    textColor: 'text-error' 
-  };
-  if (stock < 10) return { 
-    status: 'Low Stock', 
-    color: 'bg-warning/10', 
-    textColor: 'text-warning' 
-  };
-  return { 
-    status: 'In Stock', 
-    color: 'bg-success/10', 
-    textColor: 'text-success' 
-  };
-};
 
-const getStatusColor = (status) => {
+const getOrderStatusColor = (status) => {
   switch (status) {
-    case 'active': return '#27AE60';
-    case 'inactive': return '#95A5A6';
-    case 'out_of_stock': return '#E74C3C';
-    default: return '#95A5A6';
+    case 'completed': return 'text-success';
+    case 'processing': return 'text-warning';
+    case 'pending': return 'text-muted';
+    case 'cancelled': return 'text-error';
+    default: return 'text-muted';
   }
 };
 
-export default function AdminProductsPage() {
+const getOrderStatusIcon = (status) => {
+  switch (status) {
+    case 'completed': return CheckCircle;
+    case 'processing': return RefreshCw;
+    case 'pending': return Clock;
+    case 'cancelled': return AlertCircle;
+    default: return Clock;
+  }
+};
+
+export default function AdminDashboardPage() {
   const router = useRouter();
 
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('All');
-  const [selectedStatus, setSelectedStatus] = useState('all');
-  const [showFilters, setShowFilters] = useState(false);
-  const [selectedProduct, setSelectedProduct] = useState(null);
-
-  // Create category mapping for better filtering
-  const categoryMap = useMemo(() => {
-    const map = {};
-    mockCategories.forEach(cat => {
-      map[cat._id] = cat.name;
-    });
-    return map;
-  }, []);
-
-  // Enhanced filtering logic
-  const filteredProducts = useMemo(() => {
-    let filtered = mockProducts;
-
-    // Apply search filter
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(product => 
-        product.name.toLowerCase().includes(query) ||
-        (product.description && product.description.toLowerCase().includes(query)) ||
-        (categoryMap[product.categoryId] && categoryMap[product.categoryId].toLowerCase().includes(query))
-      );
-    }
-
-    // Apply category filter
-    if (selectedCategory !== 'All') {
-      filtered = filtered.filter(product => {
-        const productCategory = categoryMap[product.categoryId];
-        return productCategory === selectedCategory;
-      });
-    }
-
-    // Apply status filter
-    if (selectedStatus !== 'all') {
-      filtered = filtered.filter(product => {
-        switch (selectedStatus) {
-          case 'active':
-            return product.isActive && product.stock > 0;
-          case 'inactive':
-            return !product.isActive;
-          case 'out_of_stock':
-            return product.stock === 0;
-          case 'low_stock':
-            return product.stock > 0 && product.stock < 10;
-          default:
-            return true;
-        }
-      });
-    }
-
-    return filtered;
-  }, [searchQuery, selectedCategory, selectedStatus, categoryMap]);
-
-  // Calculate stats from filtered data
-  const productStats = useMemo(() => {
-    const total = mockProducts.length;
-    const active = mockProducts.filter(p => p.isActive && p.stock > 0).length;
-    const outOfStock = mockProducts.filter(p => p.stock === 0).length;
-    const inactive = mockProducts.filter(p => !p.isActive).length;
-    const topRated = mockProducts.filter(p => (p.rating || 0) > 4.5).length;
-    const lowStock = mockProducts.filter(p => p.stock > 0 && p.stock < 10).length;
-
-    return {
-      totalProducts: total,
-      activeProducts: active,
-      outOfStock: outOfStock,
-      inactiveProducts: inactive,
-      topRated: topRated,
-      lowStock: lowStock,
-    };
-  }, []);
-
-  // Get category names with proper ordering
-  const categoryNames = useMemo(() => {
-    return ['All', ...mockCategories.map(cat => cat.name)];
-  }, []);
-
-  // Status filter options
-  const statusFilters = useMemo(() => [
-    { key: 'all', label: 'All Status', count: mockProducts.length },
-    { key: 'active', label: 'Active', count: productStats.activeProducts },
-    { key: 'inactive', label: 'Inactive', count: productStats.inactiveProducts },
-    { key: 'out_of_stock', label: 'Out of Stock', count: productStats.outOfStock },
-    { key: 'low_stock', label: 'Low Stock', count: productStats.lowStock },
-  ], [productStats]);
-
-  // Create stats array from calculated data
-  const statsArray = useMemo(() => [
+  // Stats cards data
+  const statsCards = [
     {
-      id: '1',
-      title: 'Total Products',
-      value: productStats.totalProducts.toString(),
-      change: '+3.1%',
-      icon: Package,
-      color: 'text-info',
-    },
-    {
-      id: '2',
-      title: 'Active Products',
-      value: productStats.activeProducts.toString(),
-      change: '+2.5%',
-      icon: Eye,
+      id: 'revenue',
+      title: 'Total Revenue',
+      value: formatCurrency(mockStats.totalRevenue),
+      change: `+${mockStats.revenueChange}%`,
+      icon: DollarSign,
       color: 'text-success',
+      bgColor: 'bg-success/10'
     },
     {
-      id: '3',
-      title: 'Out of Stock',
-      value: productStats.outOfStock.toString(),
-      change: '+1.2%',
-      icon: TrendingDown,
-      color: 'text-error',
+      id: 'orders',
+      title: 'Total Orders',
+      value: mockStats.totalOrders.toString(),
+      change: `+${mockStats.ordersChange}%`,
+      icon: ShoppingBag,
+      color: 'text-info',
+      bgColor: 'bg-info/10'
     },
     {
-      id: '4',
-      title: 'Top Rated',
-      value: productStats.topRated.toString(),
-      change: '+5.7%',
-      icon: Star,
+      id: 'products',
+      title: 'Total Products',
+      value: mockStats.totalProducts.toString(),
+      change: `+${mockStats.productsChange}%`,
+      icon: Package,
       color: 'text-warning',
+      bgColor: 'bg-warning/10'
     },
-  ], [productStats]);
-
-  const handleProductAction = (productId, action) => {
-    if (action === 'Edit') {
-      router.push(`/admin/products/${productId}/edit`);
-    } else if (action === 'View') {
-      router.push(`/admin/products/${productId}`);
-    } else if (action === 'Toggle') {
-      console.log('Toggle status for product:', productId);
-    } else if (action === 'Delete') {
-      console.log('Delete product:', productId);
+    {
+      id: 'users',
+      title: 'Total Users',
+      value: mockStats.totalUsers.toString(),
+      change: `+${mockStats.usersChange}%`,
+      icon: Users,
+      color: 'text-primary',
+      bgColor: 'bg-primary/10'
     }
-    setSelectedProduct(null);
-  };
+  ];
 
   return (
     <div className="min-h-screen bg-background text-foreground">
       {/* Header */}
       <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-white/10">
         <div className="px-4 sm:px-6 py-4">
-          <div className="flex items-center space-x-4 mb-4">
-            <button
-              onClick={() => router.back()}
-              className="p-2 rounded-full bg-secondary border border-white/10 hover:bg-white/10 transition-colors"
-            >
-              <ArrowLeft className="w-5 h-5 text-foreground" />
-            </button>
-            <div className="flex-1">
-              <h1 className="text-xl font-bold text-foreground">Products</h1>
-              <p className="text-sm text-primary">
-                {filteredProducts.length} of {mockProducts.length} products
-              </p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-xl font-bold text-foreground">Dashboard</h1>
+              <p className="text-sm text-muted">Welcome back! Here&apos;s your business overview.</p>
             </div>
-            <button
-              onClick={() => router.push('/admin/products/form')}
-              className="px-3 py-2 rounded-lg bg-primary text-foreground flex items-center space-x-1 hover:bg-primary/90 transition-colors"
-            >
-              <Plus className="w-4 h-4" />
-              <span className="text-sm font-medium">Add</span>
-            </button>
-          </div>
-
-          {/* Search and Filter */}
-          <div className="flex space-x-3">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-primary" />
-              <input
-                type="text"
-                placeholder="Search products, categories..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 bg-secondary border border-primary/10 rounded-lg text-foreground placeholder:text-muted-dark focus:outline-none focus:ring-2 focus:ring-primary"
-              />
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => router.push('/admin/analytics')}
+                className="p-2 rounded-lg bg-secondary border border-white/10 hover:bg-white/10 transition-colors"
+                title="View Analytics"
+              >
+                <BarChart3 className="w-5 h-5 text-foreground" />
+              </button>
+              <button
+                onClick={() => router.push('/admin/settings')}
+                className="p-2 rounded-lg bg-secondary border border-white/10 hover:bg-white/10 transition-colors"
+                title="Settings"
+              >
+                <Activity className="w-5 h-5 text-foreground" />
+              </button>
             </div>
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              className="p-2 rounded-lg bg-secondary border border-white/10 hover:bg-white/10 transition-colors"
-            >
-              <Filter className="w-5 h-5 text-foreground" />
-            </button>
           </div>
         </div>
       </div>
 
-      {/* Stats */}
-      <div className="px-4 sm:px-6 py-4 border-b border-white/10">
-        <div className="flex gap-3 overflow-x-auto pb-2">
-          {statsArray.map((stat) => {
+      {/* Stats Cards */}
+      <div className="px-4 sm:px-6 py-6">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          {statsCards.map((stat) => {
             const IconComponent = stat.icon;
             return (
               <div
                 key={stat.id}
-                className="flex-shrink-0 bg-secondary/50 border border-primary/10 rounded-xl p-3 backdrop-blur-sm"
-                style={{ minWidth: '120px' }}
+                className="bg-secondary/50 border border-primary/10 rounded-xl p-4 backdrop-blur-sm hover:border-primary/20 transition-colors"
               >
-                <div className="flex items-center justify-between mb-2">
-                  <div className="p-1.5 rounded-lg bg-primary/10">
-                    <IconComponent className="w-4 h-4 text-primary" />
+                <div className="flex items-center justify-between mb-3">
+                  <div className={`p-2 rounded-lg ${stat.bgColor}`}>
+                    <IconComponent className={`w-5 h-5 ${stat.color}`} />
                   </div>
-                  <span 
-                    className={`text-xs font-medium ${
-                      stat.change.startsWith('+') ? 'text-success' : 'text-error'
-                    }`}
-                  >
+                  <span className={`text-sm font-medium text-success`}>
                     {stat.change}
                   </span>
                 </div>
-                <p className="text-lg font-bold text-foreground">{stat.value}</p>
-                <p className="text-xs text-muted">{stat.title}</p>
+                <p className="text-2xl font-bold text-foreground mb-1">{stat.value}</p>
+                <p className="text-sm text-muted">{stat.title}</p>
               </div>
             );
           })}
         </div>
-      </div>
 
-      {/* Filters */}
-      {showFilters && (
-        <div className="bg-secondary border-b border-white/10 px-4 sm:px-6 py-4">
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Categories</label>
-              <div className="flex gap-2 overflow-x-auto pb-2">
-                {categoryNames.map((category) => (
-                  <button
-                    key={category}
-                    onClick={() => setSelectedCategory(category)}
-                    className={`flex-shrink-0 px-3 py-2 rounded-lg text-sm border transition-colors ${
-                      selectedCategory === category
-                        ? 'bg-primary border-primary text-foreground'
-                        : 'bg-secondary border-primary/10 text-muted hover:text-foreground hover:border-primary/20'
-                    }`}
-                  >
-                    {category}
-                  </button>
-                ))}
-              </div>
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Status</label>
-              <div className="flex gap-2 overflow-x-auto pb-2">
-                {statusFilters.map((filter) => (
-                  <button
-                    key={filter.key}
-                    onClick={() => setSelectedStatus(filter.key)}
-                    className={`flex-shrink-0 px-3 py-2 rounded-lg text-sm border flex items-center space-x-2 transition-colors ${
-                      selectedStatus === filter.key
-                        ? 'bg-info border-info text-foreground'
-                        : 'bg-secondary border-primary/10 text-muted hover:text-foreground hover:border-primary/20'
-                    }`}
-                  >
-                    <span>{filter.label}</span>
-                    <div className={`px-1.5 py-0.5 rounded text-xs ${
-                      selectedStatus === filter.key
-                        ? 'bg-foreground/20 text-foreground'
-                        : 'bg-primary/10 text-primary'
-                    }`}>
-                      {filter.count}
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-      
-      {/* Products List */}
-      <div className="px-4 sm:px-6 py-4">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-lg font-bold text-foreground">
-            Products ({filteredProducts.length})
-          </h2>
-          {filteredProducts.length === 0 && mockProducts.length > 0 && (
-            <button
-              onClick={() => {
-                setSearchQuery('');
-                setSelectedCategory('All');
-                setSelectedStatus('all');
-              }}
-              className="px-3 py-1 rounded-lg bg-primary/10 border border-primary text-primary text-xs hover:bg-primary/20 transition-colors"
-            >
-              Clear Filters
-            </button>
-          )}
-        </div>
-        
-        {filteredProducts.length === 0 ? (
-          <div className="text-center py-12">
-            <Package className="w-16 h-16 text-muted-dark mx-auto mb-4" />
-            <h3 className="text-xl font-bold text-foreground mb-2">No products found</h3>
-            <p className="text-muted mb-6 text-center">
-              {mockProducts.length === 0 
-                ? 'No products have been added yet.' 
-                : 'Try adjusting your search terms or filters.'}
-            </p>
-            {mockProducts.length === 0 && (
+        {/* Charts and Recent Activity */}
+        <div className="grid lg:grid-cols-2 gap-6">
+          {/* Recent Orders */}
+          <div className="bg-secondary/50 border border-primary/10 rounded-xl p-6 backdrop-blur-sm">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-foreground">Recent Orders</h3>
               <button
-                onClick={() => router.push('/admin/products/form')}
-                className="px-4 py-2 rounded-lg bg-primary text-foreground font-medium hover:bg-primary/90 transition-colors"
+                onClick={() => router.push('/admin/orders')}
+                className="text-sm text-primary hover:text-primary/80 transition-colors"
               >
-                Add First Product
+                View All
               </button>
-            )}
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {filteredProducts.map((product) => {
-              const stockStatus = getStockStatus(product.stock);
-              const discount = (product.originalPrice && product.originalPrice > product.price) ? 
-                Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100) : 0;
-              
-              // Determine product status
-              const getItemStatus = (prod) => {
-                if (!prod.isActive) return 'inactive';
-                if (prod.stock === 0) return 'out_of_stock';
-                return 'active';
-              };
-              
-              const itemStatus = getItemStatus(product);
-              const categoryName = categoryMap[product.categoryId] || 'Unknown Category';
-              
-              return (
-                <div
-                  key={product._id}
-                  className="bg-secondary/50 border border-primary/10 rounded-xl p-4 backdrop-blur-sm"
-                >
-                  <div className="flex space-x-4">
-                    {/* Product Image */}
-                    <div className="relative flex-shrink-0">
-                      <div className="w-16 h-16 rounded-lg overflow-hidden bg-secondary border border-white/10">
-                        {product.image ? (
-                          <img
-                            src={product.image}
-                            alt={product.name}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center">
-                            <ImageIcon className="w-6 h-6 text-muted" />
-                          </div>
-                        )}
+            </div>
+            <div className="space-y-3">
+              {mockRecentOrders.map((order) => {
+                const StatusIcon = getOrderStatusIcon(order.status);
+                return (
+                  <div key={order.id} className="flex items-center justify-between p-3 bg-background/50 rounded-lg border border-white/5">
+                    <div className="flex items-center space-x-3">
+                      <div className="p-2 rounded-lg bg-primary/10">
+                        <ShoppingBag className="w-4 h-4 text-primary" />
                       </div>
-                      {product.badge && (
-                        <div className="absolute -top-1 -right-1 px-1.5 py-0.5 rounded bg-primary">
-                          <span className="text-xs font-bold text-foreground">
-                            {product.badge === 'Bestseller' ? '★' : product.badge.charAt(0)}
-                          </span>
-                        </div>
-                      )}
-                      {discount > 0 && (
-                        <div className="absolute -bottom-1 -left-1 px-1.5 py-0.5 rounded bg-error">
-                          <span className="text-xs font-bold text-foreground">
-                            -{discount}%
-                          </span>
-                        </div>
-                      )}
+                      <div>
+                        <p className="font-medium text-foreground text-sm">{order.customer}</p>
+                        <p className="text-xs text-muted">{order.id} • {order.items} items</p>
+                      </div>
                     </div>
-                    
-                    {/* Product Info */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="flex-1">
-                          <h3 className="font-bold text-foreground mb-1">
-                            {product.name || 'Unnamed Product'}
-                          </h3>
-                          <p className="text-sm text-muted mb-1">{categoryName}</p>
-                          <p className="text-xs text-muted-dark">
-                            ID: {product._id.slice(-6).toUpperCase()}
-                          </p>
-                        </div>
-                        
-                        {/* Actions Menu */}
-                        <div className="relative">
-                          <button
-                            onClick={() => setSelectedProduct(selectedProduct === product._id ? null : product._id)}
-                            className="p-1 rounded hover:bg-white/10 transition-colors"
-                          >
-                            <MoreVertical className="w-4 h-4 text-muted" />
-                          </button>
-
-                          {selectedProduct === product._id && (
-                            <div className="absolute right-0 top-8 w-48 bg-secondary border border-white/10 rounded-lg shadow-xl z-10">
-                              <div className="py-1">
-                                <button
-                                  onClick={() => handleProductAction(product._id, 'View')}
-                                  className="w-full px-4 py-2 text-left text-foreground hover:bg-white/10 flex items-center space-x-2"
-                                >
-                                  <Eye className="w-4 h-4" />
-                                  <span>View Details</span>
-                                </button>
-                                <button
-                                  onClick={() => handleProductAction(product._id, 'Edit')}
-                                  className="w-full px-4 py-2 text-left text-foreground hover:bg-white/10 flex items-center space-x-2"
-                                >
-                                  <Edit className="w-4 h-4" />
-                                  <span>Edit Product</span>
-                                </button>
-                                <button
-                                  onClick={() => handleProductAction(product._id, 'Toggle')}
-                                  className="w-full px-4 py-2 text-left text-foreground hover:bg-white/10 flex items-center space-x-2"
-                                >
-                                  {product.isActive ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                                  <span>{product.isActive ? 'Deactivate' : 'Activate'}</span>
-                                </button>
-                                <div className="border-t border-white/10 my-1"></div>
-                                <button
-                                  onClick={() => handleProductAction(product._id, 'Delete')}
-                                  className="w-full px-4 py-2 text-left text-error hover:bg-error/10 flex items-center space-x-2"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                  <span>Delete</span>
-                                </button>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center justify-between mb-3">
-                        <div>
-                          <span className="text-lg font-bold text-primary">
-                            {formatCurrency(product.price)}
-                          </span>
-                          {product.originalPrice && product.originalPrice > product.price && (
-                            <span className="text-sm text-muted-dark line-through ml-2">
-                              {formatCurrency(product.originalPrice)}
-                            </span>
-                          )}
-                        </div>
-                        
-                        {product.rating > 4.5 && (
-                          <div className="flex items-center">
-                            <Star className="w-4 h-4 text-warning fill-current" />
-                            <span className="text-sm text-warning ml-1 font-medium">
-                              Top Rated
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                      
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center space-x-2">
-                          <div className={`px-3 py-1 rounded-lg ${
-                            itemStatus === 'active' ? 'bg-success/10 text-success' :
-                            itemStatus === 'inactive' ? 'bg-muted/10 text-muted' :
-                            'bg-error/10 text-error'
-                          }`}>
-                            <span className="text-xs font-medium capitalize">
-                              {itemStatus.replace('_', ' ')}
-                            </span>
-                          </div>
-                          
-                          <div className={`px-3 py-1 rounded-lg ${stockStatus.color} ${stockStatus.textColor}`}>
-                            <span className="text-xs font-medium">
-                              {product.stock} in stock
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      {/* Action Buttons */}
-                      <div className="flex items-center justify-between pt-3 border-t border-primary/10">
-                        <div className="flex items-center">
-                          <span className="text-xs text-muted">
-                            Created: {new Date(product.createdAt).toLocaleDateString()}
-                          </span>
-                        </div>
-                        
-                        <div className="flex items-center space-x-2">
-                          <button
-                            onClick={() => router.push(`/admin/products/${product._id}`)}
-                            className="px-3 py-2 rounded-lg bg-primary/10 border border-primary/20 text-primary text-xs hover:bg-primary/20 transition-colors"
-                          >
-                            View
-                          </button>
-                          
-                          <button
-                            onClick={() => router.push(`/admin/products/form?id=${product._id}`)}
-                            className="px-3 py-2 rounded-lg bg-primary text-foreground text-xs hover:bg-primary/90 transition-colors"
-                          >
-                            Edit
-                          </button>
-                        </div>
+                    <div className="text-right">
+                      <p className="font-bold text-foreground text-sm">{formatCurrency(order.amount)}</p>
+                      <div className="flex items-center space-x-1">
+                        <StatusIcon className={`w-3 h-3 ${getOrderStatusColor(order.status)}`} />
+                        <span className={`text-xs capitalize ${getOrderStatusColor(order.status)}`}>
+                          {order.status}
+                        </span>
                       </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
-        )}
-      </div>
 
-      {/* Bottom Navigation - Mobile Only */}
-      <div className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur-sm border-t border-white/10 sm:hidden">
-        <div className="grid grid-cols-4 py-2">
-          <button
-            onClick={() => router.push('/admin/dashboard')}
-            className="flex flex-col items-center py-2 px-3 text-muted hover:text-foreground transition-colors"
-          >
-            <BarChart3 className="w-5 h-5 mb-1" />
-            <span className="text-xs">Dashboard</span>
-          </button>
-          <button className="flex flex-col items-center py-2 px-3 text-primary">
-            <Package className="w-5 h-5 mb-1" />
-            <span className="text-xs font-medium">Products</span>
-          </button>
-          <button
-            onClick={() => router.push('/admin/orders')}
-            className="flex flex-col items-center py-2 px-3 text-muted hover:text-foreground transition-colors"
-          >
-            <ShoppingBag className="w-5 h-5 mb-1" />
-            <span className="text-xs">Orders</span>
-          </button>
-          <button
-            onClick={() => router.push('/admin/settings')}
-            className="flex flex-col items-center py-2 px-3 text-muted hover:text-foreground transition-colors"
-          >
-            <Bell className="w-5 h-5 mb-1" />
-            <span className="text-xs">Settings</span>
-          </button>
+          {/* Low Stock Alert */}
+          <div className="bg-secondary/50 border border-primary/10 rounded-xl p-6 backdrop-blur-sm">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-foreground">Low Stock Alert</h3>
+              <button
+                onClick={() => router.push('/admin/products')}
+                className="text-sm text-primary hover:text-primary/80 transition-colors"
+              >
+                Manage
+              </button>
+            </div>
+            <div className="space-y-3">
+              {mockLowStockProducts.map((product) => (
+                <div key={product.id} className="flex items-center justify-between p-3 bg-background/50 rounded-lg border border-white/5">
+                  <div className="flex items-center space-x-3">
+                    <div className="p-2 rounded-lg bg-warning/10">
+                      <Package className="w-4 h-4 text-warning" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-foreground text-sm">{product.name}</p>
+                      <p className="text-xs text-muted">{product.category}</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className={`px-2 py-1 rounded text-xs font-medium ${
+                      product.stock === 0
+                        ? 'bg-error/10 text-error'
+                        : 'bg-warning/10 text-warning'
+                    }`}>
+                      {product.stock === 0 ? 'Out of stock' : `${product.stock} left`}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Quick Actions */}
+        <div className="mt-8 bg-secondary/50 border border-primary/10 rounded-xl p-6 backdrop-blur-sm">
+          <h3 className="text-lg font-bold text-foreground mb-4">Quick Actions</h3>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <button
+              onClick={() => router.push('/admin/products/add')}
+              className="flex flex-col items-center p-4 bg-primary/10 border border-primary/20 rounded-lg hover:bg-primary/20 transition-colors"
+            >
+              <Package className="w-6 h-6 text-primary mb-2" />
+              <span className="text-sm font-medium text-primary">Add Product</span>
+            </button>
+            <button
+              onClick={() => router.push('/admin/orders')}
+              className="flex flex-col items-center p-4 bg-info/10 border border-info/20 rounded-lg hover:bg-info/20 transition-colors"
+            >
+              <ShoppingBag className="w-6 h-6 text-info mb-2" />
+              <span className="text-sm font-medium text-info">View Orders</span>
+            </button>
+            <button
+              onClick={() => router.push('/admin/users')}
+              className="flex flex-col items-center p-4 bg-warning/10 border border-warning/20 rounded-lg hover:bg-warning/20 transition-colors"
+            >
+              <Users className="w-6 h-6 text-warning mb-2" />
+              <span className="text-sm font-medium text-warning">Manage Users</span>
+            </button>
+            <button
+              onClick={() => router.push('/admin/analytics')}
+              className="flex flex-col items-center p-4 bg-success/10 border border-success/20 rounded-lg hover:bg-success/20 transition-colors"
+            >
+              <BarChart3 className="w-6 h-6 text-success mb-2" />
+              <span className="text-sm font-medium text-success">View Analytics</span>
+            </button>
+          </div>
         </div>
       </div>
 
+      {/* Bottom Navigation */}
+      <BottomNavbar />
+
       {/* Bottom padding for mobile navigation */}
       <div className="h-16 sm:hidden" />
-
-      {/* Click outside to close menu */}
-      {selectedProduct && (
-        <div
-          className="fixed inset-0 z-5"
-          onClick={() => setSelectedProduct(null)}
-        />
-      )}
     </div>
   );
 }

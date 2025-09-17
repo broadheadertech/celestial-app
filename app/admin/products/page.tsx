@@ -612,6 +612,9 @@ export default function AdminProductsPage() {
       {/* Bottom Navigation - Using the reusable component */}
       <BottomNavbar />
 
+      {/* Bottom padding for mobile navigation */}
+      <div className="h-16 sm:hidden" />
+
       {/* Click outside to close menu */}
       {selectedProduct && (
         <div

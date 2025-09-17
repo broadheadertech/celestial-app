@@ -24,7 +24,7 @@ import {
   RefreshCw,
   Play,
   Pause,
-  Stop,
+  Square,
   RotateCcw,
 } from 'lucide-react';
 import Button from '@/components/ui/Button';
@@ -363,7 +363,7 @@ export default function OverviewPage() {
             {[
               { icon: Play, label: 'Start Service', color: 'from-green-500/20 to-emerald-600/20 text-green-400' },
               { icon: Pause, label: 'Pause Service', color: 'from-yellow-500/20 to-amber-600/20 text-yellow-400' },
-              { icon: Stop, label: 'Stop Service', color: 'from-red-500/20 to-red-600/20 text-red-400' },
+              { icon: Square, label: 'Stop Service', color: 'from-red-500/20 to-red-600/20 text-red-400' },
               { icon: RotateCcw, label: 'Restart', color: 'from-blue-500/20 to-cyan-600/20 text-blue-400' },
               { icon: Database, label: 'Backup DB', color: 'from-purple-500/20 to-violet-600/20 text-purple-400' },
               { icon: Shield, label: 'Security Scan', color: 'from-primary/20 to-orange-600/20 text-primary' },
