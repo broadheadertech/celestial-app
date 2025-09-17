@@ -118,7 +118,7 @@ export default function AdminProductsPage() {
               <p className="text-sm text-muted">{filteredProducts.length} products</p>
             </div>
             <button
-              onClick={() => router.push('/admin/products/new')}
+              onClick={() => router.push('/admin/products/add')}
               className="p-2 rounded-full bg-primary text-white hover:bg-primary/90 transition-colors"
             >
               <Plus className="w-5 h-5" />

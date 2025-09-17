@@ -229,9 +229,9 @@ export default function AddProductPage() {
         </div>
       </div>
 
-      <div className="px-6 py-6 max-w-4xl mx-auto">
+      <div className="px-4 sm:px-6 py-5 max-w-4xl mx-auto">
         {/* Basic Information */}
-        <Card className="p-6 mb-6">
+        <Card className="p-5 sm:p-6 mb-5">
           <div className="flex items-center space-x-3 mb-6">
             <div className="p-3 bg-primary/20 rounded-xl">
               <Package className="w-6 h-6 text-primary" />
@@ -242,7 +242,7 @@ export default function AddProductPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
             <div>
               <Input
                 label="Product Name *"
@@ -269,7 +269,7 @@ export default function AddProductPage() {
               </select>
             </div>
 
-            <div className="lg:col-span-2">
+            <div className="sm:col-span-2">
               <label className="block text-sm font-medium text-white mb-2">
                 Description
               </label>
@@ -370,7 +370,7 @@ export default function AddProductPage() {
         </Card>
 
         {/* Product Images */}
-        <Card className="p-6 mb-6">
+        <Card className="p-5 sm:p-6 mb-5">
           <div className="flex items-center space-x-3 mb-6">
             <div className="p-3 bg-info/20 rounded-xl">
               <FileImage className="w-6 h-6 text-info" />
@@ -382,7 +382,7 @@ export default function AddProductPage() {
           </div>
 
           {/* Main Image */}
-          <div className="mb-6">
+          <div className="mb-5">
             <label className="block text-sm font-medium text-white mb-3">
               Main Product Image *
             </label>
@@ -434,7 +434,7 @@ export default function AddProductPage() {
               Additional Images (Optional)
             </label>
 
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center flex-wrap gap-4">
               {formData.images.map((image, index) => (
                 <div key={index} className="relative">
                   <img
@@ -473,7 +473,7 @@ export default function AddProductPage() {
 
         {/* Product Type Specific Fields */}
         {formData.productType === 'fish' && (
-          <Card className="p-6 mb-6">
+          <Card className="p-5 sm:p-6 mb-5">
             <div className="flex items-center space-x-3 mb-6">
               <div className="p-3 bg-success/20 rounded-xl">
                 <Info className="w-6 h-6 text-success" />
@@ -484,7 +484,7 @@ export default function AddProductPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
               <div>
                 <Input
                   label="Scientific Name *"
