@@ -50,9 +50,9 @@ interface ProductFormData {
   tankType: string;
   material: string;
   capacity: string;
-  length: string;
-  width: string;
-  height: string;
+    length: string;
+    width: string;
+    height: string;
   thickness: string;
   lighting: string;
   filtration: string;
@@ -74,18 +74,18 @@ export default function AddProductPage() {
 
   const [formData, setFormData] = useState<ProductFormData>({
     // Base product fields
-    name: '',
-    description: '',
-    price: '',
-    originalPrice: '',
-    categoryId: '',
+  name: '',
+  description: '',
+  price: '',
+  originalPrice: '',
+  categoryId: '',
     category: '',
-    image: '',
-    images: [],
+  image: '',
+  images: [],
     certificateImages: [],
     stock: '',
     badge: '',
-    isActive: true,
+  isActive: true,
     sku: '',
     status: 'active',
     featured: false,
@@ -203,14 +203,14 @@ export default function AddProductPage() {
 
           // Update form data with uploaded URL
           if (type === 'certificate') {
-            setFormData(prev => ({
-              ...prev,
+    setFormData(prev => ({
+      ...prev,
               certificateImages: [...prev.certificateImages, uploadedUrl]
             }));
             setUploadingCertificates(prev => prev.filter(img => img.uri !== uploadingImage.uri));
           } else {
             setFormData(prev => ({
-              ...prev,
+        ...prev,
               image: prev.image || uploadedUrl,
               images: [...prev.images, uploadedUrl]
             }));
@@ -281,7 +281,7 @@ export default function AddProductPage() {
     try {
       // Find the selected category ID
       const selectedCategory = categories.find(cat => cat.name === formData.category);
-      const categoryId = selectedCategory ? selectedCategory._id : (formData.categoryId as any);
+      const categoryId = selectedCategory ? selectedCategory._id : formData.categoryId;
 
       // Create certificate string from images - store URLs separated by commas
       const certificateString = formData.certificateImages.length > 0
@@ -296,7 +296,7 @@ export default function AddProductPage() {
         description: formData.description.trim() || undefined,
         price: parseFloat(formData.price),
         originalPrice: formData.originalPrice ? parseFloat(formData.originalPrice) : undefined,
-        categoryId: categoryId as any,
+        categoryId: categoryId,
         certificate: certificateString,
         image: formData.image,
         images: formData.images.length > 0 ? formData.images : [formData.image],
@@ -308,14 +308,14 @@ export default function AddProductPage() {
         isActive: formData.status === 'active',
       };
 
-      let productId: any;
+      let productId: Id<'products'>;
 
       productId = await createProduct(baseProductData);
 
       // Handle fish-specific data for new products
       if (isFishProduct && productId) {
         const fishData = {
-          productId: productId as any,
+          productId: productId,
           scientificName: formData.scientificName.trim(),
           size: parseFloat(formData.fishSize),
           temperature: parseFloat(formData.fishTemperature),
@@ -332,7 +332,7 @@ export default function AddProductPage() {
       // Handle tank-specific data for new products
       if (isTankProduct && productId) {
         const tankData = {
-          productId: productId as any,
+          productId: productId,
           tankType: formData.tankType,
           material: formData.material,
           capacity: parseFloat(formData.capacity),
@@ -415,13 +415,13 @@ export default function AddProductPage() {
       {/* Header */}
       <div className="sticky top-0 z-50 bg-[#0A0A0A] border-b border-white/10 shadow-lg">
         <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4">
-          <button
+              <button
             onClick={() => router.push('/admin/products')}
             className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-white/10 transition-colors"
             style={{ backgroundColor: '#FFFFFF08' }}
-          >
+              >
             <ArrowLeft size={20} color="#FFFFFF" />
-          </button>
+              </button>
           <h1 className="font-euclid-bold text-lg sm:text-xl text-white flex-1 text-center pr-16">
             Add Product
           </h1>
@@ -460,19 +460,19 @@ export default function AddProductPage() {
             className="w-full p-4 rounded-xl text-white font-euclid-regular mb-4"
             style={{ backgroundColor: '#1A1A1A', borderColor: '#333333', borderWidth: 1 }}
             placeholder="Enter product name"
-            value={formData.name}
+                value={formData.name}
             onChange={(e) => handleInputChange('name', e.target.value)}
           />
 
           {/* Description */}
           {renderFormField('Description')}
-          <textarea
+              <textarea
             className="w-full p-4 rounded-xl text-white font-euclid-regular mb-4 resize-none"
             style={{ backgroundColor: '#1A1A1A', borderColor: '#333333', borderWidth: 1 }}
             placeholder="Product description..."
-            value={formData.description}
-            onChange={(e) => handleInputChange('description', e.target.value)}
-            rows={4}
+                value={formData.description}
+                onChange={(e) => handleInputChange('description', e.target.value)}
+                rows={4}
           />
 
           {/* Category */}
@@ -514,7 +514,7 @@ export default function AddProductPage() {
                 onChange={(e) => handleInputChange('originalPrice', e.target.value)}
               />
             </div>
-          </div>
+            </div>
 
           {/* Stock and SKU */}
           <div className="flex gap-4 mb-4">
@@ -571,7 +571,7 @@ export default function AddProductPage() {
             Product Images
           </p>
 
-          <button
+                <button
             onClick={() => handleImagePicker('product')}
             className="border-2 border-dashed rounded-xl p-8 items-center justify-center mb-4"
             style={{ borderColor: '#333333' }}
@@ -581,7 +581,7 @@ export default function AddProductPage() {
             <p className="font-euclid-medium text-base mt-2" style={{ color: uploadingImages.length > 0 ? '#999999' : '#666666' }}>
               {uploadingImages.length > 0 ? 'Uploading...' : 'Add Product Image'}
             </p>
-          </button>
+                </button>
 
           {/* Uploading Images */}
           {uploadingImages.map((uploadingImg, index) => (
@@ -622,7 +622,7 @@ export default function AddProductPage() {
               </button>
             </div>
           ))}
-        </div>
+          </div>
 
         {/* Certificate Images */}
         <div className="mb-6">
@@ -672,7 +672,7 @@ export default function AddProductPage() {
               ))}
             </div>
           )}
-        </div>
+            </div>
 
         {/* Fish-specific fields */}
         {isFishProduct && (
@@ -723,14 +723,14 @@ export default function AddProductPage() {
                   onChange={(e) => handleInputChange('fishAge', e.target.value)}
                 />
               </div>
-            </div>
+              </div>
 
             {/* pH Level */}
             {renderFormField('pH Level', true)}
             <input
               className="w-full p-4 rounded-xl text-white font-euclid-regular mb-4"
               style={{ backgroundColor: '#1A1A1A', borderColor: '#333333', borderWidth: 1 }}
-              placeholder="e.g., 6.5-7.5"
+                  placeholder="e.g., 6.5-7.5"
               value={formData.phLevel}
               onChange={(e) => handleInputChange('phLevel', e.target.value)}
             />
@@ -765,7 +765,7 @@ export default function AddProductPage() {
               (value) => handleInputChange('diet', value),
               true
             )}
-          </div>
+            </div>
         )}
 
         {/* Tank-specific fields */}
@@ -838,8 +838,8 @@ export default function AddProductPage() {
                   value={formData.height}
                   onChange={(e) => handleInputChange('height', e.target.value)}
                 />
+                </div>
               </div>
-            </div>
 
             {/* Glass Thickness */}
             {renderFormField('Glass Thickness (mm)', true)}
@@ -874,7 +874,7 @@ export default function AddProductPage() {
                 />
               </div>
             </div>
-          </div>
+            </div>
         )}
 
         {/* Bottom spacing */}

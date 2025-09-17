@@ -35,7 +35,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
   const discountPercent = hasDiscount
     ? Math.round(((product.originalPrice! - product.price) / product.originalPrice!) * 100)
     : 0;
-  const rawBadge = (product as any).badge as string | undefined;
+  const rawBadge = product.badge;
   const hasBadge = typeof rawBadge === 'string' && rawBadge.trim().length > 0;
   const badgeText = hasBadge ? rawBadge!.trim() : '';
 

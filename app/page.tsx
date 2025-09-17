@@ -234,7 +234,7 @@ export default function Home() {
                 <div className="grid gap-4 text-sm text-muted">
                   <div className="rounded-2xl border border-white/5 bg-white/5 p-5">
                     <p className="text-xs uppercase tracking-[0.3em] text-primary/70">Curator Broadcast</p>
-                    <p className="mt-2 text-white">"Lighting Profile Orion" deployed to Four Seasons Sky Atrium. Spectators gathered within minutes."</p>
+                    <p className="mt-2 text-white">&ldquo;Lighting Profile Orion&rdquo; deployed to Four Seasons Sky Atrium. Spectators gathered within minutes.&rdquo;</p>
                   </div>
                   <div className="rounded-2xl border border-white/5 bg-white/5 p-5">
                     <p className="text-xs uppercase tracking-[0.3em] text-primary/70">Guest Mode</p>

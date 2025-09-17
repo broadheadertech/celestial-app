@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { useAuthStore, useIsAuthenticated, useIsGuest } from '@/store/auth';
 import { useCartItemCount, useCartStore } from '@/store/cart';
+import { Product } from '@/types';
 import { useQuery } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import Button from '@/components/ui/Button';
@@ -46,17 +47,6 @@ export default function ClientDashboard() {
     ? user.firstName || 'User'
     : 'Guest';
 
-  // Redirect admins and super_admins to their respective dashboards
-  if (isAuthenticated && user?.role === 'admin') {
-    router.push('/admin/dashboard');
-    return null;
-  }
-
-  if (isAuthenticated && user?.role === 'super_admin') {
-    router.push('/control_panel');
-    return null;
-  }
-
   // Banner auto-rotation (image-based)
   const banners = [
     { id: 1, src: '/banner/ban1.jpg', alt: 'Banner 1' },
@@ -72,6 +62,17 @@ export default function ClientDashboard() {
     return () => clearInterval(interval);
   }, [banners.length]);
 
+  // Redirect admins and super_admins to their respective dashboards
+  if (isAuthenticated && user?.role === 'admin') {
+    router.push('/admin/dashboard');
+    return null;
+  }
+
+  if (isAuthenticated && user?.role === 'super_admin') {
+    router.push('/control_panel');
+    return null;
+  }
+
   // Essential categories with natural aquatic theme
   const featuredCategories = [
     { key: 'tropical', icon: Fish, name: 'Tropical Fish' },
@@ -85,12 +86,12 @@ export default function ClientDashboard() {
   const newArrivals = productsQuery.slice(6, 12);
   const topRated = productsQuery.slice(12, 18);
 
-  const handleAddToCart = (product: any) => {
+  const handleAddToCart = (product: Product) => {
     if (product.stock === 0) return;
     addItem(product, 1);
   };
 
-  const handleQuantityChange = (product: any, change: number) => {
+  const handleQuantityChange = (product: Product, change: number) => {
     const cartItem = getItemById(product._id);
     const currentQuantity = cartItem?.quantity || 0;
     const newQuantity = Math.max(0, Math.min(product.stock, currentQuantity + change));
@@ -98,7 +99,7 @@ export default function ClientDashboard() {
     updateQuantity(product._id, newQuantity);
   };
 
-  const handleProductClick = (product: any) => {
+  const handleProductClick = (product: Product) => {
     router.push(`/client/product/${product._id}`);
   };
 

@@ -34,6 +34,14 @@ export default function ProfilePage() {
   const user = useCurrentUser();
   const cartItemCount = useCartItemCount();
 
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  // Fetch real user stats from Convex
+  const userReservations = useQuery(api.services.reservations.getReservations,
+    user ? { userId: user._id } : "skip"
+  ) || [];
+
   // Redirect admins and super_admins to their respective dashboards
   if (isAuthenticated && user?.role === 'admin') {
     router.push('/admin/dashboard');
@@ -44,14 +52,6 @@ export default function ProfilePage() {
     router.push('/control_panel');
     return null;
   }
-
-  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
-  const [isLoggingOut, setIsLoggingOut] = useState(false);
-
-  // Fetch real user stats from Convex
-  const userReservations = useQuery(api.services.reservations.getReservations,
-    user ? { userId: user._id } : "skip"
-  ) || [];
 
   // Calculate user stats from real data
   const totalReservations = userReservations.length;

@@ -61,7 +61,13 @@ type CombinedItem = {
     quantity: number;
     reservedPrice?: number;
     price?: number;
-    product?: any; // Using any to avoid complex typing for now
+    product?: {
+      _id: string;
+      name: string;
+      image?: string;
+      category?: string;
+      price?: number;
+    };
   }>;
   totalQuantity?: number;
   reservationCode?: string;

@@ -162,7 +162,7 @@ export default function ReservationDetailPage() {
         <div className="text-center">
           <AlertCircle className="w-12 h-12 text-error mx-auto mb-4" />
           <h2 className="text-xl font-bold text-white mb-2">Reservation Not Found</h2>
-          <p className="text-muted mb-4">The reservation you're looking for doesn't exist.</p>
+          <p className="text-muted mb-4">The reservation you&apos;re looking for doesn&apos;t exist.</p>
           <Button onClick={() => router.push('/admin/orders')}>
             Back to Orders
           </Button>
