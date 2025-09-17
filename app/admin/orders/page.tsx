@@ -453,7 +453,14 @@ export default function AdminOrdersPage() {
             {filteredItems.map((item) => (
               <div
                 key={item._id}
-                className="bg-secondary/40 backdrop-blur-sm border border-white/10 rounded-xl hover:border-primary/30 transition-all duration-200 overflow-hidden"
+                className="bg-secondary/40 backdrop-blur-sm border border-white/10 rounded-xl hover:border-primary/30 transition-all duration-200"
+                onClick={(e) => {
+                  // Close dropdown if clicking on the card but not on the dropdown or its button
+                  const target = e.target as HTMLElement;
+                  if (selectedItem === item._id && !target.closest('.dropdown-menu') && !target.closest('.dropdown-trigger')) {
+                    setSelectedItem(null);
+                  }
+                }}
               >
                 {/* Compact Header */}
                 <div className="flex items-center justify-between p-4">
@@ -504,13 +511,16 @@ export default function AdminOrdersPage() {
                     <div className="relative">
                       <button
                         onClick={() => setSelectedItem(selectedItem === item._id ? null : item._id)}
-                        className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 hover:border-primary/30 transition-all flex items-center justify-center"
+                        className="dropdown-trigger w-8 h-8 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 hover:border-primary/30 transition-all flex items-center justify-center"
                       >
                         <ChevronDown className={`w-4 h-4 text-white/70 transition-transform ${selectedItem === item._id ? 'rotate-180' : ''}`} />
                       </button>
 
                       {selectedItem === item._id && (
-                        <div className="absolute right-0 top-10 w-52 bg-secondary/90 backdrop-blur-md border border-white/20 rounded-xl shadow-2xl z-20 overflow-hidden">
+                        <div
+                          className="dropdown-menu absolute right-0 top-10 w-52 bg-secondary/90 backdrop-blur-md border border-white/20 rounded-xl shadow-2xl z-[100] overflow-hidden pointer-events-auto"
+                          onClick={(e) => e.stopPropagation()}
+                        >
                           <div className="p-2">
                             <button
                               onClick={() => router.push(`/admin/${item.type}s/${item._id}`)}
@@ -663,13 +673,18 @@ export default function AdminOrdersPage() {
       {/* Bottom padding */}
       <div className="h-16" />
 
-      {/* Click outside to close menu */}
-      {selectedItem && (
+      {/* Click outside to close menu - temporarily disabled */}
+      {/* {selectedItem && (
         <div
-          className="fixed inset-0 z-5"
-          onClick={() => setSelectedItem(null)}
+          className="fixed inset-0 z-40"
+          onClick={(e) => {
+            // Only close if clicking directly on the overlay, not on child elements
+            if (e.target === e.currentTarget) {
+              setSelectedItem(null);
+            }
+          }}
         />
-      )}
+      )} */}
     </div>
   );
 }
