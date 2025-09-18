@@ -70,12 +70,12 @@ const mockLowStockProducts = [
   { id: '4', name: 'Aquarium Filter System', stock: 3, category: 'Accessories' }
 ];
 
-const formatCurrency = (amount) => {
+const formatCurrency = (amount: number) => {
   return `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`;
 };
 
 
-const getOrderStatusColor = (status) => {
+const getOrderStatusColor = (status: string) => {
   switch (status) {
     case 'completed': return 'text-success';
     case 'processing': return 'text-warning';
@@ -85,7 +85,7 @@ const getOrderStatusColor = (status) => {
   }
 };
 
-const getOrderStatusIcon = (status) => {
+const getOrderStatusIcon = (status: string) => {
   switch (status) {
     case 'completed': return CheckCircle;
     case 'processing': return RefreshCw;

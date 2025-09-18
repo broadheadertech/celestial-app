@@ -1,263 +1,268 @@
 'use client';
 
-import Image from 'next/image';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuthStore } from '@/store/auth';
-import {
-  Activity,
-  GaugeCircle,
-  Radar,
-  Smartphone,
-  Waves,
-} from 'lucide-react';
+import { useSession } from 'next-auth/react';
+import { Eye, EyeOff } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
 import Button from '@/components/ui/Button';
+import Input from '@/components/ui/Input';
 import Card from '@/components/ui/Card';
+import { isValidEmail } from '@/lib/utils';
 
-export default function Home() {
+export default function HomePage() {
   const router = useRouter();
-  const { isLoading } = useAuthStore();
+  const { data: session, status } = useSession();
+  const { loginWithFacebook, loginWithEmail, isLoading } = useAuth();
 
-  if (isLoading) {
+  const [formData, setFormData] = useState({
+    email: '',
+    password: '',
+  });
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [showPassword, setShowPassword] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (status === 'authenticated' && session?.user) {
+      const role = (session.user as { role?: string })?.role;
+      const path = role === 'admin' ? '/admin/dashboard' :
+                   role === 'super_admin' ? '/control_panel' :
+                   '/client/dashboard';
+      router.push(path);
+    }
+  }, [session, status, router]);
+
+  // Don't render if authenticated
+  if (status === 'loading' || (status === 'authenticated' && session?.user)) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-white">Loading...</p>
+        </div>
       </div>
     );
   }
 
+  const validateForm = () => {
+    const newErrors: Record<string, string> = {};
+
+    if (!formData.email.trim()) {
+      newErrors.email = 'Email is required';
+    } else if (!isValidEmail(formData.email)) {
+      newErrors.email = 'Please enter a valid email address';
+    }
+
+    if (!formData.password.trim()) {
+      newErrors.password = 'Password is required';
+    } else if (formData.password.length < 8) {
+      newErrors.password = 'Password must be at least 8 characters';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!validateForm()) return;
+
+    setErrors({});
+    setIsSubmitting(true);
+
+    try {
+      await loginWithEmail(formData.email, formData.password);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Invalid email or password';
+      setErrors({ general: message });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleFacebookLogin = async () => {
+    setErrors({});
+    try {
+      await loginWithFacebook();
+    } catch (error) {
+      console.error('Facebook login error:', error);
+      setErrors({ general: 'Facebook login failed. Please try again.' });
+    }
+  };
+
+  const handleInputChange = (field: string, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+    if (errors[field]) {
+      setErrors(prev => ({ ...prev, [field]: '' }));
+    }
+  };
+
   return (
-    <div className="min-h-screen flex flex-col bg-[#050505] text-white">
-      <section className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-black via-black to-zinc-950" />
-        <div className="absolute -top-60 right-0 h-[520px] w-[520px] bg-primary/10 blur-[160px]" />
-        <div className="absolute -bottom-40 left-24 h-72 w-72 bg-primary/10 blur-[140px]" />
-        <div className="relative max-w-6xl mx-auto px-6 lg:px-10 pt-24 pb-28 grid gap-16 lg:grid-cols-[1.15fr,0.85fr] items-center">
-          <div className="space-y-8">
-            <div className="inline-flex items-center gap-3 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs uppercase tracking-[0.4em] text-muted">
-              Control Every Current
-            </div>
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight">
-              The command center for aquariums that deserve more than autopilot.
-            </h1>
-            <p className="text-lg text-muted max-w-xl">
-              Celestial Drakon keeps your installations vivid, balanced, and ready to awe. Monitor health, choreograph maintenance, and sync alerts across every device—all through a single immersive workspace.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4">
-              <Button
-                onClick={() => router.push('/auth/login')}
-                size="lg"
-                className="w-full sm:w-auto"
+    <div className="min-h-screen flex flex-col px-6 py-8">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-8">
+        <button
+          onClick={() => router.push('/landing')}
+          className="flex items-center justify-center w-10 h-10 rounded-full bg-secondary border border-white/10 hover:bg-white/10 transition-colors"
+        >
+          <span className="text-white text-sm">ℹ️</span>
+        </button>
+        <h1 className="text-xl font-semibold text-white">Sign In</h1>
+        <div className="w-10" />
+      </div>
+
+      {/* Welcome Section */}
+      <div className="text-center mb-8">
+        <h2 className="text-3xl font-bold text-white mb-2">Welcome Back!</h2>
+        <p className="text-muted">Sign in to access your aquatic paradise</p>
+      </div>
+
+      {/* Login Form */}
+      <div className="flex-1 max-w-sm mx-auto w-full">
+        <Card className="mb-6">
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {errors.general && (
+              <div className="p-3 rounded-lg bg-error/10 border border-error/20">
+                <p className="text-error text-sm">{errors.general}</p>
+              </div>
+            )}
+
+            <Input
+              label="Email Address"
+              type="email"
+              placeholder="Enter your email"
+              value={formData.email}
+              onChange={(value) => handleInputChange('email', value)}
+              error={errors.email}
+              required
+            />
+
+            <div className="relative">
+              <Input
+                label="Password"
+                type={showPassword ? 'text' : 'password'}
+                placeholder="Enter your password"
+                value={formData.password}
+                onChange={(value) => handleInputChange('password', value)}
+                error={errors.password}
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-9 text-muted-dark hover:text-white transition-colors"
               >
-                Continue in Web Browser
-              </Button>
-              <Button
-                size="lg"
-                variant="ghost"
-                disabled
-                className="w-full sm:w-auto border border-dashed border-white/15 text-muted"
-              >
-                Android App · Coming Soon
-              </Button>
+                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+              </button>
             </div>
-            <div className="grid gap-6 sm:grid-cols-3 pt-4">
-              {[
-                {
-                  title: 'Live Health Scoring',
-                  description: 'Automated diagnostics with instant anomaly alerts.',
-                },
-                {
-                  title: 'Adaptive Scheduling',
-                  description: 'Tasks flex with livestock changes and water chemistry.',
-                },
-                {
-                  title: 'Collaborative Access',
-                  description: 'Invite caretakers, stylists, or clients with tailored roles.',
-                },
-              ].map((item) => (
-                <div key={item.title} className="space-y-2">
-                  <p className="text-xs uppercase tracking-[0.3em] text-primary/70">{item.title}</p>
-                  <p className="text-sm text-muted">{item.description}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className="relative">
-            <Card
-              variant="modern"
-              className="relative h-[520px] overflow-hidden border border-white/10 bg-gradient-to-b from-white/[0.08] via-white/[0.02] to-transparent"
-              padding="none"
+
+            <Button
+              type="submit"
+              loading={isSubmitting}
+              disabled={isSubmitting}
+              className="w-full"
+              size="lg"
             >
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.12),_transparent_55%)]" />
-              <div className="relative z-10 h-full w-full p-10 flex flex-col justify-between">
-                <div className="flex items-center justify-between text-xs text-muted uppercase tracking-[0.45em]">
-                  <span>Live Dashboard</span>
-                  <span>V2.4</span>
-                </div>
-                <div className="relative flex-1 flex items-center justify-center">
-                  <div className="relative w-full max-w-sm">
-                    <div className="relative rounded-[36px] border border-white/10 bg-black/70 p-6 shadow-[0px_24px_80px_-20px_rgba(0,0,0,0.9)]">
-                      <div className="flex items-center justify-between text-xs text-muted">
-                        <span className="flex items-center gap-2 text-primary"><GaugeCircle className="h-4 w-4" /> Stability</span>
-                        <span>98%</span>
-                      </div>
-                      <div className="mt-6 rounded-2xl border border-white/5 bg-gradient-to-br from-primary/10 via-black to-black/80 p-4">
-                        <p className="text-sm text-muted">Lagoon Exhibit</p>
-                        <p className="mt-1 text-2xl font-semibold text-white">Crystal Balance</p>
-                        <div className="mt-4 grid grid-cols-3 gap-3 text-center text-xs text-muted">
-                          <div className="rounded-xl bg-white/5 p-3">
-                            <p className="text-primary font-semibold text-sm">7.9</p>
-                            <p>pH</p>
-                          </div>
-                          <div className="rounded-xl bg-white/5 p-3">
-                            <p className="text-primary font-semibold text-sm">25°C</p>
-                            <p>Temp</p>
-                          </div>
-                          <div className="rounded-xl bg-white/5 p-3">
-                            <p className="text-primary font-semibold text-sm">0 ppm</p>
-                            <p>Ammonia</p>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="mt-6 space-y-3 text-sm text-muted">
-                        <div className="flex items-center justify-between">
-                          <span className="flex items-center gap-2 text-white"><Activity className="h-4 w-4 text-primary" /> Pulse Feed</span>
-                          <span className="text-primary">Due in 20m</span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="flex items-center gap-2 text-white"><Radar className="h-4 w-4 text-primary" /> Health Scan</span>
-                          <span>Tomorrow 7:00</span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="flex items-center gap-2 text-white"><Smartphone className="h-4 w-4 text-primary" /> Concierge Chat</span>
-                          <span>Online</span>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="absolute -right-10 -bottom-6 hidden lg:block">
-                      <div className="rounded-3xl border border-white/10 bg-black/70 px-5 py-4 shadow-2xl">
-                        <p className="text-xs uppercase tracking-[0.4em] text-muted">Insights</p>
-                        <p className="mt-3 text-sm text-white">Coral blooms up 14% after lighting adjustment. Keep current profile.</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between text-xs text-muted">
-                  <span className="flex items-center gap-2 text-primary"><Waves className="h-4 w-4" /> Synced to 3 locations</span>
-                  <span>Last refresh · 12s ago</span>
-                </div>
-              </div>
-            </Card>
-            <div className="absolute -bottom-14 left-5 right-5 hidden md:block">
-              <Card variant="glass" padding="lg" className="border border-white/5 bg-black/70 backdrop-blur">
-                <div className="flex flex-col gap-2 text-sm text-muted">
-                  <span className="text-xs uppercase tracking-[0.35em] text-primary/70">What to Expect</span>
-                  <p>One unified workspace for alarms, routines, and remote specialists—purpose-built for aquatic curators.</p>
-                </div>
-              </Card>
+              {isSubmitting ? 'Signing In...' : 'Sign In'}
+            </Button>
+          </form>
+
+          {/* Divider */}
+          <div className="relative my-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-white/10"></div>
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-2 bg-background text-muted">or continue with</span>
             </div>
           </div>
-        </div>
-      </section>
 
-      <section className="relative border-y border-white/5 bg-black/85">
-        <div className="max-w-6xl mx-auto px-6 lg:px-10 py-20">
-          <div className="grid gap-8 lg:grid-cols-3">
-            <Card variant="modern" hover padding="lg" className="bg-black/50">
-              <GaugeCircle className="h-10 w-10 text-primary" />
-              <h3 className="mt-6 text-2xl font-semibold">Always in the Sweet Spot</h3>
-              <p className="mt-3 text-sm text-muted">
-                Predictive analytics balance nutrients, lighting, and chemistry so moments of wonder stay effortless.
-              </p>
-            </Card>
-            <Card variant="modern" hover padding="lg" className="bg-black/50">
-              <Radar className="h-10 w-10 text-primary" />
-              <h3 className="mt-6 text-2xl font-semibold">Know Before It Shows</h3>
-              <p className="mt-3 text-sm text-muted">
-                Precision monitoring reads micro-shifts in your ecosystem and issues tailored playbooks for each scenario.
-              </p>
-            </Card>
-            <Card variant="modern" hover padding="lg" className="bg-black/50">
-              <Smartphone className="h-10 w-10 text-primary" />
-              <h3 className="mt-6 text-2xl font-semibold">Presence From Anywhere</h3>
-              <p className="mt-3 text-sm text-muted">
-                Seamless handoffs between desktop, tablet, and upcoming mobile keep your team synced in real time.
-              </p>
-            </Card>
+          {/* Facebook Login Button */}
+          <Button
+            onClick={handleFacebookLogin}
+            loading={isLoading}
+            disabled={isLoading}
+            className="w-full bg-[#1877F2] hover:bg-[#166FE5] border-[#1877F2] text-white hover:text-white"
+            size="lg"
+          >
+            {isLoading ? (
+              'Connecting...'
+            ) : (
+              <div className="flex items-center justify-center gap-3">
+                <svg
+                  className="w-5 h-5"
+                  fill="currentColor"
+                  viewBox="0 0 24 24"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                </svg>
+                Continue with Facebook
+              </div>
+            )}
+          </Button>
+        </Card>
+
+        {/* Quick Access */}
+        <div className="space-y-3 mb-8">
+          <p className="text-center text-sm text-muted">Quick Access</p>
+          <div className="grid grid-cols-3 gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setFormData({ email: 'superadmin@gmail.com', password: 'Admin123!' });
+              }}
+              className="text-xs"
+            >
+              Super Admin
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setFormData({ email: 'admin@celestial.com', password: 'admin123' });
+              }}
+              className="text-xs"
+            >
+              Admin
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setFormData({ email: 'client@celestial.com', password: 'client123' });
+              }}
+              className="text-xs"
+            >
+              Client
+            </Button>
           </div>
         </div>
-      </section>
 
-      <section className="relative flex-1">
-        <div className="absolute inset-0 bg-gradient-to-br from-black via-zinc-950 to-black" />
-        <div className="relative max-w-6xl mx-auto px-6 lg:px-10 py-24 grid gap-12 lg:grid-cols-[0.9fr,1.1fr] items-center">
-          <div className="space-y-6">
-            <p className="text-xs uppercase tracking-[0.35em] text-primary/70">Designed for Impact</p>
-            <h2 className="text-3xl sm:text-4xl font-semibold">
-              Showcase-worthy aquariums need orchestration, not guesswork.
-            </h2>
-            <p className="text-lg text-muted">
-              Build routines once, layer in intelligent triggers, and let Celestial Drakon orchestrate your environments. Whether running a boutique gallery or managing multi-site attractions, every detail is ready before the lights come on.
-            </p>
-            <div className="space-y-4 text-sm text-muted">
-              <div className="flex items-start gap-3">
-                <span className="mt-1 h-2 w-2 rounded-full bg-primary" />
-                <p>Instant sync with IoT sensors, lighting rigs, and dosing controllers.</p>
-              </div>
-              <div className="flex items-start gap-3">
-                <span className="mt-1 h-2 w-2 rounded-full bg-primary" />
-                <p>Role-based workspaces tailored for curators, technicians, and VIP stakeholders.</p>
-              </div>
-              <div className="flex items-start gap-3">
-                <span className="mt-1 h-2 w-2 rounded-full bg-primary" />
-                <p>Story-ready reporting with cinematic visuals for investor decks or guest briefings.</p>
-              </div>
-            </div>
-          </div>
-          <div className="relative">
-            <div className="absolute -top-12 -left-10 h-40 w-40 rounded-full bg-primary/15 blur-[120px]" />
-            <Card variant="modern" padding="lg" className="relative overflow-hidden border border-white/10 bg-black/60">
-              <div className="relative z-10 grid gap-6">
-                <div className="flex items-center gap-4">
-                  <div className="relative h-14 w-14 overflow-hidden rounded-2xl border border-white/10">
-                    <Image
-                      src="/img/logo-app.png"
-                      alt="Celestial Drakon emblem"
-                      fill
-                      className="object-contain p-2"
-                    />
-                  </div>
-                  <div>
-                    <p className="text-sm uppercase tracking-[0.3em] text-muted">In-app Preview</p>
-                    <p className="text-lg text-white">Client Dashboard</p>
-                  </div>
-                </div>
-                <div className="grid gap-4 text-sm text-muted">
-                  <div className="rounded-2xl border border-white/5 bg-white/5 p-5">
-                    <p className="text-xs uppercase tracking-[0.3em] text-primary/70">Curator Broadcast</p>
-                    <p className="mt-2 text-white">&ldquo;Lighting Profile Orion&rdquo; deployed to Four Seasons Sky Atrium. Spectators gathered within minutes.&rdquo;</p>
-                  </div>
-                  <div className="rounded-2xl border border-white/5 bg-white/5 p-5">
-                    <p className="text-xs uppercase tracking-[0.3em] text-primary/70">Guest Mode</p>
-                    <p className="mt-2 text-white">Share a guided story through your tanks with timed highlights and ambient audio.</p>
-                  </div>
-                </div>
-                <div className="flex flex-wrap gap-3 text-xs uppercase tracking-[0.3em] text-muted">
-                  <span className="rounded-full border border-white/10 px-4 py-2 text-white/80">Dark Mode Native</span>
-                  <span className="rounded-full border border-white/10 px-4 py-2 text-white/80">Multi-Tank Sync</span>
-                  <span className="rounded-full border border-white/10 px-4 py-2 text-white/80">Cinematic Reporting</span>
-                </div>
-              </div>
-              <div className="absolute inset-0 bg-gradient-to-br from-white/10 via-transparent to-black/60" />
-            </Card>
+        {/* Footer Links */}
+        <div className="text-center space-y-4">
+          <p className="text-sm text-muted">
+            Don&apos;t have an account?{' '}
+            <button
+              onClick={() => router.push('/auth/register')}
+              className="text-primary hover:underline font-medium"
+            >
+              Sign Up
+            </button>
+          </p>
+
+          <div className="border-t border-white/10 pt-4">
+            <Button
+              variant="ghost"
+              onClick={() => router.push('/client/dashboard')}
+              className="w-full"
+            >
+              Continue as Guest
+            </Button>
           </div>
         </div>
-      </section>
-
-      <footer className="py-8 px-6 border-t border-white/10 bg-black">
-        <div className="max-w-6xl mx-auto text-center text-sm text-muted">
-          © 2024 Celestial Drakon Aquatics. Premium aquatic environments, handcrafted.
-        </div>
-      </footer>
+      </div>
     </div>
   );
 }

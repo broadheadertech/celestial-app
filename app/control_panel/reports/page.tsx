@@ -1,382 +1,528 @@
 'use client';
 
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  ArrowLeft,
   FileText,
+  TrendingUp,
   Download,
   Calendar,
-  Filter,
-  Search,
-  BarChart3,
-  PieChart,
-  TrendingUp,
-  Users,
-  ShoppingCart,
-  Package,
-  DollarSign,
-  Clock,
-  Eye,
-  Share,
-  Settings,
   RefreshCw,
+  ArrowLeft,
+  Printer,
 } from 'lucide-react';
+import ControlPanelNav from '@/components/ControlPanelNav';
 import Button from '@/components/ui/Button';
 
 export default function ReportsPage() {
   const router = useRouter();
+  const [selectedYear, setSelectedYear] = useState('2023');
   const [selectedCategory, setSelectedCategory] = useState('all');
-  const [selectedPeriod, setSelectedPeriod] = useState('30d');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [isGenerating, setIsGenerating] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const handleGenerateReport = (reportId) => {
-    setIsGenerating(true);
-    setTimeout(() => setIsGenerating(false), 2000);
+  const handleRefresh = () => {
+    setIsRefreshing(true);
+    setTimeout(() => setIsRefreshing(false), 1000);
   };
 
-  // Mock reports data
-  const reportsData = {
-    categories: [
-      { id: 'all', name: 'All Reports', count: 24 },
-      { id: 'sales', name: 'Sales', count: 8 },
-      { id: 'customers', name: 'Customers', count: 6 },
-      { id: 'products', name: 'Products', count: 5 },
-      { id: 'financial', name: 'Financial', count: 3 },
-      { id: 'system', name: 'System', count: 2 },
-    ],
-    reports: [
+  // Financial data aligned with aquarium business model
+  const financialData = {
+    accounts: [
       {
-        id: 1,
-        title: 'Sales Performance Report',
-        description: 'Comprehensive sales analysis with trends and forecasting',
-        category: 'sales',
-        lastGenerated: '2 hours ago',
-        size: '2.3 MB',
-        type: 'PDF',
-        frequency: 'Daily',
-        icon: BarChart3,
-        color: 'from-green-500/20 to-emerald-600/20 text-green-400',
+        category: 'Sales',
+        items: [
+          {
+            name: 'Fish Sales - Tropical',
+            jan: 85420000, feb: 0, mar: 0, apr: 0, may: 0, jun: 0,
+            jul: 12840000, aug: 15680000, sep: 18950000, oct: 14680000, nov: 16750000, dec: 13890000
+          },
+          {
+            name: 'Fish Sales - Marine',
+            jan: 64320000, feb: 0, mar: 0, apr: 0, may: 0, jun: 0,
+            jul: 8950000, aug: 11420000, sep: 13670000, oct: 9840000, nov: 12560000, dec: 10840000
+          },
+          {
+            name: 'Tank Sales',
+            jan: 45680000, feb: 0, mar: 0, apr: 0, may: 0, jun: 0,
+            jul: 6840000, aug: 8950000, sep: 12460000, oct: 8760000, nov: 9840000, dec: 11230000
+          },
+          {
+            name: 'Equipment & Accessories',
+            jan: 32840000, feb: 0, mar: 0, apr: 0, may: 0, jun: 0,
+            jul: 4820000, aug: 6150000, sep: 8940000, oct: 6420000, nov: 7680000, dec: 8460000
+          },
+          {
+            name: 'Food & Supplements',
+            jan: 18640000, feb: 0, mar: 0, apr: 0, may: 0, jun: 0,
+            jul: 2840000, aug: 3650000, sep: 4920000, oct: 3680000, nov: 4120000, dec: 3890000
+          }
+        ]
       },
       {
-        id: 2,
-        title: 'Customer Analytics Report',
-        description: 'Customer behavior, demographics, and retention analysis',
-        category: 'customers',
-        lastGenerated: '1 day ago',
-        size: '1.8 MB',
-        type: 'PDF',
-        frequency: 'Weekly',
-        icon: Users,
-        color: 'from-purple-500/20 to-violet-600/20 text-purple-400',
+        category: 'Cost of Goods Sold',
+        items: [
+          {
+            name: 'Fish Procurement',
+            jan: 89420000, feb: 0, mar: 0, apr: 0, may: 0, jun: 0,
+            jul: 14680000, aug: 18420000, sep: 21840000, oct: 16420000, nov: 19680000, dec: 17350000
+          },
+          {
+            name: 'Tank Manufacturing Cost',
+            jan: 28450000, feb: 0, mar: 0, apr: 0, may: 0, jun: 0,
+            jul: 4260000, aug: 5580000, sep: 7760000, oct: 5460000, nov: 6130000, dec: 7000000
+          },
+          {
+            name: 'Equipment Wholesale Cost',
+            jan: 21630000, feb: 0, mar: 0, apr: 0, may: 0, jun: 0,
+            jul: 3180000, aug: 4050000, sep: 5890000, oct: 4230000, nov: 5060000, dec: 5570000
+          },
+          {
+            name: 'Food & Supplement Cost',
+            jan: 9320000, feb: 0, mar: 0, apr: 0, may: 0, jun: 0,
+            jul: 1420000, aug: 1830000, sep: 2460000, oct: 1840000, nov: 2060000, dec: 1950000
+          }
+        ]
       },
       {
-        id: 3,
-        title: 'Product Performance Dashboard',
-        description: 'Top-selling products, inventory levels, and product analytics',
-        category: 'products',
-        lastGenerated: '3 hours ago',
-        size: '1.5 MB',
-        type: 'PDF',
-        frequency: 'Daily',
-        icon: Package,
-        color: 'from-blue-500/20 to-cyan-600/20 text-blue-400',
+        category: 'Operating Expenses',
+        items: [
+          {
+            name: 'Staff Salaries',
+            jan: 18500000, feb: 0, mar: 0, apr: 0, may: 0, jun: 0,
+            jul: 2650000, aug: 2650000, sep: 2650000, oct: 2650000, nov: 2650000, dec: 2650000
+          },
+          {
+            name: 'Store Rent & Utilities',
+            jan: 12600000, feb: 0, mar: 0, apr: 0, may: 0, jun: 0,
+            jul: 1800000, aug: 1800000, sep: 1800000, oct: 1800000, nov: 1800000, dec: 1800000
+          },
+          {
+            name: 'Tank Maintenance',
+            jan: 8940000, feb: 0, mar: 0, apr: 0, may: 0, jun: 0,
+            jul: 1280000, aug: 1280000, sep: 1280000, oct: 1280000, nov: 1280000, dec: 1280000
+          },
+          {
+            name: 'Fish Care & Veterinary',
+            jan: 5680000, feb: 0, mar: 0, apr: 0, may: 0, jun: 0,
+            jul: 810000, aug: 810000, sep: 810000, oct: 810000, nov: 810000, dec: 810000
+          },
+          {
+            name: 'Marketing & Advertising',
+            jan: 4520000, feb: 0, mar: 0, apr: 0, may: 0, jun: 0,
+            jul: 650000, aug: 650000, sep: 650000, oct: 650000, nov: 650000, dec: 650000
+          }
+        ]
       },
       {
-        id: 4,
-        title: 'Financial Summary',
-        description: 'Revenue, expenses, profit margins, and financial KPIs',
-        category: 'financial',
-        lastGenerated: '12 hours ago',
-        size: '900 KB',
-        type: 'Excel',
-        frequency: 'Weekly',
-        icon: DollarSign,
-        color: 'from-primary/20 to-orange-600/20 text-primary',
-      },
-      {
-        id: 5,
-        title: 'Order Fulfillment Report',
-        description: 'Order processing times, delivery status, and fulfillment metrics',
-        category: 'sales',
-        lastGenerated: '6 hours ago',
-        size: '1.2 MB',
-        type: 'PDF',
-        frequency: 'Daily',
-        icon: ShoppingCart,
-        color: 'from-cyan-500/20 to-blue-600/20 text-cyan-400',
-      },
-      {
-        id: 6,
-        title: 'System Performance Report',
-        description: 'Server performance, uptime, and system health metrics',
-        category: 'system',
-        lastGenerated: '1 hour ago',
-        size: '600 KB',
-        type: 'PDF',
-        frequency: 'Daily',
-        icon: TrendingUp,
-        color: 'from-red-500/20 to-pink-600/20 text-red-400',
-      },
-    ],
-    quickStats: [
-      { label: 'Total Reports', value: 24, growth: 8 },
-      { label: 'Generated Today', value: 12, growth: 15 },
-      { label: 'Scheduled Reports', value: 18, growth: 5 },
-      { label: 'Data Sources', value: 6, growth: 0 },
+        category: 'Delivery & Logistics',
+        items: [
+          {
+            name: 'Fish Transport (Live)',
+            jan: 8940000, feb: 0, mar: 0, apr: 0, may: 115671, jun: 0,
+            jul: 1280000, aug: 1450000, sep: 1820000, oct: 1340000, nov: 1560000, dec: 1680000
+          },
+          {
+            name: 'Tank Delivery',
+            jan: 6450000, feb: 0, mar: 0, apr: 0, may: 89000, jun: 0,
+            jul: 920000, aug: 1150000, sep: 1480000, oct: 1060000, nov: 1280000, dec: 1320000
+          },
+          {
+            name: 'Packaging & Insulation',
+            jan: 2840000, feb: 0, mar: 0, apr: 0, may: 42000, jun: 0,
+            jul: 410000, aug: 520000, sep: 680000, oct: 480000, nov: 590000, dec: 620000
+          },
+          {
+            name: 'Insurance & Permits',
+            jan: 1680000, feb: 0, mar: 0, apr: 0, may: 24000, jun: 0,
+            jul: 240000, aug: 240000, sep: 240000, oct: 240000, nov: 240000, dec: 240000
+          }
+        ]
+      }
     ]
   };
 
-  const filteredReports = reportsData.reports.filter(report => {
-    const matchesCategory = selectedCategory === 'all' || report.category === selectedCategory;
-    const matchesSearch = report.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         report.description.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesCategory && matchesSearch;
-  });
+  const calculateRowTotal = (item: any) => {
+    return item.jan + item.feb + item.mar + item.apr + item.may + item.jun +
+           item.jul + item.aug + item.sep + item.oct + item.nov + item.dec;
+  };
 
-  const ReportCard = ({ report }) => (
-    <div className="bg-secondary/40 backdrop-blur-sm rounded-xl p-6 border border-white/10 hover:border-primary/30 transition-all duration-300 group">
-      <div className="flex items-start justify-between mb-4">
-        <div className={`p-3 rounded-lg bg-gradient-to-br ${report.color}`}>
-          <report.icon className="w-6 h-6" />
-        </div>
-        <div className="flex items-center space-x-2">
-          <Button variant="ghost" size="sm" className="text-white/60 hover:text-white opacity-0 group-hover:opacity-100 transition-opacity">
-            <Share className="w-4 h-4" />
-          </Button>
-          <Button variant="ghost" size="sm" className="text-white/60 hover:text-white opacity-0 group-hover:opacity-100 transition-opacity">
-            <Settings className="w-4 h-4" />
-          </Button>
-        </div>
-      </div>
+  const calculateCategoryTotal = (category: any) => {
+    return category.items.reduce((sum: number, item: any) => sum + calculateRowTotal(item), 0);
+  };
 
-      <div className="space-y-3">
-        <div>
-          <h3 className="text-white font-bold text-lg mb-1">{report.title}</h3>
-          <p className="text-white/70 text-sm">{report.description}</p>
-        </div>
+  const formatCurrency = (amount: number) => {
+    if (amount === 0) return '-';
+    return amount.toLocaleString('en-PH');
+  };
 
-        <div className="flex items-center justify-between text-xs text-white/60">
-          <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-1">
-              <Clock className="w-3 h-3" />
-              <span>{report.lastGenerated}</span>
-            </div>
-            <span>{report.size}</span>
-            <span className="px-2 py-1 bg-white/10 rounded-full">{report.type}</span>
-          </div>
-          <span className="text-primary font-medium">{report.frequency}</span>
-        </div>
+  const getCategoryColor = (category: string) => {
+    switch (category) {
+      case 'Sales':
+        return 'bg-green-500/15 text-green-300 font-semibold';
+      case 'Cost of Goods Sold':
+        return 'bg-red-500/15 text-red-300 font-semibold';
+      case 'Operating Expenses':
+        return 'bg-yellow-500/15 text-yellow-300 font-semibold';
+      case 'Delivery & Logistics':
+        return 'bg-blue-500/15 text-blue-300 font-semibold';
+      default:
+        return 'bg-gray-500/15 text-gray-300 font-semibold';
+    }
+  };
 
-        <div className="flex items-center space-x-2 pt-2">
-          <Button
-            size="sm"
-            onClick={() => handleGenerateReport(report.id)}
-            disabled={isGenerating}
-            className="flex-1 bg-primary/90 hover:bg-primary"
-          >
-            {isGenerating ? (
-              <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-            ) : (
-              <Download className="w-4 h-4 mr-2" />
-            )}
-            {isGenerating ? 'Generating...' : 'Download'}
-          </Button>
-          <Button variant="ghost" size="sm" className="border border-white/10">
-            <Eye className="w-4 h-4" />
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
+  const months = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+  ];
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-md border-b border-white/10">
-        <div className="px-4 lg:px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => router.back()}
-                className="text-white/60 hover:text-white"
-              >
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back
-              </Button>
+    <div className="min-h-screen bg-background flex">
+      {/* Navigation Sidebar */}
+      <ControlPanelNav />
 
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 bg-gradient-to-br from-primary to-orange-600 rounded-xl flex items-center justify-center">
-                  <FileText className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-xl font-bold text-white">Reports Center</h1>
-                  <p className="text-sm text-white/60">Generate and manage business reports</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-center space-x-3">
-              <select
-                value={selectedPeriod}
-                onChange={(e) => setSelectedPeriod(e.target.value)}
-                className="bg-secondary/60 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:border-primary/50 focus:outline-none"
-              >
-                <option value="7d">Last 7 Days</option>
-                <option value="30d">Last 30 Days</option>
-                <option value="90d">Last 90 Days</option>
-                <option value="1y">Last Year</option>
-              </select>
-
-              <Button size="sm" className="bg-primary/90 hover:bg-primary">
-                <Download className="w-4 h-4 mr-2" />
-                Bulk Export
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="p-4 lg:p-6 space-y-6">
-        {/* Quick Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 lg:gap-6">
-          {reportsData.quickStats.map((stat, index) => (
-            <div key={index} className="bg-secondary/40 backdrop-blur-sm rounded-xl p-6 border border-white/10">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-white/70 text-sm font-medium">{stat.label}</span>
-                {stat.growth > 0 && (
-                  <span className="text-green-400 text-xs font-medium">+{stat.growth}%</span>
-                )}
-              </div>
-              <span className="text-2xl font-bold text-white">{stat.value}</span>
-            </div>
-          ))}
-        </div>
-
-        {/* Filters and Search */}
-        <div className="bg-secondary/40 backdrop-blur-sm rounded-xl p-6 border border-white/10">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between space-y-4 lg:space-y-0">
-            {/* Categories */}
-            <div className="flex items-center space-x-2 overflow-x-auto">
-              {reportsData.categories.map((category) => (
-                <button
-                  key={category.id}
-                  onClick={() => setSelectedCategory(category.id)}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${
-                    selectedCategory === category.id
-                      ? 'bg-primary text-white'
-                      : 'bg-white/10 text-white/70 hover:bg-white/20 hover:text-white'
-                  }`}
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col">
+        {/* Header */}
+        <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-md border-b border-white/10">
+          <div className="px-6 py-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => router.back()}
+                  className="text-white/60 hover:text-white"
                 >
-                  {category.name}
-                  <span className="ml-2 text-xs opacity-70">({category.count})</span>
-                </button>
-              ))}
-            </div>
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Back
+                </Button>
 
-            {/* Search */}
-            <div className="relative lg:w-80">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-white/50" />
-              <input
-                type="text"
-                placeholder="Search reports..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:border-primary/50 focus:outline-none"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Reports Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-          {filteredReports.map((report) => (
-            <ReportCard key={report.id} report={report} />
-          ))}
-        </div>
-
-        {/* Empty State */}
-        {filteredReports.length === 0 && (
-          <div className="bg-secondary/40 backdrop-blur-sm rounded-xl p-12 border border-white/10 text-center">
-            <FileText className="w-16 h-16 text-white/40 mx-auto mb-4" />
-            <h3 className="text-xl font-bold text-white mb-2">No Reports Found</h3>
-            <p className="text-white/60 mb-6">
-              {searchQuery ? 'Try adjusting your search query' : 'No reports match the selected category'}
-            </p>
-            <Button
-              onClick={() => {
-                setSearchQuery('');
-                setSelectedCategory('all');
-              }}
-              className="bg-primary/90 hover:bg-primary"
-            >
-              Reset Filters
-            </Button>
-          </div>
-        )}
-
-        {/* Report Templates */}
-        <div className="bg-secondary/40 backdrop-blur-sm rounded-xl p-6 border border-white/10">
-          <h3 className="text-lg font-bold text-white mb-6">Custom Report Templates</h3>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {[
-              { name: 'Sales Analysis', description: 'Custom sales performance analysis', icon: BarChart3 },
-              { name: 'Customer Segmentation', description: 'Detailed customer behavior segmentation', icon: PieChart },
-              { name: 'Inventory Report', description: 'Stock levels and inventory analytics', icon: Package },
-            ].map((template, index) => (
-              <div key={index} className="p-4 bg-white/5 rounded-lg hover:bg-white/10 transition-colors border border-white/5 hover:border-white/20">
-                <div className="flex items-center space-x-3 mb-3">
-                  <div className="p-2 bg-primary/20 rounded-lg">
-                    <template.icon className="w-5 h-5 text-primary" />
+                <div className="flex items-center space-x-3">
+                  <div className="w-9 h-9 bg-gradient-to-br from-primary to-orange-600 rounded-lg flex items-center justify-center">
+                    <FileText className="w-5 h-5 text-white" />
                   </div>
                   <div>
-                    <h4 className="text-white font-medium text-sm">{template.name}</h4>
-                    <p className="text-white/60 text-xs">{template.description}</p>
+                    <h1 className="text-lg font-bold text-white">Financial Reports</h1>
+                    <p className="text-xs text-white/60">Business performance analytics</p>
                   </div>
                 </div>
-                <Button variant="ghost" size="sm" className="w-full border border-white/10">
-                  Create Report
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <select
+                  value={selectedYear}
+                  onChange={(e) => setSelectedYear(e.target.value)}
+                  className="bg-secondary/60 border border-white/10 rounded-md px-3 py-1.5 text-white text-sm focus:border-primary/50 focus:outline-none"
+                >
+                  <option value="2023">2023</option>
+                  <option value="2022">2022</option>
+                  <option value="2021">2021</option>
+                </select>
+
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleRefresh}
+                  disabled={isRefreshing}
+                  className="border border-white/10 px-3"
+                >
+                  <RefreshCw className={`w-4 h-4 mr-1.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+                  Refresh
+                </Button>
+
+                <Button size="sm" className="bg-primary/90 hover:bg-primary px-3">
+                  <Download className="w-4 h-4 mr-1.5" />
+                  Export
+                </Button>
+
+                <Button variant="outline" size="sm" className="px-3">
+                  <Printer className="w-4 h-4 mr-1.5" />
+                  Print
                 </Button>
               </div>
-            ))}
+            </div>
           </div>
         </div>
 
-        {/* Scheduled Reports */}
-        <div className="bg-secondary/40 backdrop-blur-sm rounded-xl p-6 border border-white/10">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-bold text-white">Scheduled Reports</h3>
-            <Button variant="ghost" size="sm" className="text-primary">
-              <Calendar className="w-4 h-4 mr-2" />
-              Manage Schedule
-            </Button>
+        <div className="flex-1 p-6">
+          {/* Report Header */}
+          <div className="text-center mb-6">
+            <h2 className="text-xl font-bold text-white mb-1">Celestial Drakon Aquatics</h2>
+            <p className="text-white/60 text-sm">Financial Performance Report</p>
+            <p className="text-white/40 text-xs">(All amounts are in Philippine Peso)</p>
           </div>
 
-          <div className="space-y-3">
-            {[
-              { name: 'Daily Sales Report', nextRun: 'Tomorrow at 9:00 AM', frequency: 'Daily' },
-              { name: 'Weekly Analytics', nextRun: 'Sunday at 6:00 AM', frequency: 'Weekly' },
-              { name: 'Monthly Financial Summary', nextRun: 'Next month on 1st', frequency: 'Monthly' },
-            ].map((scheduled, index) => (
-              <div key={index} className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
-                <div>
-                  <p className="text-white text-sm font-medium">{scheduled.name}</p>
-                  <p className="text-white/60 text-xs">Next run: {scheduled.nextRun}</p>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <span className="text-primary text-xs font-medium px-2 py-1 bg-primary/20 rounded-full">
-                    {scheduled.frequency}
-                  </span>
-                  <Button variant="ghost" size="sm" className="text-white/60">
-                    <Settings className="w-4 h-4" />
-                  </Button>
-                </div>
+          {/* Main Report Table */}
+          <div className="bg-secondary/15 backdrop-blur-sm rounded-lg border border-white/10 overflow-hidden mb-6">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                {/* Table Header */}
+                <thead>
+                  <tr className="bg-secondary/30 border-b border-white/10">
+                    <th className="text-left p-3 text-white font-semibold w-72">Accounts</th>
+                    <th className="text-center p-3 text-white font-semibold w-24 text-xs">{selectedYear}</th>
+                    {months.map((month) => (
+                      <th key={month} className="text-center p-3 text-white font-semibold w-20 text-xs">
+                        {month}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {financialData.accounts.map((category, categoryIndex) => (
+                    <React.Fragment key={categoryIndex}>
+                      {/* Category Header */}
+                      <tr className={`${getCategoryColor(category.category)} border-b border-white/5`}>
+                        <td className="p-2.5 text-xs uppercase tracking-wide">{category.category}</td>
+                        <td className="text-center p-2.5"></td>
+                        {months.map((month) => (
+                          <td key={month} className="text-center p-2.5"></td>
+                        ))}
+                      </tr>
+
+                      {/* Category Items */}
+                      {category.items.map((item, itemIndex) => (
+                        <tr key={itemIndex} className="border-b border-white/5 hover:bg-white/5 transition-colors">
+                          <td className="p-2.5 text-white/85 text-xs pl-6">{item.name}</td>
+                          <td className="text-center p-2.5 text-white/60 text-xs font-medium">
+                            {formatCurrency(calculateRowTotal(item))}
+                          </td>
+                          <td className="text-center p-2.5 text-white text-xs">
+                            {formatCurrency(item.jan)}
+                          </td>
+                          <td className="text-center p-2.5 text-white text-xs">
+                            {formatCurrency(item.feb)}
+                          </td>
+                          <td className="text-center p-2.5 text-white text-xs">
+                            {formatCurrency(item.mar)}
+                          </td>
+                          <td className="text-center p-2.5 text-white text-xs">
+                            {formatCurrency(item.apr)}
+                          </td>
+                          <td className="text-center p-2.5 text-white text-xs">
+                            {formatCurrency(item.may)}
+                          </td>
+                          <td className="text-center p-2.5 text-white text-xs">
+                            {formatCurrency(item.jun)}
+                          </td>
+                          <td className="text-center p-2.5 text-white text-xs">
+                            {formatCurrency(item.jul)}
+                          </td>
+                          <td className="text-center p-2.5 text-white text-xs">
+                            {formatCurrency(item.aug)}
+                          </td>
+                          <td className="text-center p-2.5 text-white text-xs">
+                            {formatCurrency(item.sep)}
+                          </td>
+                          <td className="text-center p-2.5 text-white text-xs">
+                            {formatCurrency(item.oct)}
+                          </td>
+                          <td className="text-center p-2.5 text-white text-xs">
+                            {formatCurrency(item.nov)}
+                          </td>
+                          <td className="text-center p-2.5 text-white text-xs">
+                            {formatCurrency(item.dec)}
+                          </td>
+                        </tr>
+                      ))}
+
+                      {/* Category Total */}
+                      <tr className={`${getCategoryColor(category.category)} border-b-2 border-white/15`}>
+                        <td className="p-2.5 font-bold text-xs pl-4 uppercase tracking-wide">
+                          Total {category.category}
+                        </td>
+                        <td className="text-center p-2.5 font-bold text-xs">
+                          {formatCurrency(calculateCategoryTotal(category))}
+                        </td>
+                        {months.map((month, monthIndex) => {
+                          const monthTotal = category.items.reduce((sum, item) => {
+                            const monthKey = month.toLowerCase() as keyof typeof item;
+                            return sum + (item[monthKey] as number);
+                          }, 0);
+                          return (
+                            <td key={month} className="text-center p-2.5 font-bold text-xs">
+                              {formatCurrency(monthTotal)}
+                            </td>
+                          );
+                        })}
+                      </tr>
+
+                      {/* Spacing between categories */}
+                      <tr><td colSpan={14} className="h-1"></td></tr>
+                    </React.Fragment>
+                  ))}
+
+                  {/* Summary Rows */}
+                  <tr className="bg-green-500/20 border-t-2 border-green-500/30">
+                    <td className="p-2.5 font-bold text-white text-xs uppercase tracking-wide">Net Sales</td>
+                    <td className="text-center p-2.5 font-bold text-white text-xs">
+                      {formatCurrency(calculateCategoryTotal(financialData.accounts[0]))}
+                    </td>
+                    {months.map((month, monthIndex) => {
+                      const salesTotal = financialData.accounts[0].items.reduce((sum, item) => {
+                        const monthKey = month.toLowerCase() as keyof typeof item;
+                        return sum + (item[monthKey] as number);
+                      }, 0);
+                      return (
+                        <td key={month} className="text-center p-2.5 font-bold text-white text-xs">
+                          {formatCurrency(salesTotal)}
+                        </td>
+                      );
+                    })}
+                  </tr>
+
+                  <tr className="bg-red-500/20">
+                    <td className="p-2.5 font-bold text-white text-xs uppercase tracking-wide">Total COGS</td>
+                    <td className="text-center p-2.5 font-bold text-white text-xs">
+                      {formatCurrency(calculateCategoryTotal(financialData.accounts[1]))}
+                    </td>
+                    {months.map((month, monthIndex) => {
+                      const cogsTotal = financialData.accounts[1].items.reduce((sum, item) => {
+                        const monthKey = month.toLowerCase() as keyof typeof item;
+                        return sum + (item[monthKey] as number);
+                      }, 0);
+                      return (
+                        <td key={month} className="text-center p-2.5 font-bold text-white text-xs">
+                          {formatCurrency(cogsTotal)}
+                        </td>
+                      );
+                    })}
+                  </tr>
+
+                  <tr className="bg-yellow-500/20">
+                    <td className="p-2.5 font-bold text-white text-xs uppercase tracking-wide">Total Operating Expenses</td>
+                    <td className="text-center p-2.5 font-bold text-white text-xs">
+                      {formatCurrency(calculateCategoryTotal(financialData.accounts[2]))}
+                    </td>
+                    {months.map((month, monthIndex) => {
+                      const operatingTotal = financialData.accounts[2].items.reduce((sum, item) => {
+                        const monthKey = month.toLowerCase() as keyof typeof item;
+                        return sum + (item[monthKey] as number);
+                      }, 0);
+                      return (
+                        <td key={month} className="text-center p-2.5 font-bold text-white text-xs">
+                          {formatCurrency(operatingTotal)}
+                        </td>
+                      );
+                    })}
+                  </tr>
+
+                  <tr className="bg-blue-500/20">
+                    <td className="p-2.5 font-bold text-white text-xs uppercase tracking-wide">Total Delivery Expenses</td>
+                    <td className="text-center p-2.5 font-bold text-white text-xs">
+                      {formatCurrency(calculateCategoryTotal(financialData.accounts[3]))}
+                    </td>
+                    {months.map((month, monthIndex) => {
+                      const deliveryTotal = financialData.accounts[3].items.reduce((sum, item) => {
+                        const monthKey = month.toLowerCase() as keyof typeof item;
+                        return sum + (item[monthKey] as number);
+                      }, 0);
+                      return (
+                        <td key={month} className="text-center p-2.5 font-bold text-white text-xs">
+                          {formatCurrency(deliveryTotal)}
+                        </td>
+                      );
+                    })}
+                  </tr>
+
+                  <tr className="bg-primary/25 border-t-2 border-primary/40">
+                    <td className="p-2.5 font-bold text-white text-xs uppercase tracking-wide">Gross Profit</td>
+                    <td className="text-center p-2.5 font-bold text-white text-xs">
+                      {formatCurrency(
+                        calculateCategoryTotal(financialData.accounts[0]) -
+                        calculateCategoryTotal(financialData.accounts[1]) -
+                        calculateCategoryTotal(financialData.accounts[2]) -
+                        calculateCategoryTotal(financialData.accounts[3])
+                      )}
+                    </td>
+                    {months.map((month, monthIndex) => {
+                      const salesTotal = financialData.accounts[0].items.reduce((sum, item) => {
+                        const monthKey = month.toLowerCase() as keyof typeof item;
+                        return sum + (item[monthKey] as number);
+                      }, 0);
+                      const cogsTotal = financialData.accounts[1].items.reduce((sum, item) => {
+                        const monthKey = month.toLowerCase() as keyof typeof item;
+                        return sum + (item[monthKey] as number);
+                      }, 0);
+                      const operatingTotal = financialData.accounts[2].items.reduce((sum, item) => {
+                        const monthKey = month.toLowerCase() as keyof typeof item;
+                        return sum + (item[monthKey] as number);
+                      }, 0);
+                      const deliveryTotal = financialData.accounts[3].items.reduce((sum, item) => {
+                        const monthKey = month.toLowerCase() as keyof typeof item;
+                        return sum + (item[monthKey] as number);
+                      }, 0);
+                      return (
+                        <td key={month} className="text-center p-2.5 font-bold text-white text-xs">
+                          {formatCurrency(salesTotal - cogsTotal - operatingTotal - deliveryTotal)}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Compact Summary Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-6">
+            <div className="bg-green-500/10 backdrop-blur-sm rounded-lg p-4 border border-green-500/20">
+              <div className="flex items-center space-x-2 mb-2">
+                <TrendingUp className="w-5 h-5 text-green-400" />
+                <h3 className="text-sm font-bold text-green-400">Total Revenue</h3>
               </div>
-            ))}
+              <p className="text-lg font-bold text-white">
+                ₱{formatCurrency(calculateCategoryTotal(financialData.accounts[0]))}
+              </p>
+              <p className="text-green-400/70 text-xs mt-1">Year to date</p>
+            </div>
+
+            <div className="bg-red-500/10 backdrop-blur-sm rounded-lg p-4 border border-red-500/20">
+              <div className="flex items-center space-x-2 mb-2">
+                <FileText className="w-5 h-5 text-red-400" />
+                <h3 className="text-sm font-bold text-red-400">Total COGS</h3>
+              </div>
+              <p className="text-lg font-bold text-white">
+                ₱{formatCurrency(calculateCategoryTotal(financialData.accounts[1]))}
+              </p>
+              <p className="text-red-400/70 text-xs mt-1">Cost of goods</p>
+            </div>
+
+            <div className="bg-blue-500/10 backdrop-blur-sm rounded-lg p-4 border border-blue-500/20">
+              <div className="flex items-center space-x-2 mb-2">
+                <Calendar className="w-5 h-5 text-blue-400" />
+                <h3 className="text-sm font-bold text-blue-400">Total Expenses</h3>
+              </div>
+              <p className="text-lg font-bold text-white">
+                ₱{formatCurrency(
+                  calculateCategoryTotal(financialData.accounts[2]) +
+                  calculateCategoryTotal(financialData.accounts[3])
+                )}
+              </p>
+              <p className="text-blue-400/70 text-xs mt-1">Operations + Delivery</p>
+            </div>
+
+            <div className="bg-primary/10 backdrop-blur-sm rounded-lg p-4 border border-primary/20">
+              <div className="flex items-center space-x-2 mb-2">
+                <TrendingUp className="w-5 h-5 text-primary" />
+                <h3 className="text-sm font-bold text-primary">Net Profit</h3>
+              </div>
+              <p className="text-lg font-bold text-white">
+                ₱{formatCurrency(
+                  calculateCategoryTotal(financialData.accounts[0]) -
+                  calculateCategoryTotal(financialData.accounts[1]) -
+                  calculateCategoryTotal(financialData.accounts[2]) -
+                  calculateCategoryTotal(financialData.accounts[3])
+                )}
+              </p>
+              <p className="text-primary/70 text-xs mt-1">After all expenses</p>
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="text-center text-white/30 text-xs">
+            <p>Generated on {new Date().toLocaleDateString('en-PH')} | Celestial Drakon Aquatics Control Panel</p>
           </div>
         </div>
       </div>

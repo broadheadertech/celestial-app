@@ -194,7 +194,7 @@ export const getAllProductsAdmin = query({
     search: v.optional(v.string()),
   },
   handler: async (ctx, { category, status, search }) => {
-    let query = ctx.db.query("products");
+    const query = ctx.db.query("products");
     
     // Apply filters
     let products = await query.collect();

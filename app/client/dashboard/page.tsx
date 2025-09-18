@@ -39,6 +39,7 @@ export default function ClientDashboard() {
   const isGuest = useIsGuest();
   const cartItemCount = useCartItemCount();
   const [currentBannerIndex, setCurrentBannerIndex] = useState(0);
+  const [isRedirecting, setIsRedirecting] = useState(false);
 
   // Fetch data from Convex
   const productsQuery = useQuery(api.services.products.getProducts, { isActive: true }) || [];
@@ -55,6 +56,17 @@ export default function ClientDashboard() {
     { id: 4, src: '/banner/ban4.jpg', alt: 'Banner 4' }
   ];
 
+  // Redirect admins and super_admins to their respective dashboards
+  useEffect(() => {
+    if (isAuthenticated && user?.role === 'admin') {
+      setIsRedirecting(true);
+      router.push('/admin/dashboard');
+    } else if (isAuthenticated && user?.role === 'super_admin') {
+      setIsRedirecting(true);
+      router.push('/control_panel');
+    }
+  }, [isAuthenticated, user?.role, router]);
+
   useEffect(() => {
     const interval = setInterval(() => {
       setCurrentBannerIndex((prev) => (prev + 1) % banners.length);
@@ -62,15 +74,16 @@ export default function ClientDashboard() {
     return () => clearInterval(interval);
   }, [banners.length]);
 
-  // Redirect admins and super_admins to their respective dashboards
-  if (isAuthenticated && user?.role === 'admin') {
-    router.push('/admin/dashboard');
-    return null;
-  }
-
-  if (isAuthenticated && user?.role === 'super_admin') {
-    router.push('/control_panel');
-    return null;
+  // Show loading state while redirecting
+  if (isRedirecting) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-white/60">Redirecting...</p>
+        </div>
+      </div>
+    );
   }
 
   // Essential categories with natural aquatic theme
