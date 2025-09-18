@@ -18,27 +18,35 @@ import {
   CalendarCheck
 } from 'lucide-react';
 
-interface ClientNotification {
-  id: string;
-  type: 'promotion' | 'reservation' | 'order' | 'info';
+// Real Convex notification type
+interface ConvexNotification {
+  _id: string;
   title: string;
   message: string;
-  timestamp: number;
-  read: boolean;
-  actionType?: 'promo' | 'reservation_confirmed' | 'reservation_reminder' | 'order_update' | 'special_offer';
-  actionData?: {
+  type: 'reservation' | 'order' | 'user' | 'product' | 'payment' | 'alert' | 'warning' | 'success' | 'system';
+  isRead: boolean;
+  priority: 'low' | 'medium' | 'high' | 'urgent';
+  relatedId?: string;
+  relatedType?: string;
+  metadata?: {
+    customerName?: string;
+    customerEmail?: string;
+    productName?: string;
+    amount?: number;
+    status?: string;
     promoCode?: string;
     discount?: number;
-    reservationId?: string;
-    orderId?: string;
     expiryDate?: number;
   };
+  createdAt: number;
+  updatedAt: number;
 }
+
 
 interface ClientNotifModalProps {
   isOpen: boolean;
   onClose: () => void;
-  notifications?: ClientNotification[];
+  notifications?: ConvexNotification[];
   onMarkAsRead?: (id: string) => void;
   onMarkAllAsRead?: () => void;
   onDeleteNotification?: (id: string) => void;
@@ -47,101 +55,43 @@ interface ClientNotifModalProps {
   onReservationClick?: (reservationId: string) => void;
 }
 
-// Mock notifications data for client
-const mockClientNotifications: ClientNotification[] = [
-  {
-    id: '1',
-    type: 'promotion',
-    title: '🎉 Flash Sale Alert!',
-    message: '30% off on all Premium Goldfish! Use code GOLD30 at checkout. Valid for 24 hours only!',
-    timestamp: Date.now() - 300000, // 5 minutes ago
-    read: false,
-    actionType: 'promo',
-    actionData: {
-      promoCode: 'GOLD30',
-      discount: 30,
-      expiryDate: Date.now() + 86400000 // 24 hours from now
-    }
-  },
-  {
-    id: '2',
-    type: 'reservation',
-    title: 'Reservation Confirmed',
-    message: 'Your reservation for Betta Fish (2 items) has been confirmed. Please pick up within 48 hours.',
-    timestamp: Date.now() - 1800000, // 30 minutes ago
-    read: false,
-    actionType: 'reservation_confirmed',
-    actionData: {
-      reservationId: 'RES-001',
-      expiryDate: Date.now() + 172800000 // 48 hours from now
-    }
-  },
-  {
-    id: '3',
-    type: 'promotion',
-    title: 'Weekend Special',
-    message: 'Buy 1 Get 1 Free on selected aquarium accessories this weekend only!',
-    timestamp: Date.now() - 3600000, // 1 hour ago
-    read: false,
-    actionType: 'special_offer'
-  },
-  {
-    id: '4',
-    type: 'reservation',
-    title: 'Reservation Reminder',
-    message: 'Your reservation for Glass Aquarium Tank expires tomorrow. Don\'t forget to pick it up!',
-    timestamp: Date.now() - 7200000, // 2 hours ago
-    read: true,
-    actionType: 'reservation_reminder',
-    actionData: {
-      reservationId: 'RES-002',
-      expiryDate: Date.now() + 86400000 // 24 hours from now
-    }
-  },
-  {
-    id: '5',
-    type: 'order',
-    title: 'Order Ready for Pickup',
-    message: 'Your order #ORD-123 is ready for pickup at our store.',
-    timestamp: Date.now() - 10800000, // 3 hours ago
-    read: false,
-    actionType: 'order_update',
-    actionData: {
-      orderId: 'ORD-123'
-    }
-  },
-  {
-    id: '6',
-    type: 'promotion',
-    title: 'New Arrivals!',
-    message: 'Check out our latest collection of exotic fish. Limited stock available!',
-    timestamp: Date.now() - 86400000, // 1 day ago
-    read: true,
-    actionType: 'special_offer'
-  },
-  {
-    id: '7',
-    type: 'info',
-    title: 'Store Holiday Schedule',
-    message: 'We\'ll be closed on December 25 & January 1. Happy Holidays!',
-    timestamp: Date.now() - 172800000, // 2 days ago
-    read: true,
-    actionType: undefined
-  }
-];
+// No mock data - will use real notifications from Convex
 
 const formatTimeAgo = (timestamp: number) => {
   const now = Date.now();
   const diff = now - timestamp;
-  
+
   const minutes = Math.floor(diff / 60000);
   const hours = Math.floor(diff / 3600000);
   const days = Math.floor(diff / 86400000);
-  
+
   if (minutes < 1) return 'Just now';
   if (minutes < 60) return `${minutes}m ago`;
   if (hours < 24) return `${hours}h ago`;
   return `${days}d ago`;
+};
+
+// Convert Convex notification type to client display type
+const getClientNotificationType = (notification: ConvexNotification): 'promotion' | 'reservation' | 'order' | 'info' => {
+  if (notification.type === 'system' && notification.relatedType === 'promotion') return 'promotion';
+  if (notification.type === 'reservation') return 'reservation';
+  if (notification.type === 'order') return 'order';
+  return 'info';
+};
+
+// Get action type for client notifications
+const getClientActionType = (notification: ConvexNotification): string | undefined => {
+  if (notification.type === 'system' && notification.relatedType === 'promotion') {
+    return notification.metadata?.promoCode ? 'promo' : 'special_offer';
+  }
+  if (notification.type === 'reservation') {
+    if (notification.metadata?.status === 'confirmed') return 'reservation_confirmed';
+    return 'reservation_reminder';
+  }
+  if (notification.type === 'order') {
+    return 'order_update';
+  }
+  return undefined;
 };
 
 const getNotificationIcon = (type: string, actionType?: string) => {
@@ -187,7 +137,7 @@ const getNotificationBgColor = (type: string) => {
 export default function ClientNotifModal({
   isOpen,
   onClose,
-  notifications = mockClientNotifications,
+  notifications = [],
   onMarkAsRead,
   onMarkAllAsRead,
   onDeleteNotification,
@@ -196,17 +146,21 @@ export default function ClientNotifModal({
   onReservationClick
 }: ClientNotifModalProps) {
   const [selectedFilter, setSelectedFilter] = useState<'all' | 'promotions' | 'reservations'>('all');
-  
-  const filteredNotifications = notifications.filter(n => {
+
+  // Use only real notifications from Convex
+  const displayNotifications = notifications || [];
+
+  const filteredNotifications = displayNotifications.filter(n => {
+    const clientType = getClientNotificationType(n);
     if (selectedFilter === 'all') return true;
-    if (selectedFilter === 'promotions') return n.type === 'promotion';
-    if (selectedFilter === 'reservations') return n.type === 'reservation';
+    if (selectedFilter === 'promotions') return clientType === 'promotion';
+    if (selectedFilter === 'reservations') return clientType === 'reservation';
     return true;
   });
-  
-  const unreadCount = filteredNotifications.filter(n => !n.read).length;
-  const promoCount = notifications.filter(n => n.type === 'promotion' && !n.read).length;
-  const reservationCount = notifications.filter(n => n.type === 'reservation' && !n.read).length;
+
+  const unreadCount = filteredNotifications.filter(n => !n.isRead).length;
+  const promoCount = displayNotifications.filter(n => getClientNotificationType(n) === 'promotion' && !n.isRead).length;
+  const reservationCount = displayNotifications.filter(n => getClientNotificationType(n) === 'reservation' && !n.isRead).length;
   
   const handleMarkAsRead = (id: string) => {
     if (onMarkAsRead) {
@@ -233,13 +187,13 @@ export default function ClientNotifModal({
     }
   };
 
-  const handleNotificationClick = (notification: ClientNotification) => {
-    handleMarkAsRead(notification.id);
-    
-    if (notification.actionData?.promoCode && onPromoClick) {
-      onPromoClick(notification.actionData.promoCode);
-    } else if (notification.actionData?.reservationId && onReservationClick) {
-      onReservationClick(notification.actionData.reservationId);
+  const handleNotificationClick = (notification: ConvexNotification) => {
+    handleMarkAsRead(notification._id);
+
+    if (notification.metadata?.promoCode && onPromoClick) {
+      onPromoClick(notification.metadata.promoCode);
+    } else if (notification.relatedId && notification.relatedType === 'reservation' && onReservationClick) {
+      onReservationClick(notification.relatedId);
     }
   };
 
@@ -361,31 +315,33 @@ export default function ClientNotifModal({
             ) : (
               <div className="divide-y divide-white/10">
                 {filteredNotifications.map((notification) => {
-                  const IconComponent = getNotificationIcon(notification.type, notification.actionType);
+                  const clientType = getClientNotificationType(notification);
+                  const actionType = getClientActionType(notification);
+                  const IconComponent = getNotificationIcon(clientType, actionType);
                   return (
                     <div
-                      key={notification.id}
+                      key={notification._id}
                       className={`group p-4 hover:bg-white/5 transition-colors cursor-pointer ${
-                        !notification.read ? 'bg-primary/5' : ''
+                        !notification.isRead ? 'bg-primary/5' : ''
                       }`}
                       onClick={() => handleNotificationClick(notification)}
                     >
                       <div className="flex items-start space-x-3">
-                        <div className={`p-2 rounded-lg ${getNotificationBgColor(notification.type)} flex-shrink-0`}>
-                          <IconComponent className={`w-4 h-4 ${getNotificationColor(notification.type)}`} />
+                        <div className={`p-2 rounded-lg ${getNotificationBgColor(clientType)} flex-shrink-0`}>
+                          <IconComponent className={`w-4 h-4 ${getNotificationColor(clientType)}`} />
                         </div>
-                        
+
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start justify-between mb-1">
                             <p className="text-sm font-medium text-foreground line-clamp-1">
                               {notification.title}
                             </p>
                             <div className="flex items-center space-x-2 ml-2">
-                              {!notification.read && (
+                              {!notification.isRead && (
                                 <div className="w-2 h-2 bg-primary rounded-full flex-shrink-0" />
                               )}
                               <button
-                                onClick={(e) => handleDeleteNotification(notification.id, e)}
+                                onClick={(e) => handleDeleteNotification(notification._id, e)}
                                 className="p-1 hover:bg-white/10 rounded hover:opacity-100 opacity-60 transition-all"
                                 title="Delete notification"
                               >
@@ -396,44 +352,44 @@ export default function ClientNotifModal({
                           <p className="text-sm text-muted line-clamp-2 mb-2">
                             {notification.message}
                           </p>
-                          
+
                           {/* Action buttons for promotions and reservations */}
-                          {notification.actionData && (
+                          {notification.metadata && (
                             <div className="flex items-center justify-between mb-2">
-                              {notification.actionData.promoCode && (
+                              {notification.metadata.promoCode && (
                                 <div className="flex items-center space-x-2">
                                   <span className="px-2 py-1 bg-amber-500/20 text-amber-500 text-xs font-semibold rounded">
-                                    CODE: {notification.actionData.promoCode}
+                                    CODE: {notification.metadata.promoCode}
                                   </span>
-                                  {notification.actionData.discount && (
+                                  {notification.metadata.discount && (
                                     <span className="flex items-center text-xs text-amber-500">
                                       <Percent className="w-3 h-3 mr-1" />
-                                      {notification.actionData.discount}% OFF
+                                      {notification.metadata.discount}% OFF
                                     </span>
                                   )}
                                 </div>
                               )}
-                              {notification.actionData.reservationId && (
+                              {notification.relatedId && notification.relatedType === 'reservation' && (
                                 <span className="px-2 py-1 bg-success/20 text-success text-xs font-semibold rounded">
-                                  {notification.actionData.reservationId}
+                                  {notification.relatedId}
                                 </span>
                               )}
-                              {notification.actionData.orderId && (
+                              {notification.relatedId && notification.relatedType === 'order' && (
                                 <span className="px-2 py-1 bg-info/20 text-info text-xs font-semibold rounded">
-                                  {notification.actionData.orderId}
+                                  {notification.relatedId}
                                 </span>
                               )}
                             </div>
                           )}
-                          
+
                           <div className="flex items-center justify-between">
                             <p className="text-xs text-muted">
-                              {formatTimeAgo(notification.timestamp)}
+                              {formatTimeAgo(notification.createdAt)}
                             </p>
-                            {notification.actionData?.expiryDate && (
+                            {notification.metadata?.expiryDate && (
                               <p className="text-xs text-warning flex items-center">
                                 <Clock className="w-3 h-3 mr-1" />
-                                Expires {formatTimeAgo(notification.actionData.expiryDate).replace('ago', 'left')}
+                                Expires {formatTimeAgo(notification.metadata.expiryDate).replace('ago', 'left')}
                               </p>
                             )}
                           </div>

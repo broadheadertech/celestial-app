@@ -39,18 +39,10 @@ export const getProduct = query({
   handler: async (ctx, { productId }) => {
     // Handle both Convex ID and string formats
     const productIdValue = typeof productId === 'string' ? productId as any : productId;
-    console.log("getProduct called with productId:", productId);
-    console.log("productId type:", typeof productId);
 
     const product = await ctx.db.get(productIdValue);
     
-    console.log("Product found:", product ? "Yes" : "No");
-    if (product) {
-      console.log("Product name:", product.name);
-    }
-    
     if (!product) {
-      console.log("Product not found, throwing error");
       throw new Error("Product not found");
     }
     

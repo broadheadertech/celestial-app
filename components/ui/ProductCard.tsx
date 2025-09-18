@@ -112,14 +112,14 @@ const ProductCard: React.FC<ProductCardProps> = ({
             </div>
 
             <div className="flex items-center gap-2 text-xs">
-              {product.rating && (
+              {product.rating && product.rating > 0 && (
                 <div className="flex items-center gap-1">
                   <Star className="w-3 h-3 fill-warning text-warning" />
                   <span className="text-white/70">{product.rating}</span>
                 </div>
               )}
               <span className={`${stockStatus.textColor} font-medium`}>
-                {product.stock > 5 ? `${product.stock} in stock` : stockStatus.status}
+                {product.stock === 0 ? 'Sold Out' : product.stock > 5 ? `${product.stock} in stock` : stockStatus.status}
               </span>
             </div>
 
@@ -159,7 +159,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
                   disabled={product.stock === 0}
                   className="h-6 px-2 text-xs"
                 >
-                  <Plus className="w-3 h-3" />
+                  {product.stock === 0 ? 'Sold Out' : <Plus className="w-3 h-3" />}
                 </Button>
               )}
             </div>
@@ -188,7 +188,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
               product.stock <= 5 ? 'limited' :
               product.stock <= 15 ? 'new' : 'default'
             }>
-              {product.stock === 0 ? 'Out' : `${product.stock} left`}
+              {product.stock === 0 ? 'Sold Out' : `${product.stock} left`}
             </Badge>
           </div>
         </div>
@@ -201,15 +201,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
           {product.name}
         </h3>
 
-        {/* Rating */}
-        <div className="flex items-center">
-          {product.rating && (
-            <div className="flex items-center gap-0.5">
-              <Star className="w-2.5 h-2.5 fill-warning text-warning" />
-              <span className="text-white/60 font-medium text-[10px]">{product.rating}</span>
-            </div>
-          )}
-        </div>
+    
 
         {/* Price Section */}
         <div className="space-y-0.5">

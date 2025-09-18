@@ -26,7 +26,7 @@ import {
 import { useAuthStore, useIsAuthenticated, useIsGuest } from '@/store/auth';
 import { useCartItemCount, useCartStore } from '@/store/cart';
 import { Product } from '@/types';
-import { useQuery } from 'convex/react';
+import { useQuery, useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import Button from '@/components/ui/Button';
 import ProductCard from '@/components/ui/ProductCard';
@@ -45,6 +45,24 @@ export default function ClientDashboard() {
 
   // Fetch data from Convex
   const productsQuery = useQuery(api.services.products.getProducts, { isActive: true }) || [];
+
+  // Get client notifications - only if user is authenticated
+  const clientNotifications = useQuery(
+    api.services.notifications.getClientNotifications,
+    isAuthenticated && user ? {
+      userId: user._id,
+      userEmail: user.email,
+      limit: 20,
+    } : 'skip'
+  );
+
+  const clientNotificationCounts = useQuery(
+    api.services.notifications.getClientNotificationCounts,
+    isAuthenticated && user ? {
+      userId: user._id,
+      userEmail: user.email,
+    } : 'skip'
+  );
 
   const displayName = isAuthenticated && user
     ? user.firstName || 'User'
@@ -118,6 +136,15 @@ export default function ClientDashboard() {
     router.push(`/client/product/${product._id}`);
   };
 
+  // Get unread notification count
+  const unreadNotificationCount = clientNotificationCounts?.unread || 0;
+
+  // Notification mutations
+  const markAsReadMutation = useMutation(api.services.notifications.markAsRead);
+  const markAllAsReadMutation = useMutation(api.services.notifications.markAllAsRead);
+  const deleteNotificationMutation = useMutation(api.services.notifications.deleteNotification);
+  const clearAllNotificationsMutation = useMutation(api.services.notifications.clearAllNotifications);
+
   // Notification handlers
   const handleNotificationClick = () => {
     setShowNotificationModal(true);
@@ -127,24 +154,36 @@ export default function ClientDashboard() {
     setShowNotificationModal(false);
   };
 
-  const handleMarkAsRead = (id: string) => {
-    // TODO: Implement mark as read functionality
-    console.log('Mark as read:', id);
+  const handleMarkAsRead = async (id: string) => {
+    try {
+      await markAsReadMutation({ notificationId: id as any });
+    } catch (error) {
+      console.error('Failed to mark notification as read:', error);
+    }
   };
 
-  const handleMarkAllAsRead = () => {
-    // TODO: Implement mark all as read functionality
-    console.log('Mark all as read');
+  const handleMarkAllAsRead = async () => {
+    try {
+      await markAllAsReadMutation();
+    } catch (error) {
+      console.error('Failed to mark all notifications as read:', error);
+    }
   };
 
-  const handleDeleteNotification = (id: string) => {
-    // TODO: Implement delete notification functionality
-    console.log('Delete notification:', id);
+  const handleDeleteNotification = async (id: string) => {
+    try {
+      await deleteNotificationMutation({ notificationId: id as any });
+    } catch (error) {
+      console.error('Failed to delete notification:', error);
+    }
   };
 
-  const handleClearAll = () => {
-    // TODO: Implement clear all functionality
-    console.log('Clear all notifications');
+  const handleClearAll = async () => {
+    try {
+      await clearAllNotificationsMutation();
+    } catch (error) {
+      console.error('Failed to clear all notifications:', error);
+    }
   };
 
   return (
@@ -169,7 +208,11 @@ export default function ClientDashboard() {
                 className="relative p-2 rounded-xl bg-secondary/60 border border-white/10 hover:bg-secondary/80 transition-colors"
               >
                 <Bell className="w-5 h-5 text-white" />
-                <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse" />
+                {unreadNotificationCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-error text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-medium">
+                    {unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}
+                  </span>
+                )}
               </button>
 
               <button
@@ -548,6 +591,7 @@ export default function ClientDashboard() {
       <ClientNotificationModal
         isOpen={showNotificationModal}
         onClose={handleCloseNotificationModal}
+        notifications={clientNotifications}
         onMarkAsRead={handleMarkAsRead}
         onMarkAllAsRead={handleMarkAllAsRead}
         onDeleteNotification={handleDeleteNotification}
