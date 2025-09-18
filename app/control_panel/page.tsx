@@ -36,12 +36,15 @@ import {
   Search,
   LogOut,
   User,
+  AlertTriangle,
+  CheckCircle,
 } from 'lucide-react';
 import { useAuthStore, useIsAuthenticated } from '@/store/auth';
 import { useQuery } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import Button from '@/components/ui/Button';
 import { useAuth } from '@/hooks/useAuth';
+import ControlPanelNav from '@/components/ControlPanelNav';
 
 export default function ControlPanel() {
   const router = useRouter();
@@ -106,14 +109,102 @@ export default function ControlPanel() {
   ];
 
   const topProductsData = [
-    { name: 'Premium Angelfish', sales: 342, revenue: 85500, category: 'Tropical Fish' },
-    { name: '75L Glass Tank', sales: 198, revenue: 118800, category: 'Aquarium Tanks' },
-    { name: 'LED Lighting Kit', sales: 267, revenue: 66750, category: 'Lighting' },
-    { name: 'Neon Tetras (6-pack)', sales: 445, revenue: 35600, category: 'Tropical Fish' },
-    { name: 'Filter System Pro', sales: 156, revenue: 78000, category: 'Filtration' },
-    { name: 'Live Aquatic Plants', sales: 289, revenue: 57800, category: 'Plants' },
-    { name: 'Ceramic Tank Decor', sales: 178, revenue: 26700, category: 'Decorations' },
-    { name: 'Premium Fish Food', sales: 234, revenue: 23400, category: 'Food & Care' },
+    {
+      id: 1,
+      name: 'Premium Angelfish',
+      sales: 342,
+      revenue: 85500,
+      growth: 12.5,
+      category: 'Tropical Fish',
+      trend: 'up',
+      margin: 68,
+      stockLevel: 'Low',
+      image: '🐠'
+    },
+    {
+      id: 2,
+      name: '75L Glass Tank',
+      sales: 198,
+      revenue: 118800,
+      growth: 8.3,
+      category: 'Aquarium Tanks',
+      trend: 'up',
+      margin: 72,
+      stockLevel: 'Medium',
+      image: '🪜'
+    },
+    {
+      id: 3,
+      name: 'LED Lighting Kit',
+      sales: 267,
+      revenue: 66750,
+      growth: -2.1,
+      category: 'Lighting',
+      trend: 'down',
+      margin: 65,
+      stockLevel: 'High',
+      image: '💡'
+    },
+    {
+      id: 4,
+      name: 'Neon Tetras (6-pack)',
+      sales: 445,
+      revenue: 35600,
+      growth: 15.7,
+      category: 'Tropical Fish',
+      trend: 'up',
+      margin: 58,
+      stockLevel: 'Medium',
+      image: '🐟'
+    },
+    {
+      id: 5,
+      name: 'Filter System Pro',
+      sales: 156,
+      revenue: 78000,
+      growth: 5.4,
+      category: 'Filtration',
+      trend: 'up',
+      margin: 71,
+      stockLevel: 'High',
+      image: '⚙️'
+    },
+    {
+      id: 6,
+      name: 'Live Aquatic Plants',
+      sales: 289,
+      revenue: 57800,
+      growth: 9.2,
+      category: 'Plants',
+      trend: 'up',
+      margin: 63,
+      stockLevel: 'Medium',
+      image: '🌿'
+    },
+    {
+      id: 7,
+      name: 'Ceramic Tank Decor',
+      sales: 178,
+      revenue: 26700,
+      growth: -1.8,
+      category: 'Decorations',
+      trend: 'down',
+      margin: 59,
+      stockLevel: 'High',
+      image: '🏺'
+    },
+    {
+      id: 8,
+      name: 'Premium Fish Food',
+      sales: 234,
+      revenue: 23400,
+      growth: 6.8,
+      category: 'Food & Care',
+      trend: 'up',
+      margin: 67,
+      stockLevel: 'High',
+      image: '🥕'
+    },
   ];
 
   const kpiData = [
@@ -157,73 +248,55 @@ export default function ControlPanel() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="border-b border-white/10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-white">Analytics Dashboard</h1>
-              <p className="text-sm text-white/60 mt-1">Monitor your business performance and insights</p>
-            </div>
+    <div className="min-h-screen bg-background flex">
+      {/* Navigation Sidebar */}
+      <ControlPanelNav />
 
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-white/60" />
-                <select
-                  value={dateRange}
-                  onChange={(e) => setDateRange(e.target.value)}
-                  className="bg-secondary/60 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:border-primary/50 focus:outline-none"
-                >
-                  <option value="7">Last 7 days</option>
-                  <option value="30">Last 30 days</option>
-                  <option value="90">Last 90 days</option>
-                  <option value="365">Last year</option>
-                </select>
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col">
+        {/* Header */}
+        <div className="border-b border-white/10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+          <div className="px-6 py-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-2xl font-bold text-white">Analytics Dashboard</h1>
+                <p className="text-sm text-white/60 mt-1">Monitor your business performance and insights</p>
               </div>
 
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleRefresh}
-                disabled={isRefreshing}
-                className="border border-white/10"
-              >
-                <RefreshCw className={`w-4 h-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
-                Refresh
-              </Button>
-
-              <Button size="sm" className="bg-primary hover:bg-primary/90">
-                <Download className="w-4 h-4 mr-2" />
-                Export
-              </Button>
-
-              {/* User Profile & Logout */}
-              <div className="flex items-center gap-2 ml-2 pl-2 border-l border-white/10">
-                <div className="flex items-center gap-2 px-3 py-2 bg-secondary/40 rounded-lg border border-white/10">
-                  <div className="w-8 h-8 bg-primary/20 rounded-full flex items-center justify-center">
-                    <User className="w-4 h-4 text-primary" />
-                  </div>
-                  <div className="text-sm">
-                    <p className="text-white font-medium">{user?.firstName || 'Admin'}</p>
-                    <p className="text-white/50 text-xs capitalize">{user?.role || 'super_admin'}</p>
-                  </div>
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-white/60" />
+                  <select
+                    value={dateRange}
+                    onChange={(e) => setDateRange(e.target.value)}
+                    className="bg-secondary/60 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:border-primary/50 focus:outline-none"
+                  >
+                    <option value="7">Last 7 days</option>
+                    <option value="30">Last 30 days</option>
+                    <option value="90">Last 90 days</option>
+                    <option value="365">Last year</option>
+                  </select>
                 </div>
 
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={logout}
-                  className="border border-white/10 hover:border-red-500/30 hover:bg-red-500/10 hover:text-red-400 transition-all"
-                  title="Logout"
+                  onClick={handleRefresh}
+                  disabled={isRefreshing}
+                  className="border border-white/10"
                 >
-                  <LogOut className="w-4 h-4" />
+                  <RefreshCw className={`w-4 h-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+                  Refresh
+                </Button>
+
+                <Button size="sm" className="bg-primary hover:bg-primary/90">
+                  <Download className="w-4 h-4 mr-2" />
+                  Export
                 </Button>
               </div>
             </div>
           </div>
         </div>
-      </div>
 
       <div className="p-6 space-y-6">
         {/* KPI Cards */}
@@ -368,6 +441,117 @@ export default function ControlPanel() {
           </div>
         </div>
 
+        {/* Top Products Analytics - Compact */}
+        <div className="bg-secondary/40 backdrop-blur-sm rounded-xl p-4 border border-white/10">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center space-x-3">
+              <div className="w-8 h-8 bg-gradient-to-br from-primary to-orange-600 rounded-lg flex items-center justify-center">
+                <Package className="w-4 h-4 text-white" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-white">Top Products</h3>
+                <p className="text-xs text-white/60">Performance overview</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button className="p-1.5 hover:bg-white/10 rounded-lg transition-colors">
+                <Search className="w-4 h-4 text-white/60" />
+              </button>
+              <button className="p-1.5 hover:bg-white/10 rounded-lg transition-colors">
+                <MoreVertical className="w-4 h-4 text-white/60" />
+              </button>
+            </div>
+          </div>
+
+          {/* Two Column Layout */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Chart Column */}
+            <div className="space-y-3">
+              
+              {/* Vertical Bar Chart */}
+              <div className="rounded-lg p-3 ">
+                <h4 className="text-white font-medium text-sm mb-3">Sales Performance</h4>
+                <div className="h-64">
+                  <div className="space-y-2">
+                    {topProductsData.map((product) => (
+                      <div key={product.id} className="flex items-center mb-2">
+                        <span className="text-white/70 text-base w-1/4 mr-4 truncate">{product.name}</span>
+                        <div className="relative flex-1 h-8 rounded-full bg-neutral-800">
+                          <div
+                            className="h-full bg-gradient-to-r from-primary to-orange-600 rounded-full"
+                            style={{ width: `${(product.revenue / Math.max(...topProductsData.map(p => p.revenue))) * 100}%` }}
+                          />
+                          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-white text-sm font-medium">₱{product.revenue.toLocaleString()}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Table Column */}
+            <div className="bg-white/5 rounded-lg border border-white/10 overflow-hidden">
+              <div className="p-3 border-b border-white/10">
+                <h4 className="text-white font-medium text-sm">Product Details</h4>
+              </div>
+
+              {/* Table Header */}
+              <div className="grid grid-cols-12 gap-2 px-3 py-2 bg-white/5 text-xs text-white/60 font-medium border-b border-white/10">
+                <div className="col-span-1">#</div>
+                <div className="col-span-5">Product</div>
+                <div className="col-span-2 text-center">Sales</div>
+                <div className="col-span-2 text-center">Revenue</div>
+                <div className="col-span-2 text-center">Growth</div>
+              </div>
+
+              {/* Table Body */}
+              <div className="max-h-64 overflow-y-auto">
+                {topProductsData.map((product, index) => (
+                  <div key={product.id} className="grid grid-cols-12 gap-2 px-3 py-3 text-xs hover:bg-white/5 transition-colors border-b border-white/5 last:border-b-0">
+                    <div className="col-span-1 text-primary font-bold">{index + 1}</div>
+                    <div className="col-span-5">
+                      <div className="flex items-center space-x-2">
+                        <span className="text-base">{product.image}</span>
+                        <div>
+                          <p className="text-white font-medium text-xs leading-tight line-clamp-1">{product.name}</p>
+                          <p className="text-white/60 text-xs">{product.category}</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="col-span-2 text-center">
+                      <p className="text-white font-medium">{product.sales}</p>
+                    </div>
+                    <div className="col-span-2 text-center">
+                      <p className="text-green-400 font-medium">₱{(product.revenue / 1000).toFixed(0)}K</p>
+                    </div>
+                    <div className="col-span-2 text-center">
+                      <div className={`flex items-center justify-center space-x-1 ${
+                        product.trend === 'up' ? 'text-green-400' : 'text-red-400'
+                      }`}>
+                        {product.trend === 'up' ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
+                        <span className="font-medium">{Math.abs(product.growth)}%</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Table Footer */}
+              <div className="px-3 py-2 bg-white/5 border-t border-white/10">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-white/60">Total Products: {topProductsData.length}</span>
+                  <span className="text-primary font-medium">
+                    Avg Growth: +{topProductsData.reduce((acc, p) => acc + p.growth, 0) / topProductsData.length > 0 ?
+                      (topProductsData.reduce((acc, p) => acc + p.growth, 0) / topProductsData.length).toFixed(1) : '0'}%
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
         {/* Charts Row 2 */}
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
           {/* Daily Traffic */}
@@ -441,82 +625,6 @@ export default function ControlPanel() {
           </div>
         </div>
 
-        {/* Top Products Chart */}
-        <div className="bg-secondary/40 backdrop-blur-sm rounded-xl p-6 border border-white/10">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h3 className="text-lg font-semibold text-white">Top Selling Products</h3>
-              <p className="text-sm text-white/60">Best performing products by sales volume</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <button className="p-2 hover:bg-white/10 rounded-lg transition-colors">
-                <Search className="w-4 h-4 text-white/60" />
-              </button>
-              <button className="p-2 hover:bg-white/10 rounded-lg transition-colors">
-                <MoreVertical className="w-4 h-4 text-white/60" />
-              </button>
-            </div>
-          </div>
-
-          <div className="h-80">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={topProductsData}
-                layout="horizontal"
-                margin={{ top: 5, right: 30, left: 120, bottom: 5 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                <XAxis type="number" stroke="#9CA3AF" fontSize={12} />
-                <YAxis
-                  type="category"
-                  dataKey="name"
-                  stroke="#9CA3AF"
-                  fontSize={12}
-                  width={100}
-                />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: '#1F2937',
-                    border: '1px solid #374151',
-                    borderRadius: '8px'
-                  }}
-                  formatter={(value, name) => [
-                    `${value} units`,
-                    name === 'sales' ? 'Units Sold' : name
-                  ]}
-                />
-                <Bar
-                  dataKey="sales"
-                  fill="url(#productGradient)"
-                  radius={[0, 4, 4, 0]}
-                >
-                  <defs>
-                    <linearGradient id="productGradient" x1="0" y1="0" x2="1" y2="0">
-                      <stop offset="5%" stopColor="#10B981" stopOpacity={0.8}/>
-                      <stop offset="95%" stopColor="#059669" stopOpacity={0.9}/>
-                    </linearGradient>
-                  </defs>
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-
-          <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {topProductsData.slice(0, 4).map((product, index) => (
-              <div key={index} className="p-4 bg-white/5 rounded-lg border border-white/5">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-primary">#{index + 1}</span>
-                  <span className="text-xs text-white/50">{product.category}</span>
-                </div>
-                <h4 className="text-white font-medium text-sm mb-1 truncate">{product.name}</h4>
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-white/70">{product.sales} units</span>
-                  <span className="text-green-400 font-medium">₱{product.revenue.toLocaleString()}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
 
         {/* Recent Activity & Quick Actions */}
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
@@ -598,6 +706,7 @@ export default function ControlPanel() {
             </div>
           </div>
         </div>
+      </div>
       </div>
     </div>
   );
