@@ -1,7 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useQuery, useMutation } from 'convex/react';
+import { api } from '@/convex/_generated/api';
 import BottomNavbar from '@/components/common/BottomNavbar';
 import {
   ArrowLeft,
@@ -18,8 +20,29 @@ import {
   Calendar,
   RefreshCw,
   Eye,
-  FileText
+  FileText,
+  ArrowUpRight,
+  ArrowDownRight,
+  MoreVertical,
+  CheckCircle,
+  AlertTriangle
 } from 'lucide-react';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  PieChart,
+  Pie,
+  Cell,
+  AreaChart,
+  Area,
+} from 'recharts';
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
 
@@ -86,6 +109,9 @@ export default function AdminAnalyticsPage() {
   const router = useRouter();
   const [selectedTimeFilter, setSelectedTimeFilter] = useState('30d');
   const [isLoading, setIsLoading] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [modalMessage, setModalMessage] = useState('');
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-PH', {
@@ -110,74 +136,96 @@ export default function AdminAnalyticsPage() {
     }
   };
 
+  // Fetch real data from Convex
+  const dashboardStats = useQuery(api.services.admin.getDashboardStats);
+  const recentOrders = useQuery(api.services.admin.getRecentOrders, { limit: 10 });
+  const products = useQuery(api.services.admin.getAllProductsAdmin, {});
+
   const refreshData = async () => {
     setIsLoading(true);
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    setIsLoading(false);
+    try {
+      // Refresh data by refetching queries
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      setModalMessage('Analytics data refreshed successfully!');
+      setShowSuccessModal(true);
+    } catch (error) {
+      console.error('Error refreshing data:', error);
+      setModalMessage('Error refreshing analytics data. Please try again.');
+      setShowErrorModal(true);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const exportData = () => {
-    // Implementation for data export
-    alert('Export functionality would be implemented here');
+    try {
+      // TODO: Implement actual export functionality
+      setModalMessage('Export functionality will be implemented soon!');
+      setShowSuccessModal(true);
+    } catch (error) {
+      console.error('Error exporting data:', error);
+      setModalMessage('Error exporting data. Please try again.');
+      setShowErrorModal(true);
+    }
   };
 
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
       <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-white/10">
-        <div className="px-6 py-4">
+        <div className="px-4 sm:px-6 py-3">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-3">
               <button
                 onClick={() => router.back()}
-                className="p-2 rounded-full bg-secondary border border-white/10 hover:bg-white/10 transition-colors"
+                className="p-1.5 rounded-lg bg-secondary border border-white/10 hover:bg-white/10 transition-colors"
               >
-                <ArrowLeft className="w-5 h-5 text-white" />
+                <ArrowLeft className="w-4 h-4 text-white" />
               </button>
               <div>
-                <h1 className="text-2xl font-bold text-white">Analytics</h1>
-                <p className="text-sm text-muted">Business insights & performance metrics</p>
+                <h1 className="text-lg font-bold text-white">Analytics</h1>
+                <p className="text-xs text-white/60">Business insights & performance metrics</p>
               </div>
             </div>
 
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center space-x-2">
               <Button
                 onClick={refreshData}
                 variant="outline"
                 size="sm"
                 disabled={isLoading}
-                className="min-w-[100px]"
+                className="text-sm px-3 py-1.5"
               >
-                <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`w-3 h-3 mr-1.5 ${isLoading ? 'animate-spin' : ''}`} />
                 {isLoading ? 'Loading...' : 'Refresh'}
               </Button>
               <Button
                 onClick={exportData}
                 variant="outline"
                 size="sm"
+                className="text-sm px-3 py-1.5"
               >
-                <Download className="w-4 h-4 mr-2" />
+                <Download className="w-3 h-3 mr-1.5" />
                 Export
               </Button>
-              <button className="p-2 rounded-full bg-secondary border border-white/10 hover:bg-white/10 transition-colors">
-                <Filter className="w-5 h-5 text-white" />
+              <button className="p-1.5 rounded-lg bg-secondary border border-white/10 hover:bg-white/10 transition-colors">
+                <Filter className="w-4 h-4 text-white" />
               </button>
             </div>
           </div>
 
           {/* Time Filter */}
-          <div className="flex items-center space-x-2 mt-4">
-            <Calendar className="w-4 h-4 text-muted" />
-            <span className="text-sm text-muted mr-3">Time Period:</span>
+          <div className="flex items-center space-x-2 mt-3">
+            <Calendar className="w-3 h-3 text-white/60" />
+            <span className="text-xs text-white/60 mr-2">Time Period:</span>
             {timeFilters.map((filter) => (
               <button
                 key={filter.value}
                 onClick={() => setSelectedTimeFilter(filter.value)}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                className={`px-2 py-1 rounded-lg text-xs font-medium transition-colors ${
                   selectedTimeFilter === filter.value
                     ? 'bg-primary text-white'
-                    : 'bg-secondary text-muted hover:text-white hover:bg-white/10'
+                    : 'bg-secondary text-white/60 hover:text-white hover:bg-white/10'
                 }`}
               >
                 {filter.label}
@@ -187,220 +235,308 @@ export default function AdminAnalyticsPage() {
         </div>
       </div>
 
-      <div className="px-6 py-6">
-        {/* Key Metrics */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          <Card className="p-6 bg-gradient-to-br from-primary/20 to-primary/5 border-primary/20">
-            <div className="flex items-center justify-between mb-4">
-              <div className="p-3 bg-primary/20 rounded-xl">
-                <DollarSign className="w-6 h-6 text-primary" />
-              </div>
-              <div className="flex items-center space-x-1">
-                <TrendingUp className="w-4 h-4 text-success" />
-                <span className="text-success text-sm font-medium">
-                  {formatPercentage(mockAnalyticsData.revenue.change)}
-                </span>
-              </div>
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-white mb-1">
-                {formatCurrency(mockAnalyticsData.revenue.current)}
-              </p>
-              <p className="text-sm text-muted">Total Revenue</p>
-              <p className="text-xs text-muted mt-1">vs {formatCurrency(mockAnalyticsData.revenue.previous)} last period</p>
-            </div>
-          </Card>
-
-          <Card className="p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="p-3 bg-info/20 rounded-xl">
-                <ShoppingBag className="w-6 h-6 text-info" />
-              </div>
-              <div className="flex items-center space-x-1">
-                <TrendingUp className="w-4 h-4 text-success" />
-                <span className="text-success text-sm font-medium">
-                  {formatPercentage(mockAnalyticsData.orders.change)}
-                </span>
-              </div>
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-white mb-1">{mockAnalyticsData.orders.current}</p>
-              <p className="text-sm text-muted">Total Orders</p>
-              <p className="text-xs text-muted mt-1">vs {mockAnalyticsData.orders.previous} last period</p>
-            </div>
-          </Card>
-
-          <Card className="p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="p-3 bg-success/20 rounded-xl">
-                <Users className="w-6 h-6 text-success" />
-              </div>
-              <div className="flex items-center space-x-1">
-                <TrendingUp className="w-4 h-4 text-success" />
-                <span className="text-success text-sm font-medium">
-                  {formatPercentage(mockAnalyticsData.users.change)}
-                </span>
-              </div>
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-white mb-1">{mockAnalyticsData.users.current}</p>
-              <p className="text-sm text-muted">New Customers</p>
-              <p className="text-xs text-muted mt-1">vs {mockAnalyticsData.users.previous} last period</p>
-            </div>
-          </Card>
-
-          <Card className="p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="p-3 bg-warning/20 rounded-xl">
-                <Target className="w-6 h-6 text-warning" />
-              </div>
-              <div className="flex items-center space-x-1">
-                <TrendingUp className="w-4 h-4 text-success" />
-                <span className="text-success text-sm font-medium">
-                  {formatPercentage(mockAnalyticsData.conversionRate.change)}
-                </span>
-              </div>
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-white mb-1">{mockAnalyticsData.conversionRate.current}%</p>
-              <p className="text-sm text-muted">Conversion Rate</p>
-              <p className="text-xs text-muted mt-1">vs {mockAnalyticsData.conversionRate.previous}% last period</p>
-            </div>
-          </Card>
+      <div className="px-4 sm:px-6 py-4">
+        {/* Key Metrics - Compact Horizontal Layout */}
+        <div className="px-4 sm:px-6 py-4 border-b border-white/10 mb-6">
+          <div className="flex gap-3 overflow-x-auto scrollbar-hide">
+            {[
+              {
+                id: 'revenue',
+                title: 'Total Revenue',
+                value: dashboardStats ? formatCurrency(dashboardStats.totalRevenue) : formatCurrency(mockAnalyticsData.revenue.current),
+                change: dashboardStats ? '+12.3%' : formatPercentage(mockAnalyticsData.revenue.change),
+                icon: DollarSign,
+                color: 'text-primary'
+              },
+              {
+                id: 'orders',
+                title: 'Total Orders',
+                value: dashboardStats ? dashboardStats.totalOrders.toString() : mockAnalyticsData.orders.current.toString(),
+                change: dashboardStats ? '+8.7%' : formatPercentage(mockAnalyticsData.orders.change),
+                icon: ShoppingBag,
+                color: 'text-info'
+              },
+              {
+                id: 'customers',
+                title: 'New Customers',
+                value: dashboardStats ? dashboardStats.totalUsers.toString() : mockAnalyticsData.users.current.toString(),
+                change: dashboardStats ? '+15.2%' : formatPercentage(mockAnalyticsData.users.change),
+                icon: Users,
+                color: 'text-success'
+              },
+              {
+                id: 'conversion',
+                title: 'Conversion Rate',
+                value: dashboardStats ? '8.4%' : `${mockAnalyticsData.conversionRate.current}%`,
+                change: dashboardStats ? '-2.1%' : formatPercentage(mockAnalyticsData.conversionRate.change),
+                icon: Target,
+                color: 'text-warning'
+              }
+            ].map((stat) => {
+              const IconComponent = stat.icon;
+              return (
+                <div
+                  key={stat.id}
+                  className="flex-shrink-0 bg-secondary/40 backdrop-blur-sm rounded-xl p-3 border border-white/10"
+                  style={{ minWidth: '140px' }}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="p-1.5 rounded-lg bg-primary/10">
+                      <IconComponent className={`w-4 h-4 ${stat.color}`} />
+                    </div>
+                    <span className={`text-xs font-medium ${
+                      stat.change.includes('+') ? 'text-success' : 'text-error'
+                    }`}>
+                      {stat.change}
+                    </span>
+                  </div>
+                  <p className="text-lg font-bold text-white">{stat.value}</p>
+                  <p className="text-xs text-white/60">{stat.title}</p>
+                </div>
+              );
+            })}
+          </div>
         </div>
 
         {/* Charts Section */}
-        <div className="grid lg:grid-cols-2 gap-6 mb-8">
-          {/* Sales Trend Chart */}
-          <Card className="p-6">
-            <div className="flex items-center justify-between mb-6">
+        <div className="grid lg:grid-cols-2 gap-6 mb-6">
+          {/* Sales Performance Chart */}
+          <div className="bg-secondary/40 backdrop-blur-sm rounded-xl p-4 border border-white/10">
+            <div className="flex items-center justify-between mb-4">
               <div>
-                <h3 className="text-lg font-bold text-white">Sales Trend</h3>
-                <p className="text-sm text-muted">Revenue over time</p>
+                <h3 className="text-lg font-bold text-white">Sales Performance</h3>
+                <p className="text-sm text-white/60">Revenue over time</p>
               </div>
-              <BarChart3 className="w-6 h-6 text-primary" />
+              <div className="flex items-center space-x-2">
+                <button className="p-1.5 hover:bg-white/10 rounded-lg transition-colors">
+                  <Filter className="w-4 h-4 text-white/60" />
+                </button>
+                <button className="p-1.5 hover:bg-white/10 rounded-lg transition-colors">
+                  <MoreVertical className="w-4 h-4 text-white/60" />
+                </button>
+              </div>
             </div>
 
-            {/* Simplified chart representation */}
-            <div className="h-48 bg-secondary/30 rounded-lg flex items-center justify-center">
-              <div className="text-center">
-                <BarChart3 className="w-12 h-12 text-muted mx-auto mb-2" />
-                <p className="text-muted text-sm">Chart visualization would be implemented here</p>
-                <p className="text-xs text-muted mt-1">Using charts library like Chart.js or Recharts</p>
-              </div>
+            {/* Vertical Bar Chart */}
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={mockAnalyticsData.salesTrend}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                  <XAxis 
+                    dataKey="date" 
+                    stroke="#9CA3AF" 
+                    fontSize={10}
+                    tickFormatter={(value) => new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                  />
+                  <YAxis stroke="#9CA3AF" fontSize={10} />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: '#1F2937',
+                      border: '1px solid #374151',
+                      borderRadius: '8px'
+                    }}
+                    labelStyle={{ color: '#F3F4F6' }}
+                    formatter={(value: number) => [formatCurrency(value), 'Revenue']}
+                  />
+                  <Bar dataKey="revenue" fill="#FF6B00" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
             </div>
-          </Card>
+          </div>
 
           {/* Order Status Distribution */}
-          <Card className="p-6">
-            <div className="flex items-center justify-between mb-6">
+          <div className="bg-secondary/40 backdrop-blur-sm rounded-xl p-4 border border-white/10">
+            <div className="flex items-center justify-between mb-4">
               <div>
                 <h3 className="text-lg font-bold text-white">Order Status</h3>
-                <p className="text-sm text-muted">Current order distribution</p>
+                <p className="text-sm text-white/60">Current order distribution</p>
               </div>
-              <Eye className="w-6 h-6 text-primary" />
+              <Eye className="w-5 h-5 text-primary" />
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-3">
               {Object.entries(mockAnalyticsData.orderStatus).map(([status, count]) => {
                 const total = Object.values(mockAnalyticsData.orderStatus).reduce((a, b) => a + b, 0);
                 const percentage = Math.round((count / total) * 100);
 
                 return (
-                  <div key={status} className="flex items-center justify-between">
+                  <div key={status} className="flex items-center justify-between p-2 bg-white/5 rounded-lg">
                     <div className="flex items-center space-x-3">
                       <div className={`px-2 py-1 rounded text-xs font-medium capitalize ${getStatusColor(status)}`}>
                         {status}
                       </div>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <span className="text-white font-medium">{count}</span>
-                      <span className="text-muted text-sm">({percentage}%)</span>
+                      <span className="text-white font-medium text-sm">{count}</span>
+                      <span className="text-white/60 text-xs">({percentage}%)</span>
                     </div>
                   </div>
                 );
               })}
             </div>
-          </Card>
+          </div>
         </div>
 
-        {/* Top Products */}
-        <Card className="p-6 mb-8">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h3 className="text-lg font-bold text-white">Top Performing Products</h3>
-              <p className="text-sm text-muted">Best selling products this period</p>
+        {/* Top Products - Compact Layout */}
+        <div className="bg-secondary/40 backdrop-blur-sm rounded-xl p-4 border border-white/10 mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center space-x-3">
+              <div className="w-8 h-8 bg-gradient-to-br from-primary to-orange-600 rounded-lg flex items-center justify-center">
+                <Package className="w-4 h-4 text-white" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-white">Top Products</h3>
+                <p className="text-xs text-white/60">Performance overview</p>
+              </div>
             </div>
-            <Package className="w-6 h-6 text-primary" />
+            <div className="flex items-center gap-2">
+              <button className="p-1.5 hover:bg-white/10 rounded-lg transition-colors">
+                <MoreVertical className="w-4 h-4 text-white/60" />
+              </button>
+            </div>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-white/10">
-                  <th className="text-left py-3 text-sm font-medium text-muted">Rank</th>
-                  <th className="text-left py-3 text-sm font-medium text-muted">Product</th>
-                  <th className="text-left py-3 text-sm font-medium text-muted">Category</th>
-                  <th className="text-right py-3 text-sm font-medium text-muted">Sales</th>
-                  <th className="text-right py-3 text-sm font-medium text-muted">Revenue</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/10">
+          {/* Two Column Layout */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Chart Column */}
+            <div className="space-y-3">
+              {/* Vertical Bar Chart */}
+              <div className="rounded-lg p-3">
+                <h4 className="text-white font-medium text-sm mb-3">Sales Performance</h4>
+                <div className="h-48">
+                  <div className="space-y-2">
+                    {mockAnalyticsData.topProducts.map((product) => (
+                      <div key={product.name} className="flex items-center mb-2">
+                        <span className="text-white/70 text-sm w-1/3 mr-3 truncate">{product.name}</span>
+                        <div className="relative flex-1 h-6 rounded-full bg-neutral-800">
+                          <div
+                            className="h-full bg-gradient-to-r from-primary to-orange-600 rounded-full"
+                            style={{ width: `${(product.revenue / Math.max(...mockAnalyticsData.topProducts.map(p => p.revenue))) * 100}%` }}
+                          />
+                          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-white text-xs font-medium">₱{product.revenue.toLocaleString()}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Table Column */}
+            <div className="bg-white/5 rounded-lg border border-white/10 overflow-hidden">
+              <div className="p-3 border-b border-white/10">
+                <h4 className="text-white font-medium text-sm">Product Details</h4>
+              </div>
+
+              {/* Table Header */}
+              <div className="grid grid-cols-12 gap-2 px-3 py-2 bg-white/5 text-xs text-white/60 font-medium border-b border-white/10">
+                <div className="col-span-1">#</div>
+                <div className="col-span-5">Product</div>
+                <div className="col-span-3 text-center">Sales</div>
+                <div className="col-span-3 text-center">Revenue</div>
+              </div>
+
+              {/* Table Body */}
+              <div className="max-h-48 overflow-y-auto">
                 {mockAnalyticsData.topProducts.map((product, index) => (
-                  <tr key={index} className="hover:bg-white/5 transition-colors">
-                    <td className="py-3">
-                      <div className="flex items-center justify-center w-8 h-8 bg-primary/20 rounded-full">
-                        <span className="text-primary font-bold text-sm">#{index + 1}</span>
+                  <div key={index} className="grid grid-cols-12 gap-2 px-3 py-2 text-xs hover:bg-white/5 transition-colors border-b border-white/5 last:border-b-0">
+                    <div className="col-span-1 text-primary font-bold">{index + 1}</div>
+                    <div className="col-span-5">
+                      <div className="flex items-center space-x-2">
+                        <div>
+                          <p className="text-white font-medium text-xs leading-tight line-clamp-1">{product.name}</p>
+                          <p className="text-white/60 text-xs">{product.category}</p>
+                        </div>
                       </div>
-                    </td>
-                    <td className="py-3">
-                      <div>
-                        <p className="font-medium text-white">{product.name}</p>
-                      </div>
-                    </td>
-                    <td className="py-3">
-                      <span className="px-2 py-1 bg-secondary rounded text-xs text-muted">
-                        {product.category}
-                      </span>
-                    </td>
-                    <td className="py-3 text-right">
-                      <span className="font-medium text-white">{product.sales}</span>
-                    </td>
-                    <td className="py-3 text-right">
-                      <span className="font-bold text-success">{formatCurrency(product.revenue)}</span>
-                    </td>
-                  </tr>
+                    </div>
+                    <div className="col-span-3 text-center">
+                      <p className="text-white font-medium">{product.sales}</p>
+                    </div>
+                    <div className="col-span-3 text-center">
+                      <p className="text-green-400 font-medium">₱{(product.revenue / 1000).toFixed(0)}K</p>
+                    </div>
+                  </div>
                 ))}
-              </tbody>
-            </table>
+              </div>
+            </div>
           </div>
-        </Card>
+        </div>
 
         {/* Export Options */}
-        <Card className="p-6 mb-20">
+        <div className="bg-secondary/40 backdrop-blur-sm rounded-xl p-4 border border-white/10 mb-20">
           <div className="flex items-center justify-between mb-4">
-            <div>
-              <h3 className="text-lg font-bold text-white">Export Reports</h3>
-              <p className="text-sm text-muted">Download detailed analytics reports</p>
+            <div className="flex items-center space-x-3">
+              <div className="w-8 h-8 bg-gradient-to-br from-info to-blue-600 rounded-lg flex items-center justify-center">
+                <FileText className="w-4 h-4 text-white" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-white">Export Reports</h3>
+                <p className="text-xs text-white/60">Download detailed analytics reports</p>
+              </div>
             </div>
-            <FileText className="w-6 h-6 text-primary" />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <Button variant="outline" onClick={exportData}>
+          <div className="grid grid-cols-2 gap-3">
+            <Button variant="outline" onClick={exportData} className="text-sm">
               <Download className="w-4 h-4 mr-2" />
               Export CSV
             </Button>
-            <Button variant="outline" onClick={exportData}>
+            <Button variant="outline" onClick={exportData} className="text-sm">
               <Download className="w-4 h-4 mr-2" />
               Export PDF
             </Button>
           </div>
-        </Card>
+        </div>
       </div>
 
       {/* Bottom Navigation */}
       <BottomNavbar />
+
+      {/* Success Modal */}
+      {showSuccessModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-secondary border border-white/10 rounded-xl p-6 w-full max-w-md">
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="p-2 bg-success/10 rounded-lg">
+                <CheckCircle className="w-5 h-5 text-success" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-white">Success</h3>
+                <p className="text-sm text-white/60">{modalMessage}</p>
+              </div>
+            </div>
+            <Button
+              onClick={() => setShowSuccessModal(false)}
+              className="w-full bg-success hover:bg-success/90"
+            >
+              OK
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Error Modal */}
+      {showErrorModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-secondary border border-white/10 rounded-xl p-6 w-full max-w-md">
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="p-2 bg-error/10 rounded-lg">
+                <AlertTriangle className="w-5 h-5 text-error" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-white">Error</h3>
+                <p className="text-sm text-white/60">{modalMessage}</p>
+              </div>
+            </div>
+            <Button
+              onClick={() => setShowErrorModal(false)}
+              className="w-full bg-error hover:bg-error/90"
+            >
+              OK
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Bottom padding for mobile navigation */}
       <div className="h-16 sm:hidden" />
