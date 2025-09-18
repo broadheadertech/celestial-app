@@ -546,6 +546,40 @@ export const notifyClientOrderUpdate = mutation({
   },
 });
 
+// Get admin notifications (all types for admin dashboard)
+export const getAdminNotifications = query({
+  args: {
+    limit: v.optional(v.number()),
+    onlyUnread: v.optional(v.boolean()),
+  },
+  handler: async (ctx, { limit = 50, onlyUnread = false }) => {
+    let notificationsQuery = ctx.db.query("notifications");
+
+    if (onlyUnread) {
+      notificationsQuery = notificationsQuery.withIndex("by_read", (q) => q.eq("isRead", false));
+    }
+
+    const notifications = await notificationsQuery
+      .order("desc")
+      .take(limit);
+
+    // Sort by creation date (newest first) and priority (urgent first)
+    return notifications.sort((a, b) => {
+      // First sort by priority
+      const priorityOrder = { urgent: 4, high: 3, medium: 2, low: 1 };
+      const aPriority = priorityOrder[a.priority as keyof typeof priorityOrder] || 1;
+      const bPriority = priorityOrder[b.priority as keyof typeof priorityOrder] || 1;
+
+      if (aPriority !== bPriority) {
+        return bPriority - aPriority;
+      }
+
+      // Then sort by creation date
+      return b.createdAt - a.createdAt;
+    });
+  },
+});
+
 // Auto-cleanup old notifications (run periodically)
 export const cleanupOldNotifications = mutation({
   args: {
@@ -568,5 +602,80 @@ export const cleanupOldNotifications = mutation({
       deletedCount: oldNotifications.length,
       cutoffDate,
     };
+  },
+});
+
+// Helper function to create sample notifications for testing
+export const createTestNotification = mutation({
+  args: {
+    type: v.optional(v.string()),
+  },
+  handler: async (ctx, { type = "order" }) => {
+    const now = Date.now();
+
+    const sampleNotifications = {
+      order: {
+        title: "New Order Received",
+        message: "Order #ORD-001 has been placed by John Doe for ₱2,500.00",
+        type: "order" as const,
+        priority: "high" as const,
+        metadata: {
+          customerName: "John Doe",
+          customerEmail: "john@example.com",
+          amount: 2500,
+          orderId: "ORD-001",
+        }
+      },
+      reservation: {
+        title: "Reservation Expiring Soon",
+        message: "Reservation for Blue Tang Fish expires in 2 hours",
+        type: "reservation" as const,
+        priority: "urgent" as const,
+        metadata: {
+          customerName: "Jane Smith",
+          productName: "Blue Tang Fish",
+        }
+      },
+      user: {
+        title: "New User Registered",
+        message: "A new customer has registered: Mike Johnson",
+        type: "user" as const,
+        priority: "medium" as const,
+        metadata: {
+          customerName: "Mike Johnson",
+          customerEmail: "mike@example.com",
+        }
+      },
+      payment: {
+        title: "Payment Issue Detected",
+        message: "Payment failed for order #ORD-002",
+        type: "payment" as const,
+        priority: "urgent" as const,
+        metadata: {
+          orderId: "ORD-002",
+          amount: 1500,
+        }
+      },
+      alert: {
+        title: "Low Stock Alert",
+        message: "Tropical Fish category has items with low stock",
+        type: "alert" as const,
+        priority: "high" as const,
+        metadata: {
+          productName: "Tropical Fish Collection",
+        }
+      }
+    };
+
+    const notification = sampleNotifications[type as keyof typeof sampleNotifications] || sampleNotifications.order;
+
+    const notificationId = await ctx.db.insert("notifications", {
+      ...notification,
+      isRead: false,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    return notificationId;
   },
 });

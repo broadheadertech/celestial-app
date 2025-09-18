@@ -15,7 +15,7 @@ import {
   Bell,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useQuery } from 'convex/react';
+import { useQuery, useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import BottomNavbar from '@/components/common/BottomNavbar';
 import NotificationModal from '@/components/modal/NotificationModal';
@@ -56,6 +56,9 @@ export default function AdminDashboardPage() {
   const notificationCounts = useQuery(api.services.notifications.getNotificationCounts);
   const products = useQuery(api.services.admin.getAllProductsAdmin);
 
+  // Test notification mutation
+  const createTestNotificationMutation = useMutation(api.services.notifications.createTestNotification);
+
   // Calculate low stock products
   const lowStockProducts = useMemo(() => {
     if (!products) return [];
@@ -70,6 +73,15 @@ export default function AdminDashboardPage() {
 
   // Get unread notifications count
   const unreadCount = notificationCounts?.unread || 0;
+
+  // Test notification handler
+  const handleTestNotification = async (type: string) => {
+    try {
+      await createTestNotificationMutation({ type });
+    } catch (error) {
+      console.error('Failed to create test notification:', error);
+    }
+  };
 
   // Stats cards data with real data - compact design
   const statsCards = useMemo(() => {
@@ -330,6 +342,48 @@ export default function AdminDashboardPage() {
               <BarChart3 className="w-6 h-6 text-success mb-2" />
               <span className="text-sm font-medium text-success">View Analytics</span>
             </button>
+          </div>
+
+          {/* Test Notifications Section (Development Only) */}
+          <div className="mt-6 pt-4 border-t border-white/10">
+            <h4 className="text-sm font-medium text-white/70 mb-3">Test Notifications</h4>
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+              <button
+                onClick={() => handleTestNotification('order')}
+                className="flex items-center justify-center p-2 bg-blue-500/10 border border-blue-500/20 rounded-lg hover:bg-blue-500/20 transition-colors text-xs"
+              >
+                <ShoppingBag className="w-3 h-3 text-blue-500 mr-1" />
+                Order
+              </button>
+              <button
+                onClick={() => handleTestNotification('reservation')}
+                className="flex items-center justify-center p-2 bg-orange-500/10 border border-orange-500/20 rounded-lg hover:bg-orange-500/20 transition-colors text-xs"
+              >
+                <Package className="w-3 h-3 text-orange-500 mr-1" />
+                Reservation
+              </button>
+              <button
+                onClick={() => handleTestNotification('user')}
+                className="flex items-center justify-center p-2 bg-green-500/10 border border-green-500/20 rounded-lg hover:bg-green-500/20 transition-colors text-xs"
+              >
+                <Users className="w-3 h-3 text-green-500 mr-1" />
+                User
+              </button>
+              <button
+                onClick={() => handleTestNotification('payment')}
+                className="flex items-center justify-center p-2 bg-red-500/10 border border-red-500/20 rounded-lg hover:bg-red-500/20 transition-colors text-xs"
+              >
+                <DollarSign className="w-3 h-3 text-red-500 mr-1" />
+                Payment
+              </button>
+              <button
+                onClick={() => handleTestNotification('alert')}
+                className="flex items-center justify-center p-2 bg-yellow-500/10 border border-yellow-500/20 rounded-lg hover:bg-yellow-500/20 transition-colors text-xs"
+              >
+                <Bell className="w-3 h-3 text-yellow-500 mr-1" />
+                Alert
+              </button>
+            </div>
           </div>
         </div>
       </div>

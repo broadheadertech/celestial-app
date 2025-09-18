@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import {
@@ -22,6 +22,9 @@ import {
   Droplet,
   Leaf,
   Box,
+  Loader2,
+  Eye,
+  RefreshCw,
 } from 'lucide-react';
 import { useAuthStore, useIsAuthenticated, useIsGuest } from '@/store/auth';
 import { useCartItemCount, useCartStore } from '@/store/cart';
@@ -42,6 +45,15 @@ export default function ClientDashboard() {
   const [currentBannerIndex, setCurrentBannerIndex] = useState(0);
   const [isRedirecting, setIsRedirecting] = useState(false);
   const [showNotificationModal, setShowNotificationModal] = useState(false);
+
+  // Lazy loading states
+  const [loadedSections, setLoadedSections] = useState({
+    limited: true, // Always load first section
+    newArrivals: false,
+    topRated: false,
+    featured: false,
+  });
+  const [isLoadingSection, setIsLoadingSection] = useState<string | null>(null);
 
   // Fetch data from Convex
   const productsQuery = useQuery(api.services.products.getProducts, { isActive: true }) || [];
@@ -114,10 +126,64 @@ export default function ClientDashboard() {
     { key: 'plants', icon: Leaf, name: 'Live Plants' }
   ];
 
-  // Get featured/trending products
-  const limitedStockProducts = productsQuery.slice(0, 6);
-  const newArrivals = productsQuery.slice(6, 12);
-  const topRated = productsQuery.slice(12, 18);
+  // Lazy loaded product sections using useMemo for optimization
+  const productSections = useMemo(() => {
+    const shuffled = [...productsQuery].sort(() => Math.random() - 0.5);
+    return {
+      limitedStock: shuffled.slice(0, 6),
+      newArrivals: shuffled.slice(6, 12),
+      topRated: shuffled.slice(12, 18),
+      featured: shuffled.slice(18, 24),
+    };
+  }, [productsQuery]);
+
+  // Progressive loading function
+  const loadSection = useCallback(async (sectionName: string) => {
+    if (loadedSections[sectionName as keyof typeof loadedSections] || isLoadingSection) return;
+
+    setIsLoadingSection(sectionName);
+
+    // Simulate loading delay for better UX
+    await new Promise(resolve => setTimeout(resolve, 800));
+
+    setLoadedSections(prev => ({
+      ...prev,
+      [sectionName]: true,
+    }));
+
+    setIsLoadingSection(null);
+  }, [loadedSections, isLoadingSection]);
+
+  // Auto-load sections on scroll or after delay
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (!loadedSections.newArrivals) {
+        loadSection('newArrivals');
+      }
+    }, 2000);
+
+    return () => clearTimeout(timer);
+  }, [loadedSections.newArrivals, loadSection]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (!loadedSections.topRated && loadedSections.newArrivals) {
+        loadSection('topRated');
+      }
+    }, 4000);
+
+    return () => clearTimeout(timer);
+  }, [loadedSections.topRated, loadedSections.newArrivals, loadSection]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (!loadedSections.featured && loadedSections.topRated) {
+        loadSection('featured');
+      }
+    }, 6000);
+
+    return () => clearTimeout(timer);
+  }, [loadedSections.featured, loadedSections.topRated, loadSection]);
 
   const handleAddToCart = (product: Product) => {
     if (product.stock === 0) return;
@@ -340,8 +406,8 @@ export default function ClientDashboard() {
           </div>
         </div>
 
-        {/* Limited Stocks Section */}
-        {limitedStockProducts.length > 0 && (
+        {/* Limited Stocks Section - Always loaded first */}
+        {productSections.limitedStock.length > 0 && (
           <div className="mb-6">
             <div className="px-4 mb-3">
               <div className="flex items-center justify-between">
@@ -368,7 +434,7 @@ export default function ClientDashboard() {
 
             <div className="overflow-x-auto">
               <div className="flex space-x-3 px-4">
-                {limitedStockProducts.map((product) => (
+                {productSections.limitedStock.map((product) => (
                   <div key={product._id} className="min-w-[160px] max-w-[160px]">
                     <ProductCard
                       product={product}
@@ -385,77 +451,36 @@ export default function ClientDashboard() {
           </div>
         )}
 
-        {/* New Arrivals */}
-        {newArrivals.length > 0 && (
-          <div className="mb-6">
-            <div className="px-4 mb-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <Zap className="w-5 h-5 text-blue-500" />
-                  <h3 className="font-bold text-white">New Arrivals</h3>
-                  <div className="bg-blue-500/20 px-2 py-0.5 rounded-full">
-                    <span className="text-xs text-blue-400 font-medium">Fresh Stock!</span>
+        {/* New Arrivals - Lazy loaded */}
+        {loadedSections.newArrivals ? (
+          productSections.newArrivals.length > 0 && (
+            <div className="mb-6">
+              <div className="px-4 mb-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <Zap className="w-5 h-5 text-blue-500" />
+                    <h3 className="font-bold text-white">New Arrivals</h3>
+                    <div className="bg-blue-500/20 px-2 py-0.5 rounded-full">
+                      <span className="text-xs text-blue-400 font-medium">Fresh Stock!</span>
+                    </div>
                   </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => router.push('/client/search?sort=newest')}
+                    className="text-primary"
+                  >
+                    See All
+                    <ChevronRight className="w-4 h-4 ml-1" />
+                  </Button>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => router.push('/client/search?sort=newest')}
-                  className="text-primary"
-                >
-                  See All
-                  <ChevronRight className="w-4 h-4 ml-1" />
-                </Button>
               </div>
-            </div>
 
-            <div className="px-4">
-              <div className="grid grid-cols-2 gap-3">
-                {newArrivals.slice(0, 4).map((product) => (
-                  <ProductCard
-                    key={product._id}
-                    product={product}
-                    cartItem={getItemById(product._id)}
-                    viewMode="grid"
-                    onAddToCart={handleAddToCart}
-                    onQuantityChange={handleQuantityChange}
-                    onClick={handleProductClick}
-                  />
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Top Rated */}
-        {topRated.length > 0 && (
-          <div className="mb-6">
-            <div className="px-4 mb-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <Star className="w-5 h-5 text-yellow-500" />
-                  <h3 className="font-bold text-white">Top Rated</h3>
-                  <div className="bg-yellow-500/20 px-2 py-0.5 rounded-full">
-                    <span className="text-xs text-yellow-400 font-medium">⭐ 4.8+</span>
-                  </div>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => router.push('/client/search?sort=rating')}
-                  className="text-primary"
-                >
-                  See All
-                  <ChevronRight className="w-4 h-4 ml-1" />
-                </Button>
-              </div>
-            </div>
-
-            <div className="overflow-x-auto">
-              <div className="flex space-x-3 px-4">
-                {topRated.slice(0, 6).map((product) => (
-                  <div key={product._id} className="min-w-[160px] max-w-[160px]">
+              <div className="px-4">
+                <div className="grid grid-cols-2 gap-3">
+                  {productSections.newArrivals.slice(0, 4).map((product) => (
                     <ProductCard
+                      key={product._id}
                       product={product}
                       cartItem={getItemById(product._id)}
                       viewMode="grid"
@@ -463,9 +488,98 @@ export default function ClientDashboard() {
                       onQuantityChange={handleQuantityChange}
                       onClick={handleProductClick}
                     />
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
+            </div>
+          )
+        ) : isLoadingSection === 'newArrivals' ? (
+          <div className="mb-6 px-4">
+            <div className="bg-secondary/30 rounded-xl p-8 text-center">
+              <Loader2 className="w-8 h-8 text-primary mx-auto mb-3 animate-spin" />
+              <p className="text-white/60 text-sm">Loading new arrivals...</p>
+            </div>
+          </div>
+        ) : (
+          <div className="mb-6 px-4">
+            <div className="bg-secondary/30 rounded-xl p-6 text-center">
+              <Eye className="w-8 h-8 text-white/40 mx-auto mb-3" />
+              <p className="text-white/60 text-sm mb-3">Discover fresh arrivals</p>
+              <Button
+                onClick={() => loadSection('newArrivals')}
+                size="sm"
+                className="bg-blue-500/20 border border-blue-500/30 text-blue-400 hover:bg-blue-500/30"
+              >
+                <Zap className="w-4 h-4 mr-2" />
+                Load New Arrivals
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Top Rated - Lazy loaded */}
+        {loadedSections.topRated ? (
+          productSections.topRated.length > 0 && (
+            <div className="mb-6">
+              <div className="px-4 mb-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <Star className="w-5 h-5 text-yellow-500" />
+                    <h3 className="font-bold text-white">Top Rated</h3>
+                    <div className="bg-yellow-500/20 px-2 py-0.5 rounded-full">
+                      <span className="text-xs text-yellow-400 font-medium">⭐ 4.8+</span>
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => router.push('/client/search?sort=rating')}
+                    className="text-primary"
+                  >
+                    See All
+                    <ChevronRight className="w-4 h-4 ml-1" />
+                  </Button>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto">
+                <div className="flex space-x-3 px-4">
+                  {productSections.topRated.slice(0, 6).map((product) => (
+                    <div key={product._id} className="min-w-[160px] max-w-[160px]">
+                      <ProductCard
+                        product={product}
+                        cartItem={getItemById(product._id)}
+                        viewMode="grid"
+                        onAddToCart={handleAddToCart}
+                        onQuantityChange={handleQuantityChange}
+                        onClick={handleProductClick}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )
+        ) : isLoadingSection === 'topRated' ? (
+          <div className="mb-6 px-4">
+            <div className="bg-secondary/30 rounded-xl p-8 text-center">
+              <Loader2 className="w-8 h-8 text-primary mx-auto mb-3 animate-spin" />
+              <p className="text-white/60 text-sm">Loading top rated products...</p>
+            </div>
+          </div>
+        ) : (
+          <div className="mb-6 px-4">
+            <div className="bg-secondary/30 rounded-xl p-6 text-center">
+              <Star className="w-8 h-8 text-white/40 mx-auto mb-3" />
+              <p className="text-white/60 text-sm mb-3">Explore our best sellers</p>
+              <Button
+                onClick={() => loadSection('topRated')}
+                size="sm"
+                className="bg-yellow-500/20 border border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/30"
+              >
+                <Star className="w-4 h-4 mr-2" />
+                Load Top Rated
+              </Button>
             </div>
           </div>
         )}
@@ -491,43 +605,69 @@ export default function ClientDashboard() {
           </div>
         )}
 
-        {/* For You Section (if authenticated) */}
-        {isAuthenticated && productsQuery.length > 0 && (
-          <div className="mb-6">
-            <div className="px-4 mb-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <TrendingUp className="w-5 h-5 text-primary" />
-                  <h3 className="font-bold text-white">Recommended for You</h3>
+        {/* Featured Section - Lazy loaded (if authenticated) */}
+        {isAuthenticated && (
+          loadedSections.featured ? (
+            productSections.featured.length > 0 && (
+              <div className="mb-6">
+                <div className="px-4 mb-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <TrendingUp className="w-5 h-5 text-primary" />
+                      <h3 className="font-bold text-white">Recommended for You</h3>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => router.push('/client/search')}
+                      className="text-primary"
+                    >
+                      See All
+                      <ChevronRight className="w-4 h-4 ml-1" />
+                    </Button>
+                  </div>
                 </div>
+
+                <div className="px-4">
+                  <div className="grid grid-cols-2 gap-3">
+                    {productSections.featured.slice(0, 4).map((product) => (
+                      <ProductCard
+                        key={product._id}
+                        product={product}
+                        cartItem={getItemById(product._id)}
+                        viewMode="grid"
+                        onAddToCart={handleAddToCart}
+                        onQuantityChange={handleQuantityChange}
+                        onClick={handleProductClick}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )
+          ) : isLoadingSection === 'featured' ? (
+            <div className="mb-6 px-4">
+              <div className="bg-secondary/30 rounded-xl p-8 text-center">
+                <Loader2 className="w-8 h-8 text-primary mx-auto mb-3 animate-spin" />
+                <p className="text-white/60 text-sm">Loading your recommendations...</p>
+              </div>
+            </div>
+          ) : (
+            <div className="mb-6 px-4">
+              <div className="bg-secondary/30 rounded-xl p-6 text-center">
+                <TrendingUp className="w-8 h-8 text-white/40 mx-auto mb-3" />
+                <p className="text-white/60 text-sm mb-3">Discover products picked just for you</p>
                 <Button
-                  variant="ghost"
+                  onClick={() => loadSection('featured')}
                   size="sm"
-                  onClick={() => router.push('/client/search')}
-                  className="text-primary"
+                  className="bg-primary/20 border border-primary/30 text-primary hover:bg-primary/30"
                 >
-                  See All
-                  <ChevronRight className="w-4 h-4 ml-1" />
+                  <TrendingUp className="w-4 h-4 mr-2" />
+                  Load Recommendations
                 </Button>
               </div>
             </div>
-
-            <div className="px-4">
-              <div className="grid grid-cols-2 gap-3">
-                {productsQuery.slice(0, 4).map((product) => (
-                  <ProductCard
-                    key={product._id}
-                    product={product}
-                    cartItem={getItemById(product._id)}
-                    viewMode="grid"
-                    onAddToCart={handleAddToCart}
-                    onQuantityChange={handleQuantityChange}
-                    onClick={handleProductClick}
-                  />
-                ))}
-              </div>
-            </div>
-          </div>
+          )
         )}
 
         {/* Recently Viewed (placeholder) */}

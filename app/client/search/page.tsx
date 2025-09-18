@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   ArrowLeft,
@@ -11,7 +11,9 @@ import {
   ShoppingCart,
   User,
   SlidersHorizontal,
-  Sparkles
+  Sparkles,
+  Loader2,
+  ChevronDown
 } from 'lucide-react';
 import { useCartStore } from '@/store/cart';
 import { useAuthStore, useIsAuthenticated } from '@/store/auth';
@@ -44,6 +46,21 @@ export default function SearchPage() {
   const [sortBy, setSortBy] = useState('default');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [showFilters, setShowFilters] = useState(false);
+
+  // Lazy loading states
+  const [displayedProducts, setDisplayedProducts] = useState<Product[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [isLoading, setIsLoading] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+
+  // Constants for pagination
+  const PRODUCTS_PER_PAGE = 12;
+  const INITIAL_LOAD_COUNT = 8;
+
+  // Refs for intersection observer
+  const loadMoreRef = useRef<HTMLDivElement>(null);
+  const observer = useRef<IntersectionObserver | null>(null);
 
   // Fetch real products data from Convex
   const productsQuery = useQuery(api.services.products.getProducts,
@@ -93,6 +110,71 @@ export default function SearchPage() {
 
     return filtered;
   }, [productsQuery, categoriesQuery, searchQuery, selectedCategory, sortBy]);
+
+  // Load more products function
+  const loadMoreProducts = useCallback(async () => {
+    if (isLoading || !hasMore) return;
+
+    setIsLoading(true);
+
+    // Simulate loading delay for better UX
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    const startIndex = isInitialLoad ? 0 : displayedProducts.length;
+    const endIndex = startIndex + (isInitialLoad ? INITIAL_LOAD_COUNT : PRODUCTS_PER_PAGE);
+    const newProducts = filteredProducts.slice(startIndex, endIndex);
+
+    if (newProducts.length === 0) {
+      setHasMore(false);
+    } else {
+      setDisplayedProducts(prev =>
+        isInitialLoad ? newProducts : [...prev, ...newProducts]
+      );
+      setCurrentPage(prev => prev + 1);
+    }
+
+    setIsInitialLoad(false);
+    setIsLoading(false);
+  }, [filteredProducts, displayedProducts, isLoading, hasMore, isInitialLoad]);
+
+  // Reset displayed products when filters change
+  useEffect(() => {
+    setDisplayedProducts([]);
+    setCurrentPage(1);
+    setHasMore(true);
+    setIsInitialLoad(true);
+  }, [searchQuery, selectedCategory, sortBy]);
+
+  // Initial load and when filteredProducts change
+  useEffect(() => {
+    if (filteredProducts.length > 0 && displayedProducts.length === 0) {
+      loadMoreProducts();
+    }
+  }, [filteredProducts, loadMoreProducts, displayedProducts.length]);
+
+  // Update hasMore when filteredProducts change
+  useEffect(() => {
+    const totalAvailable = filteredProducts.length;
+    const currentlyDisplayed = displayedProducts.length;
+    setHasMore(currentlyDisplayed < totalAvailable);
+  }, [filteredProducts.length, displayedProducts.length]);
+
+  // Intersection Observer for infinite scroll
+  const lastProductElementRef = useCallback((node: HTMLDivElement) => {
+    if (isLoading) return;
+    if (observer.current) observer.current.disconnect();
+
+    observer.current = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting && hasMore) {
+        loadMoreProducts();
+      }
+    }, {
+      threshold: 0.1,
+      rootMargin: '100px',
+    });
+
+    if (node) observer.current.observe(node);
+  }, [isLoading, hasMore, loadMoreProducts]);
 
   const handleAddToCart = (product: Product) => {
     if (product.stock === 0) return;
@@ -219,7 +301,7 @@ export default function SearchPage() {
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-primary animate-pulse"></div>
             <p className="text-sm text-white/70 font-medium">
-              {filteredProducts.length} product{filteredProducts.length !== 1 ? 's' : ''} found
+              {displayedProducts.length} of {filteredProducts.length} product{filteredProducts.length !== 1 ? 's' : ''} shown
             </p>
           </div>
           <div className="flex items-center bg-secondary/60 rounded-lg p-1 border border-white/10">
@@ -247,9 +329,9 @@ export default function SearchPage() {
         </div>
       </div>
 
-      {/* Enhanced Products Grid/List */}
+      {/* Enhanced Products Grid/List with Lazy Loading */}
       <div className="px-4 py-4">
-        {filteredProducts.length === 0 ? (
+        {filteredProducts.length === 0 && !isInitialLoad ? (
           <div className="text-center py-16">
             <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-primary/20 to-info/20 rounded-full flex items-center justify-center">
               <Search className="w-10 h-10 text-primary" />
@@ -271,23 +353,65 @@ export default function SearchPage() {
             </Button>
           </div>
         ) : (
-          <div className={
-            viewMode === 'grid'
-              ? 'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4'
-              : 'space-y-3'
-          }>
-            {filteredProducts.map((product) => (
-              <ProductCard
-                key={product._id}
-                product={product}
-                cartItem={getItemById(product._id)}
-                viewMode={viewMode}
-                onAddToCart={handleAddToCart}
-                onQuantityChange={handleQuantityChange}
-                onClick={handleProductClick}
-              />
-            ))}
-          </div>
+          <>
+            {/* Products Grid/List */}
+            <div className={
+              viewMode === 'grid'
+                ? 'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4'
+                : 'space-y-3'
+            }>
+              {displayedProducts.map((product, index) => (
+                <div
+                  key={product._id}
+                  ref={index === displayedProducts.length - 1 ? lastProductElementRef : null}
+                >
+                  <ProductCard
+                    product={product}
+                    cartItem={getItemById(product._id)}
+                    viewMode={viewMode}
+                    onAddToCart={handleAddToCart}
+                    onQuantityChange={handleQuantityChange}
+                    onClick={handleProductClick}
+                  />
+                </div>
+              ))}
+            </div>
+
+            {/* Loading Indicator */}
+            {isLoading && (
+              <div className="flex items-center justify-center py-8">
+                <div className="flex items-center space-x-3">
+                  <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                  <span className="text-white/70 text-sm">Loading more products...</span>
+                </div>
+              </div>
+            )}
+
+            {/* Load More Button (fallback for manual loading) */}
+            {!isLoading && hasMore && displayedProducts.length > 0 && (
+              <div className="flex justify-center py-6">
+                <Button
+                  onClick={loadMoreProducts}
+                  className="bg-secondary/60 border border-white/10 hover:bg-secondary/80 hover:border-primary/30 transition-all"
+                >
+                  <ChevronDown className="w-4 h-4 mr-2" />
+                  Load More Products
+                </Button>
+              </div>
+            )}
+
+            {/* End of Results */}
+            {!hasMore && displayedProducts.length > 0 && (
+              <div className="text-center py-8">
+                <div className="w-12 h-12 mx-auto mb-4 bg-gradient-to-br from-success/20 to-primary/20 rounded-full flex items-center justify-center">
+                  <Sparkles className="w-6 h-6 text-success" />
+                </div>
+                <p className="text-white/60 text-sm">
+                  You've seen all {filteredProducts.length} products!
+                </p>
+              </div>
+            )}
+          </>
         )}
       </div>
 
