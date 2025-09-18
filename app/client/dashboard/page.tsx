@@ -30,6 +30,7 @@ import { useQuery } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import Button from '@/components/ui/Button';
 import ProductCard from '@/components/ui/ProductCard';
+import ClientNotificationModal from '@/components/modal/ClientNotifModal';
 
 export default function ClientDashboard() {
   const router = useRouter();
@@ -40,6 +41,7 @@ export default function ClientDashboard() {
   const cartItemCount = useCartItemCount();
   const [currentBannerIndex, setCurrentBannerIndex] = useState(0);
   const [isRedirecting, setIsRedirecting] = useState(false);
+  const [showNotificationModal, setShowNotificationModal] = useState(false);
 
   // Fetch data from Convex
   const productsQuery = useQuery(api.services.products.getProducts, { isActive: true }) || [];
@@ -116,6 +118,35 @@ export default function ClientDashboard() {
     router.push(`/client/product/${product._id}`);
   };
 
+  // Notification handlers
+  const handleNotificationClick = () => {
+    setShowNotificationModal(true);
+  };
+
+  const handleCloseNotificationModal = () => {
+    setShowNotificationModal(false);
+  };
+
+  const handleMarkAsRead = (id: string) => {
+    // TODO: Implement mark as read functionality
+    console.log('Mark as read:', id);
+  };
+
+  const handleMarkAllAsRead = () => {
+    // TODO: Implement mark all as read functionality
+    console.log('Mark all as read');
+  };
+
+  const handleDeleteNotification = (id: string) => {
+    // TODO: Implement delete notification functionality
+    console.log('Delete notification:', id);
+  };
+
+  const handleClearAll = () => {
+    // TODO: Implement clear all functionality
+    console.log('Clear all notifications');
+  };
+
   return (
     <div className="min-h-screen bg-background">
       {/* Enhanced Header */}
@@ -134,7 +165,7 @@ export default function ClientDashboard() {
 
             <div className="flex items-center space-x-2">
               <button
-                onClick={() => router.push('/client/notifications')}
+                onClick={handleNotificationClick}
                 className="relative p-2 rounded-xl bg-secondary/60 border border-white/10 hover:bg-secondary/80 transition-colors"
               >
                 <Bell className="w-5 h-5 text-white" />
@@ -512,6 +543,16 @@ export default function ClientDashboard() {
           </button>
         </div>
       </div>
+
+      {/* Client Notification Modal */}
+      <ClientNotificationModal
+        isOpen={showNotificationModal}
+        onClose={handleCloseNotificationModal}
+        onMarkAsRead={handleMarkAsRead}
+        onMarkAllAsRead={handleMarkAllAsRead}
+        onDeleteNotification={handleDeleteNotification}
+        onClearAll={handleClearAll}
+      />
     </div>
   );
 }
