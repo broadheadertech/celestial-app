@@ -17,14 +17,19 @@ import {
   Save,
   RefreshCw,
   ChevronRight,
+  CheckCircle,
+  AlertTriangle,
 } from 'lucide-react';
 import { useAuthStore, useIsAuthenticated } from '@/store/auth';
+import { useAuth } from '@/hooks/useAuth';
+import { signOut } from 'next-auth/react';
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
 
 export default function AdminSettingsPage() {
   const router = useRouter();
-  const { user, logout } = useAuthStore();
+  const { user, logout: authStoreLogout } = useAuthStore();
+  const { logout } = useAuth();
   const isAuthenticated = useIsAuthenticated();
 
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
@@ -65,6 +70,15 @@ export default function AdminSettingsPage() {
     }
   }, [isAuthenticated, user, router]);
 
+  // Handle logout success - force redirect if user is no longer authenticated
+  useEffect(() => {
+    if (!isAuthenticated && user === null) {
+      console.log('User logged out, redirecting to login...');
+      // Force redirect to login page
+      window.location.href = '/auth/login';
+    }
+  }, [isAuthenticated, user]);
+
   // Populate settings from user data
   useEffect(() => {
     if (currentUser) {
@@ -98,10 +112,86 @@ export default function AdminSettingsPage() {
   const handleLogout = async () => {
     setIsLoggingOut(true);
     try {
-      await logout();
-      router.replace('/auth/login');
+      console.log('🚪 Starting logout process...');
+      
+      // Close the confirmation modal first
+      setShowLogoutConfirm(false);
+      
+      // Clear any pending settings changes
+      setSettings({
+        email: '',
+        firstName: '',
+        lastName: '',
+        phone: '',
+        notifications: {
+          emailNotifications: true,
+          lowStockAlerts: true,
+          orderNotifications: true,
+          systemAlerts: true,
+        },
+        security: {
+          changePassword: false,
+          currentPassword: '',
+          newPassword: '',
+          confirmPassword: '',
+        }
+      });
+
+      // Step 1: Sign out from NextAuth
+      console.log('🔐 Signing out from NextAuth...');
+      await signOut({ 
+        callbackUrl: '/auth/login',
+        redirect: false 
+      });
+
+      // Step 2: Clear auth store
+      console.log('🗄️ Clearing auth store...');
+      authStoreLogout();
+
+      // Step 3: Clear localStorage
+      console.log('🧹 Clearing localStorage...');
+      try {
+        localStorage.removeItem('celestial-auth-storage');
+        localStorage.removeItem('next-auth.session-token');
+        localStorage.removeItem('next-auth.csrf-token');
+        localStorage.removeItem('next-auth.callback-url');
+        // Clear any other potential auth-related items
+        Object.keys(localStorage).forEach(key => {
+          if (key.includes('auth') || key.includes('session') || key.includes('token')) {
+            localStorage.removeItem(key);
+          }
+        });
+      } catch (storageError) {
+        console.warn('Could not clear localStorage:', storageError);
+      }
+
+      // Step 4: Force redirect to login
+      console.log('🔄 Redirecting to login...');
+      
+      // Show success message briefly
+      setModalMessage('Successfully logged out!');
+      setShowSuccessModal(true);
+      
+      // Force redirect using multiple methods to ensure it works
+      setTimeout(() => {
+        setShowSuccessModal(false);
+        // Multiple redirect methods to ensure it works
+        window.location.href = '/auth/login';
+        router.replace('/auth/login');
+        router.push('/auth/login');
+      }, 1000);
+      
     } catch (error) {
-      console.error('Logout error:', error);
+      console.error('❌ Logout error:', error);
+      setModalMessage('Error during logout. Redirecting to login...');
+      setShowErrorModal(true);
+      
+      // Force redirect even on error
+      setTimeout(() => {
+        setShowErrorModal(false);
+        // Force redirect on error
+        window.location.href = '/auth/login';
+      }, 2000);
     } finally {
       setIsLoggingOut(false);
     }
@@ -408,13 +498,33 @@ export default function AdminSettingsPage() {
                 <div>
                   <h3 className="font-medium text-white">Logout</h3>
                   <p className="text-sm text-white/60">Sign out of your admin account</p>
+                  {process.env.NODE_ENV === 'development' && (
+                    <p className="text-xs text-yellow-400 mt-1">
+                      Dev: Auth Status: {isAuthenticated ? '✅ Authenticated' : '❌ Not Authenticated'} | 
+                      User: {user ? `${user.firstName} (${user.role})` : 'None'}
+                    </p>
+                  )}
                 </div>
               </div>
               <Button
-                onClick={() => setShowLogoutConfirm(true)}
-                className="bg-error/10 border border-error/20 text-error hover:bg-error/20"
+                onClick={() => {
+                  console.log('🚪 Logout button clicked');
+                  setShowLogoutConfirm(true);
+                }}
+                className="bg-error/10 border border-error/20 text-error hover:bg-error/20 transition-colors"
+                disabled={isLoggingOut}
               >
-                Logout
+                {isLoggingOut ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                    Logging out...
+                  </>
+                ) : (
+                  <>
+                    <LogOut className="w-4 h-4 mr-2" />
+                    Logout
+                  </>
+                )}
               </Button>
             </div>
           </Card>
@@ -477,22 +587,39 @@ export default function AdminSettingsPage() {
               </div>
               <div>
                 <h3 className="text-lg font-semibold text-white">Confirm Logout</h3>
-                <p className="text-sm text-white/60">Are you sure you want to sign out?</p>
+                <p className="text-sm text-white/60">Are you sure you want to sign out of your admin account?</p>
               </div>
             </div>
             <div className="flex space-x-3">
               <Button
-                onClick={() => setShowLogoutConfirm(false)}
-                className="flex-1 bg-white/10 border border-white/20 text-white hover:bg-white/20"
+                onClick={() => {
+                  console.log('Cancel logout clicked');
+                  setShowLogoutConfirm(false);
+                }}
+                disabled={isLoggingOut}
+                className="flex-1 bg-white/10 border border-white/20 text-white hover:bg-white/20 transition-colors"
               >
                 Cancel
               </Button>
               <Button
-                onClick={handleLogout}
+                onClick={() => {
+                  console.log('Confirm logout clicked');
+                  handleLogout();
+                }}
                 disabled={isLoggingOut}
-                className="flex-1 bg-error hover:bg-error/90"
+                className="flex-1 bg-error hover:bg-error/90 transition-colors"
               >
-                {isLoggingOut ? 'Logging out...' : 'Logout'}
+                {isLoggingOut ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                    Logging out...
+                  </>
+                ) : (
+                  <>
+                    <LogOut className="w-4 h-4 mr-2" />
+                    Logout
+                  </>
+                )}
               </Button>
             </div>
           </div>
