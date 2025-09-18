@@ -49,7 +49,7 @@ const BottomNavbar: React.FC<BottomNavbarProps> = ({ className = '' }) => {
     },
     {
       id: 'orders',
-      label: 'Orders',
+      label: 'Reservations',
       icon: ShoppingBag,
       href: '/admin/orders',
       matchPaths: ['/admin/reservations', '/admin/orders']

@@ -159,7 +159,7 @@ export default function ReservationDetailPage() {
   if (!reservation) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
+        <div className="text-center px-4">
           <AlertCircle className="w-12 h-12 text-error mx-auto mb-4" />
           <h2 className="text-xl font-bold text-white mb-2">Reservation Not Found</h2>
           <p className="text-muted mb-4">The reservation you&apos;re looking for doesn&apos;t exist.</p>
@@ -173,61 +173,96 @@ export default function ReservationDetailPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
+      {/* Enhanced Header - Better responsive layout */}
       <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-white/10">
-        <div className="px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
+        <div className="px-3 sm:px-6 lg:px-8 py-3 sm:py-4">
+          <div className="flex items-center justify-between gap-3">
+            {/* Left side - Back button and title */}
+            <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
               <button
                 onClick={() => router.back()}
-                className="p-2 rounded-full bg-secondary border border-white/10 hover:bg-white/10 transition-colors"
+                className="p-2 rounded-lg sm:rounded-xl bg-secondary border border-white/10 hover:bg-white/10 transition-colors shrink-0"
               >
-                <ArrowLeft className="w-5 h-5 text-white" />
+                <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
               </button>
-              <div>
-                <h1 className="text-2xl font-bold text-white">{reservation.reservationCode || `RES-${reservation._id.slice(-6).toUpperCase()}`}</h1>
-                <p className="text-sm text-muted">Reservation Details</p>
+              <div className="min-w-0 flex-1">
+                <h1 className="text-lg sm:text-2xl font-bold text-white truncate">
+                  {reservation.reservationCode || `RES-${reservation._id.slice(-6).toUpperCase()}`}
+                </h1>
+                <p className="text-xs sm:text-sm text-muted">Reservation Details</p>
               </div>
             </div>
 
-            <div className="flex items-center space-x-3">
-              <Button
-                onClick={handlePrint}
-                variant="outline"
-                size="sm"
-              >
-                <Printer className="w-4 h-4 mr-2" />
-                Print
-              </Button>
-              <Button
-                onClick={handleSendEmail}
-                variant="outline"
-                size="sm"
-              >
-                <Send className="w-4 h-4 mr-2" />
-                Email
-              </Button>
-              <Button
-                onClick={() => setShowStatusModal(true)}
-                size="sm"
-              >
-                <Edit className="w-4 h-4 mr-2" />
-                Update Status
-              </Button>
+            {/* Right side - Action buttons with responsive design */}
+            <div className="flex items-center gap-1 sm:gap-3 shrink-0">
+              {/* Mobile: Show only icons */}
+              <div className="flex sm:hidden gap-1">
+                <Button
+                  onClick={handlePrint}
+                  variant="outline"
+                  size="sm"
+                  className="p-2"
+                >
+                  <Printer className="w-4 h-4" />
+                </Button>
+                <Button
+                  onClick={handleSendEmail}
+                  variant="outline"
+                  size="sm"
+                  className="p-2"
+                >
+                  <Send className="w-4 h-4" />
+                </Button>
+                <Button
+                  onClick={() => setShowStatusModal(true)}
+                  size="sm"
+                  className="p-2"
+                >
+                  <Edit className="w-4 h-4" />
+                </Button>
+              </div>
+
+              {/* Desktop: Show full buttons */}
+              <div className="hidden sm:flex gap-3">
+                <Button
+                  onClick={handlePrint}
+                  variant="outline"
+                  size="sm"
+                >
+                  <Printer className="w-4 h-4 mr-2" />
+                  Print
+                </Button>
+                <Button
+                  onClick={handleSendEmail}
+                  variant="outline"
+                  size="sm"
+                >
+                  <Send className="w-4 h-4 mr-2" />
+                  Email
+                </Button>
+                <Button
+                  onClick={() => setShowStatusModal(true)}
+                  size="sm"
+                >
+                  <Edit className="w-4 h-4 mr-2" />
+                  Update Status
+                </Button>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="px-6 py-6 max-w-6xl mx-auto">
-        {/* Status and Overview */}
-        <div className="grid lg:grid-cols-3 gap-6 mb-6">
-          <Card className="lg:col-span-2 p-6">
-            <div className="flex items-center justify-between mb-6">
-              <div>
+      {/* Enhanced main content with better responsive layout */}
+      <div className="px-3 sm:px-6 lg:px-8 py-3 sm:py-6 max-w-7xl mx-auto">
+        {/* Status and Overview - Enhanced responsive grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-6 mb-3 sm:mb-6">
+          <Card className="lg:col-span-2 p-4 sm:p-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4 sm:mb-6">
+              <div className="flex-1 min-w-0">
                 <h3 className="text-lg font-bold text-white mb-2">Reservation Overview</h3>
-                <div className="flex items-center space-x-4">
-                  <span className={`px-3 py-1.5 rounded-lg border font-medium text-sm capitalize ${statusColors[reservation.status]}`}>
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+                  <span className={`inline-flex w-fit px-3 py-1.5 rounded-lg border font-medium text-sm capitalize ${statusColors[reservation.status]}`}>
                     {reservation.status}
                   </span>
                   <span className="text-sm text-muted">
@@ -235,118 +270,120 @@ export default function ReservationDetailPage() {
                   </span>
                 </div>
               </div>
-              <div className="text-right">
-                <p className="text-2xl font-bold text-white">{formatCurrency(reservation.totalAmount || 0)}</p>
+              <div className="text-left sm:text-right shrink-0">
+                <p className="text-xl sm:text-2xl font-bold text-white">{formatCurrency(reservation.totalAmount || 0)}</p>
                 <p className="text-sm text-muted">{reservation.totalQuantity} items</p>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
+            {/* Enhanced responsive grid for info */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-sm">
+              <div className="space-y-1">
                 <span className="text-muted">Reservation Date:</span>
                 <p className="text-white font-medium">{formatDate(reservation.reservationDate)}</p>
               </div>
-              <div>
+              <div className="space-y-1">
                 <span className="text-muted">Expiry Date:</span>
                 <p className="text-white font-medium">{formatDate(reservation.expiryDate)}</p>
               </div>
-              <div>
+              <div className="space-y-1">
                 <span className="text-muted">Time Until Expiry:</span>
                 <p className={`font-medium ${reservation.status === 'expired' ? 'text-error' : 'text-warning'}`}>
                   {getTimeUntilExpiry()}
                 </p>
               </div>
-              <div>
+              <div className="space-y-1">
                 <span className="text-muted">Last Updated:</span>
                 <p className="text-white font-medium">{formatDate(reservation.updatedAt)}</p>
               </div>
             </div>
           </Card>
 
-          <Card className="p-6">
-            <div className="flex items-center space-x-3 mb-4">
-              <div className="p-3 bg-primary/20 rounded-xl">
-                <User className="w-6 h-6 text-primary" />
+          {/* Enhanced Customer Card */}
+          <Card className="p-4 sm:p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 sm:p-3 bg-primary/20 rounded-lg sm:rounded-xl shrink-0">
+                <User className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
               </div>
-              <div>
+              <div className="min-w-0 flex-1">
                 <h3 className="text-lg font-bold text-white">Customer</h3>
                 <p className="text-sm text-muted">Contact information</p>
               </div>
             </div>
 
             <div className="space-y-3">
-              <div className="flex items-center space-x-3">
-                <User className="w-4 h-4 text-muted" />
-                  <span className="text-white font-medium">
-                    {reservation.guestInfo?.name || (reservation.user ? `${reservation.user.firstName} ${reservation.user.lastName}` : 'Unknown Customer')}
-                  </span>
+              <div className="flex items-start gap-3">
+                <User className="w-4 h-4 text-muted mt-0.5 shrink-0" />
+                <span className="text-white font-medium break-words">
+                  {reservation.guestInfo?.name || (reservation.user ? `${reservation.user.firstName} ${reservation.user.lastName}` : 'Unknown Customer')}
+                </span>
               </div>
-              <div className="flex items-center space-x-3">
-                <Mail className="w-4 h-4 text-muted" />
-                <span className="text-white">
+              <div className="flex items-start gap-3">
+                <Mail className="w-4 h-4 text-muted mt-0.5 shrink-0" />
+                <span className="text-white break-all">
                   {reservation.guestInfo?.email || reservation.user?.email || 'No email provided'}
                 </span>
               </div>
-              <div className="flex items-center space-x-3">
-                <Phone className="w-4 h-4 text-muted" />
+              <div className="flex items-start gap-3">
+                <Phone className="w-4 h-4 text-muted mt-0.5 shrink-0" />
                 <span className="text-white">
                   {reservation.guestInfo?.phone || reservation.user?.phone || 'No phone provided'}
                 </span>
               </div>
               {reservation.guestInfo?.completeAddress && (
-                <div className="flex items-start space-x-3">
-                  <MapPin className="w-4 h-4 text-muted mt-0.5" />
-                  <span className="text-white text-sm">{reservation.guestInfo.completeAddress}</span>
+                <div className="flex items-start gap-3">
+                  <MapPin className="w-4 h-4 text-muted mt-0.5 shrink-0" />
+                  <span className="text-white text-sm break-words">{reservation.guestInfo.completeAddress}</span>
                 </div>
               )}
             </div>
           </Card>
         </div>
 
-        {/* Pickup Schedule */}
+        {/* Enhanced Pickup Schedule */}
         {reservation.guestInfo?.pickupSchedule && (
-          <Card className="p-6 mb-6">
-            <div className="flex items-center space-x-3 mb-4">
-              <div className="p-3 bg-info/20 rounded-xl">
-                <Calendar className="w-6 h-6 text-info" />
+          <Card className="p-4 sm:p-6 mb-3 sm:mb-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 sm:p-3 bg-info/20 rounded-lg sm:rounded-xl shrink-0">
+                <Calendar className="w-5 h-5 sm:w-6 sm:h-6 text-info" />
               </div>
-              <div>
+              <div className="min-w-0 flex-1">
                 <h3 className="text-lg font-bold text-white">Pickup Schedule</h3>
                 <p className="text-sm text-muted">Customer preferred pickup time</p>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-6">
-              <div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+              <div className="space-y-1">
                 <span className="text-muted text-sm">Pickup Date:</span>
-                <p className="text-white font-medium text-lg">
+                <p className="text-white font-medium text-base sm:text-lg">
                   {formatDateOnly(reservation.guestInfo.pickupSchedule.date)}
                 </p>
               </div>
-              <div>
+              <div className="space-y-1">
                 <span className="text-muted text-sm">Pickup Time:</span>
-                <p className="text-white font-medium text-lg">
+                <p className="text-white font-medium text-base sm:text-lg">
                   {reservation.guestInfo.pickupSchedule.time}
                 </p>
               </div>
             </div>
 
             {reservation.guestInfo.notes && (
-              <div className="mt-4 p-4 bg-secondary/30 rounded-lg">
+              <div className="mt-4 p-3 sm:p-4 bg-secondary/30 rounded-lg">
                 <span className="text-muted text-sm">Customer Notes:</span>
-                <p className="text-white mt-1">{reservation.guestInfo.notes}</p>
+                <p className="text-white mt-1 break-words">{reservation.guestInfo.notes}</p>
               </div>
             )}
           </Card>
         )}
 
-        {/* Reserved Items */}
-        <Card className="p-6 mb-6">
-          <div className="flex items-center space-x-3 mb-6">
-            <div className="p-3 bg-success/20 rounded-xl">
-              <Package className="w-6 h-6 text-success" />
+        {/* Enhanced Reserved Items */}
+        <Card className="p-4 sm:p-6 mb-3 sm:mb-6">
+          <div className="flex items-center gap-3 mb-4 sm:mb-6">
+            <div className="p-2 sm:p-3 bg-success/20 rounded-lg sm:rounded-xl shrink-0">
+              <Package className="w-5 h-5 sm:w-6 sm:h-6 text-success" />
             </div>
-            <div>
+            <div className="min-w-0 flex-1">
               <h3 className="text-lg font-bold text-white">Reserved Items</h3>
               <p className="text-sm text-muted">{reservation.totalQuantity} items reserved</p>
             </div>
@@ -354,83 +391,83 @@ export default function ReservationDetailPage() {
 
           <div className="divide-y divide-white/10">
             {reservation.items.map((item, index) => (
-              <div key={item.productId} className="py-4 first:pt-0 last:pb-0">
-                <div className="flex items-center space-x-4">
+              <div key={item.productId} className="py-3 sm:py-4 first:pt-0 last:pb-0">
+                <div className="flex items-start gap-3 sm:gap-4">
                   <img
                     src={item.product?.image || '/placeholder-product.png'}
                     alt={item.product?.name || 'Product'}
-                    className="w-16 h-16 object-cover rounded-lg border border-white/10"
+                    className="w-12 h-12 sm:w-16 sm:h-16 object-cover rounded-lg border border-white/10 shrink-0"
                   />
-                  <div className="flex-1">
-                    <h4 className="font-medium text-white">{item.product?.name || 'Unknown Product'}</h4>
+                  <div className="flex-1 min-w-0">
+                    <h4 className="font-medium text-white break-words">{item.product?.name || 'Unknown Product'}</h4>
                     <p className="text-sm text-muted">{item.product?.category || 'Unknown Category'}</p>
-                    <div className="flex items-center mt-1">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 mt-1">
                       <span className="text-sm text-muted">Qty: {item.quantity}</span>
-                      <span className="mx-2 text-muted">•</span>
+                      <span className="hidden sm:inline text-muted">•</span>
                       <span className="text-sm font-medium text-primary">{formatCurrency(item.reservedPrice || item.product?.price || 0)} each</span>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="font-bold text-white">{formatCurrency((item.reservedPrice || item.product?.price || 0) * item.quantity)}</p>
+                  <div className="text-right shrink-0">
+                    <p className="font-bold text-white text-sm sm:text-base">{formatCurrency((item.reservedPrice || item.product?.price || 0) * item.quantity)}</p>
                   </div>
                 </div>
               </div>
             ))}
 
-            <div className="pt-4 border-t border-white/10">
+            <div className="pt-3 sm:pt-4 border-t border-white/10">
               <div className="flex items-center justify-between">
-                <span className="text-lg font-bold text-white">Total Amount</span>
-                <span className="text-xl font-bold text-primary">{formatCurrency(reservation.totalAmount || 0)}</span>
+                <span className="text-base sm:text-lg font-bold text-white">Total Amount</span>
+                <span className="text-lg sm:text-xl font-bold text-primary">{formatCurrency(reservation.totalAmount || 0)}</span>
               </div>
             </div>
           </div>
         </Card>
 
-        {/* Notes */}
+        {/* Enhanced Notes */}
         {reservation.notes && (
-          <Card className="p-6 mb-6">
-            <div className="flex items-center space-x-3 mb-4">
-              <div className="p-3 bg-warning/20 rounded-xl">
-                <MessageSquare className="w-6 h-6 text-warning" />
+          <Card className="p-4 sm:p-6 mb-3 sm:mb-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 sm:p-3 bg-warning/20 rounded-lg sm:rounded-xl shrink-0">
+                <MessageSquare className="w-5 h-5 sm:w-6 sm:h-6 text-warning" />
               </div>
-              <div>
+              <div className="min-w-0 flex-1">
                 <h3 className="text-lg font-bold text-white">Admin Notes</h3>
                 <p className="text-sm text-muted">Internal notes about this reservation</p>
               </div>
             </div>
 
-            <div className="p-4 bg-secondary/30 rounded-lg">
-              <p className="text-white">{reservation.notes}</p>
+            <div className="p-3 sm:p-4 bg-secondary/30 rounded-lg">
+              <p className="text-white break-words">{reservation.notes}</p>
             </div>
           </Card>
         )}
 
-        {/* Basic Info */}
-        <Card className="p-6 mb-20">
-          <div className="flex items-center space-x-3 mb-6">
-            <div className="p-3 bg-info/20 rounded-xl">
-              <FileText className="w-6 h-6 text-info" />
+        {/* Enhanced Basic Info */}
+        <Card className="p-4 sm:p-6 mb-16 sm:mb-20">
+          <div className="flex items-center gap-3 mb-4 sm:mb-6">
+            <div className="p-2 sm:p-3 bg-info/20 rounded-lg sm:rounded-xl shrink-0">
+              <FileText className="w-5 h-5 sm:w-6 sm:h-6 text-info" />
             </div>
-            <div>
+            <div className="min-w-0 flex-1">
               <h3 className="text-lg font-bold text-white">Reservation Info</h3>
               <p className="text-sm text-muted">Basic reservation information</p>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+            <div className="space-y-1">
               <span className="text-muted text-sm">Created:</span>
               <p className="text-white font-medium">{formatDate(reservation.createdAt)}</p>
             </div>
-            <div>
+            <div className="space-y-1">
               <span className="text-muted text-sm">Last Updated:</span>
               <p className="text-white font-medium">{formatDate(reservation.updatedAt)}</p>
             </div>
-            <div>
+            <div className="space-y-1">
               <span className="text-muted text-sm">Reservation Date:</span>
               <p className="text-white font-medium">{formatDate(reservation.reservationDate)}</p>
             </div>
-            <div>
+            <div className="space-y-1">
               <span className="text-muted text-sm">Expiry Date:</span>
               <p className="text-white font-medium">{formatDate(reservation.expiryDate)}</p>
             </div>
@@ -438,11 +475,11 @@ export default function ReservationDetailPage() {
         </Card>
       </div>
 
-      {/* Status Update Modal */}
+      {/* Enhanced Status Update Modal - Better mobile responsive */}
       {showStatusModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-6">
-          <Card className="w-full max-w-md">
-            <div className="p-6">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-3 sm:p-6">
+          <Card className="w-full max-w-md mx-3">
+            <div className="p-4 sm:p-6">
               <h3 className="text-lg font-bold text-white mb-4">Update Reservation Status</h3>
 
               <div className="space-y-4">
@@ -453,7 +490,7 @@ export default function ReservationDetailPage() {
                   <select
                     value={newStatus}
                     onChange={(e) => setNewStatus(e.target.value)}
-                    className="w-full bg-secondary border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-primary"
+                    className="w-full bg-secondary border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-primary text-sm sm:text-base"
                   >
                     <option value="">Select status</option>
                     {statusOptions.map(option => (
@@ -474,11 +511,11 @@ export default function ReservationDetailPage() {
                 </div>
               </div>
 
-              <div className="flex space-x-3 mt-6">
+              <div className="flex flex-col sm:flex-row gap-3 mt-6">
                 <Button
                   onClick={() => setShowStatusModal(false)}
                   variant="outline"
-                  className="flex-1"
+                  className="flex-1 order-2 sm:order-1"
                 >
                   Cancel
                 </Button>
@@ -486,7 +523,7 @@ export default function ReservationDetailPage() {
                   onClick={handleStatusUpdate}
                   disabled={!newStatus || isUpdating}
                   loading={isUpdating}
-                  className="flex-1"
+                  className="flex-1 order-1 sm:order-2"
                 >
                   {isUpdating ? 'Updating...' : 'Update Status'}
                 </Button>
@@ -496,7 +533,8 @@ export default function ReservationDetailPage() {
         </div>
       )}
 
-      <div className="h-16" />
+      {/* Enhanced bottom spacing */}
+      <div className="h-16 sm:h-20" />
     </div>
   );
 }
