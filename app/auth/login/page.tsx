@@ -34,17 +34,8 @@ export default function LoginPage() {
     }
   }, [session, status, router]);
 
-  // Don't render if authenticated
-  if (status === 'loading' || (status === 'authenticated' && session?.user)) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-white">Loading...</p>
-        </div>
-      </div>
-    );
-  }
+  // Show loading state - but don't early return to avoid hook issues
+  const isPageLoading = status === 'loading' || (status === 'authenticated' && session?.user);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -99,6 +90,17 @@ export default function LoginPage() {
       setErrors(prev => ({ ...prev, [field]: '' }));
     }
   };
+
+  if (isPageLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-white">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col px-6 py-8">

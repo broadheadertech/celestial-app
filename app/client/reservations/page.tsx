@@ -27,6 +27,7 @@ import { useQuery } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
+import ClientBottomNavbar from '@/components/client/ClientBottomNavbar';
 import { Reservation } from '@/types';
 
 export default function ReservationsPage() {
@@ -409,39 +410,8 @@ export default function ReservationsPage() {
         )}
       </div>
 
-      {/* Bottom Navigation */}
-      <div className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur-sm border-t border-white/10">
-        <div className="grid grid-cols-4 py-2">
-          <button
-            onClick={() => router.push('/client/dashboard')}
-            className="flex flex-col items-center py-2 px-3 text-muted hover:text-white transition-colors"
-          >
-            <div className="w-5 h-5 mb-1 bg-muted rounded"></div>
-            <span className="text-xs">Home</span>
-          </button>
-          <button
-            onClick={() => router.push('/client/search')}
-            className="flex flex-col items-center py-2 px-3 text-muted hover:text-white transition-colors"
-          >
-            <Search className="w-5 h-5 mb-1" />
-            <span className="text-xs">Search</span>
-          </button>
-          <button
-            onClick={() => router.push('/client/cart')}
-            className="flex flex-col items-center py-2 px-3 text-muted hover:text-white transition-colors"
-          >
-            <ShoppingCart className="w-5 h-5 mb-1" />
-            <span className="text-xs">Cart</span>
-          </button>
-          <button
-            onClick={() => router.push('/client/profile')}
-            className="flex flex-col items-center py-2 px-3 text-muted hover:text-white transition-colors"
-          >
-            <User className="w-5 h-5 mb-1" />
-            <span className="text-xs">Profile</span>
-          </button>
-        </div>
-      </div>
+      {/* Client Bottom Navigation */}
+      <ClientBottomNavbar />
 
       {/* Bottom padding */}
       <div className="h-16" />

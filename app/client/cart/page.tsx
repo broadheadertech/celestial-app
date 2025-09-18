@@ -23,6 +23,7 @@ import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Card from '@/components/ui/Card';
 import ReservationOverlay from '@/components/ui/ReservationOverlay';
+import ClientBottomNavbar from '@/components/client/ClientBottomNavbar';
 
 export default function CartPage() {
   const router = useRouter();
@@ -478,36 +479,8 @@ export default function CartPage() {
         )}
       </div>
 
-      {/* Bottom Navigation */}
-      <div className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur-sm border-t border-white/10">
-        <div className="grid grid-cols-4 py-2">
-          <button
-            onClick={() => router.push('/client/dashboard')}
-            className="flex flex-col items-center py-2 px-3 text-muted hover:text-white transition-colors"
-          >
-            <div className="w-5 h-5 mb-1 bg-muted rounded"></div>
-            <span className="text-xs">Home</span>
-          </button>
-          <button
-            onClick={() => router.push('/client/search')}
-            className="flex flex-col items-center py-2 px-3 text-muted hover:text-white transition-colors"
-          >
-            <Search className="w-5 h-5 mb-1" />
-            <span className="text-xs">Search</span>
-          </button>
-          <button className="flex flex-col items-center py-2 px-3 text-primary">
-            <ShoppingBag className="w-5 h-5 mb-1" />
-            <span className="text-xs font-medium">Cart</span>
-          </button>
-          <button
-            onClick={() => router.push('/client/profile')}
-            className="flex flex-col items-center py-2 px-3 text-muted hover:text-white transition-colors"
-          >
-            <User className="w-5 h-5 mb-1" />
-            <span className="text-xs">Profile</span>
-          </button>
-        </div>
-      </div>
+      {/* Client Bottom Navigation */}
+      <ClientBottomNavbar />
 
       {/* Bottom padding */}
       <div className="h-16" />

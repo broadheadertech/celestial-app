@@ -34,6 +34,7 @@ import { api } from '@/convex/_generated/api';
 import Button from '@/components/ui/Button';
 import ProductCard from '@/components/ui/ProductCard';
 import ClientNotificationModal from '@/components/modal/ClientNotifModal';
+import ClientBottomNavbar from '@/components/client/ClientBottomNavbar';
 
 export default function ClientDashboard() {
   const router = useRouter();
@@ -682,50 +683,8 @@ export default function ClientDashboard() {
         )}
       </div>
 
-      {/* Enhanced Bottom Navigation */}
-      <div className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur-md border-t border-white/10">
-        <div className="grid grid-cols-4 py-1">
-          <button
-            onClick={() => router.push('/client/dashboard')}
-            className="flex flex-col items-center py-2 px-3 text-primary"
-          >
-            <div className="relative">
-              <Package className="w-5 h-5 mb-1" />
-              <div className="absolute -top-1 -right-1 w-2 h-2 bg-primary rounded-full" />
-            </div>
-            <span className="text-xs font-medium">Home</span>
-          </button>
-
-          <button
-            onClick={() => router.push('/client/search')}
-            className="flex flex-col items-center py-2 px-3 text-white/60 hover:text-white transition-colors"
-          >
-            <Search className="w-5 h-5 mb-1" />
-            <span className="text-xs">Search</span>
-          </button>
-
-          <button
-            onClick={() => router.push('/client/cart')}
-            className="relative flex flex-col items-center py-2 px-3 text-white/60 hover:text-white transition-colors"
-          >
-            <ShoppingCart className="w-5 h-5 mb-1" />
-            <span className="text-xs">Cart</span>
-            {cartItemCount > 0 && (
-              <span className="absolute -top-0 right-2 min-w-[16px] h-4 bg-primary text-white text-xs rounded-full flex items-center justify-center font-bold">
-                {cartItemCount > 9 ? '9+' : cartItemCount}
-              </span>
-            )}
-          </button>
-
-          <button
-            onClick={() => router.push('/client/profile')}
-            className="flex flex-col items-center py-2 px-3 text-white/60 hover:text-white transition-colors"
-          >
-            <User className="w-5 h-5 mb-1" />
-            <span className="text-xs">Profile</span>
-          </button>
-        </div>
-      </div>
+      {/* Client Bottom Navigation */}
+      <ClientBottomNavbar />
 
       {/* Client Notification Modal */}
       <ClientNotificationModal

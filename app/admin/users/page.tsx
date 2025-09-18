@@ -25,6 +25,7 @@ import {
 import { formatDate, getRelativeTime } from '@/lib/utils';
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
+import ConfirmationModal from '@/components/ui/ConfirmationModal';
 
 const formatCurrency = (amount: number) => {
   return `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`;
@@ -38,6 +39,12 @@ export default function AdminUsersPage() {
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [showFilters, setShowFilters] = useState(false);
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
+  const [showConfirmationModal, setShowConfirmationModal] = useState(false);
+  const [confirmationModalProps, setConfirmationModalProps] = useState({
+    title: '',
+    message: '',
+    type: 'info' as 'success' | 'error' | 'warning' | 'info'
+  });
 
   // Fetch real users data
   const users = useQuery(api.services.admin.getAllUsers, { 
@@ -48,6 +55,11 @@ export default function AdminUsersPage() {
   // Mutations for user management
   const toggleUserStatus = useMutation(api.services.admin.toggleUserStatus);
   const updateUserRole = useMutation(api.services.admin.updateUserRole);
+
+  const showConfirmation = (title: string, message: string, type: 'success' | 'error' | 'warning' | 'info' = 'info') => {
+    setConfirmationModalProps({ title, message, type });
+    setShowConfirmationModal(true);
+  };
 
   // Calculate stats from real data
   const userStats = useMemo(() => {
@@ -94,10 +106,10 @@ export default function AdminUsersPage() {
         userId: userId as Id<'users'>,
         isActive: !currentStatus,
       });
-      alert(`User ${!currentStatus ? 'activated' : 'deactivated'} successfully!`);
+      showConfirmation('Success', `User ${!currentStatus ? 'activated' : 'deactivated'} successfully!`, 'success');
     } catch (error) {
       console.error('Error toggling user status:', error);
-      alert('Error updating user status. Please try again.');
+      showConfirmation('Error', 'Error updating user status. Please try again.', 'error');
     }
     setSelectedUser(null);
   };
@@ -109,10 +121,10 @@ export default function AdminUsersPage() {
         userId: userId as Id<'users'>,
         role: newRole as 'admin' | 'client',
       });
-      alert(`User role changed to ${newRole} successfully!`);
+      showConfirmation('Success', `User role changed to ${newRole} successfully!`, 'success');
     } catch (error) {
       console.error('Error updating user role:', error);
-      alert('Error updating user role. Please try again.');
+      showConfirmation('Error', 'Error updating user role. Please try again.', 'error');
     }
     setSelectedUser(null);
   };
@@ -120,7 +132,7 @@ export default function AdminUsersPage() {
   const handleDeleteUser = (userId: string) => {
     // TODO: Implement API call to delete user (if needed)
     console.log('Delete user:', userId);
-    alert('User deletion not implemented yet.');
+    showConfirmation('Not Available', 'User deletion not implemented yet.', 'info');
     setSelectedUser(null);
   };
 
@@ -538,6 +550,15 @@ export default function AdminUsersPage() {
           display: none;
         }
       `}</style>
+
+      {/* Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={showConfirmationModal}
+        onClose={() => setShowConfirmationModal(false)}
+        title={confirmationModalProps.title}
+        message={confirmationModalProps.message}
+        type={confirmationModalProps.type}
+      />
     </div>
   );
 }

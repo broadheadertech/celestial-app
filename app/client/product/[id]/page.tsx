@@ -29,10 +29,12 @@ import { useAuthStore, useIsAuthenticated } from '@/store/auth';
 import { useCartStore } from '@/store/cart';
 import { useQuery } from 'convex/react';
 import { api } from '@/convex/_generated/api';
+import { Id } from '@/convex/_generated/dataModel';
 import Button from '@/components/ui/Button';
 import { Product } from '@/types';
 
 interface TankData {
+  _id: string;
   productId: string;
   tankType: string;
   material: string;
@@ -42,14 +44,18 @@ interface TankData {
     width: number;
     height: number;
   };
+  weight?: number;
   thickness: number;
   lighting: number;
   filtation: number;
+  _creationTime: number;
 }
 
 interface FishData {
+  _id: string;
   productId: string;
   scientificName: string;
+  weight?: number;
   size: number;
   temperature: number;
   age: number;
@@ -57,6 +63,7 @@ interface FishData {
   lifespan: string;
   origin: string;
   diet: string;
+  _creationTime: number;
 }
 
 export default function ProductDetailPage() {
@@ -65,32 +72,17 @@ export default function ProductDetailPage() {
 
   // Fetch real product data from Convex
   const productQuery = useQuery(api.services.products.getProduct,
-    params?.id ? { productId: params.id } : "skip"
+    params?.id ? { productId: params.id as Id<"products"> } : "skip"
   );
-  
-  // Mock tank and fish data for demonstration
-  const tankData: TankData | null = productQuery?.name.toLowerCase().includes('tank') ? {
-    productId: params.id as string,
-    tankType: "Glass Aquarium",
-    material: "Tempered Glass",
-    capacity: 200,
-    dimensions: { length: 100, width: 40, height: 50 },
-    thickness: 12,
-    lighting: 24,
-    filtation: 800
-  } : null;
 
-  const fishData: FishData | null = productQuery?.name.toLowerCase().includes('fish') ? {
-    productId: params.id as string,
-    scientificName: "Poecilia reticulata",
-    size: 2.5,
-    temperature: 24,
-    age: 3,
-    phLevel: "6.8-7.8",
-    lifespan: "2-3 years",
-    origin: "South America",
-    diet: "Omnivore"
-  } : null;
+  // Fetch fish and tank data based on product ID (only after product is loaded)
+  const tankData = useQuery(api.services.products.getTankByProductId,
+    params?.id && productQuery ? { productId: params.id as Id<"products"> } : "skip"
+  );
+
+  const fishData = useQuery(api.services.products.getFishByProductId,
+    params?.id && productQuery ? { productId: params.id as Id<"products"> } : "skip"
+  );
 
   const { user } = useAuthStore();
   const isAuthenticated = useIsAuthenticated();
@@ -547,24 +539,40 @@ export default function ProductDetailPage() {
 
           {activeTab === 'specs' && (
             <div>
+              {/* Show loading only if product exists but fish/tank data is still loading */}
+              {productQuery && (tankData === undefined || fishData === undefined) && (
+                <div className="p-6 rounded-xl bg-black/20 border border-white/10 backdrop-blur-sm text-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#FF6B00] mx-auto mb-4"></div>
+                  <p className="text-gray-400 text-base font-medium">
+                    Loading specifications...
+                  </p>
+                </div>
+              )}
+
+              {/* Tank specifications */}
               {tankData && (
-                <div>
+                <div className="mb-6">
                   <h3 className="text-xl font-bold text-white mb-4">Tank Specifications</h3>
                   <TankSpecs data={tankData} />
                 </div>
               )}
 
+              {/* Fish specifications */}
               {fishData && (
-                <div>
+                <div className="mb-6">
                   <h3 className="text-xl font-bold text-white mb-4">Fish Information</h3>
                   <FishSpecs data={fishData} />
                 </div>
               )}
 
-              {!tankData && !fishData && (
+              {/* No specifications available - only show when both queries have completed */}
+              {productQuery && tankData !== undefined && fishData !== undefined && !tankData && !fishData && (
                 <div className="p-6 rounded-xl bg-black/20 border border-white/10 backdrop-blur-sm text-center">
                   <p className="text-gray-400 text-base font-medium">
                     No detailed specifications available for this product.
+                  </p>
+                  <p className="text-gray-500 text-sm mt-2">
+                    This product may not have fish or tank-specific data.
                   </p>
                 </div>
               )}

@@ -23,6 +23,7 @@ import {
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
 import Input from '@/components/ui/Input';
+import ConfirmationModal from '@/components/ui/ConfirmationModal';
 
 // Mock email templates data
 const mockEmailTemplates = [
@@ -109,6 +110,12 @@ export default function EmailMarketingPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedType, setSelectedType] = useState('all');
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
+  const [showConfirmationModal, setShowConfirmationModal] = useState(false);
+  const [confirmationModalProps, setConfirmationModalProps] = useState({
+    title: '',
+    message: '',
+    type: 'info' as 'success' | 'error' | 'warning' | 'info'
+  });
 
   const filteredTemplates = mockEmailTemplates.filter(template => {
     const matchesSearch = template.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -127,18 +134,21 @@ export default function EmailMarketingPage() {
     return opens > 0 ? Math.round((clicks / opens) * 100) : 0;
   };
 
+  const showConfirmation = (title: string, message: string, type: 'success' | 'error' | 'warning' | 'info' = 'info') => {
+    setConfirmationModalProps({ title, message, type });
+    setShowConfirmationModal(true);
+  };
+
   const handleTemplateAction = (action: string, templateId: string) => {
     switch (action) {
       case 'edit':
         router.push(`/admin/marketing/templates/${templateId}/edit`);
         break;
       case 'duplicate':
-        alert(`Duplicate template ${templateId}`);
+        showConfirmation('Template Duplicated', `Duplicate template ${templateId}`, 'success');
         break;
       case 'delete':
-        if (confirm('Are you sure you want to delete this template?')) {
-          alert(`Delete template ${templateId}`);
-        }
+        showConfirmation('Template Deleted', `Delete template ${templateId}`, 'success');
         break;
       case 'send':
         router.push(`/admin/marketing/templates/${templateId}/send`);
@@ -420,6 +430,15 @@ export default function EmailMarketingPage() {
 
       {/* Bottom Navigation */}
       <BottomNavbar />
+
+      {/* Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={showConfirmationModal}
+        onClose={() => setShowConfirmationModal(false)}
+        title={confirmationModalProps.title}
+        message={confirmationModalProps.message}
+        type={confirmationModalProps.type}
+      />
 
       {/* Bottom padding for mobile navigation */}
       <div className="h-16 sm:hidden" />

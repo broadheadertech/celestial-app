@@ -26,6 +26,7 @@ import {
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
 import Input from '@/components/ui/Input';
+import ConfirmationModal from '@/components/ui/ConfirmationModal';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { Id } from '@/convex/_generated/dataModel';
@@ -55,6 +56,12 @@ export default function ReservationDetailPage() {
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [newStatus, setNewStatus] = useState('');
   const [statusNote, setStatusNote] = useState('');
+  const [showConfirmationModal, setShowConfirmationModal] = useState(false);
+  const [confirmationModalProps, setConfirmationModalProps] = useState({
+    title: '',
+    message: '',
+    type: 'info' as 'success' | 'error' | 'warning' | 'info'
+  });
 
   // Fetch reservation data using Convex
   const reservation = useQuery(api.services.reservations.getReservationByIdAdmin, {
@@ -63,6 +70,11 @@ export default function ReservationDetailPage() {
 
   // Mutation for updating reservation status
   const updateReservationStatus = useMutation(api.services.reservations.updateReservationStatus);
+
+  const showConfirmation = (title: string, message: string, type: 'success' | 'error' | 'warning' | 'info' = 'info') => {
+    setConfirmationModalProps({ title, message, type });
+    setShowConfirmationModal(true);
+  };
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-PH', {
@@ -106,10 +118,10 @@ export default function ReservationDetailPage() {
       setStatusNote('');
 
       // Show success message
-      alert('Reservation status updated successfully!');
+      showConfirmation('Success', 'Reservation status updated successfully!', 'success');
     } catch (error) {
       console.error('Error updating status:', error);
-      alert('Error updating status. Please try again.');
+      showConfirmation('Error', 'Error updating status. Please try again.', 'error');
     } finally {
       setIsUpdating(false);
     }
@@ -123,11 +135,11 @@ export default function ReservationDetailPage() {
     if (!reservation) return;
     const customerEmail = reservation.guestInfo?.email || reservation.user?.email;
     if (!customerEmail) {
-      alert('No email address available for this customer');
+      showConfirmation('No Email', 'No email address available for this customer', 'warning');
       return;
     }
     // Implementation for sending email to customer
-    alert(`Sending confirmation email to ${customerEmail}`);
+    showConfirmation('Email Sent', `Sending confirmation email to ${customerEmail}`, 'info');
   };
 
   const getTimeUntilExpiry = () => {
@@ -532,6 +544,15 @@ export default function ReservationDetailPage() {
           </Card>
         </div>
       )}
+
+      {/* Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={showConfirmationModal}
+        onClose={() => setShowConfirmationModal(false)}
+        title={confirmationModalProps.title}
+        message={confirmationModalProps.message}
+        type={confirmationModalProps.type}
+      />
 
       {/* Enhanced bottom spacing */}
       <div className="h-16 sm:h-20" />

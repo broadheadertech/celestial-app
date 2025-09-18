@@ -35,6 +35,7 @@ import { useQuery, useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
+import ClientBottomNavbar from '@/components/client/ClientBottomNavbar';
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -773,41 +774,8 @@ export default function ProfilePage() {
         </div>
       )}
 
-      {/* Bottom Navigation */}
-      <div className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur-sm border-t border-white/10">
-        <div className="grid grid-cols-4 py-2">
-          <button
-            onClick={() => router.push('/client/dashboard')}
-            className="flex flex-col items-center py-2 px-3 text-white/60 hover:text-white transition-colors"
-          >
-            <Package className="w-5 h-5 mb-1" />
-            <span className="text-xs">Home</span>
-          </button>
-          <button
-            onClick={() => router.push('/client/search')}
-            className="flex flex-col items-center py-2 px-3 text-white/60 hover:text-white transition-colors"
-          >
-            <Search className="w-5 h-5 mb-1" />
-            <span className="text-xs">Search</span>
-          </button>
-          <button
-            onClick={() => router.push('/client/cart')}
-            className="relative flex flex-col items-center py-2 px-3 text-white/60 hover:text-white transition-colors"
-          >
-            <ShoppingCart className="w-5 h-5 mb-1" />
-            <span className="text-xs">Cart</span>
-            {cartItemCount > 0 && (
-              <span className="absolute -top-1 right-3 w-4 h-4 bg-primary text-white text-xs rounded-full flex items-center justify-center">
-                {cartItemCount > 9 ? '9+' : cartItemCount}
-              </span>
-            )}
-          </button>
-          <button className="flex flex-col items-center py-2 px-3 text-primary">
-            <User className="w-5 h-5 mb-1" />
-            <span className="text-xs font-medium">Profile</span>
-          </button>
-        </div>
-      </div>
+      {/* Client Bottom Navigation */}
+      <ClientBottomNavbar />
 
       {/* Bottom padding for mobile navigation */}
       <div className="h-16 sm:hidden" />

@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { api } from '@/convex/_generated/api';
 import { Id } from '@/convex/_generated/dataModel';
+import ConfirmationModal from '@/components/ui/ConfirmationModal';
 
 interface ProductFormData {
   // Base product fields
@@ -122,6 +123,14 @@ export default function ProductFormPage() {
   const [showMaterialPicker, setShowMaterialPicker] = useState(false);
   const [showDietPicker, setShowDietPicker] = useState(false);
 
+  // Modal state
+  const [showConfirmationModal, setShowConfirmationModal] = useState(false);
+  const [confirmationModalProps, setConfirmationModalProps] = useState({
+    title: '',
+    message: '',
+    type: 'info' as 'success' | 'error' | 'warning' | 'info'
+  });
+
   // Constants
   const tankTypes = ['Standard', 'Bowfront', 'Corner', 'Cube', 'Hexagon', 'Rimless', 'All-in-One', 'Nano'];
   const materials = ['Glass', 'Acrylic', 'Tempered Glass', 'Low-Iron Glass', 'Plastic'];
@@ -155,6 +164,11 @@ export default function ProductFormPage() {
   const updateProduct = useMutation(api.services.products.updateProduct);
   const createFishData = useMutation(api.services.admin.createFishData);
   const createTankData = useMutation(api.services.admin.createTankData);
+
+  const showConfirmation = (title: string, message: string, type: 'success' | 'error' | 'warning' | 'info' = 'info') => {
+    setConfirmationModalProps({ title, message, type });
+    setShowConfirmationModal(true);
+  };
 
   // Product type detection
   const isFishProduct = formData.category.toLowerCase().includes('fish');
@@ -312,9 +326,9 @@ export default function ProductFormPage() {
             setUploadingImages(prev => prev.filter(img => img.uri !== uploadingImage.uri));
           }
 
-          alert('Image uploaded successfully!');
+          showConfirmation('Success', 'Image uploaded successfully!', 'success');
         } catch (error) {
-          alert('Failed to upload image. Please try again.');
+          showConfirmation('Upload Failed', 'Failed to upload image. Please try again.', 'error');
 
           // Remove from uploading state
           if (type === 'certificate') {
@@ -339,13 +353,13 @@ export default function ProductFormPage() {
   const handleSaveProduct = async () => {
     // Basic validation
     if (!formData.name || !formData.categoryId || !formData.price) {
-      alert('Please fill in all required fields (Name, Category, Price)');
+      showConfirmation('Missing Information', 'Please fill in all required fields (Name, Category, Price)', 'warning');
       return;
     }
 
     // Validate image
     if (!formData.image) {
-      alert('Please add at least one product image');
+      showConfirmation('Missing Image', 'Please add at least one product image', 'warning');
       return;
     }
 
@@ -354,7 +368,7 @@ export default function ProductFormPage() {
       if (!formData.scientificName || !formData.fishSize ||
           !formData.fishTemperature || !formData.fishAge || !formData.phLevel ||
           !formData.origin || !formData.diet) {
-        alert('Please fill in all required fish details');
+        showConfirmation('Incomplete Fish Data', 'Please fill in all required fish details', 'warning');
         return;
       }
     }
@@ -364,7 +378,7 @@ export default function ProductFormPage() {
       if (!formData.tankType || !formData.material || !formData.capacity ||
           !formData.length || !formData.width || !formData.height ||
           !formData.thickness) {
-        alert('Please fill in all required tank specifications');
+        showConfirmation('Incomplete Tank Data', 'Please fill in all required tank specifications', 'warning');
         return;
       }
     }
@@ -485,11 +499,11 @@ export default function ProductFormPage() {
         }
       }
 
-      alert(`Product ${isEditing ? 'updated' : 'created'} successfully!`);
+      showConfirmation('Success', `Product ${isEditing ? 'updated' : 'created'} successfully!`, 'success');
       router.push('/admin/products');
     } catch (error) {
       console.error('Error saving product:', error);
-      alert(`Failed to ${isEditing ? 'update' : 'create'} product. Please try again.`);
+      showConfirmation('Error', `Failed to ${isEditing ? 'update' : 'create'} product. Please try again.`, 'error');
     } finally {
       setFormLoading(false);
     }
@@ -998,6 +1012,15 @@ export default function ProductFormPage() {
         {/* Bottom spacing */}
         <div className="h-20" />
       </div>
+
+      {/* Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={showConfirmationModal}
+        onClose={() => setShowConfirmationModal(false)}
+        title={confirmationModalProps.title}
+        message={confirmationModalProps.message}
+        type={confirmationModalProps.type}
+      />
     </div>
   );
 }
