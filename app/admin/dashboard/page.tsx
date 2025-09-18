@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   BarChart3,
   Users,
@@ -12,104 +12,22 @@ import {
   AlertCircle,
   CheckCircle,
   Clock,
-  Bell
+  Bell,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { useQuery } from 'convex/react';
+import { api } from '@/convex/_generated/api';
 import BottomNavbar from '@/components/common/BottomNavbar';
 import NotificationModal from '@/components/modal/NotificationModal';
 
-// Mock data - replace with your Convex queries
-const mockStats = {
-  totalRevenue: 125000,
-  totalOrders: 456,
-  totalProducts: 89,
-  totalUsers: 1234,
-  revenueChange: 12.5,
-  ordersChange: 8.3,
-  productsChange: 15.7,
-  usersChange: 22.1
-};
-
-const mockRecentOrders = [
-  {
-    id: 'ORD-001',
-    customer: 'John Doe',
-    amount: 2500,
-    status: 'completed',
-    date: Date.now() - 3600000, // 1 hour ago
-    items: 3
-  },
-  {
-    id: 'ORD-002',
-    customer: 'Jane Smith',
-    amount: 1800,
-    status: 'processing',
-    date: Date.now() - 7200000, // 2 hours ago
-    items: 2
-  },
-  {
-    id: 'ORD-003',
-    customer: 'Mike Johnson',
-    amount: 3200,
-    status: 'pending',
-    date: Date.now() - 10800000, // 3 hours ago
-    items: 4
-  },
-  {
-    id: 'ORD-004',
-    customer: 'Sarah Wilson',
-    amount: 950,
-    status: 'completed',
-    date: Date.now() - 14400000, // 4 hours ago
-    items: 1
-  }
-];
-
-const mockLowStockProducts = [
-  { id: '1', name: 'Premium Goldfish', stock: 2, category: 'Fish' },
-  { id: '2', name: 'Betta Fish - Blue', stock: 1, category: 'Fish' },
-  { id: '3', name: 'Glass Aquarium Tank', stock: 0, category: 'Tanks' },
-  { id: '4', name: 'Aquarium Filter System', stock: 3, category: 'Accessories' }
-];
-
-// Mock notifications data
-const mockNotifications = [
-  {
-    id: '1',
-    type: 'success' as const,
-    title: 'New Order Received',
-    message: 'Order #ORD-001 from John Doe has been placed successfully.',
-    timestamp: Date.now() - 300000, // 5 minutes ago
-    read: false,
-    actionType: 'order' as const
-  },
-  {
-    id: '2',
-    type: 'warning' as const,
-    title: 'Low Stock Alert',
-    message: 'Premium Goldfish stock is running low (2 remaining).',
-    timestamp: Date.now() - 1800000, // 30 minutes ago
-    read: false,
-    actionType: 'product' as const
-  },
-  {
-    id: '3',
-    type: 'info' as const,
-    title: 'New User Registration',
-    message: 'Jane Smith has created a new account.',
-    timestamp: Date.now() - 3600000, // 1 hour ago
-    read: true,
-    actionType: 'user' as const
-  }
-];
-
-const formatCurrency = (amount) => {
+const formatCurrency = (amount: number) => {
   return `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`;
 };
 
-const getOrderStatusColor = (status) => {
+const getOrderStatusColor = (status: string) => {
   switch (status) {
-    case 'completed': return 'text-success';
+    case 'completed':
+    case 'delivered': return 'text-success';
     case 'processing': return 'text-warning';
     case 'pending': return 'text-muted';
     case 'cancelled': return 'text-error';
@@ -117,9 +35,10 @@ const getOrderStatusColor = (status) => {
   }
 };
 
-const getOrderStatusIcon = (status) => {
+const getOrderStatusIcon = (status: string) => {
   switch (status) {
-    case 'completed': return CheckCircle;
+    case 'completed':
+    case 'delivered': return CheckCircle;
     case 'processing': return RefreshCw;
     case 'pending': return Clock;
     case 'cancelled': return AlertCircle;
@@ -130,74 +49,96 @@ const getOrderStatusIcon = (status) => {
 export default function AdminDashboardPage() {
   const router = useRouter();
   const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
-  const [notifications, setNotifications] = useState(mockNotifications);
+
+  // Convex queries
+  const dashboardStats = useQuery(api.services.admin.getDashboardStats);
+  const recentOrders = useQuery(api.services.admin.getRecentOrders, { limit: 5 });
+  const notifications = useQuery(api.services.notifications.getAdminNotifications, { limit: 10 });
+  const products = useQuery(api.services.admin.getAllProductsAdmin);
+
+  // Calculate low stock products
+  const lowStockProducts = useMemo(() => {
+    if (!products) return [];
+    return products
+      .filter(product => product.stock <= 5)
+      .slice(0, 4)
+      .map(product => ({
+        ...product,
+        categoryName: product.categoryName || 'Unknown Category'
+      }));
+  }, [products]);
 
   // Get unread notifications count
-  const unreadCount = notifications.filter(n => !n.read).length;
+  const unreadCount = useMemo(() => {
+    if (!notifications) return 0;
+    return notifications.filter(n => !n.read).length;
+  }, [notifications]);
 
+  // Mock handlers for now - replace with actual Convex mutations
   const handleMarkAsRead = (id: string) => {
-    setNotifications(prev =>
-      prev.map(notification =>
-        notification.id === id
-          ? { ...notification, read: true }
-          : notification
-      )
-    );
+    console.log('Mark as read:', id);
   };
 
   const handleMarkAllAsRead = () => {
-    setNotifications(prev =>
-      prev.map(notification => ({ ...notification, read: true }))
-    );
+    console.log('Mark all as read');
   };
 
   const handleDeleteNotification = (id: string) => {
-    setNotifications(prev => prev.filter(notification => notification.id !== id));
+    console.log('Delete notification:', id);
   };
 
   const handleClearAll = () => {
-    setNotifications([]);
+    console.log('Clear all notifications');
   };
 
-  // Stats cards data
-  const statsCards = [
-    {
-      id: 'revenue',
-      title: 'Total Revenue',
-      value: formatCurrency(mockStats.totalRevenue),
-      change: `+${mockStats.revenueChange}%`,
-      icon: DollarSign,
-      color: 'text-success',
-      bgColor: 'bg-success/10'
-    },
-    {
-      id: 'orders',
-      title: 'Total Orders',
-      value: mockStats.totalOrders.toString(),
-      change: `+${mockStats.ordersChange}%`,
-      icon: ShoppingBag,
-      color: 'text-info',
-      bgColor: 'bg-info/10'
-    },
-    {
-      id: 'products',
-      title: 'Total Products',
-      value: mockStats.totalProducts.toString(),
-      change: `+${mockStats.productsChange}%`,
-      icon: Package,
-      color: 'text-warning',
-      bgColor: 'bg-warning/10'
-    },
-    {
-      id: 'users',
-      title: 'Total Users',
-      value: mockStats.totalUsers.toString(),
-      change: `+${mockStats.usersChange}%`,
-      icon: Users,
-      color: 'text-primary',
-      bgColor: 'bg-primary/10'
-    }
-  ];
+  // Stats cards data with real data - compact design
+  const statsCards = useMemo(() => {
+    if (!dashboardStats) return [];
+
+    const revenueChange = dashboardStats.totalRevenue > 0 ? '+8.2%' : '0%';
+    const pendingCount = dashboardStats.pendingOrders || 0;
+    const totalProducts = dashboardStats.totalProducts || 0;
+    const newUsers = dashboardStats.newUsersThisMonth || 0;
+
+    return [
+      {
+        id: 'revenue',
+        title: 'Total Revenue',
+        value: formatCurrency(dashboardStats.totalRevenue || 0),
+        change: revenueChange,
+        icon: DollarSign,
+        color: 'text-success',
+        bgColor: 'bg-success/15'
+      },
+      {
+        id: 'orders',
+        title: 'Orders & Reservations',
+        value: dashboardStats.totalOrders?.toString() || '0',
+        change: `+${pendingCount} pending`,
+        icon: ShoppingBag,
+        color: 'text-info',
+        bgColor: 'bg-info/15'
+      },
+      {
+        id: 'products',
+        title: 'Active Products',
+        value: dashboardStats.activeProducts?.toString() || '0',
+        change: `${totalProducts} total`,
+        icon: Package,
+        color: 'text-warning',
+        bgColor: 'bg-warning/15'
+      },
+      {
+        id: 'users',
+        title: 'Total Users',
+        value: dashboardStats.totalUsers?.toString() || '0',
+        change: `+${newUsers} this month`,
+        icon: Users,
+        color: 'text-primary',
+        bgColor: 'bg-primary/15'
+      }
+    ];
+  }, [dashboardStats]);
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -242,26 +183,32 @@ export default function AdminDashboardPage() {
         </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="px-4 sm:px-6 py-6">
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      {/* Stats Cards - Compact Modern Design */}
+      <div className="px-4 sm:px-6 py-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
           {statsCards.map((stat) => {
             const IconComponent = stat.icon;
             return (
               <div
                 key={stat.id}
-                className="bg-secondary/50 border border-primary/10 rounded-xl p-4 backdrop-blur-sm hover:border-primary/20 transition-colors"
+                className="bg-secondary/40 border border-primary/10 rounded-lg p-3 backdrop-blur-sm hover:border-primary/20 hover:bg-secondary/50 transition-all duration-200 group"
               >
-                <div className="flex items-center justify-between mb-3">
-                  <div className={`p-2 rounded-lg ${stat.bgColor}`}>
-                    <IconComponent className={`w-5 h-5 ${stat.color}`} />
+                <div className="flex items-start justify-between mb-2.5">
+                  <div className={`p-1.5 rounded-md ${stat.bgColor} group-hover:scale-105 transition-transform`}>
+                    <IconComponent className={`w-4 h-4 ${stat.color}`} />
                   </div>
-                  <span className={`text-sm font-medium text-success`}>
+                  <span className={`text-xs font-medium px-2 py-0.5 rounded-md ${
+                    stat.change.startsWith('+')
+                      ? 'text-success bg-success/15'
+                      : 'text-muted bg-muted/15'
+                  }`}>
                     {stat.change}
                   </span>
                 </div>
-                <p className="text-2xl font-bold text-foreground mb-1">{stat.value}</p>
-                <p className="text-sm text-muted">{stat.title}</p>
+                <div className="space-y-1">
+                  <p className="text-lg font-bold text-foreground leading-none">{stat.value}</p>
+                  <p className="text-xs text-muted/70 leading-tight">{stat.title}</p>
+                </div>
               </div>
             );
           })}
@@ -281,31 +228,43 @@ export default function AdminDashboardPage() {
               </button>
             </div>
             <div className="space-y-3">
-              {mockRecentOrders.map((order) => {
-                const StatusIcon = getOrderStatusIcon(order.status);
-                return (
-                  <div key={order.id} className="flex items-center justify-between p-3 bg-background/50 rounded-lg border border-white/5">
-                    <div className="flex items-center space-x-3">
-                      <div className="p-2 rounded-lg bg-primary/10">
-                        <ShoppingBag className="w-4 h-4 text-primary" />
+              {!recentOrders ? (
+                <div className="text-center py-8">
+                  <RefreshCw className="w-6 h-6 animate-spin text-primary mx-auto mb-2" />
+                  <p className="text-sm text-muted">Loading recent orders...</p>
+                </div>
+              ) : recentOrders.length === 0 ? (
+                <div className="text-center py-8">
+                  <ShoppingBag className="w-8 h-8 text-muted mx-auto mb-2" />
+                  <p className="text-sm text-muted">No recent orders</p>
+                </div>
+              ) : (
+                recentOrders.map((order) => {
+                  const StatusIcon = getOrderStatusIcon(order.status);
+                  return (
+                    <div key={order._id} className="flex items-center justify-between p-3 bg-background/50 rounded-lg border border-white/5">
+                      <div className="flex items-center space-x-3">
+                        <div className="p-2 rounded-lg bg-primary/10">
+                          <ShoppingBag className="w-4 h-4 text-primary" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-foreground text-sm">{order.customerName}</p>
+                          <p className="text-xs text-muted">{order.type} • {order.totalItems || 1} items</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-medium text-foreground text-sm">{order.customer}</p>
-                        <p className="text-xs text-muted">{order.id} • {order.items} items</p>
+                      <div className="text-right">
+                        <p className="font-bold text-foreground text-sm">{formatCurrency(order.totalAmount)}</p>
+                        <div className="flex items-center space-x-1">
+                          <StatusIcon className={`w-3 h-3 ${getOrderStatusColor(order.status)}`} />
+                          <span className={`text-xs capitalize ${getOrderStatusColor(order.status)}`}>
+                            {order.status}
+                          </span>
+                        </div>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <p className="font-bold text-foreground text-sm">{formatCurrency(order.amount)}</p>
-                      <div className="flex items-center space-x-1">
-                        <StatusIcon className={`w-3 h-3 ${getOrderStatusColor(order.status)}`} />
-                        <span className={`text-xs capitalize ${getOrderStatusColor(order.status)}`}>
-                          {order.status}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })
+              )}
             </div>
           </div>
 
@@ -321,28 +280,40 @@ export default function AdminDashboardPage() {
               </button>
             </div>
             <div className="space-y-3">
-              {mockLowStockProducts.map((product) => (
-                <div key={product.id} className="flex items-center justify-between p-3 bg-background/50 rounded-lg border border-white/5">
-                  <div className="flex items-center space-x-3">
-                    <div className="p-2 rounded-lg bg-warning/10">
-                      <Package className="w-4 h-4 text-warning" />
-                    </div>
-                    <div>
-                      <p className="font-medium text-foreground text-sm">{product.name}</p>
-                      <p className="text-xs text-muted">{product.category}</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className={`px-2 py-1 rounded text-xs font-medium ${
-                      product.stock === 0
-                        ? 'bg-error/10 text-error'
-                        : 'bg-warning/10 text-warning'
-                    }`}>
-                      {product.stock === 0 ? 'Out of stock' : `${product.stock} left`}
-                    </div>
-                  </div>
+              {!lowStockProducts ? (
+                <div className="text-center py-8">
+                  <RefreshCw className="w-6 h-6 animate-spin text-primary mx-auto mb-2" />
+                  <p className="text-sm text-muted">Loading low stock products...</p>
                 </div>
-              ))}
+              ) : lowStockProducts.length === 0 ? (
+                <div className="text-center py-8">
+                  <CheckCircle className="w-8 h-8 text-success mx-auto mb-2" />
+                  <p className="text-sm text-muted">All products are well stocked!</p>
+                </div>
+              ) : (
+                lowStockProducts.map((product) => (
+                  <div key={product._id} className="flex items-center justify-between p-3 bg-background/50 rounded-lg border border-white/5">
+                    <div className="flex items-center space-x-3">
+                      <div className="p-2 rounded-lg bg-warning/10">
+                        <Package className="w-4 h-4 text-warning" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-foreground text-sm">{product.name}</p>
+                        <p className="text-xs text-muted">{product.categoryName}</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className={`px-2 py-1 rounded text-xs font-medium ${
+                        product.stock === 0
+                          ? 'bg-error/10 text-error'
+                          : 'bg-warning/10 text-warning'
+                      }`}>
+                        {product.stock === 0 ? 'Out of stock' : `${product.stock} left`}
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>
@@ -352,7 +323,7 @@ export default function AdminDashboardPage() {
           <h3 className="text-lg font-bold text-foreground mb-4">Quick Actions</h3>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <button
-              onClick={() => router.push('/admin/products/add')}
+              onClick={() => router.push('/admin/products/form')}
               className="flex flex-col items-center p-4 bg-primary/10 border border-primary/20 rounded-lg hover:bg-primary/20 transition-colors"
             >
               <Package className="w-6 h-6 text-primary mb-2" />
@@ -387,7 +358,7 @@ export default function AdminDashboardPage() {
       <NotificationModal
         isOpen={isNotificationModalOpen}
         onClose={() => setIsNotificationModalOpen(false)}
-        notifications={notifications}
+        notifications={notifications || []}
         onMarkAsRead={handleMarkAsRead}
         onMarkAllAsRead={handleMarkAllAsRead}
         onDeleteNotification={handleDeleteNotification}

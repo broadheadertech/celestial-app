@@ -12,68 +12,14 @@ import {
   Eye,
   EyeOff,
   Package,
-  TrendingDown,
   Image as ImageIcon,
+  RefreshCw,
+  AlertTriangle
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { useQuery } from 'convex/react';
+import { api } from '@/convex/_generated/api';
 import BottomNavbar from '@/components/common/BottomNavbar';
-
-// Mock data - replace with your Convex queries
-const mockCategories = [
-  { _id: 'cat1', name: 'Freshwater Fish' },
-  { _id: 'cat2', name: 'Saltwater Fish' },
-  { _id: 'cat3', name: 'Aquarium Tanks' },
-];
-
-const mockProducts = [
-  {
-    _id: '1',
-    name: 'Premium Goldfish',
-    description: 'Beautiful ornamental goldfish perfect for any aquarium',
-    categoryId: 'cat1',
-    price: 250,
-    originalPrice: 300,
-    stock: 15,
-    isActive: true,
-    image: 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=400',
-    badge: 'Bestseller',
-    createdAt: Date.now() - 86400000
-  },
-  {
-    _id: '2',
-    name: 'Betta Fish - Blue',
-    description: 'Vibrant blue betta fish, perfect for small tanks',
-    categoryId: 'cat1',
-    price: 180,
-    stock: 8,
-    isActive: true,
-    image: 'https://images.unsplash.com/photo-1520637836862-4d197d17c91a?w=400',
-    createdAt: Date.now() - 172800000
-  },
-  {
-    _id: '3',
-    name: 'Glass Aquarium Tank',
-    description: '50L glass aquarium with LED lighting system',
-    categoryId: 'cat3',
-    price: 1200,
-    stock: 0,
-    isActive: true,
-    image: 'https://images.unsplash.com/photo-1524704654690-b56c05c78a00?w=400',
-    badge: 'New',
-    createdAt: Date.now() - 259200000
-  },
-  {
-    _id: '4',
-    name: 'Marine Clownfish',
-    description: 'Vibrant saltwater clownfish for marine aquariums',
-    categoryId: 'cat2',
-    price: 350,
-    stock: 25,
-    isActive: false,
-    image: 'https://images.unsplash.com/photo-1583212292454-1fe6229603b7?w=400',
-    createdAt: Date.now() - 345600000
-  },
-];
 
 const formatCurrency = (amount: number) => {
   return `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`;
@@ -106,18 +52,25 @@ export default function AdminProductsPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
 
+  // Convex queries
+  const products = useQuery(api.services.admin.getAllProductsAdmin);
+  const categories = useQuery(api.services.categories.getCategories);
+
   // Create category mapping for better filtering
   const categoryMap = useMemo(() => {
     const map: Record<string, string> = {};
-    mockCategories.forEach(cat => {
-      map[cat._id] = cat.name;
-    });
+    if (categories) {
+      categories.forEach(cat => {
+        map[cat._id] = cat.name;
+      });
+    }
     return map;
-  }, []);
+  }, [categories]);
 
   // Enhanced filtering logic
   const filteredProducts = useMemo(() => {
-    let filtered = mockProducts;
+    if (!products) return [];
+    let filtered = products;
 
     // Apply search filter
     if (searchQuery.trim()) {
@@ -156,15 +109,23 @@ export default function AdminProductsPage() {
     }
 
     return filtered;
-  }, [searchQuery, selectedCategory, selectedStatus, categoryMap]);
+  }, [searchQuery, selectedCategory, selectedStatus, categoryMap, products]);
 
-  // Calculate stats from filtered data
-  const productStats = useMemo(() => {
-    const total = mockProducts.length;
-    const active = mockProducts.filter(p => p.isActive && p.stock > 0).length;
-    const outOfStock = mockProducts.filter(p => p.stock === 0).length;
-    const inactive = mockProducts.filter(p => !p.isActive).length;
-    const lowStock = mockProducts.filter(p => p.stock > 0 && p.stock < 10).length;
+  // Calculate local stats from filtered data
+  const localStats = useMemo(() => {
+    if (!products) return {
+      totalProducts: 0,
+      activeProducts: 0,
+      outOfStock: 0,
+      inactiveProducts: 0,
+      lowStock: 0,
+    };
+
+    const total = products.length;
+    const active = products.filter(p => p.isActive && p.stock > 0).length;
+    const outOfStock = products.filter(p => p.stock === 0).length;
+    const inactive = products.filter(p => !p.isActive).length;
+    const lowStock = products.filter(p => p.stock > 0 && p.stock < 10).length;
 
     return {
       totalProducts: total,
@@ -173,53 +134,54 @@ export default function AdminProductsPage() {
       inactiveProducts: inactive,
       lowStock: lowStock,
     };
-  }, []);
+  }, [products]);
 
   // Get category names with proper ordering
   const categoryNames = useMemo(() => {
-    return ['All', ...mockCategories.map(cat => cat.name)];
-  }, []);
+    if (!categories) return ['All'];
+    return ['All', ...categories.map(cat => cat.name)];
+  }, [categories]);
 
   // Status filter options
   const statusFilters = useMemo(() => [
-    { key: 'all', label: 'All Status', count: mockProducts.length },
-    { key: 'active', label: 'Active', count: productStats.activeProducts },
-    { key: 'inactive', label: 'Inactive', count: productStats.inactiveProducts },
-    { key: 'out_of_stock', label: 'Out of Stock', count: productStats.outOfStock },
-    { key: 'low_stock', label: 'Low Stock', count: productStats.lowStock },
-  ], [productStats]);
+    { key: 'all', label: 'All Status', count: localStats.totalProducts },
+    { key: 'active', label: 'Active', count: localStats.activeProducts },
+    { key: 'inactive', label: 'Inactive', count: localStats.inactiveProducts },
+    { key: 'out_of_stock', label: 'Out of Stock', count: localStats.outOfStock },
+    { key: 'low_stock', label: 'Low Stock', count: localStats.lowStock },
+  ], [localStats]);
 
   // Create stats array from calculated data
   const statsArray = useMemo(() => [
     {
       id: '1',
       title: 'Total Products',
-      value: productStats.totalProducts.toString(),
-      change: '+3.1%',
+      value: localStats.totalProducts.toString(),
+      change: `${localStats.activeProducts} active`,
       icon: Package,
       color: 'text-info',
     },
     {
       id: '2',
       title: 'Active Products',
-      value: productStats.activeProducts.toString(),
-      change: '+2.5%',
+      value: localStats.activeProducts.toString(),
+      change: `${localStats.totalProducts} total`,
       icon: Eye,
       color: 'text-success',
     },
     {
       id: '3',
       title: 'Out of Stock',
-      value: productStats.outOfStock.toString(),
-      change: '+1.2%',
-      icon: TrendingDown,
+      value: localStats.outOfStock.toString(),
+      change: `${localStats.lowStock} low stock`,
+      icon: AlertTriangle,
       color: 'text-error',
     },
-  ], [productStats]);
+  ], [localStats]);
 
   const handleProductAction = (productId: string, action: string) => {
     if (action === 'Edit') {
-      router.push(`/admin/products/edit?id=${productId}`);
+      router.push(`/admin/products/form?id=${productId}`);
     } else if (action === 'View') {
       router.push(`/admin/products/${productId}`);
     } else if (action === 'Toggle') {
@@ -245,11 +207,11 @@ export default function AdminProductsPage() {
             <div className="flex-1">
               <h1 className="text-xl font-bold text-foreground">Products</h1>
               <p className="text-sm text-primary">
-                {filteredProducts.length} of {mockProducts.length} products
+                {filteredProducts.length} of {products?.length || 0} products
               </p>
             </div>
             <button
-              onClick={() => router.push('/admin/products/add')}
+              onClick={() => router.push('/admin/products/form')}
               className="px-3 py-2 rounded-lg bg-primary text-foreground flex items-center space-x-1 hover:bg-primary/90 transition-colors"
             >
               <Plus className="w-4 h-4" />
@@ -368,7 +330,7 @@ export default function AdminProductsPage() {
           <h2 className="text-lg font-bold text-foreground">
             Products ({filteredProducts.length})
           </h2>
-          {filteredProducts.length === 0 && mockProducts.length > 0 && (
+          {filteredProducts.length === 0 && products && products.length > 0 && (
             <button
               onClick={() => {
                 setSearchQuery('');
@@ -381,19 +343,25 @@ export default function AdminProductsPage() {
             </button>
           )}
         </div>
-        
-        {filteredProducts.length === 0 ? (
+
+        {!products ? (
+          <div className="text-center py-12">
+            <RefreshCw className="w-16 h-16 animate-spin text-primary mx-auto mb-4" />
+            <h3 className="text-xl font-bold text-foreground mb-2">Loading products...</h3>
+            <p className="text-muted">Please wait while we fetch your product data.</p>
+          </div>
+        ) : filteredProducts.length === 0 ? (
           <div className="text-center py-12">
             <Package className="w-16 h-16 text-muted-dark mx-auto mb-4" />
             <h3 className="text-xl font-bold text-foreground mb-2">No products found</h3>
             <p className="text-muted mb-6 text-center">
-              {mockProducts.length === 0 
-                ? 'No products have been added yet.' 
+              {!products || products.length === 0
+                ? 'No products have been added yet.'
                 : 'Try adjusting your search terms or filters.'}
             </p>
-            {mockProducts.length === 0 && (
+            {(!products || products.length === 0) && (
               <button
-                onClick={() => router.push('/admin/products/add')}
+                onClick={() => router.push('/admin/products/form')}
                 className="px-4 py-2 rounded-lg bg-primary text-foreground font-medium hover:bg-primary/90 transition-colors"
               >
                 Add First Product
@@ -564,7 +532,7 @@ export default function AdminProductsPage() {
                           </button>
                           
                           <button
-                            onClick={() => router.push(`/admin/products/edit?id=${product._id}`)}
+                            onClick={() => router.push(`/admin/products/form?id=${product._id}`)}
                             className="px-3 py-2 rounded-lg bg-primary text-foreground text-xs hover:bg-primary/90 transition-colors"
                           >
                             Edit

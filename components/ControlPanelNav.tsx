@@ -110,7 +110,7 @@ export default function ControlPanelNav() {
   const isExpanded = (itemId: string) => expandedItems.includes(itemId);
 
   return (
-    <div className={`bg-secondary/40 backdrop-blur-sm border-r border-white/10 transition-all duration-300 ${
+    <div className={`h-screen flex flex-col bg-secondary/40 backdrop-blur-sm border-r border-white/10 transition-all duration-300 ${
       isCollapsed ? 'w-16' : 'w-64'
     }`}>
       {/* Header */}
@@ -141,7 +141,7 @@ export default function ControlPanelNav() {
       </div>
 
       {/* Navigation */}
-      <nav className="p-4 space-y-2">
+      <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
         {navItems.map((item) => {
           const Icon = item.icon;
           const hasChildren = item.children && item.children.length > 0;
@@ -210,7 +210,7 @@ export default function ControlPanelNav() {
       </nav>
 
       {/* User Section */}
-      <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-white/10">
+      <div className="mt-auto p-4 border-t border-white/10 bg-secondary/40">
         <div className="flex items-center space-x-3 mb-4">
           <div className="w-10 h-10 bg-primary/20 rounded-full flex items-center justify-center">
             <User className="w-5 h-5 text-primary" />
@@ -227,7 +227,7 @@ export default function ControlPanelNav() {
         
         <button
           onClick={handleLogout}
-          className="w-full flex items-center space-x-3 p-3 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-all duration-200"
+          className="w-full flex items-center space-x-3 p-3 rounded-lg text-white/70 hover:text-white hover:bg-red-500/10 hover:border-red-500/20 border border-transparent transition-all duration-200"
         >
           <LogOut className="w-5 h-5" />
           {!isCollapsed && <span className="font-medium">Logout</span>}
