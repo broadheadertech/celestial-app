@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">CelestialApp</string>
+    <string name="title_activity_main">CelestialApp</string>
+    <string name="package_name">com.celestial.app</string>
+    <string name="custom_url_scheme">com.celestial.app</string>
+</resources>
