@@ -197,45 +197,53 @@ export default function AdminProductsPage() {
       {/* Header */}
       <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-white/10">
         <div className="px-4 sm:px-6 py-4">
-          <div className="flex items-center space-x-4 mb-4">
-            <button
-              onClick={() => router.back()}
-              className="p-2 rounded-full bg-secondary border border-white/10 hover:bg-white/10 transition-colors"
-            >
-              <ArrowLeft className="w-5 h-5 text-foreground" />
-            </button>
-            <div className="flex-1">
-              <h1 className="text-xl font-bold text-foreground">Products</h1>
-              <p className="text-sm text-primary">
-                {filteredProducts.length} of {products?.length || 0} products
-              </p>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center space-x-4">
+              <button
+                onClick={() => router.back()}
+                className="p-2 rounded-full bg-secondary border border-white/10 hover:bg-white/10 transition-colors"
+              >
+                <ArrowLeft className="w-5 h-5 text-white" />
+              </button>
+              <div>
+                <h1 className="text-2xl font-bold text-white">Product Management</h1>
+                <p className="text-sm text-white/60">Manage your product inventory and listings</p>
+              </div>
             </div>
-            <button
-              onClick={() => router.push('/admin/products/form')}
-              className="px-3 py-2 rounded-lg bg-primary text-foreground flex items-center space-x-1 hover:bg-primary/90 transition-colors"
-            >
-              <Plus className="w-4 h-4" />
-              <span className="text-sm font-medium">Add</span>
-            </button>
+
+            <div className="flex items-center space-x-3">
+              <button
+                onClick={() => router.push('/admin/products/form')}
+                className="px-4 py-2 rounded-lg bg-primary text-white flex items-center space-x-2 hover:bg-primary/90 transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+                <span className="text-sm font-medium">Add Product</span>
+              </button>
+            </div>
           </div>
 
           {/* Search and Filter */}
           <div className="flex space-x-3">
             <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-primary" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-white/40" />
               <input
                 type="text"
                 placeholder="Search products, categories..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 bg-secondary border border-primary/10 rounded-lg text-foreground placeholder:text-muted-dark focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full pl-10 pr-4 py-3 bg-secondary/60 border border-white/10 rounded-lg text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
             <button
               onClick={() => setShowFilters(!showFilters)}
-              className="p-2 rounded-lg bg-secondary border border-white/10 hover:bg-white/10 transition-colors"
+              className={`px-4 py-3 rounded-lg border transition-all flex items-center gap-2 ${
+                showFilters
+                  ? 'bg-primary border-primary text-white'
+                  : 'bg-secondary/60 border-white/10 text-white hover:bg-secondary/80'
+              }`}
             >
-              <Filter className="w-5 h-5 text-foreground" />
+              <Filter className="w-4 h-4" />
+              <span>Filters</span>
             </button>
           </div>
         </div>
@@ -243,14 +251,14 @@ export default function AdminProductsPage() {
 
       {/* Stats */}
       <div className="px-4 sm:px-6 py-4 border-b border-white/10">
-        <div className="flex gap-3 overflow-x-auto scrollbar-hide pb-2">
+        <div className="flex gap-3 overflow-x-auto scrollbar-hide">
           {statsArray.map((stat) => {
             const IconComponent = stat.icon;
             return (
               <div
                 key={stat.id}
-                className="flex-shrink-0 bg-secondary/50 border border-primary/10 rounded-xl p-3 backdrop-blur-sm"
-                style={{ minWidth: '120px' }}
+                className="flex-shrink-0 bg-secondary/40 backdrop-blur-sm rounded-xl p-3 border border-white/10"
+                style={{ minWidth: '140px' }}
               >
                 <div className="flex items-center justify-between mb-2">
                   <div className="p-1.5 rounded-lg bg-primary/10">
@@ -258,14 +266,14 @@ export default function AdminProductsPage() {
                   </div>
                   <span 
                     className={`text-xs font-medium ${
-                      stat.change.startsWith('+') ? 'text-success' : 'text-error'
+                      stat.change.includes('active') ? 'text-success' : 'text-info'
                     }`}
                   >
                     {stat.change}
                   </span>
                 </div>
-                <p className="text-lg font-bold text-foreground">{stat.value}</p>
-                <p className="text-xs text-muted">{stat.title}</p>
+                <p className="text-lg font-bold text-white">{stat.value}</p>
+                <p className="text-xs text-white/60">{stat.title}</p>
               </div>
             );
           })}
@@ -274,10 +282,10 @@ export default function AdminProductsPage() {
 
       {/* Filters */}
       {showFilters && (
-        <div className="bg-secondary border-b border-white/10 px-4 sm:px-6 py-4">
+        <div className="bg-secondary/60 border-b border-white/10 px-4 sm:px-6 py-4">
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Categories</label>
+              <label className="block text-sm font-medium text-white mb-2">Categories</label>
               <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-2">
                 {categoryNames.map((category) => (
                   <button
@@ -285,8 +293,8 @@ export default function AdminProductsPage() {
                     onClick={() => setSelectedCategory(category)}
                     className={`flex-shrink-0 px-3 py-2 rounded-lg text-sm border transition-colors ${
                       selectedCategory === category
-                        ? 'bg-primary border-primary text-foreground'
-                        : 'bg-secondary border-primary/10 text-muted hover:text-foreground hover:border-primary/20'
+                        ? 'bg-primary border-primary text-white'
+                        : 'bg-secondary/60 border-white/10 text-white/70 hover:text-white hover:border-primary/20'
                     }`}
                   >
                     {category}
@@ -296,7 +304,7 @@ export default function AdminProductsPage() {
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Status</label>
+              <label className="block text-sm font-medium text-white mb-2">Status</label>
               <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-2">
                 {statusFilters.map((filter) => (
                   <button
@@ -304,14 +312,14 @@ export default function AdminProductsPage() {
                     onClick={() => setSelectedStatus(filter.key)}
                     className={`flex-shrink-0 px-3 py-2 rounded-lg text-sm border flex items-center space-x-2 transition-colors ${
                       selectedStatus === filter.key
-                        ? 'bg-info border-info text-foreground'
-                        : 'bg-secondary border-primary/10 text-muted hover:text-foreground hover:border-primary/20'
+                        ? 'bg-info border-info text-white'
+                        : 'bg-secondary/60 border-white/10 text-white/70 hover:text-white hover:border-primary/20'
                     }`}
                   >
                     <span>{filter.label}</span>
                     <div className={`px-1.5 py-0.5 rounded text-xs ${
                       selectedStatus === filter.key
-                        ? 'bg-foreground/20 text-foreground'
+                        ? 'bg-white/20 text-white'
                         : 'bg-primary/10 text-primary'
                     }`}>
                       {filter.count}
@@ -326,8 +334,8 @@ export default function AdminProductsPage() {
       
       {/* Products List */}
       <div className="px-4 sm:px-6 py-4">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-lg font-bold text-foreground">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-bold text-white">
             Products ({filteredProducts.length})
           </h2>
           {filteredProducts.length === 0 && products && products.length > 0 && (
@@ -347,14 +355,14 @@ export default function AdminProductsPage() {
         {!products ? (
           <div className="text-center py-12">
             <RefreshCw className="w-16 h-16 animate-spin text-primary mx-auto mb-4" />
-            <h3 className="text-xl font-bold text-foreground mb-2">Loading products...</h3>
-            <p className="text-muted">Please wait while we fetch your product data.</p>
+            <h3 className="text-xl font-bold text-white mb-2">Loading products...</h3>
+            <p className="text-white/60">Please wait while we fetch your product data.</p>
           </div>
         ) : filteredProducts.length === 0 ? (
           <div className="text-center py-12">
-            <Package className="w-16 h-16 text-muted-dark mx-auto mb-4" />
-            <h3 className="text-xl font-bold text-foreground mb-2">No products found</h3>
-            <p className="text-muted mb-6 text-center">
+            <Package className="w-16 h-16 text-white/20 mx-auto mb-4" />
+            <h3 className="text-xl font-bold text-white mb-2">No products found</h3>
+            <p className="text-white/60 mb-6 text-center">
               {!products || products.length === 0
                 ? 'No products have been added yet.'
                 : 'Try adjusting your search terms or filters.'}
@@ -362,7 +370,7 @@ export default function AdminProductsPage() {
             {(!products || products.length === 0) && (
               <button
                 onClick={() => router.push('/admin/products/form')}
-                className="px-4 py-2 rounded-lg bg-primary text-foreground font-medium hover:bg-primary/90 transition-colors"
+                className="px-4 py-2 rounded-lg bg-primary text-white font-medium hover:bg-primary/90 transition-colors"
               >
                 Add First Product
               </button>
@@ -388,12 +396,16 @@ export default function AdminProductsPage() {
               return (
                 <div
                   key={product._id}
-                  className="bg-secondary/50 border border-primary/10 rounded-xl p-4 backdrop-blur-sm"
+                  className={`bg-secondary/40 backdrop-blur-sm border rounded-xl p-4 transition-all duration-200 hover:border-primary/30 ${
+                    itemStatus === 'out_of_stock' 
+                      ? 'border-error/30 bg-error/5' 
+                      : 'border-white/10'
+                  }`}
                 >
                   <div className="flex space-x-4">
                     {/* Product Image */}
                     <div className="relative flex-shrink-0">
-                      <div className="w-16 h-16 rounded-lg overflow-hidden bg-secondary border border-white/10">
+                      <div className="w-16 h-16 rounded-lg overflow-hidden bg-secondary border border-white/10 flex items-center justify-center">
                         {product.image ? (
                           <img
                             src={product.image}
@@ -401,9 +413,11 @@ export default function AdminProductsPage() {
                             className="w-full h-full object-cover"
                           />
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center">
-                            <ImageIcon className="w-6 h-6 text-muted" />
-                          </div>
+                          <img
+                            src="/img/logo-app.png"
+                            alt="Default Product"
+                            className="w-12 h-12 object-contain opacity-60"
+                          />
                         )}
                       </div>
                       {product.badge && (
@@ -426,11 +440,11 @@ export default function AdminProductsPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between mb-2">
                         <div className="flex-1">
-                          <h3 className="font-bold text-foreground mb-1">
+                          <h3 className="font-bold text-white mb-1">
                             {product.name || 'Unnamed Product'}
                           </h3>
-                          <p className="text-sm text-muted mb-1">{categoryName}</p>
-                          <p className="text-xs text-muted-dark">
+                          <p className="text-sm text-white/60 mb-1">{categoryName}</p>
+                          <p className="text-xs text-white/40">
                             ID: {product._id.slice(-6).toUpperCase()}
                           </p>
                         </div>
@@ -441,7 +455,7 @@ export default function AdminProductsPage() {
                             onClick={() => setSelectedProduct(selectedProduct === product._id ? null : product._id)}
                             className="p-1 rounded hover:bg-white/10 transition-colors"
                           >
-                            <MoreVertical className="w-4 h-4 text-muted" />
+                            <MoreVertical className="w-4 h-4 text-white/60" />
                           </button>
 
                           {selectedProduct === product._id && (
@@ -449,21 +463,21 @@ export default function AdminProductsPage() {
                               <div className="py-1">
                                 <button
                                   onClick={() => handleProductAction(product._id, 'View')}
-                                  className="w-full px-4 py-2 text-left text-foreground hover:bg-white/10 flex items-center space-x-2"
+                                  className="w-full px-4 py-2 text-left text-white hover:bg-white/10 flex items-center space-x-2"
                                 >
                                   <Eye className="w-4 h-4" />
                                   <span>View Details</span>
                                 </button>
                                 <button
                                   onClick={() => handleProductAction(product._id, 'Edit')}
-                                  className="w-full px-4 py-2 text-left text-foreground hover:bg-white/10 flex items-center space-x-2"
+                                  className="w-full px-4 py-2 text-left text-white hover:bg-white/10 flex items-center space-x-2"
                                 >
                                   <Edit className="w-4 h-4" />
                                   <span>Edit Product</span>
                                 </button>
                                 <button
                                   onClick={() => handleProductAction(product._id, 'Toggle')}
-                                  className="w-full px-4 py-2 text-left text-foreground hover:bg-white/10 flex items-center space-x-2"
+                                  className="w-full px-4 py-2 text-left text-white hover:bg-white/10 flex items-center space-x-2"
                                 >
                                   {product.isActive ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                                   <span>{product.isActive ? 'Deactivate' : 'Activate'}</span>
@@ -482,58 +496,56 @@ export default function AdminProductsPage() {
                         </div>
                       </div>
                       
+                      {/* Price and Status */}
                       <div className="flex items-center justify-between mb-3">
-                        <div>
-                          <span className="text-lg font-bold text-primary">
+                        <div className="flex items-center space-x-2">
+                          <span className="text-lg font-bold text-white">
                             {formatCurrency(product.price)}
                           </span>
                           {product.originalPrice && product.originalPrice > product.price && (
-                            <span className="text-sm text-muted-dark line-through ml-2">
+                            <span className="text-sm text-white/50 line-through">
                               {formatCurrency(product.originalPrice)}
                             </span>
                           )}
                         </div>
-                      </div>
-                      
-                      <div className="flex items-center justify-between mb-3">
+                        
                         <div className="flex items-center space-x-2">
-                          <div className={`px-3 py-1 rounded-lg ${
-                            itemStatus === 'active' ? 'bg-success/10 text-success' :
-                            itemStatus === 'inactive' ? 'bg-muted/10 text-muted' :
-                            'bg-error/10 text-error'
+                          <div className={`px-2 py-1 rounded-lg text-xs font-medium ${
+                            itemStatus === 'active' ? 'bg-success/10 text-success border border-success/30' :
+                            itemStatus === 'inactive' ? 'bg-muted/10 text-muted border border-muted/30' :
+                            'bg-error/10 text-error border border-error/30'
                           }`}>
-                            <span className="text-xs font-medium capitalize">
-                              {itemStatus.replace('_', ' ')}
-                            </span>
+                            {itemStatus.replace('_', ' ')}
                           </div>
                           
-                          <div className={`px-3 py-1 rounded-lg ${stockStatus.color} ${stockStatus.textColor}`}>
-                            <span className="text-xs font-medium">
-                              {product.stock} in stock
-                            </span>
+                          <div className={`px-2 py-1 rounded-lg text-xs font-medium ${stockStatus.color} ${stockStatus.textColor} border ${
+                            stockStatus.textColor === 'text-success' ? 'border-success/30' :
+                            stockStatus.textColor === 'text-warning' ? 'border-warning/30' :
+                            'border-error/30'
+                          }`}>
+                            {product.stock} in stock
                           </div>
                         </div>
                       </div>
                       
-                      {/* Action Buttons */}
-                      <div className="flex items-center justify-between pt-3 border-t border-primary/10">
-                        <div className="flex items-center">
-                          <span className="text-xs text-muted">
-                            Created: {new Date(product.createdAt).toLocaleDateString()}
-                          </span>
+                      {/* Action Buttons and Date */}
+                      <div className="flex items-center justify-between pt-3 border-t border-white/10">
+                        <div className="flex items-center space-x-1 text-xs text-white/60">
+                          <span>Created:</span>
+                          <span>{new Date(product.createdAt).toLocaleDateString()}</span>
                         </div>
                         
                         <div className="flex items-center space-x-2">
                           <button
                             onClick={() => router.push(`/admin/products/${product._id}`)}
-                            className="px-3 py-2 rounded-lg bg-primary/10 border border-primary/20 text-primary text-xs hover:bg-primary/20 transition-colors"
+                            className="px-3 py-1.5 rounded-lg bg-primary/10 border border-primary/20 text-primary text-xs hover:bg-primary/20 transition-colors"
                           >
                             View
                           </button>
                           
                           <button
                             onClick={() => router.push(`/admin/products/form?id=${product._id}`)}
-                            className="px-3 py-2 rounded-lg bg-primary text-foreground text-xs hover:bg-primary/90 transition-colors"
+                            className="px-3 py-1.5 rounded-lg bg-primary text-white text-xs hover:bg-primary/90 transition-colors"
                           >
                             Edit
                           </button>

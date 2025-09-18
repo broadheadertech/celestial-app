@@ -53,7 +53,7 @@ export default function AdminDashboardPage() {
   // Convex queries
   const dashboardStats = useQuery(api.services.admin.getDashboardStats);
   const recentOrders = useQuery(api.services.admin.getRecentOrders, { limit: 5 });
-  const notifications = useQuery(api.services.notifications.getAdminNotifications, { limit: 10 });
+  const notificationCounts = useQuery(api.services.notifications.getNotificationCounts);
   const products = useQuery(api.services.admin.getAllProductsAdmin);
 
   // Calculate low stock products
@@ -69,27 +69,7 @@ export default function AdminDashboardPage() {
   }, [products]);
 
   // Get unread notifications count
-  const unreadCount = useMemo(() => {
-    if (!notifications) return 0;
-    return notifications.filter(n => !n.read).length;
-  }, [notifications]);
-
-  // Mock handlers for now - replace with actual Convex mutations
-  const handleMarkAsRead = (id: string) => {
-    console.log('Mark as read:', id);
-  };
-
-  const handleMarkAllAsRead = () => {
-    console.log('Mark all as read');
-  };
-
-  const handleDeleteNotification = (id: string) => {
-    console.log('Delete notification:', id);
-  };
-
-  const handleClearAll = () => {
-    console.log('Clear all notifications');
-  };
+  const unreadCount = notificationCounts?.unread || 0;
 
   // Stats cards data with real data - compact design
   const statsCards = useMemo(() => {
@@ -249,7 +229,7 @@ export default function AdminDashboardPage() {
                         </div>
                         <div>
                           <p className="font-medium text-foreground text-sm">{order.customerName}</p>
-                          <p className="text-xs text-muted">{order.type} • {order.totalItems || 1} items</p>
+                          <p className="text-xs text-muted">{order.type} • {order.itemCount || 1} items</p>
                         </div>
                       </div>
                       <div className="text-right">
@@ -358,11 +338,6 @@ export default function AdminDashboardPage() {
       <NotificationModal
         isOpen={isNotificationModalOpen}
         onClose={() => setIsNotificationModalOpen(false)}
-        notifications={notifications || []}
-        onMarkAsRead={handleMarkAsRead}
-        onMarkAllAsRead={handleMarkAllAsRead}
-        onDeleteNotification={handleDeleteNotification}
-        onClearAll={handleClearAll}
       />
 
       {/* Bottom Navigation */}

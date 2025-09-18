@@ -1,56 +1,12 @@
 'use client';
 
 import { useRouter, useParams } from 'next/navigation';
-import { ArrowLeft, Award, Edit, Eye, X } from 'lucide-react';
+import { useQuery, useMutation } from 'convex/react';
+import { api } from '@/convex/_generated/api';
+import { ArrowLeft, Award, Edit, Eye, X, CheckCircle, AlertTriangle, RefreshCw } from 'lucide-react';
 import React, { useState } from 'react';
 import Image from 'next/image';
-
-// Dummy data for demonstration
-const DUMMY_PRODUCT = {
-  _id: "1",
-  name: "Neon Tetra Fish",
-  description: "Beautiful small freshwater fish perfect for community aquariums. Known for their vibrant neon blue and red stripes, these peaceful fish are ideal for beginners and experienced aquarists alike.",
-  price: 25.00,
-  originalPrice: 35.00,
-  stock: 15,
-  sku: "FISH-001",
-  image: "/api/placeholder/400/320",
-  images: ["/api/placeholder/400/320", "/api/placeholder/400/320", "/api/placeholder/400/320"],
-  certificate: "/api/placeholder/600/800",
-  badge: "Popular",
-  isActive: true,
-  lifespan: "3-5 years",
-  categoryId: "cat1"
-};
-
-const DUMMY_CATEGORY = {
-  _id: "cat1",
-  name: "Tropical Fish"
-};
-
-const DUMMY_FISH_DATA = {
-  scientificName: "Paracheirodon innesi",
-  size: 4,
-  temperature: "20-26",
-  phLevel: "6.0-7.0",
-  diet: "Omnivore",
-  lifespan: "3-5 years",
-  age: 6,
-  origin: "Amazon Basin"
-};
-
-const DUMMY_TANK_DATA = {
-  tankType: "Glass Aquarium",
-  material: "Tempered Glass",
-  capacity: 40,
-  dimensions: {
-    length: 60,
-    width: 30,
-    height: 35
-  },
-  weight: 15,
-  thickness: 6
-};
+import Button from '@/components/ui/Button';
 
 const getStatusColor = (status: string) => {
   switch (status) {
@@ -74,26 +30,44 @@ export default function ProductDetailsPage() {
   
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [certificateModalVisible, setCertificateModalVisible] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [modalMessage, setModalMessage] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  // Fetch real product data from Convex - use admin API to get all products and filter
+  const allProducts = useQuery(api.services.admin.getAllProductsAdmin, {});
+  const product = allProducts?.find(p => p._id === id);
+  const category = useQuery(api.services.categories.getCategory, 
+    product?.categoryId ? { categoryId: product.categoryId } : "skip"
+  );
   
-  // Use dummy data instead of Convex queries
-  const product = DUMMY_PRODUCT;
-  const category = DUMMY_CATEGORY;
-  const fishData = DUMMY_FISH_DATA;
-  const tankData = null; // Set to DUMMY_TANK_DATA if you want to test tank view
-  
+  // Loading state
+  if (product === undefined) {
+    return (
+      <div className="min-h-screen bg-[#121212] flex items-center justify-center">
+        <div className="text-center">
+          <RefreshCw className="w-8 h-8 animate-spin text-primary mx-auto mb-4" />
+          <h1 className="font-bold text-xl text-white mb-4">Loading product...</h1>
+          <p className="text-white/60 text-sm">Please wait while we fetch the product details.</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Product not found
   if (!product) {
     return (
       <div className="min-h-screen bg-[#121212] flex items-center justify-center">
         <div className="text-center">
-          <h1 className="font-bold text-xl text-white mb-4">
-            {id ? 'Loading...' : 'Product Not Found'}
-          </h1>
-          <button
+          <h1 className="font-bold text-xl text-white mb-4">Product Not Found</h1>
+          <p className="text-white/60 text-sm mb-6">The product you're looking for doesn't exist or has been removed.</p>
+          <Button
             onClick={() => router.back()}
-            className="px-6 py-3 bg-[#FF6B00] text-white font-bold rounded-lg hover:bg-[#E55A00] transition-colors"
+            className="bg-primary hover:bg-primary/90"
           >
             Go Back
-          </button>
+          </Button>
         </div>
       </div>
     );
@@ -106,18 +80,55 @@ export default function ProductDetailsPage() {
   const isFishProduct = category?.name?.includes('Fish');
   const isTankProduct = category?.name?.includes('Tank');
 
-  // Combine main image with additional images for display
+  // Helper function to normalize image URLs
+  const normalizeImageUrl = (url: string | undefined): string => {
+    if (!url) return '/img/logo-app.png';
+    
+    // Handle file:// URLs by converting to data URLs or using fallback
+    if (url.startsWith('file://')) {
+      console.warn('File URL detected, using fallback image:', url);
+      return '/img/logo-app.png';
+    }
+    
+    // Handle relative URLs
+    if (url.startsWith('/')) {
+      return url;
+    }
+    
+    // Handle absolute URLs
+    if (url.startsWith('http')) {
+      return url;
+    }
+    
+    // Default fallback
+    return '/img/logo-app.png';
+  };
+
+  // Combine main image with additional images for display, with fallback to logo
   const allImageUrls = [
     product.image,
     ...(product.images || [])
-  ].filter(Boolean);
+  ].filter(Boolean).map(normalizeImageUrl);
 
-  const handleDelete = () => {
-    if (window.confirm('Are you sure you want to delete this product? This action cannot be undone.')) {
-      // Simulate delete operation
+  // Use logo as fallback if no images
+  const displayImages = allImageUrls.length > 0 ? allImageUrls : ['/img/logo-app.png'];
+
+  const handleDelete = async () => {
+    try {
+      setIsDeleting(true);
+      // TODO: Implement delete product mutation
       console.log('Product deleted:', product._id);
-      alert('Product deleted successfully');
-      router.back();
+      setModalMessage('Product deleted successfully!');
+      setShowSuccessModal(true);
+      setTimeout(() => {
+        router.back();
+      }, 2000);
+    } catch (error) {
+      console.error('Error deleting product:', error);
+      setModalMessage('Error deleting product. Please try again.');
+      setShowErrorModal(true);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -156,20 +167,21 @@ export default function ProductDetailsPage() {
         {/* Product Images */}
         <div className="px-6 mb-6">
           <div className="rounded-2xl overflow-hidden mb-4 relative">
-            {allImageUrls.length > 0 && allImageUrls[activeImageIndex] ? (
-              <div className="relative w-full h-80">
-                <Image
-                  src={allImageUrls[activeImageIndex]}
-                  alt={product.name}
-                  fill
-                  className="object-cover"
-                />
-              </div>
-            ) : (
-              <div className="w-full h-80 flex items-center justify-center bg-[#1A1A1A]">
-                <span className="text-base text-[#666666]">No Image Available</span>
-              </div>
-            )}
+            <div className="relative w-full h-80">
+              <Image
+                src={displayImages[activeImageIndex]}
+                alt={product.name}
+                fill
+                className="object-cover"
+                unoptimized={true}
+                onError={(e) => {
+                  console.error('Image load error:', e);
+                  // Fallback to logo if image fails to load
+                  const target = e.target as HTMLImageElement;
+                  target.src = '/img/logo-app.png';
+                }}
+              />
+            </div>
             
             {discount > 0 && (
               <div className="absolute top-4 left-4 px-2 py-1 rounded-lg bg-[#EF4444]">
@@ -195,9 +207,9 @@ export default function ProductDetailsPage() {
           </div>
           
           {/* Image Thumbnails */}
-          {allImageUrls.length > 1 && (
+          {displayImages.length > 1 && (
             <div className="flex overflow-x-auto space-x-2 scrollbar-hide">
-              {allImageUrls.map((imageUrl, index) => (
+              {displayImages.map((imageUrl, index) => (
                 <button
                   key={index}
                   onClick={() => setActiveImageIndex(index)}
@@ -205,20 +217,20 @@ export default function ProductDetailsPage() {
                     activeImageIndex === index ? 'border-[#FF6B00]' : 'border-transparent'
                   }`}
                 >
-                  {imageUrl ? (
-                    <div className="relative w-full h-full">
-                      <Image
-                        src={imageUrl}
-                        alt={`${product.name} ${index + 1}`}
-                        fill
-                        className="object-cover"
-                      />
-                    </div>
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-[#333333]">
-                      <span className="text-xs text-[#666666]">No Image</span>
-                    </div>
-                  )}
+                  <div className="relative w-full h-full">
+                    <Image
+                      src={imageUrl}
+                      alt={`${product.name} ${index + 1}`}
+                      fill
+                      className="object-cover"
+                      unoptimized={true}
+                      onError={(e) => {
+                        console.error('Thumbnail image load error:', e);
+                        const target = e.target as HTMLImageElement;
+                        target.src = '/img/logo-app.png';
+                      }}
+                    />
+                  </div>
                 </button>
               ))}
             </div>
@@ -321,99 +333,56 @@ export default function ProductDetailsPage() {
           </div>
         </div>
 
-        {/* Fish-specific details */}
-        {isFishProduct && fishData && (
-          <div className="px-6 mb-6">
-            <h2 className="font-bold text-lg mb-4 text-white">Fish Details</h2>
-            
-            <div className="rounded-2xl p-4 bg-[#1A1A1A]">
-              <div className="flex justify-between py-3 border-b border-[#333333]">
-                <span className="font-medium text-base text-[#B3B3B3]">Scientific Name</span>
-                <span className="text-base text-white">{fishData.scientificName}</span>
-              </div>
-              
-              <div className="flex justify-between py-3 border-b border-[#333333]">
-                <span className="font-medium text-base text-[#B3B3B3]">Size</span>
-                <span className="text-base text-white">{fishData.size} cm</span>
-              </div>
-              
-              <div className="flex justify-between py-3 border-b border-[#333333]">
-                <span className="font-medium text-base text-[#B3B3B3]">Temperature</span>
-                <span className="text-base text-white">{fishData.temperature}°C</span>
-              </div>
-              
-              <div className="flex justify-between py-3 border-b border-[#333333]">
-                <span className="font-medium text-base text-[#B3B3B3]">pH Level</span>
-                <span className="text-base text-white">{fishData.phLevel}</span>
-              </div>
-              
-              <div className="flex justify-between py-3 border-b border-[#333333]">
-                <span className="font-medium text-base text-[#B3B3B3]">Diet</span>
-                <span className="text-base text-white">{fishData.diet}</span>
-              </div>
-              
-              <div className="flex justify-between py-3 border-b border-[#333333]">
-                <span className="font-medium text-base text-[#B3B3B3]">Lifespan</span>
-                <span className="text-base text-white">{fishData.lifespan}</span>
-              </div>
-              
-              <div className="flex justify-between py-3 border-b border-[#333333]">
-                <span className="font-medium text-base text-[#B3B3B3]">Age</span>
-                <span className="text-base text-white">{fishData.age} months</span>
-              </div>
-              
-              <div className="flex justify-between py-3">
-                <span className="font-medium text-base text-[#B3B3B3]">Origin</span>
-                <span className="text-base text-white">{fishData.origin}</span>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Tank-specific details */}
-        {isTankProduct && tankData && (
-          <div className="px-6 mb-6">
-            <h2 className="font-bold text-lg mb-4 text-white">Tank Specifications</h2>
-            
-            <div className="rounded-2xl p-4 bg-[#1A1A1A]">
-              <div className="flex justify-between py-3 border-b border-[#333333]">
-                <span className="font-medium text-base text-[#B3B3B3]">Tank Type</span>
-                <span className="text-base text-white">{tankData.tankType}</span>
-              </div>
-              
-              <div className="flex justify-between py-3 border-b border-[#333333]">
-                <span className="font-medium text-base text-[#B3B3B3]">Material</span>
-                <span className="text-base text-white">{tankData.material}</span>
-              </div>
-              
-              <div className="flex justify-between py-3 border-b border-[#333333]">
-                <span className="font-medium text-base text-[#B3B3B3]">Capacity</span>
-                <span className="text-base text-white">{tankData.capacity} L</span>
-              </div>
-              
-              <div className="flex justify-between py-3 border-b border-[#333333]">
-                <span className="font-medium text-base text-[#B3B3B3]">Dimensions</span>
-                <span className="text-base text-white">
-                  {tankData.dimensions.length}×{tankData.dimensions.width}×{tankData.dimensions.height} cm
-                </span>
-              </div>
-              
-              <div className="flex justify-between py-3 border-b border-[#333333]">
-                <span className="font-medium text-base text-[#B3B3B3]">Weight</span>
-                <span className="text-base text-white">{tankData.weight} kg</span>
-              </div>
-              
-              <div className="flex justify-between py-3">
-                <span className="font-medium text-base text-[#B3B3B3]">Thickness</span>
-                <span className="text-base text-white">{tankData.thickness} mm</span>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* Bottom spacing */}
         <div className="h-20" />
       </div>
+
+      {/* Success Modal */}
+      {showSuccessModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-secondary border border-white/10 rounded-xl p-6 w-full max-w-md">
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="p-2 bg-success/10 rounded-lg">
+                <CheckCircle className="w-5 h-5 text-success" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-white">Success</h3>
+                <p className="text-sm text-white/60">{modalMessage}</p>
+              </div>
+            </div>
+            <Button
+              onClick={() => setShowSuccessModal(false)}
+              className="w-full bg-success hover:bg-success/90"
+            >
+              OK
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Error Modal */}
+      {showErrorModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-secondary border border-white/10 rounded-xl p-6 w-full max-w-md">
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="p-2 bg-error/10 rounded-lg">
+                <AlertTriangle className="w-5 h-5 text-error" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-white">Error</h3>
+                <p className="text-sm text-white/60">{modalMessage}</p>
+              </div>
+            </div>
+            <Button
+              onClick={() => setShowErrorModal(false)}
+              className="w-full bg-error hover:bg-error/90"
+            >
+              OK
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Certificate Modal */}
       {certificateModalVisible && (
@@ -436,6 +405,12 @@ export default function ProductDetailsPage() {
                     alt="Product Certificate"
                     fill
                     className="object-contain rounded-xl"
+                    unoptimized={true}
+                    onError={(e) => {
+                      console.error('Certificate image load error:', e);
+                      const target = e.target as HTMLImageElement;
+                      target.src = '/img/logo-app.png';
+                    }}
                   />
                 </div>
               ) : (
