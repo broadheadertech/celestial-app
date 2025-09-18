@@ -70,16 +70,7 @@ export default function AdminSettingsPage() {
           icon: Lock,
           action: () => router.push('/admin/profile/security'),
           hasToggle: false,
-        },
-        {
-          id: 'notifications',
-          title: 'Notification Preferences',
-          subtitle: 'Manage admin notifications',
-          icon: Bell,
-          action: () => router.push('/admin/profile/notifications'),
-          hasToggle: true,
-          toggleValue: true,
-        },
+        }
       ]
     },
     {

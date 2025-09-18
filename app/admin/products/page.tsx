@@ -12,7 +12,6 @@ import {
   Eye,
   EyeOff,
   Package,
-  Star,
   TrendingDown,
   Image as ImageIcon,
 } from 'lucide-react';
@@ -21,10 +20,9 @@ import BottomNavbar from '@/components/common/BottomNavbar';
 
 // Mock data - replace with your Convex queries
 const mockCategories = [
-  { _id: 'cat1', name: 'Fish' },
-  { _id: 'cat2', name: 'Tanks' },
-  { _id: 'cat3', name: 'Accessories' },
-  { _id: 'cat4', name: 'Food' },
+  { _id: 'cat1', name: 'Freshwater Fish' },
+  { _id: 'cat2', name: 'Saltwater Fish' },
+  { _id: 'cat3', name: 'Aquarium Tanks' },
 ];
 
 const mockProducts = [
@@ -39,8 +37,6 @@ const mockProducts = [
     isActive: true,
     image: 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=400',
     badge: 'Bestseller',
-    rating: 4.8,
-    reviews: 24,
     createdAt: Date.now() - 86400000
   },
   {
@@ -52,35 +48,29 @@ const mockProducts = [
     stock: 8,
     isActive: true,
     image: 'https://images.unsplash.com/photo-1520637836862-4d197d17c91a?w=400',
-    rating: 4.6,
-    reviews: 18,
     createdAt: Date.now() - 172800000
   },
   {
     _id: '3',
     name: 'Glass Aquarium Tank',
     description: '50L glass aquarium with LED lighting system',
-    categoryId: 'cat2',
+    categoryId: 'cat3',
     price: 1200,
     stock: 0,
     isActive: true,
     image: 'https://images.unsplash.com/photo-1524704654690-b56c05c78a00?w=400',
     badge: 'New',
-    rating: 4.9,
-    reviews: 12,
     createdAt: Date.now() - 259200000
   },
   {
     _id: '4',
-    name: 'Aquarium Filter System',
-    description: 'High-quality filtration system for clean water',
-    categoryId: 'cat3',
+    name: 'Marine Clownfish',
+    description: 'Vibrant saltwater clownfish for marine aquariums',
+    categoryId: 'cat2',
     price: 350,
     stock: 25,
     isActive: false,
     image: 'https://images.unsplash.com/photo-1583212292454-1fe6229603b7?w=400',
-    rating: 4.3,
-    reviews: 8,
     createdAt: Date.now() - 345600000
   },
 ];
@@ -174,7 +164,6 @@ export default function AdminProductsPage() {
     const active = mockProducts.filter(p => p.isActive && p.stock > 0).length;
     const outOfStock = mockProducts.filter(p => p.stock === 0).length;
     const inactive = mockProducts.filter(p => !p.isActive).length;
-    const topRated = mockProducts.filter(p => (p.rating || 0) > 4.5).length;
     const lowStock = mockProducts.filter(p => p.stock > 0 && p.stock < 10).length;
 
     return {
@@ -182,7 +171,6 @@ export default function AdminProductsPage() {
       activeProducts: active,
       outOfStock: outOfStock,
       inactiveProducts: inactive,
-      topRated: topRated,
       lowStock: lowStock,
     };
   }, []);
@@ -226,14 +214,6 @@ export default function AdminProductsPage() {
       change: '+1.2%',
       icon: TrendingDown,
       color: 'text-error',
-    },
-    {
-      id: '4',
-      title: 'Top Rated',
-      value: productStats.topRated.toString(),
-      change: '+5.7%',
-      icon: Star,
-      color: 'text-warning',
     },
   ], [productStats]);
 
@@ -301,7 +281,7 @@ export default function AdminProductsPage() {
 
       {/* Stats */}
       <div className="px-4 sm:px-6 py-4 border-b border-white/10">
-        <div className="flex gap-3 overflow-x-auto pb-2">
+        <div className="flex gap-3 overflow-x-auto scrollbar-hide pb-2">
           {statsArray.map((stat) => {
             const IconComponent = stat.icon;
             return (
@@ -336,7 +316,7 @@ export default function AdminProductsPage() {
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-foreground mb-2">Categories</label>
-              <div className="flex gap-2 overflow-x-auto pb-2">
+              <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-2">
                 {categoryNames.map((category) => (
                   <button
                     key={category}
@@ -355,7 +335,7 @@ export default function AdminProductsPage() {
             
             <div>
               <label className="block text-sm font-medium text-foreground mb-2">Status</label>
-              <div className="flex gap-2 overflow-x-auto pb-2">
+              <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-2">
                 {statusFilters.map((filter) => (
                   <button
                     key={filter.key}
@@ -545,15 +525,6 @@ export default function AdminProductsPage() {
                             </span>
                           )}
                         </div>
-                        
-                        {product.rating > 4.5 && (
-                          <div className="flex items-center">
-                            <Star className="w-4 h-4 text-warning fill-current" />
-                            <span className="text-sm text-warning ml-1 font-medium">
-                              Top Rated
-                            </span>
-                          </div>
-                        )}
                       </div>
                       
                       <div className="flex items-center justify-between mb-3">
@@ -622,6 +593,16 @@ export default function AdminProductsPage() {
           onClick={() => setSelectedProduct(null)}
         />
       )}
+
+      <style jsx global>{`
+        .scrollbar-hide {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+        .scrollbar-hide::-webkit-scrollbar {
+          display: none;
+        }
+      `}</style>
     </div>
   );
 }

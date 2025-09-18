@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
   BarChart3,
   Users,
@@ -11,10 +11,12 @@ import {
   RefreshCw,
   AlertCircle,
   CheckCircle,
-  Clock
+  Clock,
+  Bell
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import BottomNavbar from '@/components/common/BottomNavbar';
+import NotificationModal from '@/components/modal/NotificationModal';
 
 // Mock data - replace with your Convex queries
 const mockStats = {
@@ -70,12 +72,42 @@ const mockLowStockProducts = [
   { id: '4', name: 'Aquarium Filter System', stock: 3, category: 'Accessories' }
 ];
 
-const formatCurrency = (amount: number) => {
+// Mock notifications data
+const mockNotifications = [
+  {
+    id: '1',
+    type: 'success' as const,
+    title: 'New Order Received',
+    message: 'Order #ORD-001 from John Doe has been placed successfully.',
+    timestamp: Date.now() - 300000, // 5 minutes ago
+    read: false,
+    actionType: 'order' as const
+  },
+  {
+    id: '2',
+    type: 'warning' as const,
+    title: 'Low Stock Alert',
+    message: 'Premium Goldfish stock is running low (2 remaining).',
+    timestamp: Date.now() - 1800000, // 30 minutes ago
+    read: false,
+    actionType: 'product' as const
+  },
+  {
+    id: '3',
+    type: 'info' as const,
+    title: 'New User Registration',
+    message: 'Jane Smith has created a new account.',
+    timestamp: Date.now() - 3600000, // 1 hour ago
+    read: true,
+    actionType: 'user' as const
+  }
+];
+
+const formatCurrency = (amount) => {
   return `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`;
 };
 
-
-const getOrderStatusColor = (status: string) => {
+const getOrderStatusColor = (status) => {
   switch (status) {
     case 'completed': return 'text-success';
     case 'processing': return 'text-warning';
@@ -85,7 +117,7 @@ const getOrderStatusColor = (status: string) => {
   }
 };
 
-const getOrderStatusIcon = (status: string) => {
+const getOrderStatusIcon = (status) => {
   switch (status) {
     case 'completed': return CheckCircle;
     case 'processing': return RefreshCw;
@@ -97,6 +129,35 @@ const getOrderStatusIcon = (status: string) => {
 
 export default function AdminDashboardPage() {
   const router = useRouter();
+  const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
+  const [notifications, setNotifications] = useState(mockNotifications);
+
+  // Get unread notifications count
+  const unreadCount = notifications.filter(n => !n.read).length;
+
+  const handleMarkAsRead = (id: string) => {
+    setNotifications(prev =>
+      prev.map(notification =>
+        notification.id === id
+          ? { ...notification, read: true }
+          : notification
+      )
+    );
+  };
+
+  const handleMarkAllAsRead = () => {
+    setNotifications(prev =>
+      prev.map(notification => ({ ...notification, read: true }))
+    );
+  };
+
+  const handleDeleteNotification = (id: string) => {
+    setNotifications(prev => prev.filter(notification => notification.id !== id));
+  };
+
+  const handleClearAll = () => {
+    setNotifications([]);
+  };
 
   // Stats cards data
   const statsCards = [
@@ -149,6 +210,19 @@ export default function AdminDashboardPage() {
               <p className="text-sm text-muted">Welcome back! Here&apos;s your business overview.</p>
             </div>
             <div className="flex items-center space-x-2">
+              {/* Notification Bell */}
+              <button
+                onClick={() => setIsNotificationModalOpen(true)}
+                className="relative p-2 rounded-lg bg-secondary border border-white/10 hover:bg-white/10 transition-colors"
+                title="Notifications"
+              >
+                <Bell className="w-5 h-5 text-foreground" />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-error text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-medium">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+              </button>
               <button
                 onClick={() => router.push('/admin/analytics')}
                 className="p-2 rounded-lg bg-secondary border border-white/10 hover:bg-white/10 transition-colors"
@@ -308,6 +382,17 @@ export default function AdminDashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* Notification Modal */}
+      <NotificationModal
+        isOpen={isNotificationModalOpen}
+        onClose={() => setIsNotificationModalOpen(false)}
+        notifications={notifications}
+        onMarkAsRead={handleMarkAsRead}
+        onMarkAllAsRead={handleMarkAllAsRead}
+        onDeleteNotification={handleDeleteNotification}
+        onClearAll={handleClearAll}
+      />
 
       {/* Bottom Navigation */}
       <BottomNavbar />
