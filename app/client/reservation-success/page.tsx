@@ -4,8 +4,9 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { CheckCircle, Calendar, MapPin, Clock, Copy } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
+import { Suspense } from 'react';
 
-export default function ReservationSuccessPage() {
+function ReservationSuccessContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const reservationCode = searchParams?.get('code') || 'RES-UNKNOWN';
@@ -130,5 +131,22 @@ export default function ReservationSuccessPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+export default function ReservationSuccessPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-background px-6 py-8 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-20 h-20 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
+            <CheckCircle className="w-12 h-12 text-primary" />
+          </div>
+          <p className="text-muted">Loading reservation details...</p>
+        </div>
+      </div>
+    }>
+      <ReservationSuccessContent />
+    </Suspense>
   );
 }

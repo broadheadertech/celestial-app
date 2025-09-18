@@ -194,6 +194,12 @@ export default function ReservationsPage() {
   const [selectedReservation, setSelectedReservation] = useState<string | null>(null);
   const [updatingReservation, setUpdatingReservation] = useState<string | null>(null);
 
+  // Fetch real reservation data (with fallback to mock data for development)
+  const realReservations = useQuery(api.services.reservations.getReservationsForAdmin) || [];
+
+  // Use real data if available, otherwise use mock data
+  const reservationsData = realReservations.length > 0 ? realReservations : mockReservations;
+
   // Filter reservations
   const filteredReservations = useMemo(() => {
     let filtered = reservationsData;
@@ -241,7 +247,7 @@ export default function ReservationsPage() {
     }
 
     return filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  }, [searchQuery, selectedStatus, selectedDate]);
+  }, [reservationsData, searchQuery, selectedStatus, selectedDate]);
 
   // Calculate reservation stats
   const reservationStats = useMemo(() => {
@@ -266,16 +272,10 @@ export default function ReservationsPage() {
       totalRevenue,
       pendingRevenue,
     };
-  }, []);
+  }, [reservationsData]);
 
   // Convex mutations
   const updateReservationStatus = useMutation(api.services.reservations.updateReservationStatus);
-
-  // Fetch real reservation data (with fallback to mock data for development)
-  const realReservations = useQuery(api.services.reservations.getReservationsForAdmin) || [];
-
-  // Use real data if available, otherwise use mock data
-  const reservationsData = realReservations.length > 0 ? realReservations : mockReservations;
 
   const handleReservationAction = async (reservationId: string, action: string) => {
     if (action === 'View') {

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useMutation, useQuery } from 'convex/react';
 import {
@@ -105,7 +105,7 @@ const initialFormData: ProductFormData = {
   filtration: ''
 };
 
-export default function ProductFormPage() {
+function ProductFormContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const productId = searchParams.get('id');
@@ -1022,5 +1022,22 @@ export default function ProductFormPage() {
         type={confirmationModalProps.type}
       />
     </div>
+  );
+}
+
+export default function ProductFormPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-background">
+        <div className="flex items-center justify-center min-h-[50vh]">
+          <div className="text-center">
+            <Loader className="w-8 h-8 animate-spin text-primary mx-auto mb-4" />
+            <p className="text-muted">Loading product form...</p>
+          </div>
+        </div>
+      </div>
+    }>
+      <ProductFormContent />
+    </Suspense>
   );
 }
