@@ -3,7 +3,8 @@
 import { useRouter, useParams } from 'next/navigation';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
-import { ArrowLeft, Award, Edit, Eye, X, CheckCircle, AlertTriangle, RefreshCw } from 'lucide-react';
+import { Id } from '@/convex/_generated/dataModel';
+import { ArrowLeft, Award, Edit, Eye, X, CheckCircle, AlertTriangle, RefreshCw, Fish, Waves, Trash2 } from 'lucide-react';
 import React, { useState } from 'react';
 import Image from 'next/image';
 import Button from '@/components/ui/Button';
@@ -32,18 +33,36 @@ export default function ProductDetailsPage() {
   const [certificateModalVisible, setCertificateModalVisible] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showErrorModal, setShowErrorModal] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [modalMessage, setModalMessage] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
 
   // Fetch real product data from Convex - use admin API to get all products and filter
   const allProducts = useQuery(api.services.admin.getAllProductsAdmin, {});
   const product = allProducts?.find(p => p._id === id);
-  const category = useQuery(api.services.categories.getCategory, 
-    product?.categoryId ? { categoryId: product.categoryId } : "skip"
+  
+  // Fix: Only query category if we have a valid categoryId
+  const category = useQuery(
+    api.services.categories.getCategory,
+    product?.categoryId ? { categoryId: product.categoryId as Id<"categories"> } : "skip"
   );
   
+  // Fix: Only query fish/tank data if we have a valid product ID
+  const fishData = useQuery(
+    api.services.products.getFishByProductId,
+    product?._id ? { productId: product._id as Id<"products"> } : "skip"
+  );
+  
+  const tankData = useQuery(
+    api.services.products.getTankByProductId,
+    product?._id ? { productId: product._id as Id<"products"> } : "skip"
+  );
+  
+  // Add delete mutation
+  const deleteProduct = useMutation(api.services.admin.deleteProduct);
+  
   // Loading state
-  if (product === undefined) {
+  if (allProducts === undefined) {
     return (
       <div className="min-h-screen bg-[#121212] flex items-center justify-center">
         <div className="text-center">
@@ -60,13 +79,14 @@ export default function ProductDetailsPage() {
     return (
       <div className="min-h-screen bg-[#121212] flex items-center justify-center">
         <div className="text-center">
+          <AlertTriangle className="w-12 h-12 text-error mx-auto mb-4" />
           <h1 className="font-bold text-xl text-white mb-4">Product Not Found</h1>
           <p className="text-white/60 text-sm mb-6">The product you're looking for doesn't exist or has been removed.</p>
           <Button
-            onClick={() => router.back()}
+            onClick={() => router.push('/admin/products')}
             className="bg-primary hover:bg-primary/90"
           >
-            Go Back
+            Back to Products
           </Button>
         </div>
       </div>
@@ -77,8 +97,8 @@ export default function ProductDetailsPage() {
   const discount = product.originalPrice && product.originalPrice > product.price 
     ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100) 
     : 0;
-  const isFishProduct = category?.name?.includes('Fish');
-  const isTankProduct = category?.name?.includes('Tank');
+  const isFishProduct = category?.name?.toLowerCase().includes('fish') || false;
+  const isTankProduct = category?.name?.toLowerCase().includes('tank') || category?.name?.toLowerCase().includes('aquarium') || false;
 
   // Helper function to normalize image URLs
   const normalizeImageUrl = (url: string | undefined): string => {
@@ -114,18 +134,21 @@ export default function ProductDetailsPage() {
   const displayImages = allImageUrls.length > 0 ? allImageUrls : ['/img/logo-app.png'];
 
   const handleDelete = async () => {
+    if (!product?._id) return;
+    
     try {
       setIsDeleting(true);
-      // TODO: Implement delete product mutation
-      console.log('Product deleted:', product._id);
+      await deleteProduct({ productId: product._id as Id<"products"> });
       setModalMessage('Product deleted successfully!');
+      setShowDeleteConfirm(false);
       setShowSuccessModal(true);
       setTimeout(() => {
-        router.back();
-      }, 2000);
+        router.push('/admin/products');
+      }, 1500);
     } catch (error) {
       console.error('Error deleting product:', error);
       setModalMessage('Error deleting product. Please try again.');
+      setShowDeleteConfirm(false);
       setShowErrorModal(true);
     } finally {
       setIsDeleting(false);
@@ -147,7 +170,7 @@ export default function ProductDetailsPage() {
       {/* Header */}
       <div className="flex items-center justify-between px-6 pt-16 pb-4">
         <button
-          onClick={() => router.back()}
+          onClick={() => router.push('/admin/products')}
           className="w-10 h-10 rounded-full flex items-center justify-center bg-white/5 hover:bg-white/10 transition-colors"
         >
           <ArrowLeft size={20} color="#FFFFFF" />
@@ -300,6 +323,155 @@ export default function ProductDetailsPage() {
           </div>
         )}
 
+        {/* Fish Data Section */}
+        {isFishProduct && fishData && (
+          <div className="px-6 mb-6">
+            <h2 className="font-bold text-lg mb-4 text-white flex items-center">
+              <Fish className="mr-2" size={20} color="#FF6B00" />
+              Fish Information
+            </h2>
+            
+            <div className="rounded-2xl p-4 bg-[#1A1A1A]">
+              <div className="grid grid-cols-1 gap-3">
+                {fishData.scientificName && (
+                  <div className="flex justify-between py-2 border-b border-[#333333]">
+                    <span className="font-medium text-base text-[#B3B3B3]">Scientific Name</span>
+                    <span className="text-base text-white font-medium">{fishData.scientificName}</span>
+                  </div>
+                )}
+                
+                {fishData.size && (
+                  <div className="flex justify-between py-2 border-b border-[#333333]">
+                    <span className="font-medium text-base text-[#B3B3B3]">Size</span>
+                    <span className="text-base text-white">{fishData.size} cm</span>
+                  </div>
+                )}
+                
+                {fishData.weight && (
+                  <div className="flex justify-between py-2 border-b border-[#333333]">
+                    <span className="font-medium text-base text-[#B3B3B3]">Weight</span>
+                    <span className="text-base text-white">{fishData.weight} g</span>
+                  </div>
+                )}
+                
+                {fishData.temperature && (
+                  <div className="flex justify-between py-2 border-b border-[#333333]">
+                    <span className="font-medium text-base text-[#B3B3B3]">Temperature</span>
+                    <span className="text-base text-white">{fishData.temperature}°C</span>
+                  </div>
+                )}
+                
+                {fishData.age !== undefined && (
+                  <div className="flex justify-between py-2 border-b border-[#333333]">
+                    <span className="font-medium text-base text-[#B3B3B3]">Age</span>
+                    <span className="text-base text-white">{fishData.age} months</span>
+                  </div>
+                )}
+                
+                {fishData.phLevel && (
+                  <div className="flex justify-between py-2 border-b border-[#333333]">
+                    <span className="font-medium text-base text-[#B3B3B3]">pH Level</span>
+                    <span className="text-base text-white">{fishData.phLevel}</span>
+                  </div>
+                )}
+                
+                {fishData.lifespan && (
+                  <div className="flex justify-between py-2 border-b border-[#333333]">
+                    <span className="font-medium text-base text-[#B3B3B3]">Lifespan</span>
+                    <span className="text-base text-white">{fishData.lifespan}</span>
+                  </div>
+                )}
+                
+                {fishData.origin && (
+                  <div className="flex justify-between py-2 border-b border-[#333333]">
+                    <span className="font-medium text-base text-[#B3B3B3]">Origin</span>
+                    <span className="text-base text-white">{fishData.origin}</span>
+                  </div>
+                )}
+                
+                {fishData.diet && (
+                  <div className="flex justify-between py-2">
+                    <span className="font-medium text-base text-[#B3B3B3]">Diet</span>
+                    <span className="text-base text-white">{fishData.diet}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Tank Data Section */}
+        {isTankProduct && tankData && (
+          <div className="px-6 mb-6">
+            <h2 className="font-bold text-lg mb-4 text-white flex items-center">
+              <Waves className="mr-2" size={20} color="#FF6B00" />
+              Tank Specifications
+            </h2>
+            
+            <div className="rounded-2xl p-4 bg-[#1A1A1A]">
+              <div className="grid grid-cols-1 gap-3">
+                {tankData.tankType && (
+                  <div className="flex justify-between py-2 border-b border-[#333333]">
+                    <span className="font-medium text-base text-[#B3B3B3]">Tank Type</span>
+                    <span className="text-base text-white font-medium">{tankData.tankType}</span>
+                  </div>
+                )}
+                
+                {tankData.material && (
+                  <div className="flex justify-between py-2 border-b border-[#333333]">
+                    <span className="font-medium text-base text-[#B3B3B3]">Material</span>
+                    <span className="text-base text-white">{tankData.material}</span>
+                  </div>
+                )}
+                
+                {tankData.capacity && (
+                  <div className="flex justify-between py-2 border-b border-[#333333]">
+                    <span className="font-medium text-base text-[#B3B3B3]">Capacity</span>
+                    <span className="text-base text-white">{tankData.capacity} L</span>
+                  </div>
+                )}
+                
+                {tankData.dimensions && (
+                  <div className="flex justify-between py-2 border-b border-[#333333]">
+                    <span className="font-medium text-base text-[#B3B3B3]">Dimensions</span>
+                    <span className="text-base text-white">
+                      {tankData.dimensions.length} × {tankData.dimensions.width} × {tankData.dimensions.height} cm
+                    </span>
+                  </div>
+                )}
+                
+                {tankData.weight && (
+                  <div className="flex justify-between py-2 border-b border-[#333333]">
+                    <span className="font-medium text-base text-[#B3B3B3]">Weight</span>
+                    <span className="text-base text-white">{tankData.weight} kg</span>
+                  </div>
+                )}
+                
+                {tankData.thickness && (
+                  <div className="flex justify-between py-2 border-b border-[#333333]">
+                    <span className="font-medium text-base text-[#B3B3B3]">Thickness</span>
+                    <span className="text-base text-white">{tankData.thickness} mm</span>
+                  </div>
+                )}
+                
+                {tankData.lighting && (
+                  <div className="flex justify-between py-2 border-b border-[#333333]">
+                    <span className="font-medium text-base text-[#B3B3B3]">Lighting</span>
+                    <span className="text-base text-white">{tankData.lighting} W</span>
+                  </div>
+                )}
+                
+                {tankData.filtation && (
+                  <div className="flex justify-between py-2">
+                    <span className="font-medium text-base text-[#B3B3B3]">Filtration</span>
+                    <span className="text-base text-white">{tankData.filtation} L/h</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Product Details */}
         <div className="px-6 mb-6">
           <h2 className="font-bold text-lg mb-4 text-white">Product Details</h2>
@@ -332,7 +504,6 @@ export default function ProductDetailsPage() {
             </div>
           </div>
         </div>
-
 
         {/* Bottom spacing */}
         <div className="h-20" />
@@ -397,11 +568,11 @@ export default function ProductDetailsPage() {
             </button>
             
             {/* Certificate Image */}
-            <div className="flex-1 flex items-center justify-center p-6">
+            <div className="flex-1 flex items-center justify-center p-6 h-full">
               {product.certificate ? (
                 <div className="relative w-full max-w-4xl h-[80vh]">
                   <Image
-                    src={product.certificate}
+                    src={normalizeImageUrl(product.certificate)}
                     alt="Product Certificate"
                     fill
                     className="object-contain rounded-xl"
