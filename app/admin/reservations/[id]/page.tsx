@@ -35,6 +35,7 @@ import { Id } from '@/convex/_generated/dataModel';
 const statusOptions = [
   { value: 'pending', label: 'Pending', color: 'yellow' },
   { value: 'confirmed', label: 'Confirmed', color: 'blue' },
+  { value: 'ready_for_pickup', label: 'Ready for Pickup', color: 'purple' },
   { value: 'completed', label: 'Completed', color: 'green' },
   { value: 'cancelled', label: 'Cancelled', color: 'red' }
 ];
@@ -42,6 +43,7 @@ const statusOptions = [
 const statusColors = {
   pending: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
   confirmed: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+  ready_for_pickup: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
   completed: 'bg-green-500/20 text-green-400 border-green-500/30',
   expired: 'bg-red-500/20 text-red-400 border-red-500/30',
   cancelled: 'bg-gray-500/20 text-gray-400 border-gray-500/30'
@@ -68,8 +70,9 @@ export default function ReservationDetailPage() {
     reservationId: reservationId as Id<'reservations'>
   });
 
-  // Mutation for updating reservation status
+  // Mutations for updating reservation status
   const updateReservationStatus = useMutation(api.services.reservations.updateReservationStatus);
+  const markReservationReadyForPickup = useMutation(api.services.reservations.markReservationReadyForPickup);
 
   const showConfirmation = (title: string, message: string, type: 'success' | 'error' | 'warning' | 'info' = 'info') => {
     setConfirmationModalProps({ title, message, type });
@@ -109,7 +112,7 @@ export default function ReservationDetailPage() {
     try {
       await updateReservationStatus({
         reservationId: reservation._id as Id<'reservations'>,
-        status: newStatus as 'pending' | 'confirmed' | 'completed' | 'expired' | 'cancelled',
+        status: newStatus as 'pending' | 'confirmed' | 'ready_for_pickup' | 'completed' | 'expired' | 'cancelled',
         adminNotes: statusNote || undefined
       });
 
@@ -122,6 +125,30 @@ export default function ReservationDetailPage() {
     } catch (error) {
       console.error('Error updating status:', error);
       showConfirmation('Error', 'Error updating status. Please try again.', 'error');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleMarkReadyForPickup = async () => {
+    if (!reservation) return;
+
+    setIsUpdating(true);
+
+    try {
+      await markReservationReadyForPickup({
+        reservationId: reservation._id as Id<'reservations'>,
+        pickupLocation: 'Main Store',
+        notes: statusNote || undefined
+      });
+
+      setStatusNote('');
+
+      // Show success message
+      showConfirmation('Success', 'Reservation marked as ready for pickup! Customer has been notified.', 'success');
+    } catch (error) {
+      console.error('Error marking ready for pickup:', error);
+      showConfirmation('Error', 'Error marking ready for pickup. Please try again.', 'error');
     } finally {
       setIsUpdating(false);
     }
@@ -205,62 +232,6 @@ export default function ReservationDetailPage() {
               </div>
             </div>
 
-            {/* Right side - Action buttons with responsive design */}
-            <div className="flex items-center gap-1 sm:gap-3 shrink-0">
-              {/* Mobile: Show only icons */}
-              <div className="flex sm:hidden gap-1">
-                <Button
-                  onClick={handlePrint}
-                  variant="outline"
-                  size="sm"
-                  className="p-2"
-                >
-                  <Printer className="w-4 h-4" />
-                </Button>
-                <Button
-                  onClick={handleSendEmail}
-                  variant="outline"
-                  size="sm"
-                  className="p-2"
-                >
-                  <Send className="w-4 h-4" />
-                </Button>
-                <Button
-                  onClick={() => setShowStatusModal(true)}
-                  size="sm"
-                  className="p-2"
-                >
-                  <Edit className="w-4 h-4" />
-                </Button>
-              </div>
-
-              {/* Desktop: Show full buttons */}
-              <div className="hidden sm:flex gap-3">
-                <Button
-                  onClick={handlePrint}
-                  variant="outline"
-                  size="sm"
-                >
-                  <Printer className="w-4 h-4 mr-2" />
-                  Print
-                </Button>
-                <Button
-                  onClick={handleSendEmail}
-                  variant="outline"
-                  size="sm"
-                >
-                  <Send className="w-4 h-4 mr-2" />
-                  Email
-                </Button>
-                <Button
-                  onClick={() => setShowStatusModal(true)}
-                  size="sm"
-                >
-                  <Edit className="w-4 h-4 mr-2" />
-                  Update Status
-                </Button>
-              </div>
-            </div>
           </div>
         </div>
       </div>
@@ -351,6 +322,126 @@ export default function ReservationDetailPage() {
             </div>
           </Card>
         </div>
+
+        {/* Compact Action Section */}
+        <Card className="p-3 sm:p-4 mb-3 sm:mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+            {/* Primary Actions Row */}
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Confirm Reservation */}
+              {reservation.status === 'pending' && (
+                <Button
+                  onClick={() => {
+                    setNewStatus('confirmed');
+                    handleStatusUpdate();
+                  }}
+                  disabled={isUpdating}
+                  loading={isUpdating}
+                  variant="primary"
+                  size="sm"
+                  className="shadow-lg shadow-primary/25 hover:shadow-primary/40"
+                >
+                  <Check className="w-4 h-4 mr-2" />
+                  Confirm
+                </Button>
+              )}
+
+              {/* Mark Ready for Pickup */}
+              {reservation.status === 'confirmed' && (
+                <Button
+                  onClick={handleMarkReadyForPickup}
+                  disabled={isUpdating}
+                  loading={isUpdating}
+                  variant="primary"
+                  size="sm"
+                  className="bg-info hover:bg-info/90 text-white shadow-lg shadow-info/25 hover:shadow-info/40"
+                >
+                  <Package className="w-4 h-4 mr-2" />
+                  Ready for Pickup
+                </Button>
+              )}
+
+              {/* Mark as Picked Up */}
+              {reservation.status === 'ready_for_pickup' && (
+                <Button
+                  onClick={() => {
+                    setNewStatus('completed');
+                    handleStatusUpdate();
+                  }}
+                  disabled={isUpdating}
+                  loading={isUpdating}
+                  variant="primary"
+                  size="sm"
+                  className="bg-success hover:bg-success/90 text-white shadow-lg shadow-success/25 hover:shadow-success/40"
+                >
+                  <Check className="w-4 h-4 mr-2" />
+                  Mark Picked Up
+                </Button>
+              )}
+
+              {/* Cancel Reservation */}
+              {['pending', 'confirmed', 'ready_for_pickup'].includes(reservation.status) && (
+                <Button
+                  onClick={() => {
+                    setNewStatus('cancelled');
+                    handleStatusUpdate();
+                  }}
+                  disabled={isUpdating}
+                  loading={isUpdating}
+                  variant="outline"
+                  size="sm"
+                  className="border-error text-error hover:bg-error hover:text-white shadow-lg shadow-error/25 hover:shadow-error/40"
+                >
+                  <X className="w-4 h-4 mr-2" />
+                  Cancel
+                </Button>
+              )}
+            </div>
+
+            {/* Utility Actions */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <Button
+                onClick={() => setShowStatusModal(true)}
+                variant="secondary"
+                size="sm"
+                className="shadow-lg shadow-secondary/25 hover:shadow-secondary/40"
+              >
+                <Edit className="w-4 h-4 mr-2" />
+                Manual Update
+              </Button>
+
+              <Button
+                onClick={handlePrint}
+                variant="ghost"
+                size="sm"
+                className="hover:bg-white/10 hover:text-white"
+              >
+                <Printer className="w-4 h-4 mr-2" />
+                Print
+              </Button>
+
+              <Button
+                onClick={handleSendEmail}
+                variant="ghost"
+                size="sm"
+                className="hover:bg-white/10 hover:text-white"
+              >
+                <Send className="w-4 h-4 mr-2" />
+                Email
+              </Button>
+            </div>
+
+            {/* Status Note Input - Inline */}
+            <div className="flex-1 min-w-0">
+              <Input
+                value={statusNote}
+                onChange={setStatusNote}
+                placeholder="Add status note..."
+                className="bg-secondary/50 border-white/20 text-sm"
+              />
+            </div>
+          </div>
+        </Card>
 
         {/* Enhanced Pickup Schedule */}
         {reservation.guestInfo?.pickupSchedule && (

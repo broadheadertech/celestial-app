@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft,
@@ -67,7 +68,7 @@ type CombinedItem = {
       image?: string;
       category?: string;
       price?: number;
-    };
+    } | null;
   }>;
   totalQuantity?: number;
   reservationCode?: string;
@@ -92,6 +93,9 @@ export default function AdminOrdersPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [selectedItem, setSelectedItem] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [dropdownPosition, setDropdownPosition] = useState<{ top: number; right: number } | null>(null);
+  const buttonRefs = useRef<{ [key: string]: HTMLButtonElement | null }>({});
+  const [mounted, setMounted] = useState(false);
 
   // Fetch real data from Convex
   const ordersQuery = useQuery(api.services.orders.getAllOrdersAdmin, {});
@@ -100,6 +104,58 @@ export default function AdminOrdersPage() {
   // Mutations for updating status
   const updateOrderStatus = useMutation(api.services.orders.updateOrderStatus);
   const updateReservationStatus = useMutation(api.services.reservations.updateReservationStatus);
+  const markReservationReadyForPickup = useMutation(api.services.reservations.markReservationReadyForPickup);
+
+  // Loading state
+  const isLoading = ordersQuery === undefined || reservationsQuery === undefined;
+
+  // Handle client-side mounting
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Update dropdown position on scroll or resize
+  useEffect(() => {
+    const updateDropdownPosition = () => {
+      if (selectedItem) {
+        const buttonElement = buttonRefs.current[selectedItem];
+        if (buttonElement) {
+          const rect = buttonElement.getBoundingClientRect();
+          setDropdownPosition({
+            top: rect.bottom + window.scrollY + 8,
+            right: window.innerWidth - rect.right + 16
+          });
+        }
+      }
+    };
+
+    if (selectedItem) {
+      updateDropdownPosition();
+      window.addEventListener('scroll', updateDropdownPosition);
+      window.addEventListener('resize', updateDropdownPosition);
+      
+      return () => {
+        window.removeEventListener('scroll', updateDropdownPosition);
+        window.removeEventListener('resize', updateDropdownPosition);
+      };
+    }
+  }, [selectedItem]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (selectedItem && !target.closest('.dropdown-menu') && !target.closest('.dropdown-trigger')) {
+        setSelectedItem(null);
+        setDropdownPosition(null);
+      }
+    };
+
+    if (selectedItem) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [selectedItem]);
 
   // Combine and transform data for unified display
   const allItems = useMemo((): CombinedItem[] => {
@@ -208,7 +264,7 @@ export default function AdminOrdersPage() {
       } else {
         await updateReservationStatus({
           reservationId: itemId as Id<'reservations'>,
-          status: newStatus as 'pending' | 'confirmed' | 'completed' | 'expired' | 'cancelled'
+          status: newStatus as 'pending' | 'confirmed' | 'ready_for_pickup' | 'completed' | 'expired' | 'cancelled'
         });
       }
 
@@ -218,16 +274,44 @@ export default function AdminOrdersPage() {
     }
   };
 
+  const handleMarkReadyForPickup = async (itemId: string) => {
+    try {
+      await markReservationReadyForPickup({
+        reservationId: itemId as Id<'reservations'>,
+        pickupLocation: "Main Store", // Default pickup location
+        notes: "Your reservation is ready for pickup. Please visit us during business hours."
+      });
+      
+      setSelectedItem(null);
+      // You could add a success notification here
+      alert("Reservation marked as ready for pickup! Customer has been notified.");
+    } catch (error) {
+      console.error('Failed to mark ready for pickup:', error);
+      alert("Failed to mark reservation as ready for pickup. Please try again.");
+    }
+  };
+
   const handleRefresh = async () => {
     setIsRefreshing(true);
     // The queries will automatically refetch
     setTimeout(() => setIsRefreshing(false), 1000);
   };
 
+  const handleDropdownToggle = (itemId: string) => {
+    if (selectedItem === itemId) {
+      setSelectedItem(null);
+      setDropdownPosition(null);
+    } else {
+      setSelectedItem(itemId);
+      // Position will be calculated in useEffect
+    }
+  };
+
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'pending': return <Clock className="w-4 h-4" />;
       case 'confirmed': return <CheckCircle className="w-4 h-4" />;
+      case 'ready_for_pickup': return <Package className="w-4 h-4" />;
       case 'processing': return <Package className="w-4 h-4" />;
       case 'shipped': return <Truck className="w-4 h-4" />;
       case 'delivered': return <CheckCircle className="w-4 h-4" />;
@@ -242,6 +326,7 @@ export default function AdminOrdersPage() {
     const colors = {
       pending: 'bg-warning/20 text-warning border-warning/30',
       confirmed: 'bg-success/20 text-success border-success/30',
+      ready_for_pickup: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
       processing: 'bg-info/20 text-info border-info/30',
       shipped: 'bg-info/20 text-info border-info/30',
       delivered: 'bg-success/20 text-success border-success/30',
@@ -252,6 +337,55 @@ export default function AdminOrdersPage() {
 
     return colors[status as keyof typeof colors] || 'bg-muted/20 text-muted border-muted/30';
   };
+
+  // Skeleton component for loading state
+  const SkeletonCard = () => (
+    <div className="bg-secondary/40 backdrop-blur-sm border border-white/10 rounded-lg sm:rounded-xl animate-pulse">
+      {/* Header skeleton */}
+      <div className="flex items-center justify-between p-3 sm:p-4">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+          {/* Type icon skeleton */}
+          <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-white/10 shrink-0"></div>
+          
+          <div className="min-w-0 flex-1">
+            {/* Code and status skeleton */}
+            <div className="flex items-center gap-2 mb-1">
+              <div className="h-4 bg-white/10 rounded w-20"></div>
+              <div className="h-4 bg-white/10 rounded w-16"></div>
+            </div>
+            {/* Date and items skeleton */}
+            <div className="flex items-center gap-2">
+              <div className="h-3 bg-white/10 rounded w-24"></div>
+              <div className="h-3 bg-white/10 rounded w-16"></div>
+            </div>
+          </div>
+        </div>
+
+        {/* Price and action skeleton */}
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          <div className="text-right">
+            <div className="h-4 bg-white/10 rounded w-16 mb-1"></div>
+            <div className="h-3 bg-white/10 rounded w-8"></div>
+          </div>
+          <div className="w-8 h-8 rounded-lg bg-white/10"></div>
+        </div>
+      </div>
+
+      {/* Customer info skeleton */}
+      <div className="px-3 sm:px-4 pb-3 sm:pb-4">
+        <div className="flex items-start gap-2 sm:gap-3 p-3 bg-white/5 rounded-lg border border-white/5">
+          <div className="w-7 h-7 sm:w-8 sm:h-8 bg-white/10 rounded-full shrink-0"></div>
+          <div className="flex-1 min-w-0">
+            <div className="h-4 bg-white/10 rounded w-32 mb-1"></div>
+            <div className="flex gap-4">
+              <div className="h-3 bg-white/10 rounded w-24"></div>
+              <div className="h-3 bg-white/10 rounded w-20"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-background">
@@ -304,18 +438,26 @@ export default function AdminOrdersPage() {
               <Search className="absolute left-3 sm:left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-white/40 shrink-0" />
               <input
                 type="text"
-                placeholder="Search orders, customers..."
+                placeholder={isLoading ? "Loading..." : "Search orders, customers..."}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 sm:pl-12 pr-3 sm:pr-4 py-2.5 sm:py-3 bg-secondary/60 border border-white/10 rounded-lg sm:rounded-xl text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/30 transition-all text-sm sm:text-base"
+                disabled={isLoading}
+                className={`w-full pl-10 sm:pl-12 pr-3 sm:pr-4 py-2.5 sm:py-3 border rounded-lg sm:rounded-xl transition-all text-sm sm:text-base ${
+                  isLoading 
+                    ? 'bg-secondary/40 border-white/5 text-white/40 cursor-not-allowed' 
+                    : 'bg-secondary/60 border-white/10 text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/30'
+                }`}
               />
             </div>
             <button
               onClick={() => setShowFilters(!showFilters)}
+              disabled={isLoading}
               className={`px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg sm:rounded-xl border transition-all flex items-center gap-1 sm:gap-2 shrink-0 ${
-                showFilters
-                  ? 'bg-primary border-primary text-white'
-                  : 'bg-secondary/60 border-white/10 text-white hover:bg-secondary/80'
+                isLoading
+                  ? 'bg-secondary/40 border-white/5 text-white/40 cursor-not-allowed'
+                  : showFilters
+                    ? 'bg-primary border-primary text-white'
+                    : 'bg-secondary/60 border-white/10 text-white hover:bg-secondary/80'
               }`}
             >
               <Filter className="w-4 h-4" />
@@ -414,6 +556,7 @@ export default function AdminOrdersPage() {
                   { value: 'all', label: 'All Status', color: 'text-white/70' },
                   { value: 'pending', label: 'Pending', color: 'text-yellow-400' },
                   { value: 'confirmed', label: 'Confirmed', color: 'text-green-400' },
+                  { value: 'ready_for_pickup', label: 'Ready for Pickup', color: 'text-purple-400' },
                   { value: 'processing', label: 'Processing', color: 'text-blue-400' },
                   { value: 'completed', label: 'Completed', color: 'text-emerald-400' },
                   { value: 'expired', label: 'Issues', color: 'text-red-400' },
@@ -438,7 +581,13 @@ export default function AdminOrdersPage() {
 
       {/* Enhanced Orders List - Better responsive cards */}
       <div className="px-3 sm:px-6 lg:px-8 py-3 sm:py-4">
-        {filteredItems.length === 0 ? (
+        {isLoading ? (
+          <div className="space-y-2 sm:space-y-3">
+            {Array.from({ length: 6 }).map((_, index) => (
+              <SkeletonCard key={index} />
+            ))}
+          </div>
+        ) : filteredItems.length === 0 ? (
           <div className="text-center py-12 sm:py-16">
             <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-4 sm:mb-6 bg-gradient-to-br from-primary/20 to-info/20 rounded-full flex items-center justify-center">
               <ShoppingBag className="w-8 h-8 sm:w-10 sm:h-10 text-primary" />
@@ -469,6 +618,7 @@ export default function AdminOrdersPage() {
                   const target = e.target as HTMLElement;
                   if (selectedItem === item._id && !target.closest('.dropdown-menu') && !target.closest('.dropdown-trigger')) {
                     setSelectedItem(null);
+                    setDropdownPosition(null);
                   }
                 }}
               >
@@ -521,80 +671,13 @@ export default function AdminOrdersPage() {
                     {/* Enhanced Action Dropdown - Better mobile positioning */}
                     <div className="relative">
                       <button
-                        onClick={() => setSelectedItem(selectedItem === item._id ? null : item._id)}
+                        ref={(el) => { buttonRefs.current[item._id] = el; }}
+                        onClick={() => handleDropdownToggle(item._id)}
                         className="dropdown-trigger w-8 h-8 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 hover:border-primary/30 transition-all flex items-center justify-center shrink-0"
                       >
                         <ChevronDown className={`w-4 h-4 text-white/70 transition-transform ${selectedItem === item._id ? 'rotate-180' : ''}`} />
                       </button>
 
-                      {selectedItem === item._id && (
-                        <div
-                          className="dropdown-menu absolute right-0 top-10 w-48 sm:w-52 bg-secondary/90 backdrop-blur-md border border-white/20 rounded-xl shadow-2xl z-[100] overflow-hidden"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <div className="p-2">
-                            <button
-                              onClick={() => router.push(`/admin/${item.type}s/${item._id}`)}
-                              className="w-full flex items-center gap-3 px-3 py-2.5 text-left text-white hover:bg-white/10 rounded-lg transition-colors text-sm"
-                            >
-                              <Eye className="w-4 h-4 text-blue-400" />
-                              <span>View Details</span>
-                            </button>
-
-                            {item.status === 'pending' && (
-                              <button
-                                onClick={() => handleUpdateStatus(item._id, 'confirmed')}
-                                className="w-full flex items-center gap-3 px-3 py-2.5 text-left text-white hover:bg-green-500/10 rounded-lg transition-colors text-sm"
-                              >
-                                <CheckCircle className="w-4 h-4 text-green-400" />
-                                <span>Confirm {item.type}</span>
-                              </button>
-                            )}
-
-                            {item.status === 'confirmed' && item.type === 'order' && (
-                              <button
-                                onClick={() => handleUpdateStatus(item._id, 'processing')}
-                                className="w-full flex items-center gap-3 px-3 py-2.5 text-left text-white hover:bg-blue-500/10 rounded-lg transition-colors text-sm"
-                              >
-                                <Package className="w-4 h-4 text-blue-400" />
-                                <span>Start Processing</span>
-                              </button>
-                            )}
-
-                            {item.status === 'confirmed' && item.type === 'reservation' && (
-                              <button
-                                onClick={() => handleUpdateStatus(item._id, 'completed')}
-                                className="w-full flex items-center gap-3 px-3 py-2.5 text-left text-white hover:bg-green-500/10 rounded-lg transition-colors text-sm"
-                              >
-                                <CheckCircle className="w-4 h-4 text-green-400" />
-                                <span>Mark Picked Up</span>
-                              </button>
-                            )}
-
-                            {item.status === 'processing' && (
-                              <button
-                                onClick={() => handleUpdateStatus(item._id, 'completed')}
-                                className="w-full flex items-center gap-3 px-3 py-2.5 text-left text-white hover:bg-green-500/10 rounded-lg transition-colors text-sm"
-                              >
-                                <Truck className="w-4 h-4 text-green-400" />
-                                <span>Mark Delivered</span>
-                              </button>
-                            )}
-
-                            <div className="h-px bg-white/10 my-2" />
-
-                            {['pending', 'confirmed'].includes(item.status) && (
-                              <button
-                                onClick={() => handleUpdateStatus(item._id, 'cancelled')}
-                                className="w-full flex items-center gap-3 px-3 py-2.5 text-left text-red-400 hover:bg-red-500/10 rounded-lg transition-colors text-sm"
-                              >
-                                <XCircle className="w-4 h-4" />
-                                <span>Cancel {item.type}</span>
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      )}
                     </div>
                   </div>
                 </div>
@@ -653,6 +736,125 @@ export default function AdminOrdersPage() {
 
       {/* Bottom Navigation */}
       <BottomNavbar />
+
+      {/* Portal-based Dropdown */}
+      {mounted && selectedItem && dropdownPosition && (() => {
+        const item = filteredItems.find(i => i._id === selectedItem);
+        if (!item) return null;
+
+        return createPortal(
+          <div
+            className="dropdown-menu fixed w-48 sm:w-52 bg-secondary/95 backdrop-blur-md border border-white/20 rounded-xl shadow-2xl overflow-hidden"
+            style={{
+              top: `${dropdownPosition.top}px`,
+              right: `${dropdownPosition.right}px`,
+              zIndex: 99999
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-2">
+              <button
+                onClick={() => {
+                  router.push(`/admin/${item.type}s/${item._id}`);
+                  setSelectedItem(null);
+                  setDropdownPosition(null);
+                }}
+                className="w-full flex items-center gap-3 px-3 py-2.5 text-left text-white hover:bg-white/10 rounded-lg transition-colors text-sm"
+              >
+                <Eye className="w-4 h-4 text-blue-400" />
+                <span>View Details</span>
+              </button>
+
+              {item.status === 'pending' && (
+                <button
+                  onClick={() => {
+                    handleUpdateStatus(item._id, 'confirmed');
+                    setSelectedItem(null);
+                    setDropdownPosition(null);
+                  }}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 text-left text-white hover:bg-green-500/10 rounded-lg transition-colors text-sm"
+                >
+                  <CheckCircle className="w-4 h-4 text-green-400" />
+                  <span>Confirm {item.type}</span>
+                </button>
+              )}
+
+              {item.status === 'confirmed' && item.type === 'order' && (
+                <button
+                  onClick={() => {
+                    handleUpdateStatus(item._id, 'processing');
+                    setSelectedItem(null);
+                    setDropdownPosition(null);
+                  }}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 text-left text-white hover:bg-blue-500/10 rounded-lg transition-colors text-sm"
+                >
+                  <Package className="w-4 h-4 text-blue-400" />
+                  <span>Start Processing</span>
+                </button>
+              )}
+
+              {item.status === 'confirmed' && item.type === 'reservation' && (
+                <button
+                  onClick={() => {
+                    handleMarkReadyForPickup(item._id);
+                    setSelectedItem(null);
+                    setDropdownPosition(null);
+                  }}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 text-left text-white hover:bg-purple-500/10 rounded-lg transition-colors text-sm"
+                >
+                  <Package className="w-4 h-4 text-purple-400" />
+                  <span>Mark Ready for Pickup</span>
+                </button>
+              )}
+
+              {item.status === 'ready_for_pickup' && item.type === 'reservation' && (
+                <button
+                  onClick={() => {
+                    handleUpdateStatus(item._id, 'completed');
+                    setSelectedItem(null);
+                    setDropdownPosition(null);
+                  }}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 text-left text-white hover:bg-green-500/10 rounded-lg transition-colors text-sm"
+                >
+                  <CheckCircle className="w-4 h-4 text-green-400" />
+                  <span>Mark Picked Up</span>
+                </button>
+              )}
+
+              {item.status === 'processing' && (
+                <button
+                  onClick={() => {
+                    handleUpdateStatus(item._id, 'completed');
+                    setSelectedItem(null);
+                    setDropdownPosition(null);
+                  }}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 text-left text-white hover:bg-green-500/10 rounded-lg transition-colors text-sm"
+                >
+                  <Truck className="w-4 h-4 text-green-400" />
+                  <span>Mark Delivered</span>
+                </button>
+              )}
+
+              <div className="h-px bg-white/10 my-2" />
+
+              {['pending', 'confirmed', 'ready_for_pickup'].includes(item.status) && (
+                <button
+                  onClick={() => {
+                    handleUpdateStatus(item._id, 'cancelled');
+                    setSelectedItem(null);
+                    setDropdownPosition(null);
+                  }}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 text-left text-red-400 hover:bg-red-500/10 rounded-lg transition-colors text-sm"
+                >
+                  <XCircle className="w-4 h-4" />
+                  <span>Cancel {item.type}</span>
+                </button>
+              )}
+            </div>
+          </div>,
+          document.body
+        );
+      })()}
     </div>
   );
 }

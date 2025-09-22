@@ -173,7 +173,8 @@ export default defineSchema({
     status: v.union(
       v.literal("pending"), // New status for guest reservations
       v.literal("confirmed"),
-      v.literal("completed"), // Replaces 'active' - comes after confirmed
+      v.literal("ready_for_pickup"), // New status - reservation is ready for customer pickup
+      v.literal("completed"), // Replaces 'active' - comes after ready_for_pickup
       v.literal("expired"),
       v.literal("cancelled")
     ),

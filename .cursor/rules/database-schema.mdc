@@ -1,0 +1,79 @@
+---
+globs: convex/schema.ts,convex/services/**,types/index.ts
+---
+
+# Database Schema & Convex Integration
+
+## Core Database Tables (convex/schema.ts)
+
+### Users Table
+```typescript
+{
+  _id: string,
+  email: string,
+  firstName: string,
+  lastName: string,
+  phone?: string,
+  passwordHash?: string, // Optional for Facebook users
+  role: "client" | "admin" | "super_admin",
+  isActive?: boolean,
+  // Facebook integration
+  facebookId?: string,
+  profilePicture?: string,
+  loginMethod?: "email" | "facebook",
+  createdAt: number,
+  updatedAt: number
+}
+```
+
+### Products Table
+```typescript
+{
+  _id: string,
+  name: string,
+  description?: string,
+  price: number,
+  originalPrice?: number,
+  categoryId: string,
+  image: string,
+  images?: string[],
+  certificate?: string,
+  sku?: string | number,
+  stock: number,
+  rating?: number,
+  reviews?: number,
+  badge?: string,
+  productStatus?: string,
+  lifespan?: string,
+  isActive: boolean,
+  createdAt: number,
+  updatedAt: number
+}
+```
+
+### Specialized Product Data
+- **Fish Data:** Scientific name, size, temperature, pH, origin, diet
+- **Tank Data:** Type, material, capacity, dimensions, thickness, lighting
+
+### Orders & Reservations
+- **Orders:** Full e-commerce orders with shipping and payment tracking
+- **Reservations:** Multi-item reservation system for live fish with pickup scheduling
+- **Cart:** Supports both authenticated users and guests
+
+## Convex Services Structure
+- [convex/services/auth.ts](mdc:convex/services/auth.ts) - User authentication and management
+- [convex/services/products.ts](mdc:convex/services/products.ts) - Product catalog operations
+- [convex/services/orders.ts](mdc:convex/services/orders.ts) - Order processing
+- [convex/services/reservations.ts](mdc:convex/services/reservations.ts) - Reservation management
+- [convex/services/cart.ts](mdc:convex/services/cart.ts) - Shopping cart operations
+- [convex/services/notifications.ts](mdc:convex/services/notifications.ts) - Notification system
+- [convex/services/admin.ts](mdc:convex/services/admin.ts) - Admin operations
+
+## TypeScript Types
+All database types are defined in [types/index.ts](mdc:types/index.ts) with strict TypeScript interfaces.
+
+## Important Patterns
+- Use Convex reactive queries for real-time data
+- Support both user and guest data access patterns
+- Maintain backward compatibility with legacy single-item reservations
+- Use proper indexing for query performance

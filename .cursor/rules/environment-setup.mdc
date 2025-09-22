@@ -1,0 +1,139 @@
+---
+description: Environment configuration and development setup
+---
+
+# Environment Setup & Configuration
+
+## Required Environment Variables
+
+### Development (.env.local)
+```env
+# Facebook OAuth Configuration
+FACEBOOK_CLIENT_ID=your_facebook_app_id
+FACEBOOK_CLIENT_SECRET=your_facebook_app_secret
+FACEBOOK_CONFIG_ID=your_optional_facebook_login_config_id
+
+# NextAuth Configuration
+NEXTAUTH_URL=http://localhost:3000
+NEXTAUTH_SECRET=generate_a_random_string_here
+
+# Convex Configuration
+NEXT_PUBLIC_CONVEX_URL=your_convex_url
+```
+
+### Production Environment
+```env
+# Update URLs for production domain
+NEXTAUTH_URL=https://your-domain.com
+NEXT_PUBLIC_CONVEX_URL=your_production_convex_url
+```
+
+## Development Commands
+
+### Core Development
+```bash
+# Start development server with Turbopack
+npm run dev
+
+# Build for production
+npm run build
+
+# Start production server
+npm start
+
+# Run ESLint
+npm run lint
+```
+
+### Mobile Development
+```bash
+# Sync web assets to Android
+npx cap sync android
+
+# Open Android Studio
+npx cap open android
+
+# Build and run on device
+npx cap run android
+
+# Build debug APK
+cd android && ./gradlew assembleDebug
+```
+
+### Mobile Development Server
+```bash
+# Start dev server accessible from mobile devices
+npm run dev -- --hostname 0.0.0.0 --port 3000
+```
+
+## Facebook App Setup
+
+### Required OAuth Redirect URIs
+- **Development:** `http://localhost:3000/api/auth/callback/facebook`
+- **Production:** `https://your-domain.com/api/auth/callback/facebook`
+
+### Facebook App Configuration
+1. Create app at [Facebook Developers](https://developers.facebook.com/)
+2. Add "Facebook Login" product
+3. Configure OAuth redirect URIs
+4. Set app permissions and review requirements
+
+## Convex Setup
+
+### Database Configuration
+- Real-time database with reactive queries
+- Type-safe schema in [convex/schema.ts](mdc:convex/schema.ts)
+- Business logic in [convex/services/](mdc:convex/services/)
+
+### Development Workflow
+1. Get Convex URL from dashboard
+2. Update `NEXT_PUBLIC_CONVEX_URL` in environment
+3. Deploy schema changes with `npx convex dev`
+
+## Build Configuration
+
+### Next.js Configuration (next.config.ts)
+- **Turbopack:** Enabled for faster builds
+- **Images:** Unoptimized for mobile compatibility
+- **TypeScript:** Build errors ignored for Capacitor
+- **ESLint:** Ignored during builds for mobile assets
+
+### Capacitor Configuration (capacitor.config.ts)
+- **App ID:** com.celestial.app
+- **App Name:** CelestialApp
+- **Web Directory:** out (Next.js static export)
+- **Development Server:** http://10.0.2.2:3000
+
+## Development Workflow
+
+### Web Development
+1. Set up environment variables
+2. Run `npm run dev` for development server
+3. Access at `http://localhost:3000`
+4. Use Turbopack for faster builds
+
+### Mobile Development
+1. Ensure dev server runs on `0.0.0.0:3000`
+2. Run `npx cap sync android` to sync assets
+3. Build APK with `cd android && ./gradlew assembleDebug`
+4. Install on device/emulator for testing
+
+### Production Deployment
+1. Update environment variables for production
+2. Run `npm run build` to create static files
+3. Deploy static files to hosting service
+4. Update Capacitor configuration for production URLs
+
+## Troubleshooting
+
+### Common Issues
+- **Mobile Connection:** Ensure dev server runs on `0.0.0.0:3000`
+- **Facebook OAuth:** Verify redirect URIs match exactly
+- **Convex Connection:** Check `NEXT_PUBLIC_CONVEX_URL` is correct
+- **Build Errors:** TypeScript/ESLint errors ignored for Capacitor builds
+
+### Environment Validation
+- Facebook OAuth credentials are valid
+- Convex URL is accessible
+- NextAuth secret is generated securely
+- Development server is accessible from mobile devices

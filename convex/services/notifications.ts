@@ -60,17 +60,35 @@ export const getAdminNotifications = query({
     onlyUnread: v.optional(v.boolean()),
   },
   handler: async (ctx, { limit = 50, onlyUnread = false }) => {
-    let query = ctx.db.query("notifications");
+    let notifications;
     
     if (onlyUnread) {
-      query = query.withIndex("by_read", (q) => q.eq("isRead", false));
+      notifications = await ctx.db
+        .query("notifications")
+        .withIndex("by_read", (q) => q.eq("isRead", false))
+        .order("desc")
+        .take(limit);
+    } else {
+      notifications = await ctx.db
+        .query("notifications")
+        .order("desc")
+        .take(limit);
     }
-    
-    const notifications = await query
-      .order("desc")
-      .take(limit);
 
-    return notifications;
+    // Sort by creation date (newest first) and priority (urgent first)
+    return notifications.sort((a, b) => {
+      // First sort by priority
+      const priorityOrder = { urgent: 4, high: 3, medium: 2, low: 1 };
+      const aPriority = priorityOrder[a.priority as keyof typeof priorityOrder] || 1;
+      const bPriority = priorityOrder[b.priority as keyof typeof priorityOrder] || 1;
+      
+      if (aPriority !== bPriority) {
+        return bPriority - aPriority;
+      }
+      
+      // Then sort by creation date
+      return b.createdAt - a.createdAt;
+    });
   },
 });
 
@@ -249,6 +267,44 @@ export const notifyReservationStatusChanged = mutation({
   },
 });
 
+// Helper function to notify customers when their reservation is ready for pickup
+export const notifyReservationReadyForPickup = mutation({
+  args: {
+    reservationId: v.string(),
+    customerName: v.string(),
+    customerEmail: v.optional(v.string()),
+    productName: v.string(),
+    quantity: v.number(),
+    pickupLocation: v.optional(v.string()),
+    notes: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const title = "🎉 Your Reservation is Ready for Pickup!";
+    const pickupInfo = args.pickupLocation ? ` at ${args.pickupLocation}` : "";
+    const additionalNotes = args.notes ? `\n\nNote: ${args.notes}` : "";
+    
+    const message = `Hello ${args.customerName}! Your reservation for ${args.quantity}x ${args.productName} is now ready for pickup${pickupInfo}. Please visit us to collect your items.${additionalNotes}`;
+    
+    await ctx.db.insert("notifications", {
+      title,
+      message,
+      type: "reservation",
+      isRead: false,
+      priority: "high",
+      relatedId: args.reservationId,
+      relatedType: "reservation",
+      metadata: {
+        customerName: args.customerName,
+        customerEmail: args.customerEmail,
+        productName: args.productName,
+        status: "ready_for_pickup",
+      },
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+  },
+});
+
 // Helper function to create user registration notifications
 export const notifyUserRegistered = mutation({
   args: {
@@ -350,13 +406,20 @@ export const getClientNotifications = query({
   },
   handler: async (ctx, { userId, userEmail, limit = 50, onlyUnread = false }) => {
     // Build query for notifications
-    let notificationsQuery = ctx.db.query("notifications");
+    let allNotifications;
 
     if (onlyUnread) {
-      notificationsQuery = notificationsQuery.withIndex("by_read", (q) => q.eq("isRead", false));
+      allNotifications = await ctx.db
+        .query("notifications")
+        .withIndex("by_read", (q) => q.eq("isRead", false))
+        .order("desc")
+        .collect();
+    } else {
+      allNotifications = await ctx.db
+        .query("notifications")
+        .order("desc")
+        .collect();
     }
-
-    const allNotifications = await notificationsQuery.order("desc").collect();
 
     // Filter notifications relevant to the specific client
     const clientNotifications = allNotifications.filter(notification => {
@@ -461,9 +524,7 @@ export const createPromotionNotification = mutation({
       priority: "medium",
       relatedType: "promotion",
       metadata: {
-        promoCode: args.promoCode,
-        discount: args.discount,
-        expiryDate: args.expiryDate,
+        status: "promotion",
       },
       createdAt: now,
       updatedAt: now,
@@ -499,7 +560,7 @@ export const notifyClientReservationConfirmed = mutation({
         customerName: args.customerName,
         customerEmail: args.customerEmail,
         productName: args.productName,
-        expiryDate: args.expiryDate,
+        status: "confirmed",
       },
       createdAt: Date.now(),
       updatedAt: Date.now(),
@@ -546,39 +607,6 @@ export const notifyClientOrderUpdate = mutation({
   },
 });
 
-// Get admin notifications (all types for admin dashboard)
-export const getAdminNotifications = query({
-  args: {
-    limit: v.optional(v.number()),
-    onlyUnread: v.optional(v.boolean()),
-  },
-  handler: async (ctx, { limit = 50, onlyUnread = false }) => {
-    let notificationsQuery = ctx.db.query("notifications");
-
-    if (onlyUnread) {
-      notificationsQuery = notificationsQuery.withIndex("by_read", (q) => q.eq("isRead", false));
-    }
-
-    const notifications = await notificationsQuery
-      .order("desc")
-      .take(limit);
-
-    // Sort by creation date (newest first) and priority (urgent first)
-    return notifications.sort((a, b) => {
-      // First sort by priority
-      const priorityOrder = { urgent: 4, high: 3, medium: 2, low: 1 };
-      const aPriority = priorityOrder[a.priority as keyof typeof priorityOrder] || 1;
-      const bPriority = priorityOrder[b.priority as keyof typeof priorityOrder] || 1;
-
-      if (aPriority !== bPriority) {
-        return bPriority - aPriority;
-      }
-
-      // Then sort by creation date
-      return b.createdAt - a.createdAt;
-    });
-  },
-});
 
 // Auto-cleanup old notifications (run periodically)
 export const cleanupOldNotifications = mutation({

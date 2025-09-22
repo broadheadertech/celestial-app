@@ -1,0 +1,87 @@
+---
+globs: capacitor.config.ts,android/**,ANDROID_BUILD.md
+---
+
+# Mobile App Development (Capacitor)
+
+## Capacitor Configuration
+
+### App Configuration (capacitor.config.ts)
+```typescript
+{
+  appId: 'com.celestial.app',
+  appName: 'CelestialApp',
+  webDir: 'out', // Next.js static export directory
+  server: {
+    url: 'http://10.0.2.2:3000', // Development server
+    cleartext: true
+  }
+}
+```
+
+## Build Process
+
+### Development Build
+1. **Start Dev Server:** `npm run dev -- --hostname 0.0.0.0 --port 3000`
+2. **Sync Assets:** `npx cap sync android`
+3. **Build APK:** `cd android && ./gradlew assembleDebug`
+
+### Production Build
+1. **Web Build:** `npm run build` (creates static files in `out/`)
+2. **Export:** `npx next export -o out` (if needed)
+3. **Sync:** `npx cap sync android`
+4. **Build:** `cd android && ./gradlew assembleDebug`
+
+### Quick Build & Install
+```bash
+npx cap run android  # Build, install, and launch on device
+```
+
+## Mobile-Specific Features
+
+### Responsive Design
+- **Mobile-First:** All components designed for mobile screens
+- **Touch-Friendly:** Proper touch targets and gestures
+- **Navigation:** Bottom navigation for mobile users
+- **Offline Support:** Local storage for cart and auth state
+
+### Native Integration
+- **App Icons:** Configured in [android/app/src/main/res/](mdc:android/app/src/main/res/)
+- **Permissions:** Android permissions in [android/app/src/main/AndroidManifest.xml](mdc:android/app/src/main/AndroidManifest.xml)
+- **Splash Screen:** Native splash screen support
+- **Push Notifications:** Via Convex real-time updates
+
+## Development Guidelines
+
+### Next.js Configuration
+- **Images:** `unoptimized: true` for mobile compatibility
+- **Build:** Turbopack for faster development
+- **TypeScript:** `ignoreBuildErrors: true` for Capacitor builds
+- **ESLint:** `ignoreDuringBuilds: true` for mobile assets
+
+### Mobile Testing
+- **Emulator:** Use Android Studio emulator for testing
+- **Device:** Test on physical Android devices
+- **Network:** Ensure dev server is accessible from mobile device
+- **Performance:** Monitor app performance on mobile hardware
+
+## File Structure
+```
+android/
+├── app/
+│   ├── build.gradle          # App-level build configuration
+│   ├── src/main/
+│   │   ├── AndroidManifest.xml
+│   │   ├── assets/           # Web assets from Capacitor sync
+│   │   └── res/             # Android resources (icons, etc.)
+│   └── build/outputs/apk/   # Generated APK files
+├── build.gradle             # Project-level build configuration
+└── gradle.properties        # Gradle properties
+```
+
+## Important Notes
+- Development server must run on `0.0.0.0:3000` for mobile access
+- APK files are generated in `android/app/build/outputs/apk/debug/`
+- Use `adb install -r` to reinstall updated APKs
+- Keep dev server running while testing mobile app
+- Static export (`out/` directory) is used for production builds

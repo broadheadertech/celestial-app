@@ -1,0 +1,31 @@
+---
+alwaysApply: true
+---
+
+# Celestial Drakon Aquatics - Project Overview
+
+This is an e-commerce platform for aquarium fish, tanks, and aquatic accessories serving the Philippines market. The application is cross-platform (Web + Mobile via Capacitor).
+
+## Core Business Model
+- **Products:** Aquarium fish, tanks, and aquatic accessories
+- **Sales Model:** E-commerce with reservation system for live fish
+- **User Types:** Customers, Admins, Super Admins
+- **Special Features:** Guest shopping, Facebook authentication, multi-platform deployment
+
+## Technology Stack
+- **Frontend:** Next.js 15.5.3 (App Router), TypeScript (strict mode), Tailwind CSS 4.0
+- **Backend:** Convex (real-time database and API)
+- **Authentication:** NextAuth.js with Facebook OAuth
+- **State Management:** Zustand
+- **Mobile:** Capacitor (Android support)
+- **Build Tool:** Turbopack
+
+## Key Architecture Patterns
+- **App Router:** File-system based routing in [app/](mdc:app/)
+- **Real-time Updates:** Convex reactive queries
+- **Component-Based:** Custom UI components with variants in [components/ui/](mdc:components/ui/)
+- **Role-Based Access:** Middleware-protected routes
+- **Guest Support:** Persistent guest sessions for non-authenticated users
+
+## Business Context
+This application was migrated from React Native to Next.js while preserving core business logic. It supports both authenticated users and guests, with specialized features for live fish reservations and aquarium product sales.

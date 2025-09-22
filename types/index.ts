@@ -150,7 +150,7 @@ export interface Reservation {
   quantity?: number; // Legacy single quantity
   reservationDate: number;
   expiryDate: number;
-  status: "pending" | "confirmed" | "completed" | "expired" | "cancelled";
+  status: "pending" | "confirmed" | "ready_for_pickup" | "completed" | "expired" | "cancelled";
   notes?: string;
   createdAt: number;
   updatedAt: number;

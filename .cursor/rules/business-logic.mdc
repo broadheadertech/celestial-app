@@ -1,0 +1,88 @@
+---
+description: Business logic and e-commerce patterns for aquarium products
+---
+
+# Business Logic & E-commerce Patterns
+
+## Product Management
+
+### Product Types
+- **Fish Products:** Live fish with specialized data (scientific name, temperature, pH, origin, diet)
+- **Tank Products:** Aquarium tanks with technical specifications (capacity, dimensions, material)
+- **Accessories:** General aquatic accessories and equipment
+
+### Product Features
+- **Stock Tracking:** Real-time inventory management
+- **Pricing:** Support for original price and sale price
+- **Categories:** Hierarchical product organization
+- **Images:** Multiple product images and certificates
+- **Ratings:** Product reviews and ratings system
+
+## Order Processing Workflow
+
+### Order Status Flow
+```
+pending → confirmed → processing → shipped → delivered
+```
+
+### Reservation Status Flow (for live fish)
+```
+pending → confirmed → completed → expired
+```
+
+### Guest Order Requirements
+- Contact information (name, email, phone)
+- Complete shipping address
+- Pickup schedule for reservations
+- Special instructions/notes
+
+## Shopping Cart Logic
+
+### Cart Features
+- **User Cart:** Persistent cart for authenticated users
+- **Guest Cart:** Temporary cart for non-authenticated users
+- **Quantity Management:** Add, remove, update quantities
+- **Price Calculation:** Real-time total calculation
+- **Stock Validation:** Check availability before adding
+
+### Reservation System
+- **Multi-item Support:** Reserve multiple fish in one transaction
+- **Pickup Scheduling:** Date and time selection for live fish
+- **Expiry Management:** Automatic expiration of unpaid reservations
+- **Guest Reservations:** Full reservation capability without registration
+
+## User Experience Rules
+
+### Guest Mode Features
+- Browse all products and categories
+- Add items to cart
+- Create reservations with contact information
+- View product details and specifications
+- Access mobile-optimized interface
+
+### Authentication Benefits
+- Persistent cart across sessions
+- Order history and tracking
+- Profile management
+- Faster checkout process
+- Facebook login integration
+
+## Business Constraints
+
+### Live Fish Handling
+- Require reservations (cannot be shipped like regular products)
+- Need pickup scheduling for immediate collection
+- Stock must be reserved to prevent overselling
+- Expiry dates for unpaid reservations
+
+### Mobile-First Design
+- Responsive design for all screen sizes
+- Touch-friendly interface
+- Offline support for cart and auth state
+- Native mobile app via Capacitor
+
+## Integration Points
+- **Payment Gateway:** Ready for Stripe, PayPal, or local payment methods
+- **SMS Notifications:** Order and reservation confirmations
+- **Email Service:** Transactional emails for orders
+- **Analytics:** Business intelligence and user behavior tracking

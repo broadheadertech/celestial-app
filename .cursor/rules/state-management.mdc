@@ -1,0 +1,75 @@
+---
+globs: store/**,hooks/use*.ts
+---
+
+# State Management Patterns
+
+## Zustand Stores
+
+### Auth Store (store/auth.ts)
+```typescript
+interface AuthStore {
+  user: User | null;
+  isLoading: boolean;
+  isAuthenticated: boolean;
+  guestId?: string;
+  
+  // Actions
+  login: (user: User) => void;
+  logout: () => void;
+  updateUser: (updates: Partial<User>) => void;
+  setLoading: (loading: boolean) => void;
+  initializeGuestSession: () => void;
+  updateGuestId: (guestId: string) => void;
+}
+```
+
+### Cart Store (store/cart.ts)
+```typescript
+interface CartStore {
+  items: CartItem[];
+  isLoading: boolean;
+  error: string | null;
+  
+  // Actions
+  addItem: (product: Product, quantity?: number) => void;
+  removeItem: (productId: string) => void;
+  updateQuantity: (productId: string, quantity: number) => void;
+  clearCart: () => void;
+  getItemCount: () => number;
+  getTotalAmount: () => number;
+}
+```
+
+## Custom Hooks
+
+### Auth Hooks
+- `useIsAuthenticated()` - Check if user is authenticated
+- `useIsGuest()` - Check if user is in guest mode
+- `useIsAdmin()` - Check if user has admin role
+
+### Cart Hooks
+- `useCartItemCount()` - Get total number of items in cart
+- `useCartTotal()` - Get total cart amount
+- `useCartItems()` - Get all cart items
+
+## State Management Rules
+- **Global State:** Use Zustand stores for auth and cart
+- **Component State:** Use React hooks (useState, useEffect) for local state
+- **Server State:** Use Convex reactive queries for real-time data
+- **Form State:** Use local component state with controlled inputs
+- **Persistence:** Auth and cart data persist in localStorage
+- **Guest Support:** All stores support both authenticated users and guests
+
+## Data Flow
+1. **Frontend Components** → Zustand stores → Local Storage
+2. **Convex Queries** → Real-time server state → Component updates
+3. **NextAuth** → Session management → Auth store updates
+4. **User Actions** → Store mutations → UI updates
+
+## Important Patterns
+- Always check authentication state before accessing user-specific data
+- Support guest sessions with auto-generated guest IDs
+- Use proper TypeScript interfaces for all state
+- Handle loading and error states consistently
+- Maintain data consistency between local and server state

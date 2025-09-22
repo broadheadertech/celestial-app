@@ -473,6 +473,102 @@ export const cancelReservation = mutation({
   },
 });
 
+// Admin: Mark reservation as ready for pickup (with customer notification)
+export const markReservationReadyForPickup = mutation({
+  args: {
+    reservationId: v.id("reservations"),
+    pickupLocation: v.optional(v.string()),
+    notes: v.optional(v.string()),
+  },
+  handler: async (ctx, { reservationId, pickupLocation, notes }) => {
+    const reservation = await ctx.db.get(reservationId);
+    
+    if (!reservation) {
+      throw new Error("Reservation not found");
+    }
+
+    if (reservation.status !== "confirmed") {
+      throw new Error("Reservation must be confirmed before marking as ready for pickup");
+    }
+
+    const now = Date.now();
+    const oldStatus = reservation.status;
+
+    // Update reservation status
+    await ctx.db.patch(reservationId, {
+      status: "ready_for_pickup",
+      notes: notes || reservation.notes,
+      updatedAt: now,
+    });
+
+    // Get customer information for notification
+    let customerName = 'Unknown Customer';
+    let customerEmail: string | undefined = undefined;
+    
+    if (reservation.guestInfo) {
+      // Guest reservation
+      customerName = reservation.guestInfo.name;
+      customerEmail = reservation.guestInfo.email;
+    } else if (reservation.userId) {
+      // User reservation - fetch user details
+      const user = await ctx.db.get(reservation.userId as any);
+      if (user) {
+        customerName = `${user.firstName} ${user.lastName}`;
+        customerEmail = user.email;
+      }
+    }
+
+    // Get product information for notification
+    let productName = 'Your items';
+    let totalQuantity = reservation.totalQuantity || 1;
+    
+    if (reservation.items && reservation.items.length > 0) {
+      // Multi-item reservation
+      if (reservation.items.length === 1) {
+        const product = await ctx.db.get(reservation.items[0].productId);
+        productName = product?.name || 'Product';
+        totalQuantity = reservation.items[0].quantity;
+      } else {
+        productName = `${reservation.items.length} items`;
+      }
+    } else if (reservation.productId) {
+      // Legacy single-item reservation
+      const product = await ctx.db.get(reservation.productId);
+      productName = product?.name || 'Product';
+      totalQuantity = reservation.quantity || 1;
+    }
+
+    // Create customer notification
+    const { notifyReservationReadyForPickup } = await import('./notifications');
+    await notifyReservationReadyForPickup(ctx, {
+      reservationId: reservation.reservationCode || reservation._id,
+      customerName,
+      customerEmail,
+      productName,
+      quantity: totalQuantity,
+      pickupLocation,
+      notes,
+    });
+
+    // Create admin notification for status change
+    const { notifyReservationStatusChanged } = await import('./notifications');
+    await notifyReservationStatusChanged(ctx, {
+      reservationId: reservation.reservationCode || reservation._id,
+      customerName,
+      productName,
+      oldStatus,
+      newStatus: "ready_for_pickup",
+    });
+
+    return {
+      success: true,
+      message: "Reservation marked as ready for pickup and customer has been notified",
+      reservationCode: reservation.reservationCode,
+      customerName,
+    };
+  },
+});
+
 // Admin: Update reservation status - UPDATED FOR MULTI-ITEM
 export const updateReservationStatus = mutation({
   args: {
@@ -480,6 +576,7 @@ export const updateReservationStatus = mutation({
     status: v.union(
       v.literal("pending"),
       v.literal("confirmed"),
+      v.literal("ready_for_pickup"),
       v.literal("completed"),
       v.literal("expired"),
       v.literal("cancelled")

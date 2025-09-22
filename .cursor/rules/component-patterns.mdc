@@ -1,0 +1,66 @@
+---
+globs: components/**,app/**/*.tsx
+---
+
+# Component Patterns & UI Guidelines
+
+## UI Component Structure (components/ui/)
+
+### Button Component
+Located at [components/ui/Button.tsx](mdc:components/ui/Button.tsx)
+```typescript
+variants: "primary" | "secondary" | "outline" | "ghost"
+sizes: "xs" | "sm" | "md" | "lg"
+props: disabled, loading, className, onClick, type
+```
+
+### Input Component
+Located at [components/ui/Input.tsx](mdc:components/ui/Input.tsx)
+```typescript
+props: label, placeholder, value, onChange, type, required, disabled, error, className
+```
+
+### Card Component
+Located at [components/ui/Card.tsx](mdc:components/ui/Card.tsx)
+```typescript
+variants: "default" | "glass" | "modern"
+padding: "none" | "sm" | "md" | "lg"
+props: hover, className
+```
+
+## Business Components
+
+### Authentication Components
+- [components/AuthProvider.tsx](mdc:components/AuthProvider.tsx) - NextAuth session provider
+- [components/ConvexProvider.tsx](mdc:components/ConvexProvider.tsx) - Convex client provider
+- [components/AuthInitializer.tsx](mdc:components/AuthInitializer.tsx) - Auth state initialization
+
+### Navigation Components
+- [components/client/ClientBottomNavbar.tsx](mdc:components/client/ClientBottomNavbar.tsx) - Mobile navigation
+- [components/common/BottomNavbar.tsx](mdc:components/common/BottomNavbar.tsx) - Common navigation
+
+## App Router Patterns (app/)
+
+### Page Structure
+- **Pages:** `page.tsx` files in route directories
+- **Layouts:** `layout.tsx` files for shared layouts
+- **Loading:** `loading.tsx` for loading states
+- **Error:** `error.tsx` for error boundaries
+
+### Route Organization
+```
+app/
+├── admin/           # Admin dashboard (role: admin)
+├── auth/            # Authentication pages (public)
+├── client/          # Customer features (authenticated)
+├── control_panel/   # Super admin panel (role: admin/super_admin)
+└── api/             # API routes (NextAuth)
+```
+
+## Component Guidelines
+- Use TypeScript interfaces from [types/index.ts](mdc:types/index.ts)
+- Follow established prop patterns (ButtonProps, InputProps, etc.)
+- Support both authenticated and guest users where applicable
+- Use consistent styling with Tailwind CSS classes
+- Implement proper error handling and loading states
+- Maintain mobile-first responsive design

@@ -1,0 +1,113 @@
+---
+alwaysApply: true
+---
+
+# Development Standards & Guidelines
+
+## Code Quality Standards
+
+### TypeScript Configuration
+- **Strict Mode:** Enabled for type safety
+- **Interfaces:** All types defined in [types/index.ts](mdc:types/index.ts)
+- **Type Safety:** Use existing interfaces and create new ones as needed
+- **Compile Errors:** Currently ignored during builds for Capacitor compatibility
+
+### ESLint Configuration
+- **Code Quality:** Run `npm run lint` before committing
+- **Build Ignore:** Linting ignored during builds for mobile assets
+- **Standards:** Follow Next.js ESLint configuration
+
+## File Naming Conventions
+
+### App Router Files
+- **Pages:** `page.tsx` (required for routes)
+- **Layouts:** `layout.tsx` (shared layouts)
+- **Loading:** `loading.tsx` (loading states)
+- **Error:** `error.tsx` (error boundaries)
+
+### Components
+- **UI Components:** PascalCase (e.g., `Button.tsx`, `ProductCard.tsx`)
+- **Business Components:** PascalCase with descriptive names
+- **Hooks:** camelCase with `use` prefix (e.g., `useAuth.ts`)
+
+### Directories
+- **Routes:** kebab-case (e.g., `control_panel/`, `client/`)
+- **Components:** kebab-case directories, PascalCase files
+- **Services:** camelCase (e.g., `convex/services/`)
+
+## Component Patterns
+
+### Props Interfaces
+```typescript
+// Use existing interfaces from types/index.ts
+interface ButtonProps {
+  variant?: "primary" | "secondary" | "outline" | "ghost";
+  size?: "xs" | "sm" | "md" | "lg";
+  disabled?: boolean;
+  loading?: boolean;
+  onClick?: () => void;
+}
+```
+
+### Error Handling
+```typescript
+// Always use try-catch with user-friendly messages
+try {
+  await someAsyncOperation();
+} catch (error) {
+  const message = error instanceof Error ? error.message : 'An error occurred';
+  setError(message);
+}
+```
+
+## State Management Rules
+
+### Zustand Stores
+- **Global State:** Auth and cart in [store/](mdc:store/)
+- **Persistence:** Use localStorage for auth and cart data
+- **TypeScript:** Strict typing for all store interfaces
+
+### Convex Integration
+- **Queries:** Use reactive queries for real-time data
+- **Mutations:** Use mutations for data modifications
+- **Actions:** Use actions for external API calls
+
+## Business Logic Requirements
+
+### User Support
+- **Dual Mode:** Support both authenticated users and guests
+- **Guest Sessions:** Auto-generated guest IDs for non-authenticated users
+- **Role-Based Access:** Implement proper authorization checks
+
+### E-commerce Features
+- **Cart Functionality:** Full cart management for users and guests
+- **Reservations:** Multi-item reservation system for live fish
+- **Order Processing:** Complete order workflow with status tracking
+
+## Mobile Compatibility
+
+### Responsive Design
+- **Mobile-First:** Design for mobile screens first
+- **Touch Targets:** Ensure proper touch target sizes
+- **Performance:** Optimize for mobile performance
+
+### Capacitor Integration
+- **Build Process:** Follow Capacitor build requirements
+- **Static Export:** Use `out/` directory for mobile assets
+- **Development:** Run dev server on `0.0.0.0:3000` for mobile testing
+
+## Testing & Quality Assurance
+
+### Manual Testing
+- **User Flows:** Test both authenticated and guest user flows
+- **Mobile Testing:** Test on mobile devices and emulators
+- **Cross-Platform:** Verify web and mobile functionality
+
+### Code Review Checklist
+- [ ] TypeScript types are properly defined
+- [ ] Components follow established patterns
+- [ ] Error handling is implemented
+- [ ] Mobile compatibility is maintained
+- [ ] Both user types (authenticated/guest) are supported
+- [ ] Business logic is preserved
+- [ ] Performance is optimized

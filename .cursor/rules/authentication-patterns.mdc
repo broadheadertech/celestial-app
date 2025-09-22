@@ -1,0 +1,40 @@
+---
+globs: **/auth/**,**/api/auth/**,middleware.ts,store/auth.ts,hooks/useAuth.ts
+---
+
+# Authentication & Authorization Patterns
+
+## Authentication Methods
+1. **Email/Password:** Traditional authentication via [convex/services/auth.ts](mdc:convex/services/auth.ts)
+2. **Facebook OAuth:** Social login with NextAuth.js in [app/api/auth/[...nextauth]/route.ts](mdc:app/api/auth/[...nextauth]/route.ts)
+3. **Guest Mode:** Persistent guest sessions for browsing without registration
+
+## User Roles & Access Control
+- **Client:** Regular customers - can browse, purchase, make reservations
+- **Admin:** Store management - inventory, order processing, user management
+- **Super Admin:** Full system access - user role management, system settings
+
+## Route Protection (middleware.ts)
+```typescript
+- /auth/* - Public authentication routes
+- /admin/* - Admin role required
+- /control_panel/* - Admin or Super Admin required
+- /client/* - Authentication required (redirects to login)
+```
+
+## Session Management
+- **NextAuth.js:** Handles OAuth and session persistence
+- **Zustand Store:** Client-side auth state with localStorage in [store/auth.ts](mdc:store/auth.ts)
+- **Guest Sessions:** Auto-generated guest IDs for non-authenticated users
+
+## Key Files
+- [middleware.ts](mdc:middleware.ts) - Route protection and authorization
+- [store/auth.ts](mdc:store/auth.ts) - Client-side auth state management
+- [hooks/useAuth.ts](mdc:hooks/useAuth.ts) - Authentication utilities
+- [app/api/auth/[...nextauth]/route.ts](mdc:app/api/auth/[...nextauth]/route.ts) - NextAuth configuration
+
+## Important Rules
+- Always check authentication state before accessing protected routes
+- Support both authenticated users and guests in all features
+- Use role-based access control for admin functions
+- Maintain guest session persistence across page reloads
