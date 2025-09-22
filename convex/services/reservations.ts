@@ -3,7 +3,8 @@ import { v } from "convex/values";
 import { 
   notifyLowStock, 
   notifyReservationCreated, 
-  notifyReservationStatusChanged 
+  notifyReservationStatusChanged,
+  notifyReservationReadyForPickup
 } from './notifications';
 
 // Helper function to generate unique reservation codes
@@ -479,8 +480,10 @@ export const markReservationReadyForPickup = mutation({
     reservationId: v.id("reservations"),
     pickupLocation: v.optional(v.string()),
     notes: v.optional(v.string()),
+    pickupDate: v.optional(v.string()),
+    pickupTime: v.optional(v.string()),
   },
-  handler: async (ctx, { reservationId, pickupLocation, notes }) => {
+  handler: async (ctx, { reservationId, pickupLocation, notes, pickupDate, pickupTime }) => {
     const reservation = await ctx.db.get(reservationId);
     
     if (!reservation) {
@@ -539,7 +542,6 @@ export const markReservationReadyForPickup = mutation({
     }
 
     // Create customer notification
-    const { notifyReservationReadyForPickup } = await import('./notifications');
     await notifyReservationReadyForPickup(ctx, {
       reservationId: reservation.reservationCode || reservation._id,
       customerName,
@@ -548,10 +550,11 @@ export const markReservationReadyForPickup = mutation({
       quantity: totalQuantity,
       pickupLocation,
       notes,
+      pickupDate,
+      pickupTime,
     });
 
     // Create admin notification for status change
-    const { notifyReservationStatusChanged } = await import('./notifications');
     await notifyReservationStatusChanged(ctx, {
       reservationId: reservation.reservationCode || reservation._id,
       customerName,

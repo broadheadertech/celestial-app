@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import {
   ArrowLeft,
@@ -56,8 +56,11 @@ export default function ReservationDetailPage() {
 
   const [isUpdating, setIsUpdating] = useState(false);
   const [showStatusModal, setShowStatusModal] = useState(false);
+  const [showPickupModal, setShowPickupModal] = useState(false);
   const [newStatus, setNewStatus] = useState('');
   const [statusNote, setStatusNote] = useState('');
+  const [pickupDate, setPickupDate] = useState('');
+  const [pickupTime, setPickupTime] = useState('');
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
   const [confirmationModalProps, setConfirmationModalProps] = useState({
     title: '',
@@ -73,6 +76,17 @@ export default function ReservationDetailPage() {
   // Mutations for updating reservation status
   const updateReservationStatus = useMutation(api.services.reservations.updateReservationStatus);
   const markReservationReadyForPickup = useMutation(api.services.reservations.markReservationReadyForPickup);
+
+  // Set default pickup date and time when modal opens
+  useEffect(() => {
+    if (showPickupModal) {
+      const now = new Date();
+      const today = now.toISOString().split('T')[0];
+      const time = now.toTimeString().slice(0, 5);
+      setPickupDate(today);
+      setPickupTime(time);
+    }
+  }, [showPickupModal]);
 
   const showConfirmation = (title: string, message: string, type: 'success' | 'error' | 'warning' | 'info' = 'info') => {
     setConfirmationModalProps({ title, message, type });
@@ -139,10 +153,13 @@ export default function ReservationDetailPage() {
       await markReservationReadyForPickup({
         reservationId: reservation._id as Id<'reservations'>,
         pickupLocation: 'Main Store',
-        notes: statusNote || undefined
+        notes: statusNote || undefined,
+        pickupDate: pickupDate || undefined,
+        pickupTime: pickupTime || undefined
       });
 
       setStatusNote('');
+      setShowPickupModal(false);
 
       // Show success message
       showConfirmation('Success', 'Reservation marked as ready for pickup! Customer has been notified.', 'success');
@@ -349,9 +366,8 @@ export default function ReservationDetailPage() {
               {/* Mark Ready for Pickup */}
               {reservation.status === 'confirmed' && (
                 <Button
-                  onClick={handleMarkReadyForPickup}
+                  onClick={() => setShowPickupModal(true)}
                   disabled={isUpdating}
-                  loading={isUpdating}
                   variant="primary"
                   size="sm"
                   className="bg-info hover:bg-info/90 text-white shadow-lg shadow-info/25 hover:shadow-info/40"
@@ -629,6 +645,71 @@ export default function ReservationDetailPage() {
                   className="flex-1 order-1 sm:order-2"
                 >
                   {isUpdating ? 'Updating...' : 'Update Status'}
+                </Button>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* Pickup Schedule Modal */}
+      {showPickupModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-3 sm:p-6">
+          <Card className="w-full max-w-md mx-3">
+            <div className="p-4 sm:p-6">
+              <h3 className="text-lg font-bold text-white mb-4">Set Pickup Schedule</h3>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-white mb-2">
+                    Pickup Date
+                  </label>
+                  <input
+                    type="date"
+                    value={pickupDate}
+                    onChange={(e) => setPickupDate(e.target.value)}
+                    className="w-full bg-secondary border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-primary text-sm sm:text-base"
+                    min={new Date().toISOString().split('T')[0]}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-white mb-2">
+                    Pickup Time
+                  </label>
+                  <input
+                    type="time"
+                    value={pickupTime}
+                    onChange={(e) => setPickupTime(e.target.value)}
+                    className="w-full bg-secondary border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-primary text-sm sm:text-base"
+                  />
+                </div>
+
+                <div>
+                  <Input
+                    label="Pickup Note (Optional)"
+                    value={statusNote}
+                    onChange={setStatusNote}
+                    placeholder="Add a note about the pickup..."
+                  />
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-3 mt-6">
+                <Button
+                  onClick={() => setShowPickupModal(false)}
+                  variant="outline"
+                  className="flex-1 order-2 sm:order-1"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleMarkReadyForPickup}
+                  disabled={!pickupDate || !pickupTime || isUpdating}
+                  loading={isUpdating}
+                  className="flex-1 order-1 sm:order-2"
+                >
+                  {isUpdating ? 'Marking Ready...' : 'Mark Ready for Pickup'}
                 </Button>
               </div>
             </div>

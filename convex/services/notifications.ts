@@ -277,13 +277,16 @@ export const notifyReservationReadyForPickup = mutation({
     quantity: v.number(),
     pickupLocation: v.optional(v.string()),
     notes: v.optional(v.string()),
+    pickupDate: v.optional(v.string()),
+    pickupTime: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const title = "🎉 Your Reservation is Ready for Pickup!";
     const pickupInfo = args.pickupLocation ? ` at ${args.pickupLocation}` : "";
+    const pickupDateTime = args.pickupDate && args.pickupTime ? `\n\n📅 Pickup Schedule: ${args.pickupDate} at ${args.pickupTime}` : "";
     const additionalNotes = args.notes ? `\n\nNote: ${args.notes}` : "";
     
-    const message = `Hello ${args.customerName}! Your reservation for ${args.quantity}x ${args.productName} is now ready for pickup${pickupInfo}. Please visit us to collect your items.${additionalNotes}`;
+    const message = `Hello ${args.customerName}! Your reservation for ${args.quantity}x ${args.productName} is now ready for pickup${pickupInfo}. Please visit us to collect your items.${pickupDateTime}${additionalNotes}`;
     
     await ctx.db.insert("notifications", {
       title,
