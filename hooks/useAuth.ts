@@ -78,24 +78,33 @@ export function useAuth() {
       });
 
       if (result?.error) {
+        setLoading(false);
         throw new Error('Invalid email or password');
       }
 
-      // Wait for session to update
-      setTimeout(() => {
-        const role = (session?.user as any)?.role;
-        const redirectPath = role === 'admin' ? '/admin/dashboard' :
-                           role === 'super_admin' ? '/control_panel' :
-                           '/client/dashboard';
-        router.push(redirectPath);
-      }, 100);
-
+      // Don't use setTimeout - it can cause race conditions
+      // The useEffect above will handle redirecting when session updates
       return result;
     } catch (error) {
       setLoading(false);
       throw error;
     }
-  }, [setLoading, router, session]);
+  }, [setLoading]);
+
+  // Add a separate effect to handle redirection after successful login
+  useEffect(() => {
+    if (status === 'authenticated' && session?.user) {
+      const role = (session.user as any)?.role;
+      const redirectPath = role === 'admin' ? '/admin/dashboard' :
+                         role === 'super_admin' ? '/control_panel' :
+                         '/client/dashboard';
+      
+      // Only redirect if we're currently on the login page
+      if (window.location.pathname === '/auth/login') {
+        router.push(redirectPath);
+      }
+    }
+  }, [session, status, router]);
 
   const registerWithEmail = useCallback(async (data: RegisterData & { password: string }) => {
     try {

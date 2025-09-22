@@ -204,20 +204,20 @@ export default function AdminSettingsPage() {
     label: string;
     description?: string;
   }) => (
-    <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
-      <div className="flex-1">
-        <p className="text-white text-sm font-medium">{label}</p>
-        {description && <p className="text-white/60 text-xs mt-1">{description}</p>}
+    <div className="flex items-start justify-between p-4 bg-white/5 rounded-lg border border-white/10">
+      <div className="flex-1 pr-3">
+        <p className="text-white text-sm font-medium leading-tight">{label}</p>
+        {description && <p className="text-white/60 text-xs mt-1 leading-relaxed">{description}</p>}
       </div>
       <button
         onClick={() => onChange(!enabled)}
-        className={`relative w-12 h-6 rounded-full transition-colors ${
+        className={`relative flex-shrink-0 w-11 h-6 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary/50 ${
           enabled ? 'bg-primary' : 'bg-white/20'
         }`}
       >
         <div
-          className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${
-            enabled ? 'translate-x-7' : 'translate-x-1'
+          className={`absolute top-0.5 w-5 h-5 bg-white rounded-full transition-transform shadow-sm ${
+            enabled ? 'translate-x-5' : 'translate-x-0.5'
           }`}
         />
       </button>
@@ -229,107 +229,113 @@ export default function AdminSettingsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pb-20 sm:pb-6">
       {/* Header */}
       <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-white/10">
-        <div className="px-4 sm:px-6 py-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
+        <div className="px-3 sm:px-6 py-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center space-x-3 min-w-0 flex-1">
               <button
                 onClick={() => router.back()}
-                className="p-1.5 rounded-lg bg-secondary border border-white/10 hover:bg-white/10 transition-colors"
+                className="flex-shrink-0 p-2 rounded-lg bg-secondary border border-white/10 hover:bg-white/10 transition-colors"
               >
                 <ArrowLeft className="w-4 h-4 text-white" />
               </button>
-              <div>
-                <h1 className="text-lg font-bold text-white">Settings</h1>
-                <p className="text-xs text-white/60">Manage your preferences</p>
+              <div className="min-w-0">
+                <h1 className="text-lg sm:text-xl font-bold text-white truncate">Settings</h1>
+                <p className="text-xs text-white/60 hidden sm:block">Manage your preferences</p>
               </div>
             </div>
             <Button
               onClick={handleSaveSettings}
               disabled={isSaving}
               size="sm"
-              className="bg-primary hover:bg-primary/90 text-sm px-4 py-2"
+              className="flex-shrink-0 bg-primary hover:bg-primary/90 text-xs sm:text-sm px-3 sm:px-4 py-2"
             >
               {isSaving ? (
-                <RefreshCw className="w-3 h-3 mr-1.5 animate-spin" />
+                <RefreshCw className="w-3 h-3 sm:mr-1.5 animate-spin" />
               ) : (
-                <Save className="w-3 h-3 mr-1.5" />
+                <Save className="w-3 h-3 sm:mr-1.5" />
               )}
-              {isSaving ? 'Saving...' : 'Save'}
+              <span className="hidden sm:inline">{isSaving ? 'Saving...' : 'Save'}</span>
             </Button>
           </div>
         </div>
       </div>
 
       {/* Settings Content */}
-      <div className="px-4 sm:px-6 py-6">
-        <div className="max-w-2xl space-y-6">
+      <div className="px-3 sm:px-6 py-4 sm:py-6">
+        <div className="max-w-4xl mx-auto space-y-4 sm:space-y-6">
           {/* Profile Information */}
-          <Card className="p-6">
-            <div className="flex items-center space-x-3 mb-6">
-              <div className="p-2 bg-primary/10 rounded-lg">
-                <User className="w-5 h-5 text-primary" />
+          <Card className="p-4 sm:p-6">
+            <div className="flex items-center space-x-3 mb-4 sm:mb-6">
+              <div className="p-2 bg-primary/10 rounded-lg flex-shrink-0">
+                <User className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
               </div>
-              <div>
-                <h2 className="text-lg font-bold text-white">Profile Information</h2>
-                <p className="text-sm text-white/60">Update your personal details</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-white/70 mb-2">First Name</label>
-                <input
-                  type="text"
-                  value={settings.firstName}
-                  onChange={(e) => setSettings(prev => ({ ...prev, firstName: e.target.value }))}
-                  className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:border-primary/50 focus:outline-none"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-white/70 mb-2">Last Name</label>
-                <input
-                  type="text"
-                  value={settings.lastName}
-                  onChange={(e) => setSettings(prev => ({ ...prev, lastName: e.target.value }))}
-                  className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:border-primary/50 focus:outline-none"
-                />
+              <div className="min-w-0">
+                <h2 className="text-base sm:text-lg font-bold text-white">Profile Information</h2>
+                <p className="text-xs sm:text-sm text-white/60">Update your personal details</p>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-              <div>
-                <label className="block text-sm font-medium text-white/70 mb-2">Email</label>
-                <input
-                  type="email"
-                  value={settings.email}
-                  onChange={(e) => setSettings(prev => ({ ...prev, email: e.target.value }))}
-                  className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:border-primary/50 focus:outline-none"
-                />
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-white/70 mb-2">First Name</label>
+                  <input
+                    type="text"
+                    value={settings.firstName}
+                    onChange={(e) => setSettings(prev => ({ ...prev, firstName: e.target.value }))}
+                    className="w-full px-3 py-2.5 bg-white/10 border border-white/20 rounded-lg text-white text-sm focus:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+                    placeholder="Enter first name"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-white/70 mb-2">Last Name</label>
+                  <input
+                    type="text"
+                    value={settings.lastName}
+                    onChange={(e) => setSettings(prev => ({ ...prev, lastName: e.target.value }))}
+                    className="w-full px-3 py-2.5 bg-white/10 border border-white/20 rounded-lg text-white text-sm focus:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+                    placeholder="Enter last name"
+                  />
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-white/70 mb-2">Phone</label>
-                <input
-                  type="tel"
-                  value={settings.phone}
-                  onChange={(e) => setSettings(prev => ({ ...prev, phone: e.target.value }))}
-                  className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:border-primary/50 focus:outline-none"
-                />
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-white/70 mb-2">Email</label>
+                  <input
+                    type="email"
+                    value={settings.email}
+                    onChange={(e) => setSettings(prev => ({ ...prev, email: e.target.value }))}
+                    className="w-full px-3 py-2.5 bg-white/10 border border-white/20 rounded-lg text-white text-sm focus:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+                    placeholder="Enter email address"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-white/70 mb-2">Phone</label>
+                  <input
+                    type="tel"
+                    value={settings.phone}
+                    onChange={(e) => setSettings(prev => ({ ...prev, phone: e.target.value }))}
+                    className="w-full px-3 py-2.5 bg-white/10 border border-white/20 rounded-lg text-white text-sm focus:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+                    placeholder="Enter phone number"
+                  />
+                </div>
               </div>
             </div>
           </Card>
 
           {/* Notification Settings */}
-          <Card className="p-6">
-            <div className="flex items-center space-x-3 mb-6">
-              <div className="p-2 bg-info/10 rounded-lg">
-                <Bell className="w-5 h-5 text-info" />
+          <Card className="p-4 sm:p-6">
+            <div className="flex items-center space-x-3 mb-4 sm:mb-6">
+              <div className="p-2 bg-info/10 rounded-lg flex-shrink-0">
+                <Bell className="w-4 h-4 sm:w-5 sm:h-5 text-info" />
               </div>
-              <div>
-                <h2 className="text-lg font-bold text-white">Notifications</h2>
-                <p className="text-sm text-white/60">Configure your notification preferences</p>
+              <div className="min-w-0">
+                <h2 className="text-base sm:text-lg font-bold text-white">Notifications</h2>
+                <p className="text-xs sm:text-sm text-white/60">Configure your notification preferences</p>
               </div>
             </div>
 
@@ -374,14 +380,14 @@ export default function AdminSettingsPage() {
           </Card>
 
           {/* Security Settings */}
-          <Card className="p-6">
-            <div className="flex items-center space-x-3 mb-6">
-              <div className="p-2 bg-warning/10 rounded-lg">
-                <Shield className="w-5 h-5 text-warning" />
+          <Card className="p-4 sm:p-6">
+            <div className="flex items-center space-x-3 mb-4 sm:mb-6">
+              <div className="p-2 bg-warning/10 rounded-lg flex-shrink-0">
+                <Shield className="w-4 h-4 sm:w-5 sm:h-5 text-warning" />
               </div>
-              <div>
-                <h2 className="text-lg font-bold text-white">Security</h2>
-                <p className="text-sm text-white/60">Manage your account security</p>
+              <div className="min-w-0">
+                <h2 className="text-base sm:text-lg font-bold text-white">Security</h2>
+                <p className="text-xs sm:text-sm text-white/60">Manage your account security</p>
               </div>
             </div>
 
@@ -397,7 +403,7 @@ export default function AdminSettingsPage() {
               />
 
               {settings.security.changePassword && (
-                <div className="space-y-4 p-4 bg-white/5 rounded-lg">
+                <div className="space-y-4 p-4 bg-white/5 rounded-lg border border-white/10">
                   <div>
                     <label className="block text-sm font-medium text-white/70 mb-2">Current Password</label>
                     <div className="relative">
@@ -408,17 +414,18 @@ export default function AdminSettingsPage() {
                           ...prev,
                           security: { ...prev.security, currentPassword: e.target.value }
                         }))}
-                        className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:border-primary/50 focus:outline-none pr-10"
+                        className="w-full px-3 py-2.5 bg-white/10 border border-white/20 rounded-lg text-white text-sm focus:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all pr-12"
+                        placeholder="Enter current password"
                       />
                       <button
                         onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-white/60 hover:text-white"
+                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-white/60 hover:text-white transition-colors p-1"
                       >
                         {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
                     </div>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-4 sm:space-y-0 sm:grid sm:grid-cols-2 sm:gap-4">
                     <div>
                       <label className="block text-sm font-medium text-white/70 mb-2">New Password</label>
                       <input
@@ -428,7 +435,8 @@ export default function AdminSettingsPage() {
                           ...prev,
                           security: { ...prev.security, newPassword: e.target.value }
                         }))}
-                        className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:border-primary/50 focus:outline-none"
+                        className="w-full px-3 py-2.5 bg-white/10 border border-white/20 rounded-lg text-white text-sm focus:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+                        placeholder="Enter new password"
                       />
                     </div>
                     <div>
@@ -440,7 +448,8 @@ export default function AdminSettingsPage() {
                           ...prev,
                           security: { ...prev.security, confirmPassword: e.target.value }
                         }))}
-                        className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:border-primary/50 focus:outline-none"
+                        className="w-full px-3 py-2.5 bg-white/10 border border-white/20 rounded-lg text-white text-sm focus:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+                        placeholder="Confirm new password"
                       />
                     </div>
                   </div>
@@ -450,56 +459,60 @@ export default function AdminSettingsPage() {
           </Card>
 
           {/* Quick Actions */}
-          <Card className="p-6">
-            <div className="flex items-center space-x-3 mb-6">
-              <div className="p-2 bg-success/10 rounded-lg">
-                <SettingsIcon className="w-5 h-5 text-success" />
+          <Card className="p-4 sm:p-6">
+            <div className="flex items-center space-x-3 mb-4 sm:mb-6">
+              <div className="p-2 bg-success/10 rounded-lg flex-shrink-0">
+                <SettingsIcon className="w-4 h-4 sm:w-5 sm:h-5 text-success" />
               </div>
-              <div>
-                <h2 className="text-lg font-bold text-white">Quick Actions</h2>
-                <p className="text-sm text-white/60">Common admin tasks</p>
+              <div className="min-w-0">
+                <h2 className="text-base sm:text-lg font-bold text-white">Quick Actions</h2>
+                <p className="text-xs sm:text-sm text-white/60">Common admin tasks</p>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <button
                 onClick={() => router.push('/admin/users')}
-                className="flex items-center space-x-3 p-3 bg-white/5 rounded-lg hover:bg-white/10 transition-colors"
+                className="flex items-center space-x-3 p-3 sm:p-4 bg-white/5 rounded-lg hover:bg-white/10 transition-colors border border-transparent hover:border-white/10 group"
               >
-                <User className="w-5 h-5 text-primary" />
-                <div className="text-left">
-                  <p className="text-sm font-medium text-white">Manage Users</p>
+                <div className="p-2 bg-primary/10 rounded-lg group-hover:bg-primary/20 transition-colors flex-shrink-0">
+                  <User className="w-4 h-4 text-primary" />
+                </div>
+                <div className="text-left flex-1 min-w-0">
+                  <p className="text-sm font-medium text-white truncate">Manage Users</p>
                   <p className="text-xs text-white/60">View and manage user accounts</p>
                 </div>
-                <ChevronRight className="w-4 h-4 text-white/40 ml-auto" />
+                <ChevronRight className="w-4 h-4 text-white/40 group-hover:text-white/60 transition-colors flex-shrink-0" />
               </button>
 
               <button
                 onClick={() => router.push('/admin/products')}
-                className="flex items-center space-x-3 p-3 bg-white/5 rounded-lg hover:bg-white/10 transition-colors"
+                className="flex items-center space-x-3 p-3 sm:p-4 bg-white/5 rounded-lg hover:bg-white/10 transition-colors border border-transparent hover:border-white/10 group"
               >
-                <SettingsIcon className="w-5 h-5 text-primary" />
-                <div className="text-left">
-                  <p className="text-sm font-medium text-white">Manage Products</p>
+                <div className="p-2 bg-primary/10 rounded-lg group-hover:bg-primary/20 transition-colors flex-shrink-0">
+                  <SettingsIcon className="w-4 h-4 text-primary" />
+                </div>
+                <div className="text-left flex-1 min-w-0">
+                  <p className="text-sm font-medium text-white truncate">Manage Products</p>
                   <p className="text-xs text-white/60">View and manage products</p>
                 </div>
-                <ChevronRight className="w-4 h-4 text-white/40 ml-auto" />
+                <ChevronRight className="w-4 h-4 text-white/40 group-hover:text-white/60 transition-colors flex-shrink-0" />
               </button>
             </div>
           </Card>
 
           {/* Logout Section */}
-          <Card className="p-6 border-error/20">
+          <Card className="p-4 sm:p-6 border-error/20">
             <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <div className="p-2 bg-error/10 rounded-lg">
-                  <LogOut className="w-5 h-5 text-error" />
+              <div className="flex items-center space-x-3 flex-1 min-w-0">
+                <div className="p-2 bg-error/10 rounded-lg flex-shrink-0">
+                  <LogOut className="w-4 h-4 sm:w-5 sm:h-5 text-error" />
                 </div>
-                <div>
-                  <h3 className="font-medium text-white">Logout</h3>
-                  <p className="text-sm text-white/60">Sign out of your admin account</p>
+                <div className="min-w-0 flex-1">
+                  <h3 className="font-medium text-white text-sm sm:text-base">Logout</h3>
+                  <p className="text-xs sm:text-sm text-white/60">Sign out of your admin account</p>
                   {process.env.NODE_ENV === 'development' && (
-                    <p className="text-xs text-yellow-400 mt-1">
+                    <p className="text-xs text-yellow-400 mt-1 break-all">
                       Dev: Auth Status: {isAuthenticated ? '✅ Authenticated' : '❌ Not Authenticated'} | 
                       User: {user ? `${user.firstName} (${user.role})` : 'None'}
                     </p>
@@ -511,18 +524,18 @@ export default function AdminSettingsPage() {
                   console.log('🚪 Logout button clicked');
                   setShowLogoutConfirm(true);
                 }}
-                className="bg-error/10 border border-error/20 text-error hover:bg-error/20 transition-colors"
+                className="flex-shrink-0 bg-error/10 border border-error/20 text-error hover:bg-error/20 transition-colors text-xs sm:text-sm px-3 sm:px-4 py-2"
                 disabled={isLoggingOut}
               >
                 {isLoggingOut ? (
                   <>
-                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                    Logging out...
+                    <RefreshCw className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-2 animate-spin" />
+                    <span className="hidden sm:inline">Logging out...</span>
                   </>
                 ) : (
                   <>
-                    <LogOut className="w-4 h-4 mr-2" />
-                    Logout
+                    <LogOut className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-2" />
+                    <span className="hidden sm:inline">Logout</span>
                   </>
                 )}
               </Button>
@@ -534,14 +547,14 @@ export default function AdminSettingsPage() {
       {/* Success Modal */}
       {showSuccessModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-secondary border border-white/10 rounded-xl p-6 w-full max-w-md">
+          <div className="bg-secondary border border-white/10 rounded-xl p-6 w-full max-w-sm sm:max-w-md mx-4">
             <div className="flex items-center space-x-3 mb-4">
-              <div className="p-2 bg-success/10 rounded-lg">
+              <div className="p-2 bg-success/10 rounded-lg flex-shrink-0">
                 <CheckCircle className="w-5 h-5 text-success" />
               </div>
-              <div>
+              <div className="min-w-0">
                 <h3 className="text-lg font-semibold text-white">Success</h3>
-                <p className="text-sm text-white/60">{modalMessage}</p>
+                <p className="text-sm text-white/60 break-words">{modalMessage}</p>
               </div>
             </div>
             <Button
@@ -557,14 +570,14 @@ export default function AdminSettingsPage() {
       {/* Error Modal */}
       {showErrorModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-secondary border border-white/10 rounded-xl p-6 w-full max-w-md">
+          <div className="bg-secondary border border-white/10 rounded-xl p-6 w-full max-w-sm sm:max-w-md mx-4">
             <div className="flex items-center space-x-3 mb-4">
-              <div className="p-2 bg-error/10 rounded-lg">
+              <div className="p-2 bg-error/10 rounded-lg flex-shrink-0">
                 <AlertTriangle className="w-5 h-5 text-error" />
               </div>
-              <div>
+              <div className="min-w-0">
                 <h3 className="text-lg font-semibold text-white">Error</h3>
-                <p className="text-sm text-white/60">{modalMessage}</p>
+                <p className="text-sm text-white/60 break-words">{modalMessage}</p>
               </div>
             </div>
             <Button
@@ -580,24 +593,24 @@ export default function AdminSettingsPage() {
       {/* Logout Confirmation Modal */}
       {showLogoutConfirm && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-secondary border border-white/10 rounded-xl p-6 w-full max-w-md">
+          <div className="bg-secondary border border-white/10 rounded-xl p-6 w-full max-w-sm sm:max-w-md mx-4">
             <div className="flex items-center space-x-3 mb-4">
-              <div className="p-2 bg-error/10 rounded-lg">
+              <div className="p-2 bg-error/10 rounded-lg flex-shrink-0">
                 <LogOut className="w-5 h-5 text-error" />
               </div>
-              <div>
+              <div className="min-w-0">
                 <h3 className="text-lg font-semibold text-white">Confirm Logout</h3>
                 <p className="text-sm text-white/60">Are you sure you want to sign out of your admin account?</p>
               </div>
             </div>
-            <div className="flex space-x-3">
+            <div className="flex flex-col sm:flex-row gap-3">
               <Button
                 onClick={() => {
                   console.log('Cancel logout clicked');
                   setShowLogoutConfirm(false);
                 }}
                 disabled={isLoggingOut}
-                className="flex-1 bg-white/10 border border-white/20 text-white hover:bg-white/20 transition-colors"
+                className="flex-1 bg-white/10 border border-white/20 text-white hover:bg-white/20 transition-colors order-2 sm:order-1"
               >
                 Cancel
               </Button>
@@ -607,7 +620,7 @@ export default function AdminSettingsPage() {
                   handleLogout();
                 }}
                 disabled={isLoggingOut}
-                className="flex-1 bg-error hover:bg-error/90 transition-colors"
+                className="flex-1 bg-error hover:bg-error/90 transition-colors order-1 sm:order-2"
               >
                 {isLoggingOut ? (
                   <>
@@ -628,9 +641,6 @@ export default function AdminSettingsPage() {
 
       {/* Bottom Navigation */}
       <BottomNavbar />
-
-      {/* Bottom padding for mobile navigation */}
-      <div className="h-16 sm:hidden" />
     </div>
   );
 }

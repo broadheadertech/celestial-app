@@ -107,7 +107,7 @@ export default function ProductDetailPage() {
     return null;
   }
 
-  const product = productQuery;
+  const product = productQuery as Product | undefined;
   const images = product?.images && product.images.length > 0 ? product.images : [product?.image].filter(Boolean);
 
   const handleAddToCart = async () => {
@@ -115,7 +115,7 @@ export default function ProductDetailPage() {
     
     setIsAddingToCart(true);
     try {
-      addItem(product, quantity);
+      addItem(product as Product, quantity);
       // Show success feedback here if needed
     } catch (error) {
       console.error('Failed to add to cart:', error);
@@ -129,7 +129,7 @@ export default function ProductDetailPage() {
     
     setIsAddingToCart(true);
     try {
-      addItem(product, quantity);
+      addItem(product as Product, quantity);
       router.push('/client/cart');
     } catch (error) {
       console.error('Failed to reserve:', error);
@@ -138,8 +138,14 @@ export default function ProductDetailPage() {
     }
   };
 
-  const getDiscountPercentage = () => {
-    if (!product || !product.originalPrice) return 0;
+  // Helper function to check if there's a discount
+  const hasDiscount = (): boolean => {
+    if (!product) return false;
+    return !!(product.originalPrice && product.originalPrice > product.price);
+  };
+
+  const getDiscountPercentage = (): number => {
+    if (!hasDiscount() || !product?.originalPrice) return 0;
     return Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100);
   };
 
@@ -326,8 +332,8 @@ export default function ProductDetailPage() {
               className="w-full h-80 rounded-3xl object-cover"
             />
             
-            {/* Discount Badge */}
-            {discountPercentage > 0 && (
+            {/* Discount Badge - Only show if there's actually a discount */}
+            {hasDiscount() && (
               <div className="absolute top-4 left-4 px-3 py-1 rounded-xl bg-[#FF6B00]">
                 <span className="text-white text-sm font-bold">{discountPercentage}% OFF</span>
               </div>
@@ -377,15 +383,6 @@ export default function ProductDetailPage() {
           <div className="flex items-start justify-between mb-3">
             <div className="flex-1 mr-4">
               <h1 className="text-2xl font-bold text-white mb-2 leading-8">{product.name}</h1>
-              {product.rating && (
-                <div className="flex items-center">
-                  <Star className="w-4 h-4 text-yellow-400 fill-current mr-1" />
-                  <span className="text-yellow-400 text-sm font-medium mr-2">{product.rating}</span>
-                  {product.reviews && (
-                    <span className="text-gray-400 text-sm">({product.reviews} reviews)</span>
-                  )}
-                </div>
-              )}
             </div>
           </div>
 
@@ -397,15 +394,17 @@ export default function ProductDetailPage() {
                   <span className="text-3xl font-bold text-[#FF6B00] mr-3">
                     ₱{product.price.toFixed(2)}
                   </span>
-                  {product.originalPrice && (
+                  {/* Only show original price if there's a discount */}
+                  {hasDiscount() && (
                     <span className="text-lg text-gray-400 line-through">
-                      ₱{product.originalPrice.toFixed(2)}
+                      ₱{product.originalPrice!.toFixed(2)}
                     </span>
                   )}
                 </div>
-                {product.originalPrice && (
+                {/* Only show savings if there's a discount */}
+                {hasDiscount() && (
                   <p className="text-sm text-[#00D4AA] font-medium">
-                    You save ₱{(product.originalPrice - product.price).toFixed(2)}
+                    You save ₱{(product.originalPrice! - product.price).toFixed(2)}
                   </p>
                 )}
               </div>

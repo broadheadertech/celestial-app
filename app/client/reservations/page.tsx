@@ -19,7 +19,9 @@ import {
   Mail,
   FileText,
   Hash,
-  Truck
+  Truck,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import { useAuthStore, useIsAuthenticated, useIsGuest } from '@/store/auth';
 import { formatCurrency, formatDateTime, getRelativeTime } from '@/lib/utils';
@@ -38,6 +40,7 @@ export default function ReservationsPage() {
 
   const [selectedFilter, setSelectedFilter] = useState<string>('all');
   const [showFilters, setShowFilters] = useState(false);
+  const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
 
   // Fetch real reservations data from Convex
   const reservationsQuery = useQuery(api.services.reservations.getReservations,
@@ -68,6 +71,16 @@ export default function ReservationsPage() {
     });
   }, [reservationsQuery, isAuthenticated, user, isGuest, guestId, selectedFilter]);
 
+  const toggleCardExpansion = (reservationId: string) => {
+    const newExpanded = new Set(expandedCards);
+    if (newExpanded.has(reservationId)) {
+      newExpanded.delete(reservationId);
+    } else {
+      newExpanded.add(reservationId);
+    }
+    setExpandedCards(newExpanded);
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'pending': return 'text-warning';
@@ -81,12 +94,12 @@ export default function ReservationsPage() {
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'pending': return <Clock className="w-4 h-4" />;
-      case 'confirmed': return <CheckCircle className="w-4 h-4" />;
-      case 'completed': return <Package className="w-4 h-4" />;
-      case 'expired': return <XCircle className="w-4 h-4" />;
-      case 'cancelled': return <XCircle className="w-4 h-4" />;
-      default: return <Package className="w-4 h-4" />;
+      case 'pending': return <Clock className="w-3 h-3 sm:w-4 sm:h-4" />;
+      case 'confirmed': return <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4" />;
+      case 'completed': return <Package className="w-3 h-3 sm:w-4 sm:h-4" />;
+      case 'expired': return <XCircle className="w-3 h-3 sm:w-4 sm:h-4" />;
+      case 'cancelled': return <XCircle className="w-3 h-3 sm:w-4 sm:h-4" />;
+      default: return <Package className="w-3 h-3 sm:w-4 sm:h-4" />;
     }
   };
 
@@ -106,25 +119,25 @@ export default function ReservationsPage() {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-white/10">
-        <div className="px-6 py-4">
-          <div className="flex items-center space-x-4">
+        <div className="px-3 sm:px-6 py-3 sm:py-4">
+          <div className="flex items-center space-x-3 sm:space-x-4">
             <button
               onClick={() => router.back()}
-              className="p-2 rounded-full bg-secondary border border-white/10 hover:bg-white/10 transition-colors"
+              className="p-2 rounded-full bg-secondary border border-white/10 hover:bg-white/10 transition-colors touch-manipulation"
             >
-              <ArrowLeft className="w-5 h-5 text-white" />
+              <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
             </button>
-            <div className="flex-1">
-              <h1 className="text-xl font-semibold text-white">My Reservations</h1>
-              <p className="text-sm text-muted">
-                {filteredReservations.length} reservations found
+            <div className="flex-1 min-w-0">
+              <h1 className="text-lg sm:text-xl font-semibold text-white truncate">My Reservations</h1>
+              <p className="text-xs sm:text-sm text-muted">
+                {filteredReservations.length} reservation{filteredReservations.length !== 1 ? 's' : ''} found
               </p>
             </div>
             <button
               onClick={() => setShowFilters(!showFilters)}
-              className="p-2 rounded-full bg-secondary border border-white/10 hover:bg-white/10 transition-colors"
+              className="p-2 rounded-full bg-secondary border border-white/10 hover:bg-white/10 transition-colors touch-manipulation"
             >
-              <Filter className="w-5 h-5 text-white" />
+              <Filter className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
             </button>
           </div>
         </div>
@@ -132,7 +145,7 @@ export default function ReservationsPage() {
 
       {/* Filters */}
       {showFilters && (
-        <div className="bg-secondary border-b border-white/10 px-6 py-4">
+        <div className="bg-secondary border-b border-white/10 px-3 sm:px-6 py-3 sm:py-4">
           <div className="space-y-3">
             <p className="text-sm font-medium text-white">Filter by Status</p>
             <div className="flex flex-wrap gap-2">
@@ -147,7 +160,7 @@ export default function ReservationsPage() {
                 <button
                   key={filter.value}
                   onClick={() => setSelectedFilter(filter.value)}
-                  className={`px-3 py-1.5 rounded-lg text-sm border transition-colors ${
+                  className={`px-3 py-1.5 rounded-lg text-xs sm:text-sm border transition-colors touch-manipulation ${
                     selectedFilter === filter.value
                       ? 'bg-primary border-primary text-white'
                       : 'border-white/10 text-muted hover:text-white hover:border-white/20'
@@ -162,17 +175,18 @@ export default function ReservationsPage() {
       )}
 
       {/* Content */}
-      <div className="px-6 py-6">
+      <div className="px-3 sm:px-6 py-4 sm:py-6">
         {!isAuthenticated && (
-          <Card variant="glass" className="mb-6 bg-info/10 border-info/20">
-            <div className="text-center">
-              <h3 className="font-semibold text-white mb-2">Sign in to track all reservations</h3>
-              <p className="text-sm text-muted mb-4">
+          <Card variant="glass" className="mb-4 sm:mb-6 bg-info/10 border-info/20">
+            <div className="text-center p-4">
+              <h3 className="font-semibold text-white mb-2 text-sm sm:text-base">Sign in to track all reservations</h3>
+              <p className="text-xs sm:text-sm text-muted mb-4">
                 Create an account to easily manage and track all your reservations
               </p>
               <Button
                 onClick={() => router.push('/auth/login')}
                 size="sm"
+                className="touch-manipulation"
               >
                 Sign In
               </Button>
@@ -181,231 +195,255 @@ export default function ReservationsPage() {
         )}
 
         {filteredReservations.length === 0 ? (
-          <div className="text-center py-12">
-            <Package className="w-16 h-16 text-muted mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-white mb-2">No reservations found</h3>
-            <p className="text-muted mb-6">
+          <div className="text-center py-8 sm:py-12">
+            <Package className="w-12 h-12 sm:w-16 sm:h-16 text-muted mx-auto mb-4" />
+            <h3 className="text-lg sm:text-xl font-semibold text-white mb-2">No reservations found</h3>
+            <p className="text-muted mb-4 sm:mb-6 text-sm sm:text-base px-4">
               {selectedFilter === 'all'
                 ? 'You haven\'t made any reservations yet'
                 : `No ${selectedFilter} reservations found`
               }
             </p>
-            <Button onClick={() => router.push('/client/search')}>
+            <Button onClick={() => router.push('/client/search')} className="touch-manipulation">
               Start Shopping
             </Button>
           </div>
         ) : (
-          <div className="space-y-6">
-            {filteredReservations.map((reservation) => (
-              <Card key={reservation._id} className="overflow-hidden bg-secondary/30 border-white/5">
-                {/* Header */}
-                <div className="bg-gradient-to-r from-primary/10 to-orange-500/10 p-4 border-b border-white/10">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center space-x-3">
-                      <div className="p-2 bg-primary/20 rounded-lg">
-                        <Hash className="w-4 h-4 text-primary" />
+          <div className="space-y-4 sm:space-y-6">
+            {filteredReservations.map((reservation) => {
+              const isExpanded = expandedCards.has(reservation._id);
+              
+              return (
+                <Card key={reservation._id} className="overflow-hidden bg-secondary/30 border-white/5">
+                  {/* Header - Always visible */}
+                  <div className="bg-gradient-to-r from-primary/10 to-orange-500/10 p-3 sm:p-4 border-b border-white/10">
+                    <div className="flex items-start justify-between mb-3 gap-2">
+                      <div className="flex items-start space-x-2 sm:space-x-3 flex-1 min-w-0">
+                        <div className="p-1.5 sm:p-2 bg-primary/20 rounded-lg flex-shrink-0">
+                          <Hash className="w-3 h-3 sm:w-4 sm:h-4 text-primary" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <h3 className="font-bold text-white text-sm sm:text-lg truncate">{reservation.reservationCode}</h3>
+                          <p className="text-xs sm:text-sm text-white/70">
+                            {formatDateTime(reservation.createdAt)}
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <h3 className="font-bold text-white text-lg">{reservation.reservationCode}</h3>
-                        <p className="text-sm text-white/70">
-                          Reserved on {formatDateTime(reservation.createdAt)}
+                      <div className="flex flex-col items-end space-y-2 flex-shrink-0">
+                        <span className={`inline-flex items-center space-x-1 px-2 py-1 rounded-full text-xs font-medium border ${getStatusBadge(reservation.status)}`}>
+                          {getStatusIcon(reservation.status)}
+                          <span className="capitalize">{reservation.status}</span>
+                        </span>
+                        <button
+                          onClick={() => toggleCardExpansion(reservation._id)}
+                          className="p-1 rounded text-white/60 hover:text-white transition-colors touch-manipulation"
+                        >
+                          {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Quick Stats - Always visible */}
+                    <div className="grid grid-cols-3 gap-2 sm:gap-4 text-xs sm:text-sm">
+                      <div className="text-center">
+                        <p className="text-white/60 mb-1">Total</p>
+                        <p className="font-bold text-white text-sm sm:text-lg">{formatCurrency(reservation.totalAmount!)}</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-white/60 mb-1">Items</p>
+                        <p className="font-bold text-white text-sm sm:text-lg">{reservation.totalQuantity}</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-white/60 mb-1">Expires</p>
+                        <p className={`font-medium text-xs sm:text-sm ${reservation.expiryDate < Date.now() ? 'text-error' : 'text-success'}`}>
+                          {getRelativeTime(reservation.expiryDate)}
                         </p>
                       </div>
                     </div>
-                    <span className={`inline-flex items-center space-x-1 px-3 py-1 rounded-full text-xs font-medium border ${getStatusBadge(reservation.status)}`}>
-                      {getStatusIcon(reservation.status)}
-                      <span className="capitalize">{reservation.status}</span>
-                    </span>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-4 text-sm">
-                    <div className="text-center">
-                      <p className="text-white/60 mb-1">Total Amount</p>
-                      <p className="font-bold text-white text-lg">{formatCurrency(reservation.totalAmount!)}</p>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-white/60 mb-1">Items</p>
-                      <p className="font-bold text-white text-lg">{reservation.totalQuantity}</p>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-white/60 mb-1">Expires</p>
-                      <p className={`font-medium text-sm ${reservation.expiryDate < Date.now() ? 'text-error' : 'text-success'}`}>
-                        {getRelativeTime(reservation.expiryDate)}
-                      </p>
-                    </div>
-                  </div>
-                </div>
+                  {/* Expandable Content */}
+                  {isExpanded && (
+                    <>
+                      {/* Customer Information */}
+                      <div className="p-3 sm:p-4 border-b border-white/10">
+                        <div className="flex items-center space-x-2 mb-3">
+                          <User className="w-3 h-3 sm:w-4 sm:h-4 text-primary" />
+                          <h4 className="font-semibold text-white text-sm sm:text-base">Customer Information</h4>
+                        </div>
+                        
+                        <div className="space-y-3 sm:space-y-2">
+                          <div>
+                            <p className="text-white/60 mb-1 text-xs sm:text-sm">Name</p>
+                            <p className="text-white font-medium text-sm sm:text-base">
+                              {reservation.guestInfo?.name ||
+                               (isAuthenticated && user ? `${user.firstName} ${user.lastName}` : 'Unknown')}
+                            </p>
+                          </div>
+                          
+                          {reservation.guestInfo?.email && (
+                            <div>
+                              <p className="text-white/60 mb-1 text-xs sm:text-sm">Email</p>
+                              <div className="flex items-center space-x-1">
+                                <Mail className="w-3 h-3 text-white/60 flex-shrink-0" />
+                                <p className="text-white font-medium text-sm sm:text-base break-all">{reservation.guestInfo.email}</p>
+                              </div>
+                            </div>
+                          )}
+                          
+                          {reservation.guestInfo?.phone && (
+                            <div>
+                              <p className="text-white/60 mb-1 text-xs sm:text-sm">Phone</p>
+                              <div className="flex items-center space-x-1">
+                                <Phone className="w-3 h-3 text-white/60 flex-shrink-0" />
+                                <p className="text-white font-medium text-sm sm:text-base">{reservation.guestInfo.phone}</p>
+                              </div>
+                            </div>
+                          )}
+                          
+                          {reservation.guestInfo?.completeAddress && (
+                            <div>
+                              <p className="text-white/60 mb-1 text-xs sm:text-sm">Address</p>
+                              <div className="flex items-start space-x-1">
+                                <MapPin className="w-3 h-3 text-white/60 flex-shrink-0 mt-0.5" />
+                                <p className="text-white font-medium text-sm sm:text-base">{reservation.guestInfo.completeAddress}</p>
+                              </div>
+                            </div>
+                          )}
+                        </div>
 
-                {/* Customer Information */}
-                <div className="p-4 border-b border-white/10">
-                  <div className="flex items-center space-x-2 mb-3">
-                    <User className="w-4 h-4 text-primary" />
-                    <h4 className="font-semibold text-white">Customer Information</h4>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <p className="text-white/60 mb-1">Name</p>
-                      <p className="text-white font-medium">
-                        {reservation.guestInfo?.name ||
-                         (isAuthenticated && user ? `${user.firstName} ${user.lastName}` : 'Unknown')}
-                      </p>
-                    </div>
-                    {reservation.guestInfo?.email && (
-                      <div>
-                        <p className="text-white/60 mb-1">Email</p>
-                        <div className="flex items-center space-x-1">
-                          <Mail className="w-3 h-3 text-white/60" />
-                          <p className="text-white font-medium">{reservation.guestInfo.email}</p>
-                        </div>
+                        {reservation.guestInfo?.pickupSchedule && (
+                          <div className="mt-4 p-3 bg-primary/5 rounded-lg border border-primary/10">
+                            <div className="flex items-center space-x-2 mb-2">
+                              <Truck className="w-3 h-3 sm:w-4 sm:h-4 text-primary" />
+                              <h5 className="font-medium text-white text-sm sm:text-base">Pickup Schedule</h5>
+                            </div>
+                            <div className="space-y-2 sm:space-y-0 sm:grid sm:grid-cols-2 sm:gap-3 text-xs sm:text-sm">
+                              <div className="flex items-center space-x-2">
+                                <Calendar className="w-3 h-3 text-white/60" />
+                                <span className="text-white">{reservation.guestInfo.pickupSchedule.date}</span>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <Clock className="w-3 h-3 text-white/60" />
+                                <span className="text-white">{reservation.guestInfo.pickupSchedule.time}</span>
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                    )}
-                    {reservation.guestInfo?.phone && (
-                      <div>
-                        <p className="text-white/60 mb-1">Phone</p>
-                        <div className="flex items-center space-x-1">
-                          <Phone className="w-3 h-3 text-white/60" />
-                          <p className="text-white font-medium">{reservation.guestInfo.phone}</p>
-                        </div>
-                      </div>
-                    )}
-                    {reservation.guestInfo?.completeAddress && (
-                      <div>
-                        <p className="text-white/60 mb-1">Address</p>
-                        <div className="flex items-center space-x-1">
-                          <MapPin className="w-3 h-3 text-white/60" />
-                          <p className="text-white font-medium">{reservation.guestInfo.completeAddress}</p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
 
-                  {reservation.guestInfo?.pickupSchedule && (
-                    <div className="mt-4 p-3 bg-primary/5 rounded-lg border border-primary/10">
-                      <div className="flex items-center space-x-2 mb-2">
-                        <Truck className="w-4 h-4 text-primary" />
-                        <h5 className="font-medium text-white">Pickup Schedule</h5>
-                      </div>
-                      <div className="grid grid-cols-2 gap-3 text-sm">
-                        <div className="flex items-center space-x-2">
-                          <Calendar className="w-3 h-3 text-white/60" />
-                          <span className="text-white">{reservation.guestInfo.pickupSchedule.date}</span>
+                      {/* Items List */}
+                      <div className="p-3 sm:p-4 border-b border-white/10">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center space-x-2">
+                            <Package className="w-3 h-3 sm:w-4 sm:h-4 text-primary" />
+                            <h4 className="font-semibold text-white text-sm sm:text-base">Reserved Items</h4>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-primary hover:bg-primary/10 text-xs sm:text-sm touch-manipulation"
+                            onClick={() => {
+                              // TODO: Show detailed items view
+                            }}
+                          >
+                            <Eye className="w-3 h-3 mr-1" />
+                            View All ({reservation.items?.length || 0})
+                          </Button>
                         </div>
-                        <div className="flex items-center space-x-2">
-                          <Clock className="w-3 h-3 text-white/60" />
-                          <span className="text-white">{reservation.guestInfo.pickupSchedule.time}</span>
+
+                        <div className="space-y-2">
+                          {reservation.items?.slice(0, 3).map((item, index) => (
+                            <div key={index} className="flex items-center justify-between p-2 bg-white/5 rounded-lg gap-2">
+                              <div className="flex-1 min-w-0">
+                                <p className="text-white font-medium text-xs sm:text-sm truncate">
+                                  {item.product?.name || 'Unknown Product'}
+                                </p>
+                                <p className="text-white/60 text-xs">
+                                  Qty: {item.quantity}
+                                </p>
+                              </div>
+                              <div className="text-right flex-shrink-0">
+                                <p className="text-white font-medium text-xs sm:text-sm">
+                                  {formatCurrency(item.reservedPrice)}
+                                </p>
+                                <p className="text-white/60 text-xs">
+                                  Total: {formatCurrency(item.reservedPrice * item.quantity)}
+                                </p>
+                              </div>
+                            </div>
+                          ))}
+
+                          {reservation.items && reservation.items.length > 3 && (
+                            <div className="text-center p-2">
+                              <p className="text-white/60 text-xs sm:text-sm">
+                                +{reservation.items.length - 3} more items
+                              </p>
+                            </div>
+                          )}
                         </div>
                       </div>
-                    </div>
+
+                      {/* Notes */}
+                      {reservation.notes && (
+                        <div className="p-3 sm:p-4 border-b border-white/10">
+                          <div className="flex items-center space-x-2 mb-2">
+                            <FileText className="w-3 h-3 sm:w-4 sm:h-4 text-primary" />
+                            <h4 className="font-semibold text-white text-sm sm:text-base">Notes</h4>
+                          </div>
+                          <div className="p-3 bg-white/5 rounded-lg">
+                            <p className="text-white/80 text-xs sm:text-sm">{reservation.notes}</p>
+                          </div>
+                        </div>
+                      )}
+                    </>
                   )}
-                </div>
 
-                {/* Items List */}
-                <div className="p-4 border-b border-white/10">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center space-x-2">
-                      <Package className="w-4 h-4 text-primary" />
-                      <h4 className="font-semibold text-white">Reserved Items</h4>
-                    </div>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="text-primary hover:bg-primary/10"
-                      onClick={() => {
-                        // TODO: Show detailed items view
-                      }}
-                    >
-                      <Eye className="w-3 h-3 mr-1" />
-                      View All ({reservation.items?.length || 0})
-                    </Button>
-                  </div>
-
-                  <div className="space-y-2">
-                    {reservation.items?.slice(0, 3).map((item, index) => (
-                      <div key={index} className="flex items-center justify-between p-2 bg-white/5 rounded-lg">
-                        <div className="flex-1">
-                          <p className="text-white font-medium text-sm">
-                            {item.product?.name || 'Unknown Product'}
-                          </p>
-                          <p className="text-white/60 text-xs">
-                            Quantity: {item.quantity}
-                          </p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-white font-medium text-sm">
-                            {formatCurrency(item.reservedPrice)}
-                          </p>
-                          <p className="text-white/60 text-xs">
-                            Total: {formatCurrency(item.reservedPrice * item.quantity)}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-
-                    {reservation.items && reservation.items.length > 3 && (
-                      <div className="text-center p-2">
-                        <p className="text-white/60 text-sm">
-                          +{reservation.items.length - 3} more items
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Notes */}
-                {reservation.notes && (
-                  <div className="p-4 border-b border-white/10">
-                    <div className="flex items-center space-x-2 mb-2">
-                      <FileText className="w-4 h-4 text-primary" />
-                      <h4 className="font-semibold text-white">Notes</h4>
-                    </div>
-                    <div className="p-3 bg-white/5 rounded-lg">
-                      <p className="text-white/80 text-sm">{reservation.notes}</p>
-                    </div>
-                  </div>
-                )}
-
-                {/* Action Buttons */}
-                <div className="p-4">
-                  <div className="grid grid-cols-2 gap-3">
-                    <Button
-                      variant="outline"
-                      className="flex items-center justify-center space-x-2"
-                      onClick={() => {
-                        // TODO: Show detailed reservation view
-                      }}
-                    >
-                      <Eye className="w-4 h-4" />
-                      <span>View Details</span>
-                    </Button>
-
-                    {reservation.status === 'pending' && (
+                  {/* Action Buttons - Always visible */}
+                  <div className="p-3 sm:p-4">
+                    <div className="flex gap-2 sm:gap-3">
                       <Button
                         variant="outline"
-                        className="flex items-center justify-center space-x-2 text-error border-error hover:bg-error/10"
+                        className="flex-1 flex items-center justify-center space-x-2 text-xs sm:text-sm touch-manipulation min-h-[44px] sm:min-h-[40px]"
                         onClick={() => {
-                          // TODO: Implement cancel reservation
+                          // TODO: Show detailed reservation view
                         }}
                       >
-                        <XCircle className="w-4 h-4" />
-                        <span>Cancel</span>
+                        <Eye className="w-3 h-3 sm:w-4 sm:h-4" />
+                        <span className="hidden sm:inline">View Details</span>
+                        <span className="sm:hidden">Details</span>
                       </Button>
-                    )}
 
-                    {reservation.status === 'confirmed' && (
-                      <Button
-                        className="flex items-center justify-center space-x-2 bg-success hover:bg-success/90"
-                        onClick={() => {
-                          // TODO: Navigate to store/pickup instructions
-                        }}
-                      >
-                        <MapPin className="w-4 h-4" />
-                        <span>Pickup Info</span>
-                      </Button>
-                    )}
+                      {reservation.status === 'pending' && (
+                        <Button
+                          variant="outline"
+                          className="flex-1 flex items-center justify-center space-x-2 text-error border-error hover:bg-error/10 text-xs sm:text-sm touch-manipulation min-h-[44px] sm:min-h-[40px]"
+                          onClick={() => {
+                            // TODO: Implement cancel reservation
+                          }}
+                        >
+                          <XCircle className="w-3 h-3 sm:w-4 sm:h-4" />
+                          <span>Cancel</span>
+                        </Button>
+                      )}
+
+                      {reservation.status === 'confirmed' && (
+                        <Button
+                          className="flex-1 flex items-center justify-center space-x-2 bg-success hover:bg-success/90 text-xs sm:text-sm touch-manipulation min-h-[44px] sm:min-h-[40px]"
+                          onClick={() => {
+                            // TODO: Navigate to store/pickup instructions
+                          }}
+                        >
+                          <MapPin className="w-3 h-3 sm:w-4 sm:h-4" />
+                          <span className="hidden sm:inline">Pickup Info</span>
+                          <span className="sm:hidden">Pickup</span>
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                </div>
-              </Card>
-            ))}
+                </Card>
+              );
+            })}
           </div>
         )}
       </div>
