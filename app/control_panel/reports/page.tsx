@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   FileText,
   TrendingUp,
@@ -16,8 +16,8 @@ import Button from '@/components/ui/Button';
 
 export default function ReportsPage() {
   const router = useRouter();
-  const [selectedYear, setSelectedYear] = useState('2023');
-  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [selectedYear, setSelectedYear] = useState("2023");
+  const [selectedCategory, setSelectedCategory] = useState("all");
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const handleRefresh = () => {
@@ -29,7 +29,7 @@ export default function ReportsPage() {
   const financialData = {
     accounts: [
       {
-        category: 'Sales',
+        category: "Sales",
         items: [
           {
             name: 'Fish Sales - Tropical',
@@ -59,7 +59,7 @@ export default function ReportsPage() {
         ]
       },
       {
-        category: 'Cost of Goods Sold',
+        category: "Cost of Goods Sold",
         items: [
           {
             name: 'Fish Procurement',
@@ -84,7 +84,7 @@ export default function ReportsPage() {
         ]
       },
       {
-        category: 'Operating Expenses',
+        category: "Operating Expenses",
         items: [
           {
             name: 'Staff Salaries',
@@ -114,7 +114,7 @@ export default function ReportsPage() {
         ]
       },
       {
-        category: 'Delivery & Logistics',
+        category: "Delivery & Logistics",
         items: [
           {
             name: 'Fish Transport (Live)',
@@ -142,37 +142,62 @@ export default function ReportsPage() {
   };
 
   const calculateRowTotal = (item: any) => {
-    return item.jan + item.feb + item.mar + item.apr + item.may + item.jun +
-           item.jul + item.aug + item.sep + item.oct + item.nov + item.dec;
+    return (
+      item.jan +
+      item.feb +
+      item.mar +
+      item.apr +
+      item.may +
+      item.jun +
+      item.jul +
+      item.aug +
+      item.sep +
+      item.oct +
+      item.nov +
+      item.dec
+    );
   };
 
   const calculateCategoryTotal = (category: any) => {
-    return category.items.reduce((sum: number, item: any) => sum + calculateRowTotal(item), 0);
+    return category.items.reduce(
+      (sum: number, item: any) => sum + calculateRowTotal(item),
+      0,
+    );
   };
 
   const formatCurrency = (amount: number) => {
-    if (amount === 0) return '-';
-    return amount.toLocaleString('en-PH');
+    if (amount === 0) return "-";
+    return amount.toLocaleString("en-PH");
   };
 
   const getCategoryColor = (category: string) => {
     switch (category) {
-      case 'Sales':
-        return 'bg-green-500/15 text-green-300 font-semibold';
-      case 'Cost of Goods Sold':
-        return 'bg-red-500/15 text-red-300 font-semibold';
-      case 'Operating Expenses':
-        return 'bg-yellow-500/15 text-yellow-300 font-semibold';
-      case 'Delivery & Logistics':
-        return 'bg-blue-500/15 text-blue-300 font-semibold';
+      case "Sales":
+        return "bg-green-500/15 text-green-300 font-semibold";
+      case "Cost of Goods Sold":
+        return "bg-red-500/15 text-red-300 font-semibold";
+      case "Operating Expenses":
+        return "bg-yellow-500/15 text-yellow-300 font-semibold";
+      case "Delivery & Logistics":
+        return "bg-blue-500/15 text-blue-300 font-semibold";
       default:
-        return 'bg-gray-500/15 text-gray-300 font-semibold';
+        return "bg-gray-500/15 text-gray-300 font-semibold";
     }
   };
 
   const months = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
   ];
 
   return (
@@ -202,8 +227,12 @@ export default function ReportsPage() {
                     <FileText className="w-5 h-5 text-white" />
                   </div>
                   <div>
-                    <h1 className="text-lg font-bold text-white">Financial Reports</h1>
-                    <p className="text-xs text-white/60">Business performance analytics</p>
+                    <h1 className="text-lg font-bold text-white">
+                      Financial Reports
+                    </h1>
+                    <p className="text-xs text-white/60">
+                      Business performance analytics
+                    </p>
                   </div>
                 </div>
               </div>
@@ -226,11 +255,16 @@ export default function ReportsPage() {
                   disabled={isRefreshing}
                   className="border border-white/10 px-3"
                 >
-                  <RefreshCw className={`w-4 h-4 mr-1.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+                  <RefreshCw
+                    className={`w-4 h-4 mr-1.5 ${isRefreshing ? "animate-spin" : ""}`}
+                  />
                   Refresh
                 </Button>
 
-                <Button size="sm" className="bg-primary/90 hover:bg-primary px-3">
+                <Button
+                  size="sm"
+                  className="bg-primary/90 hover:bg-primary px-3"
+                >
                   <Download className="w-4 h-4 mr-1.5" />
                   Export
                 </Button>
@@ -247,9 +281,15 @@ export default function ReportsPage() {
         <div className="flex-1 p-6">
           {/* Report Header */}
           <div className="text-center mb-6">
-            <h2 className="text-xl font-bold text-white mb-1">Celestial Drakon Aquatics</h2>
-            <p className="text-white/60 text-sm">Financial Performance Report</p>
-            <p className="text-white/40 text-xs">(All amounts are in Philippine Peso)</p>
+            <h2 className="text-xl font-bold text-white mb-1">
+              Celestial Drakon Aquatics
+            </h2>
+            <p className="text-white/60 text-sm">
+              Financial Performance Report
+            </p>
+            <p className="text-white/40 text-xs">
+              (All amounts are in Philippine Peso)
+            </p>
           </div>
 
           {/* Main Report Table */}
@@ -259,10 +299,17 @@ export default function ReportsPage() {
                 {/* Table Header */}
                 <thead>
                   <tr className="bg-secondary/30 border-b border-white/10">
-                    <th className="text-left p-3 text-white font-semibold w-72">Accounts</th>
-                    <th className="text-center p-3 text-white font-semibold w-24 text-xs">{selectedYear}</th>
+                    <th className="text-left p-3 text-white font-semibold w-72">
+                      Accounts
+                    </th>
+                    <th className="text-center p-3 text-white font-semibold w-24 text-xs">
+                      {selectedYear}
+                    </th>
                     {months.map((month) => (
-                      <th key={month} className="text-center p-3 text-white font-semibold w-20 text-xs">
+                      <th
+                        key={month}
+                        className="text-center p-3 text-white font-semibold w-20 text-xs"
+                      >
                         {month}
                       </th>
                     ))}
@@ -273,8 +320,12 @@ export default function ReportsPage() {
                   {financialData.accounts.map((category, categoryIndex) => (
                     <React.Fragment key={categoryIndex}>
                       {/* Category Header */}
-                      <tr className={`${getCategoryColor(category.category)} border-b border-white/5`}>
-                        <td className="p-2.5 text-xs uppercase tracking-wide">{category.category}</td>
+                      <tr
+                        className={`${getCategoryColor(category.category)} border-b border-white/5`}
+                      >
+                        <td className="p-2.5 text-xs uppercase tracking-wide">
+                          {category.category}
+                        </td>
                         <td className="text-center p-2.5"></td>
                         {months.map((month) => (
                           <td key={month} className="text-center p-2.5"></td>
@@ -283,8 +334,13 @@ export default function ReportsPage() {
 
                       {/* Category Items */}
                       {category.items.map((item, itemIndex) => (
-                        <tr key={itemIndex} className="border-b border-white/5 hover:bg-white/5 transition-colors">
-                          <td className="p-2.5 text-white/85 text-xs pl-6">{item.name}</td>
+                        <tr
+                          key={itemIndex}
+                          className="border-b border-white/5 hover:bg-white/5 transition-colors"
+                        >
+                          <td className="p-2.5 text-white/85 text-xs pl-6">
+                            {item.name}
+                          </td>
                           <td className="text-center p-2.5 text-white/60 text-xs font-medium">
                             {formatCurrency(calculateRowTotal(item))}
                           </td>
@@ -328,7 +384,9 @@ export default function ReportsPage() {
                       ))}
 
                       {/* Category Total */}
-                      <tr className={`${getCategoryColor(category.category)} border-b-2 border-white/15`}>
+                      <tr
+                        className={`${getCategoryColor(category.category)} border-b-2 border-white/15`}
+                      >
                         <td className="p-2.5 font-bold text-xs pl-4 uppercase tracking-wide">
                           Total {category.category}
                         </td>
@@ -336,12 +394,19 @@ export default function ReportsPage() {
                           {formatCurrency(calculateCategoryTotal(category))}
                         </td>
                         {months.map((month, monthIndex) => {
-                          const monthTotal = category.items.reduce((sum, item) => {
-                            const monthKey = month.toLowerCase() as keyof typeof item;
-                            return sum + (item[monthKey] as number);
-                          }, 0);
+                          const monthTotal = category.items.reduce(
+                            (sum, item) => {
+                              const monthKey =
+                                month.toLowerCase() as keyof typeof item;
+                              return sum + (item[monthKey] as number);
+                            },
+                            0,
+                          );
                           return (
-                            <td key={month} className="text-center p-2.5 font-bold text-xs">
+                            <td
+                              key={month}
+                              className="text-center p-2.5 font-bold text-xs"
+                            >
                               {formatCurrency(monthTotal)}
                             </td>
                           );
@@ -349,23 +414,36 @@ export default function ReportsPage() {
                       </tr>
 
                       {/* Spacing between categories */}
-                      <tr><td colSpan={14} className="h-1"></td></tr>
+                      <tr>
+                        <td colSpan={14} className="h-1"></td>
+                      </tr>
                     </React.Fragment>
                   ))}
 
                   {/* Summary Rows */}
                   <tr className="bg-green-500/20 border-t-2 border-green-500/30">
-                    <td className="p-2.5 font-bold text-white text-xs uppercase tracking-wide">Net Sales</td>
+                    <td className="p-2.5 font-bold text-white text-xs uppercase tracking-wide">
+                      Net Sales
+                    </td>
                     <td className="text-center p-2.5 font-bold text-white text-xs">
-                      {formatCurrency(calculateCategoryTotal(financialData.accounts[0]))}
+                      {formatCurrency(
+                        calculateCategoryTotal(financialData.accounts[0]),
+                      )}
                     </td>
                     {months.map((month, monthIndex) => {
-                      const salesTotal = financialData.accounts[0].items.reduce((sum, item) => {
-                        const monthKey = month.toLowerCase() as keyof typeof item;
-                        return sum + (item[monthKey] as number);
-                      }, 0);
+                      const salesTotal = financialData.accounts[0].items.reduce(
+                        (sum, item) => {
+                          const monthKey =
+                            month.toLowerCase() as keyof typeof item;
+                          return sum + (item[monthKey] as number);
+                        },
+                        0,
+                      );
                       return (
-                        <td key={month} className="text-center p-2.5 font-bold text-white text-xs">
+                        <td
+                          key={month}
+                          className="text-center p-2.5 font-bold text-white text-xs"
+                        >
                           {formatCurrency(salesTotal)}
                         </td>
                       );
@@ -373,17 +451,28 @@ export default function ReportsPage() {
                   </tr>
 
                   <tr className="bg-red-500/20">
-                    <td className="p-2.5 font-bold text-white text-xs uppercase tracking-wide">Total COGS</td>
+                    <td className="p-2.5 font-bold text-white text-xs uppercase tracking-wide">
+                      Total COGS
+                    </td>
                     <td className="text-center p-2.5 font-bold text-white text-xs">
-                      {formatCurrency(calculateCategoryTotal(financialData.accounts[1]))}
+                      {formatCurrency(
+                        calculateCategoryTotal(financialData.accounts[1]),
+                      )}
                     </td>
                     {months.map((month, monthIndex) => {
-                      const cogsTotal = financialData.accounts[1].items.reduce((sum, item) => {
-                        const monthKey = month.toLowerCase() as keyof typeof item;
-                        return sum + (item[monthKey] as number);
-                      }, 0);
+                      const cogsTotal = financialData.accounts[1].items.reduce(
+                        (sum, item) => {
+                          const monthKey =
+                            month.toLowerCase() as keyof typeof item;
+                          return sum + (item[monthKey] as number);
+                        },
+                        0,
+                      );
                       return (
-                        <td key={month} className="text-center p-2.5 font-bold text-white text-xs">
+                        <td
+                          key={month}
+                          className="text-center p-2.5 font-bold text-white text-xs"
+                        >
                           {formatCurrency(cogsTotal)}
                         </td>
                       );
@@ -391,17 +480,26 @@ export default function ReportsPage() {
                   </tr>
 
                   <tr className="bg-yellow-500/20">
-                    <td className="p-2.5 font-bold text-white text-xs uppercase tracking-wide">Total Operating Expenses</td>
+                    <td className="p-2.5 font-bold text-white text-xs uppercase tracking-wide">
+                      Total Operating Expenses
+                    </td>
                     <td className="text-center p-2.5 font-bold text-white text-xs">
-                      {formatCurrency(calculateCategoryTotal(financialData.accounts[2]))}
+                      {formatCurrency(
+                        calculateCategoryTotal(financialData.accounts[2]),
+                      )}
                     </td>
                     {months.map((month, monthIndex) => {
-                      const operatingTotal = financialData.accounts[2].items.reduce((sum, item) => {
-                        const monthKey = month.toLowerCase() as keyof typeof item;
-                        return sum + (item[monthKey] as number);
-                      }, 0);
+                      const operatingTotal =
+                        financialData.accounts[2].items.reduce((sum, item) => {
+                          const monthKey =
+                            month.toLowerCase() as keyof typeof item;
+                          return sum + (item[monthKey] as number);
+                        }, 0);
                       return (
-                        <td key={month} className="text-center p-2.5 font-bold text-white text-xs">
+                        <td
+                          key={month}
+                          className="text-center p-2.5 font-bold text-white text-xs"
+                        >
                           {formatCurrency(operatingTotal)}
                         </td>
                       );
@@ -409,17 +507,26 @@ export default function ReportsPage() {
                   </tr>
 
                   <tr className="bg-blue-500/20">
-                    <td className="p-2.5 font-bold text-white text-xs uppercase tracking-wide">Total Delivery Expenses</td>
+                    <td className="p-2.5 font-bold text-white text-xs uppercase tracking-wide">
+                      Total Delivery Expenses
+                    </td>
                     <td className="text-center p-2.5 font-bold text-white text-xs">
-                      {formatCurrency(calculateCategoryTotal(financialData.accounts[3]))}
+                      {formatCurrency(
+                        calculateCategoryTotal(financialData.accounts[3]),
+                      )}
                     </td>
                     {months.map((month, monthIndex) => {
-                      const deliveryTotal = financialData.accounts[3].items.reduce((sum, item) => {
-                        const monthKey = month.toLowerCase() as keyof typeof item;
-                        return sum + (item[monthKey] as number);
-                      }, 0);
+                      const deliveryTotal =
+                        financialData.accounts[3].items.reduce((sum, item) => {
+                          const monthKey =
+                            month.toLowerCase() as keyof typeof item;
+                          return sum + (item[monthKey] as number);
+                        }, 0);
                       return (
-                        <td key={month} className="text-center p-2.5 font-bold text-white text-xs">
+                        <td
+                          key={month}
+                          className="text-center p-2.5 font-bold text-white text-xs"
+                        >
                           {formatCurrency(deliveryTotal)}
                         </td>
                       );
@@ -427,35 +534,57 @@ export default function ReportsPage() {
                   </tr>
 
                   <tr className="bg-primary/25 border-t-2 border-primary/40">
-                    <td className="p-2.5 font-bold text-white text-xs uppercase tracking-wide">Gross Profit</td>
+                    <td className="p-2.5 font-bold text-white text-xs uppercase tracking-wide">
+                      Gross Profit
+                    </td>
                     <td className="text-center p-2.5 font-bold text-white text-xs">
                       {formatCurrency(
                         calculateCategoryTotal(financialData.accounts[0]) -
-                        calculateCategoryTotal(financialData.accounts[1]) -
-                        calculateCategoryTotal(financialData.accounts[2]) -
-                        calculateCategoryTotal(financialData.accounts[3])
+                          calculateCategoryTotal(financialData.accounts[1]) -
+                          calculateCategoryTotal(financialData.accounts[2]) -
+                          calculateCategoryTotal(financialData.accounts[3]),
                       )}
                     </td>
                     {months.map((month, monthIndex) => {
-                      const salesTotal = financialData.accounts[0].items.reduce((sum, item) => {
-                        const monthKey = month.toLowerCase() as keyof typeof item;
-                        return sum + (item[monthKey] as number);
-                      }, 0);
-                      const cogsTotal = financialData.accounts[1].items.reduce((sum, item) => {
-                        const monthKey = month.toLowerCase() as keyof typeof item;
-                        return sum + (item[monthKey] as number);
-                      }, 0);
-                      const operatingTotal = financialData.accounts[2].items.reduce((sum, item) => {
-                        const monthKey = month.toLowerCase() as keyof typeof item;
-                        return sum + (item[monthKey] as number);
-                      }, 0);
-                      const deliveryTotal = financialData.accounts[3].items.reduce((sum, item) => {
-                        const monthKey = month.toLowerCase() as keyof typeof item;
-                        return sum + (item[monthKey] as number);
-                      }, 0);
+                      const salesTotal = financialData.accounts[0].items.reduce(
+                        (sum, item) => {
+                          const monthKey =
+                            month.toLowerCase() as keyof typeof item;
+                          return sum + (item[monthKey] as number);
+                        },
+                        0,
+                      );
+                      const cogsTotal = financialData.accounts[1].items.reduce(
+                        (sum, item) => {
+                          const monthKey =
+                            month.toLowerCase() as keyof typeof item;
+                          return sum + (item[monthKey] as number);
+                        },
+                        0,
+                      );
+                      const operatingTotal =
+                        financialData.accounts[2].items.reduce((sum, item) => {
+                          const monthKey =
+                            month.toLowerCase() as keyof typeof item;
+                          return sum + (item[monthKey] as number);
+                        }, 0);
+                      const deliveryTotal =
+                        financialData.accounts[3].items.reduce((sum, item) => {
+                          const monthKey =
+                            month.toLowerCase() as keyof typeof item;
+                          return sum + (item[monthKey] as number);
+                        }, 0);
                       return (
-                        <td key={month} className="text-center p-2.5 font-bold text-white text-xs">
-                          {formatCurrency(salesTotal - cogsTotal - operatingTotal - deliveryTotal)}
+                        <td
+                          key={month}
+                          className="text-center p-2.5 font-bold text-white text-xs"
+                        >
+                          {formatCurrency(
+                            salesTotal -
+                              cogsTotal -
+                              operatingTotal -
+                              deliveryTotal,
+                          )}
                         </td>
                       );
                     })}
@@ -470,10 +599,15 @@ export default function ReportsPage() {
             <div className="bg-green-500/10 backdrop-blur-sm rounded-lg p-4 border border-green-500/20">
               <div className="flex items-center space-x-2 mb-2">
                 <TrendingUp className="w-5 h-5 text-green-400" />
-                <h3 className="text-sm font-bold text-green-400">Total Revenue</h3>
+                <h3 className="text-sm font-bold text-green-400">
+                  Total Revenue
+                </h3>
               </div>
               <p className="text-lg font-bold text-white">
-                ₱{formatCurrency(calculateCategoryTotal(financialData.accounts[0]))}
+                ₱
+                {formatCurrency(
+                  calculateCategoryTotal(financialData.accounts[0]),
+                )}
               </p>
               <p className="text-green-400/70 text-xs mt-1">Year to date</p>
             </div>
@@ -484,7 +618,10 @@ export default function ReportsPage() {
                 <h3 className="text-sm font-bold text-red-400">Total COGS</h3>
               </div>
               <p className="text-lg font-bold text-white">
-                ₱{formatCurrency(calculateCategoryTotal(financialData.accounts[1]))}
+                ₱
+                {formatCurrency(
+                  calculateCategoryTotal(financialData.accounts[1]),
+                )}
               </p>
               <p className="text-red-400/70 text-xs mt-1">Cost of goods</p>
             </div>
@@ -492,15 +629,20 @@ export default function ReportsPage() {
             <div className="bg-blue-500/10 backdrop-blur-sm rounded-lg p-4 border border-blue-500/20">
               <div className="flex items-center space-x-2 mb-2">
                 <Calendar className="w-5 h-5 text-blue-400" />
-                <h3 className="text-sm font-bold text-blue-400">Total Expenses</h3>
+                <h3 className="text-sm font-bold text-blue-400">
+                  Total Expenses
+                </h3>
               </div>
               <p className="text-lg font-bold text-white">
-                ₱{formatCurrency(
+                ₱
+                {formatCurrency(
                   calculateCategoryTotal(financialData.accounts[2]) +
-                  calculateCategoryTotal(financialData.accounts[3])
+                    calculateCategoryTotal(financialData.accounts[3]),
                 )}
               </p>
-              <p className="text-blue-400/70 text-xs mt-1">Operations + Delivery</p>
+              <p className="text-blue-400/70 text-xs mt-1">
+                Operations + Delivery
+              </p>
             </div>
 
             <div className="bg-primary/10 backdrop-blur-sm rounded-lg p-4 border border-primary/20">
@@ -509,11 +651,12 @@ export default function ReportsPage() {
                 <h3 className="text-sm font-bold text-primary">Net Profit</h3>
               </div>
               <p className="text-lg font-bold text-white">
-                ₱{formatCurrency(
+                ₱
+                {formatCurrency(
                   calculateCategoryTotal(financialData.accounts[0]) -
-                  calculateCategoryTotal(financialData.accounts[1]) -
-                  calculateCategoryTotal(financialData.accounts[2]) -
-                  calculateCategoryTotal(financialData.accounts[3])
+                    calculateCategoryTotal(financialData.accounts[1]) -
+                    calculateCategoryTotal(financialData.accounts[2]) -
+                    calculateCategoryTotal(financialData.accounts[3]),
                 )}
               </p>
               <p className="text-primary/70 text-xs mt-1">After all expenses</p>
@@ -522,7 +665,10 @@ export default function ReportsPage() {
 
           {/* Footer */}
           <div className="text-center text-white/30 text-xs">
-            <p>Generated on {new Date().toLocaleDateString('en-PH')} | Celestial Drakon Aquatics Control Panel</p>
+            <p>
+              Generated on {new Date().toLocaleDateString("en-PH")} | Celestial
+              Drakon Aquatics Control Panel
+            </p>
           </div>
         </div>
       </div>

@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { useState, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import {
   Plus,
   Search,
@@ -127,36 +127,38 @@ const mockProducts = [
 ];
 
 const formatCurrency = (amount: number) => {
-  return `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`;
+  return `₱${amount.toLocaleString("en-PH", { minimumFractionDigits: 2 })}`;
 };
 
 const getStockStatus = (stock: number) => {
-  if (stock === 0) return { 
-    status: 'Out of Stock', 
-    color: 'bg-error/10', 
-    textColor: 'text-error' 
-  };
-  if (stock < 10) return { 
-    status: 'Low Stock', 
-    color: 'bg-warning/10', 
-    textColor: 'text-warning' 
-  };
-  return { 
-    status: 'In Stock', 
-    color: 'bg-success/10', 
-    textColor: 'text-success' 
+  if (stock === 0)
+    return {
+      status: "Out of Stock",
+      color: "bg-error/10",
+      textColor: "text-error",
+    };
+  if (stock < 10)
+    return {
+      status: "Low Stock",
+      color: "bg-warning/10",
+      textColor: "text-warning",
+    };
+  return {
+    status: "In Stock",
+    color: "bg-success/10",
+    textColor: "text-success",
   };
 };
 
 export default function ProductsPage() {
   const router = useRouter();
 
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('All');
-  const [selectedStatus, setSelectedStatus] = useState('all');
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("All");
+  const [selectedStatus, setSelectedStatus] = useState("all");
   const [showFilters, setShowFilters] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
+  const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
 
   // Create category mapping for better filtering
   const categoryMap = useMemo(() => {
@@ -174,7 +176,7 @@ export default function ProductsPage() {
     // Apply search filter
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(product => 
+      filtered = filtered.filter(product =>
         product.name.toLowerCase().includes(query) ||
         (product.description && product.description.toLowerCase().includes(query)) ||
         (categoryMap[product.categoryId] && categoryMap[product.categoryId].toLowerCase().includes(query)) ||
@@ -183,24 +185,24 @@ export default function ProductsPage() {
     }
 
     // Apply category filter
-    if (selectedCategory !== 'All') {
-      filtered = filtered.filter(product => {
+    if (selectedCategory !== "All") {
+      filtered = filtered.filter((product) => {
         const productCategory = categoryMap[product.categoryId];
         return productCategory === selectedCategory;
       });
     }
 
     // Apply status filter
-    if (selectedStatus !== 'all') {
-      filtered = filtered.filter(product => {
+    if (selectedStatus !== "all") {
+      filtered = filtered.filter((product) => {
         switch (selectedStatus) {
-          case 'active':
+          case "active":
             return product.isActive && product.stock > 0;
-          case 'inactive':
+          case "inactive":
             return !product.isActive;
-          case 'out_of_stock':
+          case "out_of_stock":
             return product.stock === 0;
-          case 'low_stock':
+          case "low_stock":
             return product.stock > 0 && product.stock < 10;
           default:
             return true;
@@ -249,14 +251,14 @@ export default function ProductsPage() {
   ], [productStats]);
 
   const handleProductAction = (productId: string, action: string) => {
-    if (action === 'Edit') {
+    if (action === "Edit") {
       router.push(`/control_panel/products/edit/${productId}`);
-    } else if (action === 'View') {
+    } else if (action === "View") {
       router.push(`/control_panel/products/${productId}`);
-    } else if (action === 'Toggle') {
-      console.log('Toggle status for product:', productId);
-    } else if (action === 'Delete') {
-      console.log('Delete product:', productId);
+    } else if (action === "Toggle") {
+      console.log("Toggle status for product:", productId);
+    } else if (action === "Delete") {
+      console.log("Delete product:", productId);
     }
     setSelectedProduct(null);
   };
@@ -280,32 +282,40 @@ export default function ProductsPage() {
                   <ChevronLeft className="w-5 h-5 text-white" />
                 </button>
                 <div>
-                  <h1 className="text-2xl font-bold text-white">Product Management</h1>
-                  <p className="text-sm text-white/60">Manage your product inventory and catalog</p>
+                  <h1 className="text-2xl font-bold text-white">
+                    Product Management
+                  </h1>
+                  <p className="text-sm text-white/60">
+                    Manage your product inventory and catalog
+                  </p>
                 </div>
               </div>
 
               <div className="flex items-center space-x-3">
                 <div className="flex items-center space-x-2">
                   <button
-                    onClick={() => setViewMode('grid')}
+                    onClick={() => setViewMode("grid")}
                     className={`p-2 rounded-lg transition-colors ${
-                      viewMode === 'grid' ? 'bg-primary text-white' : 'bg-secondary/60 text-white/60 hover:text-white'
+                      viewMode === "grid"
+                        ? "bg-primary text-white"
+                        : "bg-secondary/60 text-white/60 hover:text-white"
                     }`}
                   >
                     <Package className="w-4 h-4" />
                   </button>
                   <button
-                    onClick={() => setViewMode('table')}
+                    onClick={() => setViewMode("table")}
                     className={`p-2 rounded-lg transition-colors ${
-                      viewMode === 'table' ? 'bg-primary text-white' : 'bg-secondary/60 text-white/60 hover:text-white'
+                      viewMode === "table"
+                        ? "bg-primary text-white"
+                        : "bg-secondary/60 text-white/60 hover:text-white"
                     }`}
                   >
                     <BarChart3 className="w-4 h-4" />
                   </button>
                 </div>
                 <Button
-                  onClick={() => router.push('/control_panel/products/add')}
+                  onClick={() => router.push("/control_panel/products/add")}
                   className="bg-primary hover:bg-primary/90"
                 >
                   <Plus className="w-4 h-4 mr-2" />
@@ -324,7 +334,9 @@ export default function ProductsPage() {
                 <Package className="w-5 h-5 text-primary" />
                 <span className="text-xs text-success">+3.1%</span>
               </div>
-              <p className="text-2xl font-bold text-white">{productStats.totalProducts}</p>
+              <p className="text-2xl font-bold text-white">
+                {productStats.totalProducts}
+              </p>
               <p className="text-xs text-white/60">Total Products</p>
             </div>
             <div className="bg-secondary/40 backdrop-blur-sm rounded-xl p-4 border border-white/10">
@@ -332,7 +344,9 @@ export default function ProductsPage() {
                 <CheckCircle className="w-5 h-5 text-success" />
                 <span className="text-xs text-success">+2.5%</span>
               </div>
-              <p className="text-2xl font-bold text-white">{productStats.activeProducts}</p>
+              <p className="text-2xl font-bold text-white">
+                {productStats.activeProducts}
+              </p>
               <p className="text-xs text-white/60">Active</p>
             </div>
             <div className="bg-secondary/40 backdrop-blur-sm rounded-xl p-4 border border-white/10">
@@ -340,7 +354,9 @@ export default function ProductsPage() {
                 <AlertTriangle className="w-5 h-5 text-warning" />
                 <span className="text-xs text-warning">+1.2%</span>
               </div>
-              <p className="text-2xl font-bold text-white">{productStats.lowStock}</p>
+              <p className="text-2xl font-bold text-white">
+                {productStats.lowStock}
+              </p>
               <p className="text-xs text-white/60">Low Stock</p>
             </div>
             <div className="bg-secondary/40 backdrop-blur-sm rounded-xl p-4 border border-white/10">
@@ -348,7 +364,9 @@ export default function ProductsPage() {
                 <TrendingDown className="w-5 h-5 text-error" />
                 <span className="text-xs text-error">+0.8%</span>
               </div>
-              <p className="text-2xl font-bold text-white">{productStats.outOfStock}</p>
+              <p className="text-2xl font-bold text-white">
+                {productStats.outOfStock}
+              </p>
               <p className="text-xs text-white/60">Out of Stock</p>
             </div>
             <div className="bg-secondary/40 backdrop-blur-sm rounded-xl p-4 border border-white/10">
@@ -356,10 +374,11 @@ export default function ProductsPage() {
                 <Star className="w-5 h-5 text-warning" />
                 <span className="text-xs text-success">+5.7%</span>
               </div>
-              <p className="text-2xl font-bold text-white">{productStats.topRated}</p>
+              <p className="text-2xl font-bold text-white">
+                {productStats.topRated}
+              </p>
               <p className="text-xs text-white/60">Top Rated</p>
             </div>
-            
           </div>
         </div>
 
@@ -380,8 +399,8 @@ export default function ProductsPage() {
               onClick={() => setShowFilters(!showFilters)}
               className={`px-4 py-3 rounded-lg border transition-all flex items-center gap-2 ${
                 showFilters
-                  ? 'bg-primary border-primary text-white'
-                  : 'bg-secondary/60 border-white/10 text-white hover:bg-secondary/80'
+                  ? "bg-primary border-primary text-white"
+                  : "bg-secondary/60 border-white/10 text-white hover:bg-secondary/80"
               }`}
             >
               <Filter className="w-4 h-4" />
@@ -393,7 +412,9 @@ export default function ProductsPage() {
           {showFilters && (
             <div className="mt-4 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-white mb-2">Categories</label>
+                <label className="block text-sm font-medium text-white mb-2">
+                  Categories
+                </label>
                 <div className="flex gap-2 overflow-x-auto pb-2">
                   {categoryNames.map((category) => (
                     <button
@@ -401,8 +422,8 @@ export default function ProductsPage() {
                       onClick={() => setSelectedCategory(category)}
                       className={`flex-shrink-0 px-3 py-2 rounded-lg text-sm border transition-colors ${
                         selectedCategory === category
-                          ? 'bg-primary border-primary text-white'
-                          : 'bg-secondary/60 border-white/10 text-white/70 hover:text-white hover:border-primary/20'
+                          ? "bg-primary border-primary text-white"
+                          : "bg-secondary/60 border-white/10 text-white/70 hover:text-white hover:border-primary/20"
                       }`}
                     >
                       {category}
@@ -410,9 +431,11 @@ export default function ProductsPage() {
                   ))}
                 </div>
               </div>
-              
+
               <div>
-                <label className="block text-sm font-medium text-white mb-2">Status</label>
+                <label className="block text-sm font-medium text-white mb-2">
+                  Status
+                </label>
                 <div className="flex gap-2 overflow-x-auto pb-2">
                   {statusFilters.map((filter) => (
                     <button
@@ -420,16 +443,18 @@ export default function ProductsPage() {
                       onClick={() => setSelectedStatus(filter.key)}
                       className={`flex-shrink-0 px-3 py-2 rounded-lg text-sm border flex items-center space-x-2 transition-colors ${
                         selectedStatus === filter.key
-                          ? 'bg-info border-info text-white'
-                          : 'bg-secondary/60 border-white/10 text-white/70 hover:text-white hover:border-primary/20'
+                          ? "bg-info border-info text-white"
+                          : "bg-secondary/60 border-white/10 text-white/70 hover:text-white hover:border-primary/20"
                       }`}
                     >
                       <span>{filter.label}</span>
-                      <div className={`px-1.5 py-0.5 rounded text-xs ${
-                        selectedStatus === filter.key
-                          ? 'bg-white/20 text-white'
-                          : 'bg-primary/10 text-primary'
-                      }`}>
+                      <div
+                        className={`px-1.5 py-0.5 rounded text-xs ${
+                          selectedStatus === filter.key
+                            ? "bg-white/20 text-white"
+                            : "bg-primary/10 text-primary"
+                        }`}
+                      >
                         {filter.count}
                       </div>
                     </button>
@@ -439,7 +464,7 @@ export default function ProductsPage() {
             </div>
           )}
         </div>
-        
+
         {/* Products List */}
         <div className="flex-1 px-6 py-4">
           <div className="flex items-center justify-between mb-4">
@@ -449,9 +474,9 @@ export default function ProductsPage() {
             {filteredProducts.length === 0 && mockProducts.length > 0 && (
               <button
                 onClick={() => {
-                  setSearchQuery('');
-                  setSelectedCategory('All');
-                  setSelectedStatus('all');
+                  setSearchQuery("");
+                  setSelectedCategory("All");
+                  setSelectedStatus("all");
                 }}
                 className="px-3 py-1 rounded-lg bg-primary/10 border border-primary text-primary text-xs hover:bg-primary/20 transition-colors"
               >
@@ -459,19 +484,21 @@ export default function ProductsPage() {
               </button>
             )}
           </div>
-          
+
           {filteredProducts.length === 0 ? (
             <div className="text-center py-12">
               <Package className="w-16 h-16 text-white/20 mx-auto mb-4" />
-              <h3 className="text-xl font-bold text-white mb-2">No products found</h3>
+              <h3 className="text-xl font-bold text-white mb-2">
+                No products found
+              </h3>
               <p className="text-white/60 mb-6 text-center">
-                {mockProducts.length === 0 
-                  ? 'No products have been added yet.' 
-                  : 'Try adjusting your search terms or filters.'}
+                {mockProducts.length === 0
+                  ? "No products have been added yet."
+                  : "Try adjusting your search terms or filters."}
               </p>
               {mockProducts.length === 0 && (
                 <Button
-                  onClick={() => router.push('/control_panel/products/add')}
+                  onClick={() => router.push("/control_panel/products/add")}
                   className="bg-primary hover:bg-primary/90"
                 >
                   Add First Product
@@ -482,19 +509,26 @@ export default function ProductsPage() {
             <div className="space-y-4">
               {filteredProducts.map((product) => {
                 const stockStatus = getStockStatus(product.stock);
-                const discount = (product.originalPrice && product.originalPrice > product.price) ? 
-                  Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100) : 0;
-                
+                const discount =
+                  product.originalPrice && product.originalPrice > product.price
+                    ? Math.round(
+                        ((product.originalPrice - product.price) /
+                          product.originalPrice) *
+                          100,
+                      )
+                    : 0;
+
                 // Determine product status
                 const getItemStatus = (prod: typeof product) => {
-                  if (!prod.isActive) return 'inactive';
-                  if (prod.stock === 0) return 'out_of_stock';
-                  return 'active';
+                  if (!prod.isActive) return "inactive";
+                  if (prod.stock === 0) return "out_of_stock";
+                  return "active";
                 };
-                
+
                 const itemStatus = getItemStatus(product);
-                const categoryName = categoryMap[product.categoryId] || 'Unknown Category';
-                
+                const categoryName =
+                  categoryMap[product.categoryId] || "Unknown Category";
+
                 return (
                   <div
                     key={product._id}
@@ -519,7 +553,9 @@ export default function ProductsPage() {
                         {product.badge && (
                           <div className="absolute -top-1 -right-1 px-1.5 py-0.5 rounded bg-primary">
                             <span className="text-xs font-bold text-white">
-                              {product.badge === 'Bestseller' ? '★' : product.badge.charAt(0)}
+                              {product.badge === "Bestseller"
+                                ? "★"
+                                : product.badge.charAt(0)}
                             </span>
                           </div>
                         )}
@@ -531,24 +567,33 @@ export default function ProductsPage() {
                           </div>
                         )}
                       </div>
-                      
+
                       {/* Product Info */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between mb-2">
                           <div className="flex-1">
                             <h3 className="font-bold text-white mb-1">
-                              {product.name || 'Unnamed Product'}
+                              {product.name || "Unnamed Product"}
                             </h3>
-                            <p className="text-sm text-white/60 mb-1">{categoryName}</p>
+                            <p className="text-sm text-white/60 mb-1">
+                              {categoryName}
+                            </p>
                             <p className="text-xs text-white/40">
-                              SKU: {product.sku} • ID: {product._id.slice(-6).toUpperCase()}
+                              SKU: {product.sku} • ID:{" "}
+                              {product._id.slice(-6).toUpperCase()}
                             </p>
                           </div>
-                          
+
                           {/* Actions Menu */}
                           <div className="relative">
                             <button
-                              onClick={() => setSelectedProduct(selectedProduct === product._id ? null : product._id)}
+                              onClick={() =>
+                                setSelectedProduct(
+                                  selectedProduct === product._id
+                                    ? null
+                                    : product._id,
+                                )
+                              }
                               className="p-1 rounded hover:bg-white/10 transition-colors"
                             >
                               <MoreVertical className="w-4 h-4 text-white/60" />
@@ -558,29 +603,45 @@ export default function ProductsPage() {
                               <div className="absolute right-0 top-8 w-48 bg-secondary border border-white/10 rounded-lg shadow-xl z-10">
                                 <div className="py-1">
                                   <button
-                                    onClick={() => handleProductAction(product._id, 'View')}
+                                    onClick={() =>
+                                      handleProductAction(product._id, "View")
+                                    }
                                     className="w-full px-4 py-2 text-left text-white hover:bg-white/10 flex items-center space-x-2"
                                   >
                                     <Eye className="w-4 h-4" />
                                     <span>View Details</span>
                                   </button>
                                   <button
-                                    onClick={() => handleProductAction(product._id, 'Edit')}
+                                    onClick={() =>
+                                      handleProductAction(product._id, "Edit")
+                                    }
                                     className="w-full px-4 py-2 text-left text-white hover:bg-white/10 flex items-center space-x-2"
                                   >
                                     <Edit className="w-4 h-4" />
                                     <span>Edit Product</span>
                                   </button>
                                   <button
-                                    onClick={() => handleProductAction(product._id, 'Toggle')}
+                                    onClick={() =>
+                                      handleProductAction(product._id, "Toggle")
+                                    }
                                     className="w-full px-4 py-2 text-left text-white hover:bg-white/10 flex items-center space-x-2"
                                   >
-                                    {product.isActive ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                                    <span>{product.isActive ? 'Deactivate' : 'Activate'}</span>
+                                    {product.isActive ? (
+                                      <EyeOff className="w-4 h-4" />
+                                    ) : (
+                                      <Eye className="w-4 h-4" />
+                                    )}
+                                    <span>
+                                      {product.isActive
+                                        ? "Deactivate"
+                                        : "Activate"}
+                                    </span>
                                   </button>
                                   <div className="border-t border-white/10 my-1"></div>
                                   <button
-                                    onClick={() => handleProductAction(product._id, 'Delete')}
+                                    onClick={() =>
+                                      handleProductAction(product._id, "Delete")
+                                    }
                                     className="w-full px-4 py-2 text-left text-error hover:bg-error/10 flex items-center space-x-2"
                                   >
                                     <Trash2 className="w-4 h-4" />
@@ -591,19 +652,20 @@ export default function ProductsPage() {
                             )}
                           </div>
                         </div>
-                        
+
                         <div className="flex items-center justify-between mb-3">
                           <div>
                             <span className="text-lg font-bold text-primary">
                               {formatCurrency(product.price)}
                             </span>
-                            {product.originalPrice && product.originalPrice > product.price && (
-                              <span className="text-sm text-white/40 line-through ml-2">
-                                {formatCurrency(product.originalPrice)}
-                              </span>
-                            )}
+                            {product.originalPrice &&
+                              product.originalPrice > product.price && (
+                                <span className="text-sm text-white/40 line-through ml-2">
+                                  {formatCurrency(product.originalPrice)}
+                                </span>
+                              )}
                           </div>
-                          
+
                           {product.rating > 4.5 && (
                             <div className="flex items-center">
                               <Star className="w-4 h-4 text-warning fill-current" />
@@ -613,20 +675,26 @@ export default function ProductsPage() {
                             </div>
                           )}
                         </div>
-                        
+
                         <div className="flex items-center justify-between mb-3">
                           <div className="flex items-center space-x-2">
-                            <div className={`px-3 py-1 rounded-lg ${
-                              itemStatus === 'active' ? 'bg-success/10 text-success' :
-                              itemStatus === 'inactive' ? 'bg-white/10 text-white/60' :
-                              'bg-error/10 text-error'
-                            }`}>
+                            <div
+                              className={`px-3 py-1 rounded-lg ${
+                                itemStatus === "active"
+                                  ? "bg-success/10 text-success"
+                                  : itemStatus === "inactive"
+                                    ? "bg-white/10 text-white/60"
+                                    : "bg-error/10 text-error"
+                              }`}
+                            >
                               <span className="text-xs font-medium capitalize">
-                                {itemStatus.replace('_', ' ')}
+                                {itemStatus.replace("_", " ")}
                               </span>
                             </div>
-                            
-                            <div className={`px-3 py-1 rounded-lg ${stockStatus.color} ${stockStatus.textColor}`}>
+
+                            <div
+                              className={`px-3 py-1 rounded-lg ${stockStatus.color} ${stockStatus.textColor}`}
+                            >
                               <span className="text-xs font-medium">
                                 {product.stock} in stock
                               </span>
@@ -634,31 +702,44 @@ export default function ProductsPage() {
                           </div>
 
                           <div className="text-right">
-                            <p className="text-xs text-white/60">Sales: {product.sales || 0}</p>
-                            <p className="text-xs text-white/60">Revenue: {formatCurrency(product.revenue || 0)}</p>
+                            <p className="text-xs text-white/60">
+                              Sales: {product.sales || 0}
+                            </p>
+                            <p className="text-xs text-white/60">
+                              Revenue: {formatCurrency(product.revenue || 0)}
+                            </p>
                           </div>
                         </div>
-                        
+
                         {/* Action Buttons */}
                         <div className="flex items-center justify-between pt-3 border-t border-white/10">
                           <div className="flex items-center">
                             <span className="text-xs text-white/60">
-                              Created: {new Date(product.createdAt).toLocaleDateString()}
+                              Created:{" "}
+                              {new Date(product.createdAt).toLocaleDateString()}
                             </span>
                           </div>
-                          
+
                           <div className="flex items-center space-x-2">
                             <Button
-                              onClick={() => router.push(`/control_panel/products/${product._id}`)}
+                              onClick={() =>
+                                router.push(
+                                  `/control_panel/products/${product._id}`,
+                                )
+                              }
                               variant="outline"
                               size="sm"
                               className="border-primary/20 text-primary hover:bg-primary/10"
                             >
                               View
                             </Button>
-                            
+
                             <Button
-                              onClick={() => router.push(`/control_panel/products/edit/${product._id}`)}
+                              onClick={() =>
+                                router.push(
+                                  `/control_panel/products/edit/${product._id}`,
+                                )
+                              }
                               size="sm"
                               className="bg-primary hover:bg-primary/90"
                             >
