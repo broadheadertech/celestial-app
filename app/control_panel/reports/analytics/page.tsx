@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   BarChart3,
   TrendingUp,
@@ -29,8 +29,8 @@ import Button from '@/components/ui/Button';
 
 export default function AnalyticsPage() {
   const router = useRouter();
-  const [dateRange, setDateRange] = useState('30d');
-  const [selectedMetric, setSelectedMetric] = useState('revenue');
+  const [dateRange, setDateRange] = useState("30d");
+  const [selectedMetric, setSelectedMetric] = useState("revenue");
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const handleRefresh = () => {
@@ -48,65 +48,77 @@ export default function AnalyticsPage() {
     },
     demographics: {
       age: [
-        { range: '18-24', percentage: 25, count: 213 },
-        { range: '25-34', percentage: 35, count: 298 },
-        { range: '35-44', percentage: 22, count: 187 },
-        { range: '45+', percentage: 18, count: 152 },
+        { range: "18-24", percentage: 25, count: 213 },
+        { range: "25-34", percentage: 35, count: 298 },
+        { range: "35-44", percentage: 22, count: 187 },
+        { range: "45+", percentage: 18, count: 152 },
       ],
       gender: [
-        { type: 'Male', percentage: 60, count: 510 },
-        { type: 'Female', percentage: 35, count: 298 },
-        { type: 'Other', percentage: 5, count: 42 },
+        { type: "Male", percentage: 60, count: 510 },
+        { type: "Female", percentage: 35, count: 298 },
+        { type: "Other", percentage: 5, count: 42 },
       ],
       location: [
-        { city: 'Manila', percentage: 40, count: 340 },
-        { city: 'Cebu', percentage: 25, count: 213 },
-        { city: 'Davao', percentage: 15, count: 128 },
-        { city: 'Others', percentage: 20, count: 169 },
+        { city: "Manila", percentage: 40, count: 340 },
+        { city: "Cebu", percentage: 25, count: 213 },
+        { city: "Davao", percentage: 15, count: 128 },
+        { city: "Others", percentage: 20, count: 169 },
       ],
     },
     devices: [
-      { type: 'Mobile', percentage: 65, sessions: 2450 },
-      { type: 'Desktop', percentage: 30, sessions: 1130 },
-      { type: 'Tablet', percentage: 5, sessions: 188 },
+      { type: "Mobile", percentage: 65, sessions: 2450 },
+      { type: "Desktop", percentage: 30, sessions: 1130 },
+      { type: "Tablet", percentage: 5, sessions: 188 },
     ],
     topPages: [
-      { path: '/client/dashboard', views: 12500, bounce: 25 },
-      { path: '/client/search', views: 8900, bounce: 35 },
-      { path: '/client/product/*', views: 7200, bounce: 40 },
-      { path: '/client/cart', views: 3400, bounce: 20 },
+      { path: "/client/dashboard", views: 12500, bounce: 25 },
+      { path: "/client/search", views: 8900, bounce: 35 },
+      { path: "/client/product/*", views: 7200, bounce: 40 },
+      { path: "/client/cart", views: 3400, bounce: 20 },
     ],
     salesTrends: [
-      { period: 'Mon', revenue: 15000, orders: 120 },
-      { period: 'Tue', revenue: 18000, orders: 145 },
-      { period: 'Wed', revenue: 22000, orders: 180 },
-      { period: 'Thu', revenue: 19000, orders: 155 },
-      { period: 'Fri', revenue: 25000, orders: 200 },
-      { period: 'Sat', revenue: 28000, orders: 220 },
-      { period: 'Sun', revenue: 21000, orders: 170 },
+      { period: "Mon", revenue: 15000, orders: 120 },
+      { period: "Tue", revenue: 18000, orders: 145 },
+      { period: "Wed", revenue: 22000, orders: 180 },
+      { period: "Thu", revenue: 19000, orders: 155 },
+      { period: "Fri", revenue: 25000, orders: 200 },
+      { period: "Sat", revenue: 28000, orders: 220 },
+      { period: "Sun", revenue: 21000, orders: 170 },
     ],
   };
 
-  const MetricCard = ({ icon: Icon, title, value, growth, prefix = '', suffix = '', color = 'primary' }) => {
+  const MetricCard = ({
+    icon: Icon,
+    title,
+    value,
+    growth,
+    prefix = "",
+    suffix = "",
+    color = "primary",
+  }) => {
     const isPositive = growth >= 0;
     const GrowthIcon = isPositive ? ArrowUpRight : ArrowDownRight;
 
     const colorMap = {
-      primary: 'from-primary/20 to-orange-600/20 text-primary',
-      blue: 'from-blue-500/20 to-cyan-600/20 text-blue-400',
-      green: 'from-green-500/20 to-emerald-600/20 text-green-400',
-      purple: 'from-purple-500/20 to-violet-600/20 text-purple-400',
+      primary: "from-primary/20 to-orange-600/20 text-primary",
+      blue: "from-blue-500/20 to-cyan-600/20 text-blue-400",
+      green: "from-green-500/20 to-emerald-600/20 text-green-400",
+      purple: "from-purple-500/20 to-violet-600/20 text-purple-400",
     };
 
     return (
       <div className="bg-secondary/40 backdrop-blur-sm rounded-xl p-6 border border-white/10 hover:border-primary/30 transition-all duration-300">
         <div className="flex items-center justify-between mb-4">
-          <div className={`p-3 rounded-lg bg-gradient-to-br ${colorMap[color]}`}>
+          <div
+            className={`p-3 rounded-lg bg-gradient-to-br ${colorMap[color]}`}
+          >
             <Icon className="w-6 h-6" />
           </div>
-          <div className={`flex items-center space-x-1 text-sm ${
-            isPositive ? 'text-green-400' : 'text-red-400'
-          }`}>
+          <div
+            className={`flex items-center space-x-1 text-sm ${
+              isPositive ? "text-green-400" : "text-red-400"
+            }`}
+          >
             <GrowthIcon className="w-4 h-4" />
             <span className="font-medium">{Math.abs(growth)}%</span>
           </div>
@@ -116,7 +128,9 @@ export default function AnalyticsPage() {
           <h3 className="text-white/70 text-sm font-medium">{title}</h3>
           <div className="flex items-end justify-between">
             <span className="text-2xl font-bold text-white">
-              {prefix}{typeof value === 'number' ? value.toLocaleString() : value}{suffix}
+              {prefix}
+              {typeof value === "number" ? value.toLocaleString() : value}
+              {suffix}
             </span>
           </div>
           <p className="text-white/50 text-xs">vs last month</p>
@@ -147,8 +161,12 @@ export default function AnalyticsPage() {
                   <BarChart3 className="w-6 h-6 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-xl font-bold text-white">Analytics Dashboard</h1>
-                  <p className="text-sm text-white/60">Detailed insights and metrics</p>
+                  <h1 className="text-xl font-bold text-white">
+                    Analytics Dashboard
+                  </h1>
+                  <p className="text-sm text-white/60">
+                    Detailed insights and metrics
+                  </p>
                 </div>
               </div>
             </div>
@@ -172,7 +190,9 @@ export default function AnalyticsPage() {
                 disabled={isRefreshing}
                 className="border border-white/10"
               >
-                <RefreshCw className={`w-4 h-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+                <RefreshCw
+                  className={`w-4 h-4 mr-2 ${isRefreshing ? "animate-spin" : ""}`}
+                />
                 Refresh
               </Button>
 
@@ -237,15 +257,24 @@ export default function AnalyticsPage() {
               <div className="text-center">
                 <BarChart3 className="w-12 h-12 text-primary/60 mx-auto mb-3" />
                 <p className="text-white/60 text-sm">Sales Trend Chart</p>
-                <p className="text-white/40 text-xs mt-1">Chart integration needed</p>
+                <p className="text-white/40 text-xs mt-1">
+                  Chart integration needed
+                </p>
               </div>
             </div>
 
             <div className="grid grid-cols-7 gap-2">
               {analyticsData.salesTrends.map((day, index) => (
-                <div key={index} className="text-center p-2 bg-white/5 rounded-lg">
-                  <p className="text-white/60 text-xs font-medium">{day.period}</p>
-                  <p className="text-white text-sm font-bold">₱{(day.revenue / 1000).toFixed(0)}K</p>
+                <div
+                  key={index}
+                  className="text-center p-2 bg-white/5 rounded-lg"
+                >
+                  <p className="text-white/60 text-xs font-medium">
+                    {day.period}
+                  </p>
+                  <p className="text-white text-sm font-bold">
+                    ₱{(day.revenue / 1000).toFixed(0)}K
+                  </p>
                   <p className="text-white/40 text-xs">{day.orders}</p>
                 </div>
               ))}
@@ -264,24 +293,39 @@ export default function AnalyticsPage() {
             <div className="h-40 bg-gradient-to-br from-blue-500/10 to-cyan-600/10 rounded-lg flex items-center justify-center border border-white/5 mb-6">
               <div className="text-center">
                 <PieChart className="w-12 h-12 text-blue-400/60 mx-auto mb-3" />
-                <p className="text-white/60 text-sm">Device Distribution Chart</p>
+                <p className="text-white/60 text-sm">
+                  Device Distribution Chart
+                </p>
               </div>
             </div>
 
             <div className="space-y-3">
               {analyticsData.devices.map((device, index) => {
-                const icons = { Mobile: Smartphone, Desktop: Monitor, Tablet: Smartphone };
+                const icons = {
+                  Mobile: Smartphone,
+                  Desktop: Monitor,
+                  Tablet: Smartphone,
+                };
                 const DeviceIcon = icons[device.type] || Monitor;
 
                 return (
-                  <div key={index} className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
+                  <div
+                    key={index}
+                    className="flex items-center justify-between p-3 bg-white/5 rounded-lg"
+                  >
                     <div className="flex items-center space-x-3">
                       <DeviceIcon className="w-5 h-5 text-primary" />
-                      <span className="text-white text-sm font-medium">{device.type}</span>
+                      <span className="text-white text-sm font-medium">
+                        {device.type}
+                      </span>
                     </div>
                     <div className="text-right">
-                      <p className="text-white text-sm font-bold">{device.percentage}%</p>
-                      <p className="text-white/60 text-xs">{device.sessions.toLocaleString()} sessions</p>
+                      <p className="text-white text-sm font-bold">
+                        {device.percentage}%
+                      </p>
+                      <p className="text-white/60 text-xs">
+                        {device.sessions.toLocaleString()} sessions
+                      </p>
                     </div>
                   </div>
                 );
@@ -294,16 +338,25 @@ export default function AnalyticsPage() {
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
           {/* Customer Demographics */}
           <div className="bg-secondary/40 backdrop-blur-sm rounded-xl p-6 border border-white/10">
-            <h3 className="text-lg font-bold text-white mb-6">Customer Demographics</h3>
+            <h3 className="text-lg font-bold text-white mb-6">
+              Customer Demographics
+            </h3>
 
             <div className="space-y-6">
               {/* Age Distribution */}
               <div>
-                <h4 className="text-white/80 text-sm font-medium mb-3">Age Distribution</h4>
+                <h4 className="text-white/80 text-sm font-medium mb-3">
+                  Age Distribution
+                </h4>
                 <div className="space-y-2">
                   {analyticsData.demographics.age.map((group, index) => (
-                    <div key={index} className="flex items-center justify-between">
-                      <span className="text-white/70 text-sm">{group.range}</span>
+                    <div
+                      key={index}
+                      className="flex items-center justify-between"
+                    >
+                      <span className="text-white/70 text-sm">
+                        {group.range}
+                      </span>
                       <div className="flex items-center space-x-3">
                         <div className="w-24 bg-white/10 rounded-full h-2">
                           <div
@@ -311,7 +364,9 @@ export default function AnalyticsPage() {
                             style={{ width: `${group.percentage}%` }}
                           />
                         </div>
-                        <span className="text-white text-sm font-medium w-12 text-right">{group.percentage}%</span>
+                        <span className="text-white text-sm font-medium w-12 text-right">
+                          {group.percentage}%
+                        </span>
                       </div>
                     </div>
                   ))}
@@ -320,11 +375,18 @@ export default function AnalyticsPage() {
 
               {/* Gender Distribution */}
               <div>
-                <h4 className="text-white/80 text-sm font-medium mb-3">Gender Distribution</h4>
+                <h4 className="text-white/80 text-sm font-medium mb-3">
+                  Gender Distribution
+                </h4>
                 <div className="space-y-2">
                   {analyticsData.demographics.gender.map((group, index) => (
-                    <div key={index} className="flex items-center justify-between">
-                      <span className="text-white/70 text-sm">{group.type}</span>
+                    <div
+                      key={index}
+                      className="flex items-center justify-between"
+                    >
+                      <span className="text-white/70 text-sm">
+                        {group.type}
+                      </span>
                       <div className="flex items-center space-x-3">
                         <div className="w-24 bg-white/10 rounded-full h-2">
                           <div
@@ -332,7 +394,9 @@ export default function AnalyticsPage() {
                             style={{ width: `${group.percentage}%` }}
                           />
                         </div>
-                        <span className="text-white text-sm font-medium w-12 text-right">{group.percentage}%</span>
+                        <span className="text-white text-sm font-medium w-12 text-right">
+                          {group.percentage}%
+                        </span>
                       </div>
                     </div>
                   ))}
@@ -353,10 +417,17 @@ export default function AnalyticsPage() {
 
             <div className="space-y-3">
               {analyticsData.topPages.map((page, index) => (
-                <div key={index} className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
+                <div
+                  key={index}
+                  className="flex items-center justify-between p-3 bg-white/5 rounded-lg"
+                >
                   <div className="flex-1">
-                    <p className="text-white text-sm font-medium font-mono">{page.path}</p>
-                    <p className="text-white/60 text-xs">{page.views.toLocaleString()} views</p>
+                    <p className="text-white text-sm font-medium font-mono">
+                      {page.path}
+                    </p>
+                    <p className="text-white/60 text-xs">
+                      {page.views.toLocaleString()} views
+                    </p>
                   </div>
                   <div className="text-right">
                     <p className="text-white/80 text-sm">{page.bounce}%</p>
@@ -370,31 +441,46 @@ export default function AnalyticsPage() {
 
         {/* Location Analytics */}
         <div className="bg-secondary/40 backdrop-blur-sm rounded-xl p-6 border border-white/10">
-          <h3 className="text-lg font-bold text-white mb-6">Geographic Distribution</h3>
+          <h3 className="text-lg font-bold text-white mb-6">
+            Geographic Distribution
+          </h3>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="h-64 bg-gradient-to-br from-green-500/10 to-emerald-600/10 rounded-lg flex items-center justify-center border border-white/5">
               <div className="text-center">
                 <Globe className="w-12 h-12 text-green-400/60 mx-auto mb-3" />
                 <p className="text-white/60 text-sm">Geographic Map</p>
-                <p className="text-white/40 text-xs mt-1">Map integration needed</p>
+                <p className="text-white/40 text-xs mt-1">
+                  Map integration needed
+                </p>
               </div>
             </div>
 
             <div className="space-y-3">
               {analyticsData.demographics.location.map((location, index) => (
-                <div key={index} className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
+                <div
+                  key={index}
+                  className="flex items-center justify-between p-3 bg-white/5 rounded-lg"
+                >
                   <div className="flex items-center space-x-3">
                     <div className="w-8 h-8 bg-gradient-to-br from-green-500/20 to-emerald-600/20 rounded-lg flex items-center justify-center">
-                      <span className="text-xs font-bold text-green-400">#{index + 1}</span>
+                      <span className="text-xs font-bold text-green-400">
+                        #{index + 1}
+                      </span>
                     </div>
                     <div>
-                      <p className="text-white text-sm font-medium">{location.city}</p>
-                      <p className="text-white/60 text-xs">{location.count} customers</p>
+                      <p className="text-white text-sm font-medium">
+                        {location.city}
+                      </p>
+                      <p className="text-white/60 text-xs">
+                        {location.count} customers
+                      </p>
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="text-white text-sm font-bold">{location.percentage}%</p>
+                    <p className="text-white text-sm font-bold">
+                      {location.percentage}%
+                    </p>
                     <div className="w-16 bg-white/10 rounded-full h-1 mt-1">
                       <div
                         className="bg-gradient-to-r from-green-500 to-emerald-600 h-1 rounded-full"
