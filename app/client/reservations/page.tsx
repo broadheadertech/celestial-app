@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { useState, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   Package,
@@ -12,25 +12,25 @@ import {
   MapPin,
   User,
   Search,
-  ShoppingCart,
   Filter,
   Eye,
   Phone,
   Mail,
   FileText,
-  Hash,
-  Truck,
+  RefreshCw,
   ChevronDown,
-  ChevronUp
-} from 'lucide-react';
-import { useAuthStore, useIsAuthenticated, useIsGuest } from '@/store/auth';
-import { formatCurrency, formatDateTime, getRelativeTime } from '@/lib/utils';
-import { useQuery } from 'convex/react';
-import { api } from '@/convex/_generated/api';
-import Button from '@/components/ui/Button';
-import Card from '@/components/ui/Card';
-import ClientBottomNavbar from '@/components/client/ClientBottomNavbar';
-import { Reservation } from '@/types';
+  ChevronUp,
+  Truck,
+  AlertCircle,
+  X,
+} from "lucide-react";
+import { useAuthStore, useIsAuthenticated, useIsGuest } from "@/store/auth";
+import { formatCurrency, formatDateTime, getRelativeTime } from "@/lib/utils";
+import { useQuery, useMutation } from "convex/react";
+import { api } from "@/convex/_generated/api";
+import Button from "@/components/ui/Button";
+import Card from "@/components/ui/Card";
+import ClientBottomNavbar from "@/components/client/ClientBottomNavbar";
 
 export default function ReservationsPage() {
   const router = useRouter();
@@ -38,38 +38,58 @@ export default function ReservationsPage() {
   const isAuthenticated = useIsAuthenticated();
   const isGuest = useIsGuest();
 
-  const [selectedFilter, setSelectedFilter] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedStatus, setSelectedStatus] = useState<string>("all");
   const [showFilters, setShowFilters] = useState(false);
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [cancelModal, setCancelModal] = useState<{
+    isOpen: boolean;
+    reservationCode: string;
+    reservationId: string;
+  }>({ isOpen: false, reservationCode: "", reservationId: "" });
 
-  // Fetch real reservations data from Convex
-  const reservationsQuery = useQuery(api.services.reservations.getReservations,
-    isAuthenticated && user ? { userId: user._id } :
-    isGuest && guestId ? { guestId: guestId } : "skip"
-  ) || [];
+  // Fetch reservations data from Convex
+  const reservationsQuery =
+    useQuery(
+      api.services.reservations.getReservations,
+      isAuthenticated && user
+        ? { userId: user._id }
+        : isGuest && guestId
+          ? { guestId: guestId }
+          : "skip",
+    ) || [];
 
-  // Filter reservations based on user authentication and selected filter
-  const filteredReservations = useMemo(() => {
-    return reservationsQuery.filter(reservation => {
-      // If user is authenticated, show their reservations
-      if (isAuthenticated && user) {
-        if (reservation.userId !== user._id) return false;
-      } else if (isGuest && guestId) {
-        // For guests, show reservations matching their guest ID
-        if (reservation.guestId !== guestId) return false;
-      } else {
-        // If neither authenticated nor guest, don't show any reservations
-        return false;
-      }
+  // Mutations
+  const cancelReservation = useMutation(
+    api.services.reservations.cancelReservation,
+  );
 
-      // Apply status filter
-      if (selectedFilter !== 'all' && reservation.status !== selectedFilter) {
-        return false;
-      }
+  // Handle refresh
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    setIsRefreshing(false);
+  };
 
-      return true;
-    });
-  }, [reservationsQuery, isAuthenticated, user, isGuest, guestId, selectedFilter]);
+  // Handle cancel reservation
+  const handleCancelReservation = async () => {
+    try {
+      await cancelReservation({
+        reservationCode: cancelModal.reservationCode,
+        userId: isAuthenticated && user ? user._id : undefined,
+        guestId: isGuest && guestId ? guestId : undefined,
+      });
+      setCancelModal({ isOpen: false, reservationCode: "", reservationId: "" });
+    } catch (error) {
+      console.error("Failed to cancel reservation:", error);
+      alert("Failed to cancel reservation. Please try again.");
+    }
+  };
+
+  const openCancelModal = (reservationCode: string, reservationId: string) => {
+    setCancelModal({ isOpen: true, reservationCode, reservationId });
+  };
 
   const toggleCardExpansion = (reservationId: string) => {
     const newExpanded = new Set(expandedCards);
@@ -81,95 +101,196 @@ export default function ReservationsPage() {
     setExpandedCards(newExpanded);
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'pending': return 'text-warning';
-      case 'confirmed': return 'text-success';
-      case 'completed': return 'text-info';
-      case 'expired': return 'text-error';
-      case 'cancelled': return 'text-error';
-      default: return 'text-muted';
-    }
+  const getStatusBadge = (status: string) => {
+    const colors = {
+      pending: "bg-orange-500/20 text-orange-400 border-orange-500/30",
+      confirmed: "bg-green-500/20 text-green-400 border-green-500/30",
+      completed: "bg-blue-500/20 text-blue-400 border-blue-500/30",
+      expired: "bg-red-500/20 text-red-400 border-red-500/30",
+      cancelled: "bg-red-500/20 text-red-400 border-red-500/30",
+    };
+
+    return (
+      colors[status as keyof typeof colors] ||
+      "bg-gray-500/20 text-gray-400 border-gray-500/30"
+    );
   };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'pending': return <Clock className="w-3 h-3 sm:w-4 sm:h-4" />;
-      case 'confirmed': return <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4" />;
-      case 'completed': return <Package className="w-3 h-3 sm:w-4 sm:h-4" />;
-      case 'expired': return <XCircle className="w-3 h-3 sm:w-4 sm:h-4" />;
-      case 'cancelled': return <XCircle className="w-3 h-3 sm:w-4 sm:h-4" />;
-      default: return <Package className="w-3 h-3 sm:w-4 sm:h-4" />;
+      case "pending":
+        return <Clock className="w-3 h-3 sm:w-4 sm:h-4" />;
+      case "confirmed":
+        return <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4" />;
+      case "completed":
+        return <Package className="w-3 h-3 sm:w-4 sm:h-4" />;
+      case "expired":
+        return <AlertCircle className="w-3 h-3 sm:w-4 sm:h-4" />;
+      case "cancelled":
+        return <XCircle className="w-3 h-3 sm:w-4 sm:h-4" />;
+      default:
+        return <Package className="w-3 h-3 sm:w-4 sm:h-4" />;
     }
   };
 
-  const getStatusBadge = (status: string) => {
-    const colors = {
-      pending: 'bg-warning/20 text-warning border-warning/30',
-      confirmed: 'bg-success/20 text-success border-success/30',
-      completed: 'bg-info/20 text-info border-info/30',
-      expired: 'bg-error/20 text-error border-error/30',
-      cancelled: 'bg-error/20 text-error border-error/30',
-    };
-
-    return colors[status as keyof typeof colors] || 'bg-muted/20 text-muted border-muted/30';
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case "pending":
+        return "Pending Confirmation";
+      case "confirmed":
+        return "Confirmed";
+      case "completed":
+        return "Completed";
+      case "expired":
+        return "Expired";
+      case "cancelled":
+        return "Cancelled";
+      default:
+        return status;
+    }
   };
 
+  // Filter reservations based on search and status
+  const filteredReservations = useMemo(() => {
+    return (reservationsQuery || []).filter((reservation) => {
+      // Apply search filter
+      if (searchQuery) {
+        const searchLower = searchQuery.toLowerCase();
+        const matchesCode = reservation.reservationCode
+          ?.toLowerCase()
+          .includes(searchLower);
+        const matchesName = reservation.guestInfo?.name
+          ?.toLowerCase()
+          .includes(searchLower);
+        const matchesEmail = reservation.guestInfo?.email
+          ?.toLowerCase()
+          .includes(searchLower);
+        const matchesItems = reservation.items?.some((item) =>
+          item.product?.name?.toLowerCase().includes(searchLower),
+        );
+
+        if (!matchesCode && !matchesName && !matchesEmail && !matchesItems) {
+          return false;
+        }
+      }
+
+      // Apply status filter
+      if (selectedStatus !== "all" && reservation.status !== selectedStatus) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [reservationsQuery, searchQuery, selectedStatus]);
+
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-white/10">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
+      {/* Enhanced Header */}
+      <div className="sticky top-0 z-50 bg-gray-900/95 backdrop-blur-md border-b border-orange-500/20">
         <div className="px-3 sm:px-6 py-3 sm:py-4">
-          <div className="flex items-center space-x-3 sm:space-x-4">
-            <button
-              onClick={() => router.back()}
-              className="p-2 rounded-full bg-secondary border border-white/10 hover:bg-white/10 transition-colors touch-manipulation"
-            >
-              <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
-            </button>
-            <div className="flex-1 min-w-0">
-              <h1 className="text-lg sm:text-xl font-semibold text-white truncate">My Reservations</h1>
-              <p className="text-xs sm:text-sm text-muted">
-                {filteredReservations.length} reservation{filteredReservations.length !== 1 ? 's' : ''} found
-              </p>
+          <div className="flex items-center justify-between mb-3 sm:mb-4">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+              <button
+                onClick={() => router.back()}
+                className="p-2 sm:p-2.5 rounded-xl bg-gray-800/60 border border-gray-700 hover:bg-gray-700/80 transition-all shrink-0"
+              >
+                <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+              </button>
+              <div className="min-w-0 flex-1">
+                <h1 className="text-lg sm:text-xl font-bold text-white truncate">
+                  My Reservations
+                </h1>
+                <p className="text-xs sm:text-sm text-gray-400">
+                  {filteredReservations.length} reservation
+                  {filteredReservations.length !== 1 ? "s" : ""} found
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleRefresh}
+                disabled={isRefreshing}
+                className="border border-gray-700 hover:border-orange-500/30 px-2 sm:px-3 text-xs sm:text-sm"
+              >
+                <RefreshCw
+                  className={`w-3 h-3 sm:w-4 sm:h-4 ${isRefreshing ? "animate-spin" : ""} ${
+                    window.innerWidth < 640 ? "" : "mr-2"
+                  }`}
+                />
+                <span className="hidden sm:inline">Refresh</span>
+              </Button>
+            </div>
+          </div>
+
+          {/* Enhanced search and filter row */}
+          <div className="flex gap-2 sm:gap-3">
+            <div className="flex-1 relative min-w-0">
+              <Search className="absolute left-3 sm:left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500 shrink-0" />
+              <input
+                type="text"
+                placeholder="Search reservations, products..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 sm:pl-12 pr-3 sm:pr-4 py-2.5 sm:py-3 border rounded-lg sm:rounded-xl transition-all text-sm sm:text-base bg-gray-800/60 border-gray-700 text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500/30"
+              />
             </div>
             <button
               onClick={() => setShowFilters(!showFilters)}
-              className="p-2 rounded-full bg-secondary border border-white/10 hover:bg-white/10 transition-colors touch-manipulation"
+              className={`px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg sm:rounded-xl border transition-all flex items-center gap-1 sm:gap-2 shrink-0 ${
+                showFilters
+                  ? "bg-orange-600 border-orange-500 text-white"
+                  : "bg-gray-800/60 border-gray-700 text-white hover:bg-gray-700/80"
+              }`}
             >
-              <Filter className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+              <Filter className="w-4 h-4" />
+              <span className="hidden xs:inline text-sm sm:text-base">
+                Filters
+              </span>
             </button>
           </div>
         </div>
       </div>
 
-      {/* Filters */}
+      {/* Enhanced Filters */}
       {showFilters && (
-        <div className="bg-secondary border-b border-white/10 px-3 sm:px-6 py-3 sm:py-4">
+        <div className="bg-gray-800/40 backdrop-blur-sm border-b border-gray-700 px-3 sm:px-6 py-3 sm:py-4">
           <div className="space-y-3">
             <p className="text-sm font-medium text-white">Filter by Status</p>
             <div className="flex flex-wrap gap-2">
               {[
-                { value: 'all', label: 'All' },
-                { value: 'pending', label: 'Pending' },
-                { value: 'confirmed', label: 'Confirmed' },
-                { value: 'completed', label: 'Completed' },
-                { value: 'expired', label: 'Expired' },
-                { value: 'cancelled', label: 'Cancelled' },
+                { value: "all", label: "All" },
+                { value: "pending", label: "Pending" },
+                { value: "confirmed", label: "Confirmed" },
+                { value: "completed", label: "Completed" },
+                { value: "expired", label: "Expired" },
+                { value: "cancelled", label: "Cancelled" },
               ].map((filter) => (
                 <button
                   key={filter.value}
-                  onClick={() => setSelectedFilter(filter.value)}
+                  onClick={() => setSelectedStatus(filter.value)}
                   className={`px-3 py-1.5 rounded-lg text-xs sm:text-sm border transition-colors touch-manipulation ${
-                    selectedFilter === filter.value
-                      ? 'bg-primary border-primary text-white'
-                      : 'border-white/10 text-muted hover:text-white hover:border-white/20'
+                    selectedStatus === filter.value
+                      ? "bg-orange-600 border-orange-500 text-white"
+                      : "border-gray-700 text-gray-400 hover:text-white hover:border-gray-600"
                   }`}
                 >
                   {filter.label}
                 </button>
               ))}
             </div>
+            <Button
+              onClick={() => {
+                setSearchQuery("");
+                setSelectedStatus("all");
+              }}
+              variant="outline"
+              className="border-orange-500/30 text-orange-400 hover:bg-orange-500/10"
+            >
+              Clear Filters
+            </Button>
           </div>
         </div>
       )}
@@ -177,14 +298,20 @@ export default function ReservationsPage() {
       {/* Content */}
       <div className="px-3 sm:px-6 py-4 sm:py-6">
         {!isAuthenticated && (
-          <Card variant="glass" className="mb-4 sm:mb-6 bg-info/10 border-info/20">
+          <Card
+            variant="glass"
+            className="mb-4 sm:mb-6 bg-blue-500/10 border-blue-500/20"
+          >
             <div className="text-center p-4">
-              <h3 className="font-semibold text-white mb-2 text-sm sm:text-base">Sign in to track all reservations</h3>
-              <p className="text-xs sm:text-sm text-muted mb-4">
-                Create an account to easily manage and track all your reservations
+              <h3 className="font-semibold text-white mb-2 text-sm sm:text-base">
+                Sign in to track all reservations
+              </h3>
+              <p className="text-xs sm:text-sm text-gray-400 mb-4">
+                Create an account to easily manage and track all your
+                reservations
               </p>
               <Button
-                onClick={() => router.push('/auth/login')}
+                onClick={() => router.push("/auth/login")}
                 size="sm"
                 className="touch-manipulation"
               >
@@ -196,15 +323,19 @@ export default function ReservationsPage() {
 
         {filteredReservations.length === 0 ? (
           <div className="text-center py-8 sm:py-12">
-            <Package className="w-12 h-12 sm:w-16 sm:h-16 text-muted mx-auto mb-4" />
-            <h3 className="text-lg sm:text-xl font-semibold text-white mb-2">No reservations found</h3>
-            <p className="text-muted mb-4 sm:mb-6 text-sm sm:text-base px-4">
-              {selectedFilter === 'all'
-                ? 'You haven\'t made any reservations yet'
-                : `No ${selectedFilter} reservations found`
-              }
+            <Package className="w-12 h-12 sm:w-16 sm:h-16 text-gray-500 mx-auto mb-4" />
+            <h3 className="text-lg sm:text-xl font-semibold text-white mb-2">
+              No reservations found
+            </h3>
+            <p className="text-gray-400 mb-4 sm:mb-6 text-sm sm:text-base px-4">
+              {searchQuery || selectedStatus !== "all"
+                ? "No reservations match your search criteria"
+                : "You haven't made any reservations yet"}
             </p>
-            <Button onClick={() => router.push('/client/search')} className="touch-manipulation">
+            <Button
+              onClick={() => router.push("/client/search")}
+              className="touch-manipulation"
+            >
               Start Shopping
             </Button>
           </div>
@@ -212,228 +343,350 @@ export default function ReservationsPage() {
           <div className="space-y-4 sm:space-y-6">
             {filteredReservations.map((reservation) => {
               const isExpanded = expandedCards.has(reservation._id);
-              
+
               return (
-                <Card key={reservation._id} className="overflow-hidden bg-secondary/30 border-white/5">
-                  {/* Header - Always visible */}
-                  <div className="bg-gradient-to-r from-primary/10 to-orange-500/10 p-3 sm:p-4 border-b border-white/10">
-                    <div className="flex items-start justify-between mb-3 gap-2">
-                      <div className="flex items-start space-x-2 sm:space-x-3 flex-1 min-w-0">
-                        <div className="p-1.5 sm:p-2 bg-primary/20 rounded-lg flex-shrink-0">
-                          <Hash className="w-3 h-3 sm:w-4 sm:h-4 text-primary" />
+                <div
+                  key={reservation._id}
+                  className="bg-gray-800/40 backdrop-blur-sm border border-gray-700 rounded-xl hover:border-orange-500/30 transition-all duration-200 overflow-hidden"
+                >
+                  {/* Compact Header */}
+                  <div className="bg-gradient-to-r from-orange-600/20 to-orange-500/10 p-3 sm:p-4 border-b border-orange-500/20">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                        <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center shrink-0 bg-orange-500/20 border border-orange-500/30">
+                          <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-orange-400" />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <h3 className="font-bold text-white text-sm sm:text-lg truncate">{reservation.reservationCode}</h3>
-                          <p className="text-xs sm:text-sm text-white/70">
-                            {formatDateTime(reservation.createdAt)}
-                          </p>
+                          <div className="flex items-center gap-2 mb-1">
+                            <h3 className="font-bold text-white text-sm sm:text-base truncate">
+                              {reservation.reservationCode ||
+                                `RES-${reservation._id.slice(-6)}`}
+                            </h3>
+                            <div
+                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${getStatusBadge(reservation.status)}`}
+                            >
+                              {getStatusIcon(reservation.status)}
+                              <span className="capitalize hidden sm:inline">
+                                {getStatusText(reservation.status)}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3 text-xs text-gray-400">
+                            <span>{formatDateTime(reservation.createdAt)}</span>
+                            <span>•</span>
+                            <span>
+                              {formatCurrency(reservation.totalAmount || 0)}
+                            </span>
+                            <span>•</span>
+                            <span>{reservation.totalQuantity || 0} items</span>
+                          </div>
                         </div>
                       </div>
-                      <div className="flex flex-col items-end space-y-2 flex-shrink-0">
-                        <span className={`inline-flex items-center space-x-1 px-2 py-1 rounded-full text-xs font-medium border ${getStatusBadge(reservation.status)}`}>
-                          {getStatusIcon(reservation.status)}
-                          <span className="capitalize">{reservation.status}</span>
-                        </span>
-                        <button
-                          onClick={() => toggleCardExpansion(reservation._id)}
-                          className="p-1 rounded text-white/60 hover:text-white transition-colors touch-manipulation"
-                        >
-                          {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Quick Stats - Always visible */}
-                    <div className="grid grid-cols-3 gap-2 sm:gap-4 text-xs sm:text-sm">
-                      <div className="text-center">
-                        <p className="text-white/60 mb-1">Total</p>
-                        <p className="font-bold text-white text-sm sm:text-lg">{formatCurrency(reservation.totalAmount!)}</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-white/60 mb-1">Items</p>
-                        <p className="font-bold text-white text-sm sm:text-lg">{reservation.totalQuantity}</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-white/60 mb-1">Expires</p>
-                        <p className={`font-medium text-xs sm:text-sm ${reservation.expiryDate < Date.now() ? 'text-error' : 'text-success'}`}>
-                          {getRelativeTime(reservation.expiryDate)}
-                        </p>
-                      </div>
+                      <button
+                        onClick={() => toggleCardExpansion(reservation._id)}
+                        className="p-1.5 sm:p-2 rounded-lg bg-gray-700/50 hover:bg-gray-700 transition-colors"
+                      >
+                        {isExpanded ? (
+                          <ChevronUp className="w-4 h-4 text-gray-300" />
+                        ) : (
+                          <ChevronDown className="w-4 h-4 text-gray-300" />
+                        )}
+                      </button>
                     </div>
                   </div>
 
                   {/* Expandable Content */}
                   {isExpanded && (
-                    <>
+                    <div className="p-4 sm:p-6 space-y-6">
                       {/* Customer Information */}
-                      <div className="p-3 sm:p-4 border-b border-white/10">
-                        <div className="flex items-center space-x-2 mb-3">
-                          <User className="w-3 h-3 sm:w-4 sm:h-4 text-primary" />
-                          <h4 className="font-semibold text-white text-sm sm:text-base">Customer Information</h4>
+                      <div className="bg-gray-800/30 rounded-lg p-4 border border-gray-700">
+                        <div className="flex items-center gap-2 mb-4">
+                          <User className="w-5 h-5 text-orange-400" />
+                          <h4 className="font-semibold text-white">
+                            Customer Information
+                          </h4>
                         </div>
-                        
-                        <div className="space-y-3 sm:space-y-2">
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div>
-                            <p className="text-white/60 mb-1 text-xs sm:text-sm">Name</p>
-                            <p className="text-white font-medium text-sm sm:text-base">
+                            <p className="text-gray-400 text-sm mb-1">
+                              Full Name
+                            </p>
+                            <p className="text-white font-medium">
                               {reservation.guestInfo?.name ||
-                               (isAuthenticated && user ? `${user.firstName} ${user.lastName}` : 'Unknown')}
+                                (isAuthenticated && user
+                                  ? `${user.firstName} ${user.lastName}`
+                                  : "Guest Customer")}
                             </p>
                           </div>
-                          
+
                           {reservation.guestInfo?.email && (
                             <div>
-                              <p className="text-white/60 mb-1 text-xs sm:text-sm">Email</p>
-                              <div className="flex items-center space-x-1">
-                                <Mail className="w-3 h-3 text-white/60 flex-shrink-0" />
-                                <p className="text-white font-medium text-sm sm:text-base break-all">{reservation.guestInfo.email}</p>
+                              <p className="text-gray-400 text-sm mb-1">
+                                Email Address
+                              </p>
+                              <div className="flex items-center gap-2">
+                                <Mail className="w-4 h-4 text-gray-400" />
+                                <p className="text-white font-medium break-all">
+                                  {reservation.guestInfo.email}
+                                </p>
                               </div>
                             </div>
                           )}
-                          
+
                           {reservation.guestInfo?.phone && (
                             <div>
-                              <p className="text-white/60 mb-1 text-xs sm:text-sm">Phone</p>
-                              <div className="flex items-center space-x-1">
-                                <Phone className="w-3 h-3 text-white/60 flex-shrink-0" />
-                                <p className="text-white font-medium text-sm sm:text-base">{reservation.guestInfo.phone}</p>
+                              <p className="text-gray-400 text-sm mb-1">
+                                Phone Number
+                              </p>
+                              <div className="flex items-center gap-2">
+                                <Phone className="w-4 h-4 text-gray-400" />
+                                <p className="text-white font-medium">
+                                  {reservation.guestInfo.phone}
+                                </p>
                               </div>
                             </div>
                           )}
-                          
+
                           {reservation.guestInfo?.completeAddress && (
-                            <div>
-                              <p className="text-white/60 mb-1 text-xs sm:text-sm">Address</p>
-                              <div className="flex items-start space-x-1">
-                                <MapPin className="w-3 h-3 text-white/60 flex-shrink-0 mt-0.5" />
-                                <p className="text-white font-medium text-sm sm:text-base">{reservation.guestInfo.completeAddress}</p>
+                            <div className="sm:col-span-2">
+                              <p className="text-gray-400 text-sm mb-1">
+                                Complete Address
+                              </p>
+                              <div className="flex items-start gap-2">
+                                <MapPin className="w-4 h-4 text-gray-400 mt-0.5" />
+                                <p className="text-white font-medium">
+                                  {reservation.guestInfo.completeAddress}
+                                </p>
                               </div>
                             </div>
                           )}
                         </div>
 
                         {reservation.guestInfo?.pickupSchedule && (
-                          <div className="mt-4 p-3 bg-primary/5 rounded-lg border border-primary/10">
-                            <div className="flex items-center space-x-2 mb-2">
-                              <Truck className="w-3 h-3 sm:w-4 sm:h-4 text-primary" />
-                              <h5 className="font-medium text-white text-sm sm:text-base">Pickup Schedule</h5>
+                          <div className="mt-4 p-4 bg-orange-500/10 rounded-lg border border-orange-500/20">
+                            <div className="flex items-center gap-2 mb-3">
+                              <Truck className="w-5 h-5 text-orange-400" />
+                              <h5 className="font-medium text-white">
+                                Pickup Schedule
+                              </h5>
                             </div>
-                            <div className="space-y-2 sm:space-y-0 sm:grid sm:grid-cols-2 sm:gap-3 text-xs sm:text-sm">
-                              <div className="flex items-center space-x-2">
-                                <Calendar className="w-3 h-3 text-white/60" />
-                                <span className="text-white">{reservation.guestInfo.pickupSchedule.date}</span>
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="flex items-center gap-2">
+                                <Calendar className="w-4 h-4 text-gray-400" />
+                                <span className="text-white">
+                                  {reservation.guestInfo.pickupSchedule.date}
+                                </span>
                               </div>
-                              <div className="flex items-center space-x-2">
-                                <Clock className="w-3 h-3 text-white/60" />
-                                <span className="text-white">{reservation.guestInfo.pickupSchedule.time}</span>
+                              <div className="flex items-center gap-2">
+                                <Clock className="w-4 h-4 text-gray-400" />
+                                <span className="text-white">
+                                  {reservation.guestInfo.pickupSchedule.time}
+                                </span>
                               </div>
                             </div>
                           </div>
                         )}
                       </div>
 
-                      {/* Items List */}
-                      <div className="p-3 sm:p-4 border-b border-white/10">
+                      {/* Reserved Items */}
+                      <div className="bg-gray-800/30 rounded-lg p-3 border border-gray-700">
                         <div className="flex items-center justify-between mb-3">
-                          <div className="flex items-center space-x-2">
-                            <Package className="w-3 h-3 sm:w-4 sm:h-4 text-primary" />
-                            <h4 className="font-semibold text-white text-sm sm:text-base">Reserved Items</h4>
+                          <div className="flex items-center gap-2">
+                            <Package className="w-4 h-4 text-orange-400" />
+                            <h4 className="font-semibold text-white text-sm">
+                              Reserved Items
+                            </h4>
                           </div>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="text-primary hover:bg-primary/10 text-xs sm:text-sm touch-manipulation"
-                            onClick={() => {
-                              // TODO: Show detailed items view
-                            }}
-                          >
-                            <Eye className="w-3 h-3 mr-1" />
-                            View All ({reservation.items?.length || 0})
-                          </Button>
+                          <span className="text-xs text-gray-400">
+                            {reservation.items?.length || 0} items
+                          </span>
                         </div>
 
                         <div className="space-y-2">
                           {reservation.items?.slice(0, 3).map((item, index) => (
-                            <div key={index} className="flex items-center justify-between p-2 bg-white/5 rounded-lg gap-2">
+                            <div
+                              key={index}
+                              className="flex items-center justify-between p-2 bg-gray-700/30 rounded border border-gray-600"
+                            >
                               <div className="flex-1 min-w-0">
-                                <p className="text-white font-medium text-xs sm:text-sm truncate">
-                                  {item.product?.name || 'Unknown Product'}
+                                <p className="text-white font-medium text-sm truncate">
+                                  {item.product?.name || "Unknown Product"}
                                 </p>
-                                <p className="text-white/60 text-xs">
-                                  Qty: {item.quantity}
-                                </p>
+                                <div className="flex items-center gap-3 text-xs text-gray-400 mt-0.5">
+                                  <span>Qty: {item.quantity}</span>
+                                  <span>
+                                    @ {formatCurrency(item.reservedPrice)}
+                                  </span>
+                                </div>
                               </div>
-                              <div className="text-right flex-shrink-0">
-                                <p className="text-white font-medium text-xs sm:text-sm">
-                                  {formatCurrency(item.reservedPrice)}
-                                </p>
-                                <p className="text-white/60 text-xs">
-                                  Total: {formatCurrency(item.reservedPrice * item.quantity)}
+                              <div className="text-right ml-2">
+                                <p className="text-white font-semibold text-sm">
+                                  {formatCurrency(
+                                    item.reservedPrice * item.quantity,
+                                  )}
                                 </p>
                               </div>
                             </div>
                           ))}
+                          {reservation.items &&
+                            reservation.items.length > 3 && (
+                              <div className="text-center py-1">
+                                <p className="text-xs text-gray-400">
+                                  +{reservation.items.length - 3} more items
+                                </p>
+                              </div>
+                            )}
+                        </div>
+                      </div>
 
-                          {reservation.items && reservation.items.length > 3 && (
-                            <div className="text-center p-2">
-                              <p className="text-white/60 text-xs sm:text-sm">
-                                +{reservation.items.length - 3} more items
-                              </p>
-                            </div>
-                          )}
+                      {/* Quick Details */}
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="bg-gray-800/30 rounded-lg p-3 border border-gray-700">
+                          <p className="text-gray-400 text-xs mb-1">Expires</p>
+                          <p
+                            className={`text-sm font-medium ${
+                              reservation.expiryDate < Date.now()
+                                ? "text-red-400"
+                                : "text-green-400"
+                            }`}
+                          >
+                            {getRelativeTime(reservation.expiryDate)}
+                          </p>
+                        </div>
+                        <div className="bg-gray-800/30 rounded-lg p-3 border border-gray-700">
+                          <p className="text-gray-400 text-xs mb-1">Total</p>
+                          <p className="text-sm font-medium text-white">
+                            {formatCurrency(reservation.totalAmount || 0)}
+                          </p>
                         </div>
                       </div>
 
                       {/* Notes */}
                       {reservation.notes && (
-                        <div className="p-3 sm:p-4 border-b border-white/10">
-                          <div className="flex items-center space-x-2 mb-2">
-                            <FileText className="w-3 h-3 sm:w-4 sm:h-4 text-primary" />
-                            <h4 className="font-semibold text-white text-sm sm:text-base">Notes</h4>
+                        <div className="bg-gray-800/30 rounded-lg p-4 border border-gray-700">
+                          <div className="flex items-center gap-2 mb-3">
+                            <FileText className="w-5 h-5 text-orange-400" />
+                            <h4 className="font-semibold text-white">
+                              Special Notes
+                            </h4>
                           </div>
-                          <div className="p-3 bg-white/5 rounded-lg">
-                            <p className="text-white/80 text-xs sm:text-sm">{reservation.notes}</p>
+                          <div className="bg-gray-700/30 rounded-lg p-3">
+                            <p className="text-gray-300 text-sm leading-relaxed">
+                              {reservation.notes}
+                            </p>
                           </div>
                         </div>
                       )}
-                    </>
+                    </div>
                   )}
 
-                  {/* Action Buttons - Always visible */}
-                  <div className="p-3 sm:p-4">
-                    <div className="flex gap-2 sm:gap-3">
+                  {/* Action Buttons */}
+                  <div className="p-3 sm:p-4 border-t border-gray-700">
+                    <div className="flex gap-2">
                       <Button
                         variant="outline"
-                        className="flex-1 flex items-center justify-center space-x-2 text-xs sm:text-sm touch-manipulation min-h-[44px] sm:min-h-[40px]"
-                        onClick={() => {
-                          // TODO: Show detailed reservation view
-                        }}
+                        className="flex-1 flex items-center justify-center space-x-1 text-xs border-gray-600 text-gray-300 hover:bg-gray-700 min-h-[36px]"
+                        onClick={() => toggleCardExpansion(reservation._id)}
                       >
-                        <Eye className="w-3 h-3 sm:w-4 sm:h-4" />
-                        <span className="hidden sm:inline">View Details</span>
-                        <span className="sm:hidden">Details</span>
+                        <Eye className="w-3 h-3" />
+                        <span>{isExpanded ? "Hide" : "Details"}</span>
                       </Button>
 
-                      {(reservation.status === 'pending' || reservation.status === 'confirmed') && (
+                      {(reservation.status === "pending" ||
+                        reservation.status === "confirmed") && (
                         <Button
                           variant="outline"
-                          className="flex-1 flex items-center justify-center space-x-2 text-error border-error hover:bg-error/10 text-xs sm:text-sm touch-manipulation min-h-[44px] sm:min-h-[40px]"
-                          onClick={() => {
-                            // TODO: Implement cancel reservation
-                          }}
+                          className="flex-1 flex items-center justify-center space-x-1 text-xs text-red-400 border-red-500/30 hover:bg-red-500/10 min-h-[36px]"
+                          onClick={() =>
+                            openCancelModal(
+                              reservation.reservationCode ||
+                                `RES-${reservation._id.slice(-6)}`,
+                              reservation._id,
+                            )
+                          }
                         >
-                          <XCircle className="w-3 h-3 sm:w-4 sm:h-4" />
+                          <XCircle className="w-3 h-3" />
                           <span>Cancel</span>
                         </Button>
                       )}
                     </div>
                   </div>
-                </Card>
+                </div>
               );
             })}
           </div>
         )}
       </div>
+
+      {/* Cancel Modal */}
+      {cancelModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-gray-800 border border-gray-700 rounded-xl max-w-md w-full p-6 transform transition-all">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-white">
+                Cancel Reservation
+              </h3>
+              <button
+                onClick={() =>
+                  setCancelModal({
+                    isOpen: false,
+                    reservationCode: "",
+                    reservationId: "",
+                  })
+                }
+                className="p-1 rounded-lg hover:bg-gray-700 transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-400" />
+              </button>
+            </div>
+
+            <div className="mb-6">
+              <div className="flex items-center gap-3 mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
+                <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0" />
+                <p className="text-sm text-gray-300">
+                  Are you sure you want to cancel reservation{" "}
+                  <span className="font-medium text-white">
+                    {cancelModal.reservationCode}
+                  </span>
+                  ? This action cannot be undone.
+                </p>
+              </div>
+
+              <div className="space-y-2 text-sm text-gray-400">
+                <p>• All reserved items will be released back to inventory</p>
+                <p>• Your reservation will be permanently cancelled</p>
+                <p>
+                  • You will need to make a new reservation if you change your
+                  mind
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                className="flex-1 border-gray-600 text-gray-300 hover:bg-gray-700"
+                onClick={() =>
+                  setCancelModal({
+                    isOpen: false,
+                    reservationCode: "",
+                    reservationId: "",
+                  })
+                }
+              >
+                Keep Reservation
+              </Button>
+              <Button
+                className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+                onClick={handleCancelReservation}
+              >
+                Cancel Reservation
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Client Bottom Navigation */}
       <ClientBottomNavbar />
