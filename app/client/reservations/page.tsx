@@ -414,7 +414,7 @@ export default function ReservationsPage() {
                         <span className="sm:hidden">Details</span>
                       </Button>
 
-                      {reservation.status === 'pending' && (
+                      {(reservation.status === 'pending' || reservation.status === 'confirmed') && (
                         <Button
                           variant="outline"
                           className="flex-1 flex items-center justify-center space-x-2 text-error border-error hover:bg-error/10 text-xs sm:text-sm touch-manipulation min-h-[44px] sm:min-h-[40px]"
@@ -424,19 +424,6 @@ export default function ReservationsPage() {
                         >
                           <XCircle className="w-3 h-3 sm:w-4 sm:h-4" />
                           <span>Cancel</span>
-                        </Button>
-                      )}
-
-                      {reservation.status === 'confirmed' && (
-                        <Button
-                          className="flex-1 flex items-center justify-center space-x-2 bg-success hover:bg-success/90 text-xs sm:text-sm touch-manipulation min-h-[44px] sm:min-h-[40px]"
-                          onClick={() => {
-                            // TODO: Navigate to store/pickup instructions
-                          }}
-                        >
-                          <MapPin className="w-3 h-3 sm:w-4 sm:h-4" />
-                          <span className="hidden sm:inline">Pickup Info</span>
-                          <span className="sm:hidden">Pickup</span>
                         </Button>
                       )}
                     </div>

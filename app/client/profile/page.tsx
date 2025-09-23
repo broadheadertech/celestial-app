@@ -551,15 +551,6 @@ export default function ProfilePage() {
                 </div>
                 <ChevronRight className="w-4 h-4 text-white/40 ml-auto" />
               </button>
-
-              <button className="flex items-center space-x-3 p-3 bg-white/5 rounded-lg hover:bg-white/10 transition-colors">
-                <Star className="w-5 h-5 text-primary" />
-                <div className="text-left">
-                  <p className="text-sm font-medium text-white">Reviews & Ratings</p>
-                  <p className="text-xs text-white/60">Rate your purchases</p>
-                </div>
-                <ChevronRight className="w-4 h-4 text-white/40 ml-auto" />
-              </button>
             </div>
           </Card>
 

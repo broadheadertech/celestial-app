@@ -9,15 +9,12 @@ import {
   Filter,
   Eye,
   Package,
-  ShoppingBag,
   Clock,
   CheckCircle,
   XCircle,
-  Truck,
   Calendar,
   User,
   ChevronDown,
-  Settings,
   Download,
   RefreshCw,
   Mail,
@@ -89,7 +86,6 @@ export default function AdminOrdersPage() {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
-  const [selectedType, setSelectedType] = useState<string>('all');
   const [showFilters, setShowFilters] = useState(false);
   const [selectedItem, setSelectedItem] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -209,7 +205,7 @@ export default function AdminOrdersPage() {
     const completed = allItems.filter(item =>
       item.status === 'delivered' || item.status === 'completed'
     ).length;
-    const expired = allItems.filter(item =>
+    const cancelled = allItems.filter(item =>
       item.status === 'expired' || item.status === 'cancelled'
     ).length;
 
@@ -220,7 +216,7 @@ export default function AdminOrdersPage() {
       pending,
       confirmed,
       completed,
-      expired
+      cancelled
     };
   }, [allItems]);
 
@@ -238,18 +234,13 @@ export default function AdminOrdersPage() {
       );
     }
 
-    // Type filter
-    if (selectedType !== 'all') {
-      filtered = filtered.filter(item => item.type === selectedType);
-    }
-
     // Status filter
     if (selectedStatus !== 'all') {
       filtered = filtered.filter(item => item.status === selectedStatus);
     }
 
     return filtered.sort((a, b) => b.updatedAt - a.updatedAt);
-  }, [searchQuery, selectedType, selectedStatus, allItems]);
+  }, [searchQuery, selectedStatus, allItems]);
 
   const handleUpdateStatus = async (itemId: string, newStatus: string) => {
     try {
@@ -313,7 +304,7 @@ export default function AdminOrdersPage() {
       case 'confirmed': return <CheckCircle className="w-4 h-4" />;
       case 'ready_for_pickup': return <Package className="w-4 h-4" />;
       case 'processing': return <Package className="w-4 h-4" />;
-      case 'shipped': return <Truck className="w-4 h-4" />;
+      case 'shipped': return <Package className="w-4 h-4" />;
       case 'delivered': return <CheckCircle className="w-4 h-4" />;
       case 'completed': return <CheckCircle className="w-4 h-4" />;
       case 'expired': return <XCircle className="w-4 h-4" />;
@@ -388,356 +379,364 @@ export default function AdminOrdersPage() {
   );
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Enhanced Header - Better responsive layout */}
-      <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-md border-b border-white/10">
-        <div className="px-3 sm:px-6 lg:px-8 py-3 sm:py-4">
-          {/* Improved top row with better mobile spacing */}
-          <div className="flex items-center justify-between mb-3 sm:mb-4">
-            <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+    <div className="min-h-screen bg-background overflow-hidden">
+      {/* Add global styles to hide scrollbars */}
+      <style jsx global>{`
+        /* Hide scrollbar for Chrome, Safari and Opera */
+        .scrollbar-hidden::-webkit-scrollbar {
+          display: none;
+        }
+
+        /* Hide scrollbar for IE, Edge and Firefox */
+        .scrollbar-hidden {
+          -ms-overflow-style: none;  /* IE and Edge */
+          scrollbar-width: none;  /* Firefox */
+        }
+
+        /* Apply to body as well */
+        body::-webkit-scrollbar {
+          display: none;
+        }
+
+        body {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+
+        /* Apply to any scrollable container */
+        .scroll-container::-webkit-scrollbar {
+          display: none;
+        }
+
+        .scroll-container {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+      `}</style>
+
+      {/* Main scrollable container with hidden scrollbar */}
+      <div className="h-screen overflow-y-auto scrollbar-hidden">
+        {/* Enhanced Header - Better responsive layout */}
+        <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-md border-b border-white/10">
+          <div className="px-3 sm:px-6 lg:px-8 py-3 sm:py-4">
+            {/* Improved top row with better mobile spacing */}
+            <div className="flex items-center justify-between mb-3 sm:mb-4">
+              <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                <button
+                  onClick={() => router.back()}
+                  className="p-2 sm:p-2.5 rounded-xl bg-secondary/60 border border-white/10 hover:bg-secondary/80 transition-all shrink-0"
+                >
+                  <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+                </button>
+                <div className="min-w-0 flex-1">
+                  <h1 className="text-lg sm:text-xl font-bold text-white truncate">Management Center</h1>
+                  <p className="text-xs sm:text-sm text-white/60">Orders & Reservations</p>
+                </div>
+              </div>
+
+              {/* Improved action buttons with responsive design */}
+              <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleRefresh}
+                  disabled={isRefreshing}
+                  className="border border-white/10 hover:border-primary/30 px-2 sm:px-3 text-xs sm:text-sm"
+                >
+                  <RefreshCw className={`w-3 h-3 sm:w-4 sm:h-4 ${isRefreshing ? 'animate-spin' : ''} ${
+                    window.innerWidth < 640 ? '' : 'mr-2'
+                  }`} />
+                  <span className="hidden sm:inline">Refresh</span>
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="border border-white/10 hover:border-primary/30 px-2 sm:px-3 text-xs sm:text-sm"
+                >
+                  <Download className={`w-3 h-3 sm:w-4 sm:h-4 ${window.innerWidth < 640 ? '' : 'mr-2'}`} />
+                  <span className="hidden sm:inline">Export</span>
+                </Button>
+              </div>
+            </div>
+
+            {/* Enhanced search and filter row - better mobile layout */}
+            <div className="flex gap-2 sm:gap-3 mb-">
+              <div className="flex-1 relative min-w-0">
+                <Search className="absolute left-3 sm:left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-white/40 shrink-0" />
+                <input
+                  type="text"
+                  placeholder={isLoading ? "Loading..." : "Search orders, customers..."}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  disabled={isLoading}
+                  className={`w-full pl-10 sm:pl-12 pr-3 sm:pr-4 py-2.5 sm:py-3 border rounded-lg sm:rounded-xl transition-all text-sm sm:text-base ${
+                    isLoading 
+                      ? 'bg-secondary/40 border-white/5 text-white/40 cursor-not-allowed' 
+                      : 'bg-secondary/60 border-white/10 text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/30'
+                  }`}
+                />
+              </div>
               <button
-                onClick={() => router.back()}
-                className="p-2 sm:p-2.5 rounded-xl bg-secondary/60 border border-white/10 hover:bg-secondary/80 transition-all shrink-0"
-              >
-                <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
-              </button>
-              <div className="min-w-0 flex-1">
-                <h1 className="text-lg sm:text-xl font-bold text-white truncate">Management Center</h1>
-                <p className="text-xs sm:text-sm text-white/60">Orders & Reservations</p>
-              </div>
-            </div>
-
-            {/* Improved action buttons with responsive design */}
-            <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleRefresh}
-                disabled={isRefreshing}
-                className="border border-white/10 hover:border-primary/30 px-2 sm:px-3 text-xs sm:text-sm"
-              >
-                <RefreshCw className={`w-3 h-3 sm:w-4 sm:h-4 ${isRefreshing ? 'animate-spin' : ''} ${
-                  window.innerWidth < 640 ? '' : 'mr-2'
-                }`} />
-                <span className="hidden sm:inline">Refresh</span>
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="border border-white/10 hover:border-primary/30 px-2 sm:px-3 text-xs sm:text-sm"
-              >
-                <Download className={`w-3 h-3 sm:w-4 sm:h-4 ${window.innerWidth < 640 ? '' : 'mr-2'}`} />
-                <span className="hidden sm:inline">Export</span>
-              </Button>
-            </div>
-          </div>
-
-          {/* Enhanced search and filter row - better mobile layout */}
-          <div className="flex gap-2 sm:gap-3">
-            <div className="flex-1 relative min-w-0">
-              <Search className="absolute left-3 sm:left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-white/40 shrink-0" />
-              <input
-                type="text"
-                placeholder={isLoading ? "Loading..." : "Search orders, customers..."}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onClick={() => setShowFilters(!showFilters)}
                 disabled={isLoading}
-                className={`w-full pl-10 sm:pl-12 pr-3 sm:pr-4 py-2.5 sm:py-3 border rounded-lg sm:rounded-xl transition-all text-sm sm:text-base ${
-                  isLoading 
-                    ? 'bg-secondary/40 border-white/5 text-white/40 cursor-not-allowed' 
-                    : 'bg-secondary/60 border-white/10 text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/30'
+                className={`px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg sm:rounded-xl border transition-all flex items-center gap-1 sm:gap-2 shrink-0 ${
+                  isLoading
+                    ? 'bg-secondary/40 border-white/5 text-white/40 cursor-not-allowed'
+                    : showFilters
+                      ? 'bg-primary border-primary text-white'
+                      : 'bg-secondary/60 border-white/10 text-white hover:bg-secondary/80'
                 }`}
-              />
-            </div>
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              disabled={isLoading}
-              className={`px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg sm:rounded-xl border transition-all flex items-center gap-1 sm:gap-2 shrink-0 ${
-                isLoading
-                  ? 'bg-secondary/40 border-white/5 text-white/40 cursor-not-allowed'
-                  : showFilters
-                    ? 'bg-primary border-primary text-white'
-                    : 'bg-secondary/60 border-white/10 text-white hover:bg-secondary/80'
-              }`}
-            >
-              <Filter className="w-4 h-4" />
-              <span className="hidden xs:inline text-sm sm:text-base">Filters</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Enhanced Stats Bar - Better responsive grid */}
-      <div className="px-3 sm:px-6 lg:px-8 py-3 sm:py-4 border-b border-white/5">
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 lg:gap-4">
-          <div className="bg-gradient-to-br from-yellow-500/10 to-orange-500/10 border border-yellow-500/20 rounded-lg sm:rounded-xl p-3 sm:p-4 text-center">
-            <div className="flex items-center justify-center gap-1 sm:gap-2 mb-1">
-              <Clock className="w-3 h-3 sm:w-4 sm:h-4 text-yellow-400" />
-              <span className="text-lg sm:text-2xl font-bold text-yellow-400">{orderStats.pending}</span>
-            </div>
-            <p className="text-xs text-white/60 font-medium">Pending Review</p>
-          </div>
-          <div className="bg-gradient-to-br from-green-500/10 to-emerald-500/10 border border-green-500/20 rounded-lg sm:rounded-xl p-3 sm:p-4 text-center">
-            <div className="flex items-center justify-center gap-1 sm:gap-2 mb-1">
-              <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 text-green-400" />
-              <span className="text-lg sm:text-2xl font-bold text-green-400">{orderStats.confirmed}</span>
-            </div>
-            <p className="text-xs text-white/60 font-medium">Confirmed</p>
-          </div>
-          <div className="bg-gradient-to-br from-blue-500/10 to-cyan-500/10 border border-blue-500/20 rounded-lg sm:rounded-xl p-3 sm:p-4 text-center">
-            <div className="flex items-center justify-center gap-1 sm:gap-2 mb-1">
-              <Package className="w-3 h-3 sm:w-4 sm:h-4 text-blue-400" />
-              <span className="text-lg sm:text-2xl font-bold text-blue-400">{orderStats.completed}</span>
-            </div>
-            <p className="text-xs text-white/60 font-medium">Completed</p>
-          </div>
-          <div className="bg-gradient-to-br from-red-500/10 to-pink-500/10 border border-red-500/20 rounded-lg sm:rounded-xl p-3 sm:p-4 text-center">
-            <div className="flex items-center justify-center gap-1 sm:gap-2 mb-1">
-              <XCircle className="w-3 h-3 sm:w-4 sm:h-4 text-red-400" />
-              <span className="text-lg sm:text-2xl font-bold text-red-400">{orderStats.expired}</span>
-            </div>
-            <p className="text-xs text-white/60 font-medium">Issues</p>
-          </div>
-        </div>
-
-        {/* Better responsive footer info */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mt-3 sm:mt-4 gap-2 sm:gap-0">
-          <p className="text-sm text-white/60 order-2 sm:order-1">
-            Showing <span className="text-white font-medium">{filteredItems.length}</span> of{' '}
-            <span className="text-white font-medium">{allItems.length}</span> items
-          </p>
-          <div className="flex items-center gap-2 text-xs text-white/40 order-1 sm:order-2">
-            <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-            <span>Live updates</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Enhanced Filters - Better responsive layout */}
-      {showFilters && (
-        <div className="bg-secondary/40 backdrop-blur-sm border-b border-white/10 px-3 sm:px-6 lg:px-8 py-3 sm:py-4 animate-in slide-in-from-top duration-200">
-          <div className="space-y-4 sm:space-y-6">
-            {/* Type Filter */}
-            <div>
-              <label className="flex items-center gap-2 text-sm font-medium text-white mb-2 sm:mb-3">
-                <Package className="w-4 h-4 text-primary" />
-                Type Filter
-              </label>
-              <div className="flex flex-wrap gap-2">
-                {[
-                  { value: 'all', label: 'All Items', icon: Settings },
-                  { value: 'order', label: 'Orders', icon: ShoppingBag },
-                  { value: 'reservation', label: 'Reservations', icon: Calendar },
-                ].map((type) => (
-                  <button
-                    key={type.value}
-                    onClick={() => setSelectedType(type.value)}
-                    className={`flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm border transition-all font-medium ${
-                      selectedType === type.value
-                        ? 'bg-gradient-to-r from-primary to-primary/80 border-primary text-white shadow-lg scale-95'
-                        : 'border-white/10 text-white/70 hover:text-white hover:border-primary/30 hover:bg-primary/10'
-                    }`}
-                  >
-                    <type.icon className="w-3 h-3 sm:w-4 sm:h-4" />
-                    <span className="whitespace-nowrap">{type.label}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Status Filter */}
-            <div>
-              <label className="flex items-center gap-2 text-sm font-medium text-white mb-2 sm:mb-3">
-                <AlertCircle className="w-4 h-4 text-primary" />
-                Status Filter
-              </label>
-              <div className="flex flex-wrap gap-2">
-                {[
-                  { value: 'all', label: 'All Status', color: 'text-white/70' },
-                  { value: 'pending', label: 'Pending', color: 'text-yellow-400' },
-                  { value: 'confirmed', label: 'Confirmed', color: 'text-green-400' },
-                  { value: 'ready_for_pickup', label: 'Ready for Pickup', color: 'text-purple-400' },
-                  { value: 'processing', label: 'Processing', color: 'text-blue-400' },
-                  { value: 'completed', label: 'Completed', color: 'text-emerald-400' },
-                  { value: 'expired', label: 'Issues', color: 'text-red-400' },
-                ].map((status) => (
-                  <button
-                    key={status.value}
-                    onClick={() => setSelectedStatus(status.value)}
-                    className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm border transition-all font-medium whitespace-nowrap ${
-                      selectedStatus === status.value
-                        ? 'bg-gradient-to-r from-primary to-primary/80 border-primary text-white shadow-lg scale-95'
-                        : `border-white/10 ${status.color} hover:text-white hover:border-primary/30 hover:bg-primary/10`
-                    }`}
-                  >
-                    {status.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Enhanced Orders List - Better responsive cards */}
-      <div className="px-3 sm:px-6 lg:px-8 py-3 sm:py-4">
-        {isLoading ? (
-          <div className="space-y-2 sm:space-y-3">
-            {Array.from({ length: 6 }).map((_, index) => (
-              <SkeletonCard key={index} />
-            ))}
-          </div>
-        ) : filteredItems.length === 0 ? (
-          <div className="text-center py-12 sm:py-16">
-            <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-4 sm:mb-6 bg-gradient-to-br from-primary/20 to-info/20 rounded-full flex items-center justify-center">
-              <ShoppingBag className="w-8 h-8 sm:w-10 sm:h-10 text-primary" />
-            </div>
-            <h3 className="text-lg sm:text-xl font-semibold text-white mb-2">No items found</h3>
-            <p className="text-white/60 mb-4 sm:mb-6 max-w-sm mx-auto text-sm sm:text-base px-4">
-              No orders or reservations match your current filters. Try adjusting your search criteria.
-            </p>
-            <Button
-              onClick={() => {
-                setSearchQuery('');
-                setSelectedStatus('all');
-                setSelectedType('all');
-              }}
-              variant="outline"
-              className="border-primary/30 text-primary hover:bg-primary/10"
-            >
-              Clear Filters
-            </Button>
-          </div>
-        ) : (
-          <div className="space-y-2 sm:space-y-3">
-            {filteredItems.map((item) => (
-              <div
-                key={item._id}
-                className="bg-secondary/40 backdrop-blur-sm border border-white/10 rounded-lg sm:rounded-xl hover:border-primary/30 transition-all duration-200"
-                onClick={(e) => {
-                  const target = e.target as HTMLElement;
-                  if (selectedItem === item._id && !target.closest('.dropdown-menu') && !target.closest('.dropdown-trigger')) {
-                    setSelectedItem(null);
-                    setDropdownPosition(null);
-                  }
-                }}
               >
-                {/* Enhanced compact header - Better mobile layout */}
-                <div className="flex items-center justify-between p-3 sm:p-4">
-                  <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-                    {/* Type Icon - Better responsive sizing */}
-                    <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center shrink-0 ${
-                      item.type === 'order'
-                        ? 'bg-gradient-to-br from-blue-500/20 to-blue-600/20 border border-blue-500/30'
-                        : 'bg-gradient-to-br from-purple-500/20 to-purple-600/20 border border-purple-500/30'
-                    }`}>
-                      {item.type === 'order' ? (
-                        <ShoppingBag className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" />
-                      ) : (
-                        <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-purple-400" />
-                      )}
-                    </div>
+                <Filter className="w-4 h-4" />
+                <span className="hidden xs:inline text-sm sm:text-base">Filters</span>
+              </button>
+            </div>
+          </div>
+        </div>
 
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 mb-1 flex-wrap">
-                        <h3 className="font-semibold text-white text-sm sm:text-base truncate">{item.code}</h3>
-                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs border font-medium ${getStatusBadge(item.status)} shrink-0`}>
-                          {getStatusIcon(item.status)}
-                          <span className="capitalize hidden xs:inline">{item.status}</span>
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2 text-xs text-white/60 flex-wrap">
-                        <span className="whitespace-nowrap">{formatDateTime(item.createdAt)}</span>
-                        <span className="hidden xs:inline">•</span>
-                        <span className="whitespace-nowrap">
-                          {item.type === 'reservation' && item.items && item.items.length > 0
-                            ? item.items.length === 1
-                              ? `${item.items[0].quantity}x ${item.items[0].product?.name || 'Product'}`
-                              : `${item.items.length} items`
-                            : `${item.itemCount} items`
-                          }
-                        </span>
-                      </div>
-                    </div>
-                  </div>
+        {/* Enhanced Stats Bar - Better responsive grid */}
+        <div className="px-3 sm:px-6 lg:px-8 py-3 sm:py-4 border-b border-white/5">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 lg:gap-4">
+            <div className="bg-gradient-to-br from-yellow-500/10 to-orange-500/10 border border-yellow-500/20 rounded-lg sm:rounded-xl p-3 sm:p-4 text-center">
+              <div className="flex items-center justify-center gap-1 sm:gap-2 mb-1">
+                <Clock className="w-3 h-3 sm:w-4 sm:h-4 text-yellow-400" />
+                <span className="text-lg sm:text-2xl font-bold text-yellow-400">{orderStats.pending}</span>
+              </div>
+              <p className="text-xs text-white/60 font-medium">Pending Review</p>
+            </div>
+            <div className="bg-gradient-to-br from-green-500/10 to-emerald-500/10 border border-green-500/20 rounded-lg sm:rounded-xl p-3 sm:p-4 text-center">
+              <div className="flex items-center justify-center gap-1 sm:gap-2 mb-1">
+                <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 text-green-400" />
+                <span className="text-lg sm:text-2xl font-bold text-green-400">{orderStats.confirmed}</span>
+              </div>
+              <p className="text-xs text-white/60 font-medium">Confirmed</p>
+            </div>
+            <div className="bg-gradient-to-br from-blue-500/10 to-cyan-500/10 border border-blue-500/20 rounded-lg sm:rounded-xl p-3 sm:p-4 text-center">
+              <div className="flex items-center justify-center gap-1 sm:gap-2 mb-1">
+                <Package className="w-3 h-3 sm:w-4 sm:h-4 text-blue-400" />
+                <span className="text-lg sm:text-2xl font-bold text-blue-400">{orderStats.completed}</span>
+              </div>
+              <p className="text-xs text-white/60 font-medium">Completed</p>
+            </div>
+            <div className="bg-gradient-to-br from-red-500/10 to-pink-500/10 border border-red-500/20 rounded-lg sm:rounded-xl p-3 sm:p-4 text-center">
+              <div className="flex items-center justify-center gap-1 sm:gap-2 mb-1">
+                <XCircle className="w-3 h-3 sm:w-4 sm:h-4 text-red-400" />
+                <span className="text-lg sm:text-2xl font-bold text-red-400">{orderStats.cancelled}</span>
+              </div>
+              <p className="text-xs text-white/60 font-medium">Cancelled</p>
+            </div>
+          </div>
 
-                  {/* Price and action section - Better mobile layout */}
-                  <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-                    <div className="text-right">
-                      <p className="font-bold text-white text-sm sm:text-base">{formatCurrency(item.totalAmount || 0)}</p>
-                      <p className="text-xs text-white/60 hidden sm:block">Total</p>
-                    </div>
+          {/* Better responsive footer info */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mt-3 sm:mt-4 gap-2 sm:gap-0">
+            <p className="text-sm text-white/60 order-2 sm:order-1">
+              Showing <span className="text-white font-medium">{filteredItems.length}</span> of{' '}
+              <span className="text-white font-medium">{allItems.length}</span> items
+            </p>
+            <div className="flex items-center gap-2 text-xs text-white/40 order-1 sm:order-2">
+              <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+              <span>Live updates</span>
+            </div>
+          </div>
+        </div>
 
-                    {/* Enhanced Action Dropdown - Better mobile positioning */}
-                    <div className="relative">
-                      <button
-                        ref={(el) => { buttonRefs.current[item._id] = el; }}
-                        onClick={() => handleDropdownToggle(item._id)}
-                        className="dropdown-trigger w-8 h-8 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 hover:border-primary/30 transition-all flex items-center justify-center shrink-0"
-                      >
-                        <ChevronDown className={`w-4 h-4 text-white/70 transition-transform ${selectedItem === item._id ? 'rotate-180' : ''}`} />
-                      </button>
-
-                    </div>
-                  </div>
-                </div>
-
-                {/* Enhanced Customer Info - Better responsive layout */}
-                <div className="px-3 sm:px-4 pb-3 sm:pb-4">
-                  <div className="flex items-start gap-2 sm:gap-3 p-3 bg-white/5 rounded-lg border border-white/5">
-                    <div className="w-7 h-7 sm:w-8 sm:h-8 bg-primary/20 rounded-full flex items-center justify-center shrink-0">
-                      <User className="w-3 h-3 sm:w-4 sm:h-4 text-primary" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-white font-medium text-sm truncate mb-1">
-                        {item.customer?.name || 'Guest Customer'}
-                      </p>
-                      <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-xs text-white/60">
-                        {item.customer?.email && (
-                          <div className="flex items-center gap-1 min-w-0">
-                            <Mail className="w-3 h-3 shrink-0" />
-                            <span className="truncate">{item.customer.email}</span>
-                          </div>
-                        )}
-                        {item.customer?.phone && (
-                          <div className="flex items-center gap-1 shrink-0">
-                            <Phone className="w-3 h-3" />
-                            <span>{item.customer.phone}</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Enhanced special info for reservations */}
-                  {item.type === 'reservation' && item.guestInfo?.pickupSchedule && (
-                    <div className="flex items-center gap-2 sm:gap-3 mt-2 p-2 sm:p-3 bg-purple-500/10 border border-purple-500/20 rounded-lg">
-                      <Calendar className="w-3 h-3 sm:w-4 sm:h-4 text-purple-400 shrink-0" />
-                      <span className="text-xs sm:text-sm text-white/80 truncate">
-                        <span className="hidden sm:inline">Pickup: </span>
-                        {item.guestInfo.pickupSchedule.date} at {item.guestInfo.pickupSchedule.time}
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Enhanced notes section */}
-                  {item.notes && (
-                    <div className="mt-2 p-2 sm:p-3 bg-white/5 border border-white/5 rounded-lg">
-                      <p className="text-xs text-white/60 mb-1">Notes:</p>
-                      <p className="text-xs sm:text-sm text-white/80 line-clamp-2">{item.notes}</p>
-                    </div>
-                  )}
+        {/* Enhanced Filters - Better responsive layout */}
+        {showFilters && (
+          <div className="bg-secondary/40 backdrop-blur-sm border-b border-white/10 px-3 sm:px-6 lg:px-8 py-3 sm:py-4 animate-in slide-in-from-top duration-200">
+            <div className="space-y-4 sm:space-y-6">
+              {/* Status Filter */}
+              <div>
+                <label className="flex items-center gap-2 text-sm font-medium text-white mb-2 sm:mb-3">
+                  <AlertCircle className="w-4 h-4 text-primary" />
+                  Status Filter
+                </label>
+                <div className="flex flex-wrap gap-2 overflow-x-auto scrollbar-hidden">
+                  {[
+                    { value: 'all', label: 'All Status', color: 'text-white/70' },
+                    { value: 'pending', label: 'Pending', color: 'text-yellow-400' },
+                    { value: 'confirmed', label: 'Confirmed', color: 'text-green-400' },
+                    { value: 'ready_for_pickup', label: 'Ready for Pickup', color: 'text-purple-400' },
+                    { value: 'processing', label: 'Processing', color: 'text-blue-400' },
+                    { value: 'completed', label: 'Completed', color: 'text-emerald-400' },
+                    { value: 'cancelled', label: 'Cancelled', color: 'text-red-400' },
+                  ].map((status) => (
+                    <button
+                      key={status.value}
+                      onClick={() => setSelectedStatus(status.value)}
+                      className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm border transition-all font-medium whitespace-nowrap ${
+                        selectedStatus === status.value
+                          ? 'bg-gradient-to-r from-primary to-primary/80 border-primary text-white shadow-lg scale-95'
+                          : `border-white/10 ${status.color} hover:text-white hover:border-primary/30 hover:bg-primary/10`
+                      }`}
+                    >
+                      {status.label}
+                    </button>
+                  ))}
                 </div>
               </div>
-            ))}
+            </div>
           </div>
         )}
+
+        {/* Enhanced Orders List - Better responsive cards with hidden scrollbar */}
+        <div className="px-3 sm:px-6 lg:px-8 py-3 sm:py-4 pb-20 overflow-y-auto scrollbar-hidden">
+          {isLoading ? (
+            <div className="space-y-2 sm:space-y-3">
+              {Array.from({ length: 6 }).map((_, index) => (
+                <SkeletonCard key={index} />
+              ))}
+            </div>
+          ) : filteredItems.length === 0 ? (
+            <div className="text-center py-12 sm:py-16">
+              <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-4 sm:mb-6 bg-gradient-to-br from-primary/20 to-info/20 rounded-full flex items-center justify-center">
+                <Calendar className="w-8 h-8 sm:w-10 sm:h-10 text-primary" />
+              </div>
+              <h3 className="text-lg sm:text-xl font-semibold text-white mb-2">No items found</h3>
+              <p className="text-white/60 mb-4 sm:mb-6 max-w-sm mx-auto text-sm sm:text-base px-4">
+                No orders or reservations match your current filters. Try adjusting your search criteria.
+              </p>
+              <Button
+                onClick={() => {
+                  setSearchQuery('');
+                  setSelectedStatus('all');
+                }}
+                variant="outline"
+                className="border-primary/30 text-primary hover:bg-primary/10"
+              >
+                Clear Filters
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-2 sm:space-y-3">
+              {filteredItems.map((item) => (
+                <div
+                  key={item._id}
+                  className="bg-secondary/40 backdrop-blur-sm border border-white/10 rounded-lg sm:rounded-xl hover:border-primary/30 transition-all duration-200"
+                  onClick={(e) => {
+                    const target = e.target as HTMLElement;
+                    if (selectedItem === item._id && !target.closest('.dropdown-menu') && !target.closest('.dropdown-trigger')) {
+                      setSelectedItem(null);
+                      setDropdownPosition(null);
+                    }
+                  }}
+                >
+                  {/* Enhanced compact header - Better mobile layout */}
+                  <div className="flex items-center justify-between p-3 sm:p-4">
+                    <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                      {/* Type Icon - Better responsive sizing */}
+                      <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center shrink-0 ${
+                        item.type === 'order'
+                          ? 'bg-gradient-to-br from-blue-500/20 to-blue-600/20 border border-blue-500/30'
+                          : 'bg-gradient-to-br from-purple-500/20 to-purple-600/20 border border-purple-500/30'
+                      }`}>
+                        {item.type === 'order' ? (
+                          <Package className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" />
+                        ) : (
+                          <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-purple-400" />
+                        )}
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                          <h3 className="font-semibold text-white text-sm sm:text-base truncate">{item.code}</h3>
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs border font-medium ${getStatusBadge(item.status)} shrink-0`}>
+                            {getStatusIcon(item.status)}
+                            <span className="capitalize hidden xs:inline">{item.status}</span>
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 text-xs text-white/60 flex-wrap">
+                          <span className="whitespace-nowrap">{formatDateTime(item.createdAt)}</span>
+                          <span className="hidden xs:inline">•</span>
+                          <span className="whitespace-nowrap">
+                            {item.type === 'reservation' && item.items && item.items.length > 0
+                              ? item.items.length === 1
+                                ? `${item.items[0].quantity}x ${item.items[0].product?.name || 'Product'}`
+                                : `${item.items.length} items`
+                              : `${item.itemCount} items`
+                            }
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Price and action section - Better mobile layout */}
+                    <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+                      <div className="text-right">
+                        <p className="font-bold text-white text-sm sm:text-base">{formatCurrency(item.totalAmount || 0)}</p>
+                        <p className="text-xs text-white/60 hidden sm:block">Total</p>
+                      </div>
+
+                      {/* Enhanced Action Dropdown - Better mobile positioning */}
+                      <div className="relative">
+                        <button
+                          ref={(el) => { buttonRefs.current[item._id] = el; }}
+                          onClick={() => handleDropdownToggle(item._id)}
+                          className="dropdown-trigger w-8 h-8 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 hover:border-primary/30 transition-all flex items-center justify-center shrink-0"
+                        >
+                          <ChevronDown className={`w-4 h-4 text-white/70 transition-transform ${selectedItem === item._id ? 'rotate-180' : ''}`} />
+                        </button>
+
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Enhanced Customer Info - Better responsive layout */}
+                  <div className="px-3 sm:px-4 pb-3 sm:pb-4">
+                    <div className="flex items-start gap-2 sm:gap-3 p-3 bg-white/5 rounded-lg border border-white/5">
+                      <div className="w-7 h-7 sm:w-8 sm:h-8 bg-primary/20 rounded-full flex items-center justify-center shrink-0">
+                        <User className="w-3 h-3 sm:w-4 sm:h-4 text-primary" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-white font-medium text-sm truncate mb-1">
+                          {item.customer?.name || 'Guest Customer'}
+                        </p>
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-xs text-white/60">
+                          {item.customer?.email && (
+                            <div className="flex items-center gap-1 min-w-0">
+                              <Mail className="w-3 h-3 shrink-0" />
+                              <span className="truncate">{item.customer.email}</span>
+                            </div>
+                          )}
+                          {item.customer?.phone && (
+                            <div className="flex items-center gap-1 shrink-0">
+                              <Phone className="w-3 h-3" />
+                              <span>{item.customer.phone}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Enhanced special info for reservations */}
+                    {item.type === 'reservation' && item.guestInfo?.pickupSchedule && (
+                      <div className="flex items-center gap-2 sm:gap-3 mt-2 p-2 sm:p-3 bg-purple-500/10 border border-purple-500/20 rounded-lg">
+                        <Calendar className="w-3 h-3 sm:w-4 sm:h-4 text-purple-400 shrink-0" />
+                        <span className="text-xs sm:text-sm text-white/80 truncate">
+                          <span className="hidden sm:inline">Pickup: </span>
+                          {item.guestInfo.pickupSchedule.date} at {item.guestInfo.pickupSchedule.time}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Enhanced notes section */}
+                    {item.notes && (
+                      <div className="mt-2 p-2 sm:p-3 bg-white/5 border border-white/5 rounded-lg">
+                        <p className="text-xs text-white/60 mb-1">Notes:</p>
+                        <p className="text-xs sm:text-sm text-white/80 line-clamp-2">{item.notes}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Bottom Navigation */}
       <BottomNavbar />
 
-      {/* Portal-based Dropdown */}
+      {/* Portal-based Dropdown with hidden scrollbar */}
       {mounted && selectedItem && dropdownPosition && (() => {
         const item = filteredItems.find(i => i._id === selectedItem);
         if (!item) return null;
@@ -752,7 +751,7 @@ export default function AdminOrdersPage() {
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="p-2">
+            <div className="p-2 max-h-96 overflow-y-auto scrollbar-hidden">
               <button
                 onClick={() => {
                   router.push(`/admin/${item.type}s/${item._id}`);
@@ -830,7 +829,7 @@ export default function AdminOrdersPage() {
                   }}
                   className="w-full flex items-center gap-3 px-3 py-2.5 text-left text-white hover:bg-green-500/10 rounded-lg transition-colors text-sm"
                 >
-                  <Truck className="w-4 h-4 text-green-400" />
+                  <Package className="w-4 h-4 text-green-400" />
                   <span>Mark Delivered</span>
                 </button>
               )}
