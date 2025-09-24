@@ -352,12 +352,12 @@ export default function ControlPanel() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex">
+    <div className="min-h-screen bg-background">
       {/* Navigation Sidebar */}
       <ControlPanelNav />
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col">
+      <div className="ml-64 flex flex-col">
         {/* Header */}
         <div className="border-b border-white/10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
           <div className="px-6 py-4">

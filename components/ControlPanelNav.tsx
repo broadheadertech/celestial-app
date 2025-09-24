@@ -95,7 +95,7 @@ export default function ControlPanelNav() {
 
   return (
     <div
-      className={`h-screen flex flex-col bg-secondary/40 backdrop-blur-sm border-r border-white/10 transition-all duration-300 ${
+      className={`fixed left-0 top-0 h-screen z-50 flex flex-col bg-secondary/40 backdrop-blur-sm border-r border-white/10 transition-all duration-300 ${
         isCollapsed ? "w-16" : "w-64"
       }`}
     >

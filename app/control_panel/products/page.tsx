@@ -352,9 +352,9 @@ export default function ProductsPage() {
       allImageUrls.length > 0 ? allImageUrls : ["/img/logo-app.png"];
 
     return (
-      <div className="min-h-screen bg-background flex">
+      <div className="min-h-screen bg-background">
         <ControlPanelNav />
-        <div className="flex-1 overflow-y-auto">
+        <div className="ml-64 flex flex-col">
           {/* Header */}
           <div className="flex items-center justify-between px-6 pt-16 pb-4">
             <button
@@ -842,11 +842,11 @@ export default function ProductsPage() {
 
   // Main list view
   return (
-    <div className="min-h-screen bg-background flex">
+    <div className="min-h-screen bg-background">
       <ControlPanelNav />
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col">
+      <div className="ml-64 flex flex-col">
         {/* Header */}
         <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-white/10">
           <div className="px-6 py-4">

@@ -249,9 +249,9 @@ export default function ControlPanelReservationDetailPage() {
 
   if (reservation === undefined) {
     return (
-      <div className="min-h-screen bg-background flex">
+      <div className="min-h-screen bg-background">
         <ControlPanelNav />
-        <div className="flex-1 flex items-center justify-center">
+        <div className="ml-64 flex flex-col">
           <div className="text-center">
             <Loader className="w-8 h-8 animate-spin text-primary mx-auto mb-4" />
             <p className="text-muted">Loading reservation details...</p>
@@ -263,9 +263,9 @@ export default function ControlPanelReservationDetailPage() {
 
   if (!reservation) {
     return (
-      <div className="min-h-screen bg-background flex">
+      <div className="min-h-screen bg-background">
         <ControlPanelNav />
-        <div className="flex-1 flex items-center justify-center">
+        <div className="ml-64 flex flex-col">
           <div className="text-center">
             <AlertCircle className="w-12 h-12 text-error mx-auto mb-4" />
             <h2 className="text-xl font-bold text-white mb-2">Reservation Not Found</h2>
@@ -280,12 +280,12 @@ export default function ControlPanelReservationDetailPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex">
+    <div className="min-h-screen bg-background">
       {/* Navigation Sidebar */}
       <ControlPanelNav />
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col">
+      <div className="ml-64 flex flex-col">
         {/* Header */}
         <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-white/10">
           <div className="px-6 py-4">

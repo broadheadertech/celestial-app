@@ -255,6 +255,17 @@ export default function ClientDashboard() {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Add global styles for hiding scrollbar */}
+      <style jsx global>{`
+        .hide-scrollbar {
+          -ms-overflow-style: none;  /* IE and Edge */
+          scrollbar-width: none;  /* Firefox */
+        }
+        .hide-scrollbar::-webkit-scrollbar {
+          display: none;  /* Chrome, Safari and Opera */
+        }
+      `}</style>
+
       {/* Enhanced Header */}
       <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-md border-b border-white/10">
         <div className="px-4 py-3">
@@ -433,7 +444,7 @@ export default function ClientDashboard() {
               </div>
             </div>
 
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto hide-scrollbar">
               <div className="flex space-x-3 px-4">
                 {productSections.limitedStock.map((product) => (
                   <div key={product._id} className="min-w-[160px] max-w-[160px]">
@@ -543,7 +554,7 @@ export default function ClientDashboard() {
                 </div>
               </div>
 
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto hide-scrollbar">
                 <div className="flex space-x-3 px-4">
                   {productSections.topRated.slice(0, 6).map((product) => (
                     <div key={product._id} className="min-w-[160px] max-w-[160px]">
