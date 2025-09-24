@@ -58,6 +58,10 @@ export default function ClientDashboard() {
 
   // Fetch data from Convex
   const productsQuery = useQuery(api.services.products.getProducts, { isActive: true }) || [];
+  const topRatedProductsQuery = useQuery(api.services.products.getTopRatedProducts, {
+    limit: 18,
+    minRating: 4.0
+  }) || [];
 
   // Get client notifications - only if user is authenticated
   const clientNotifications = useQuery(
@@ -130,13 +134,27 @@ export default function ClientDashboard() {
   // Lazy loaded product sections using useMemo for optimization
   const productSections = useMemo(() => {
     const shuffled = [...productsQuery].sort(() => Math.random() - 0.5);
+
+    // Sort products for different sections
+    const limitedStock = [...productsQuery]
+      .filter(product => product.stock <= 10 && product.stock > 0)
+      .sort((a, b) => a.stock - b.stock) // Sort by lowest stock first
+      .slice(0, 6);
+
+    const newArrivals = [...productsQuery]
+      .sort((a, b) => b.createdAt - a.createdAt) // Sort by newest first
+      .slice(0, 12);
+
+    // Use the properly sorted top rated products
+    const topRated = topRatedProductsQuery.slice(0, 18);
+
     return {
-      limitedStock: shuffled.slice(0, 6),
-      newArrivals: shuffled.slice(6, 12),
-      topRated: shuffled.slice(12, 18),
+      limitedStock: limitedStock.length > 0 ? limitedStock : shuffled.slice(0, 6),
+      newArrivals,
+      topRated,
       featured: shuffled.slice(18, 24),
     };
-  }, [productsQuery]);
+  }, [productsQuery, topRatedProductsQuery]);
 
   // Progressive loading function
   const loadSection = useCallback(async (sectionName: string) => {

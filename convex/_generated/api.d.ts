@@ -16,6 +16,7 @@ import type {
 import type * as files from "../files.js";
 import type * as migrations_fix_login_method from "../migrations/fix_login_method.js";
 import type * as services_admin from "../services/admin.js";
+import type * as services_analytics from "../services/analytics.js";
 import type * as services_auth from "../services/auth.js";
 import type * as services_cart from "../services/cart.js";
 import type * as services_categories from "../services/categories.js";
@@ -37,6 +38,7 @@ declare const fullApi: ApiFromModules<{
   files: typeof files;
   "migrations/fix_login_method": typeof migrations_fix_login_method;
   "services/admin": typeof services_admin;
+  "services/analytics": typeof services_analytics;
   "services/auth": typeof services_auth;
   "services/cart": typeof services_cart;
   "services/categories": typeof services_categories;

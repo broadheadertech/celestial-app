@@ -53,17 +53,13 @@ export default function ControlPanel() {
     "all" | "fish" | "aquarium"
   >("all");
 
-  // Fetch real data from Convex
-  const productsQuery = useQuery(api.services.products.getProducts, {
-    isActive: true,
-  });
-  const ordersQuery = useQuery(api.services.orders.getAllOrdersAdmin, {});
-  const reservationsQuery = useQuery(
-    api.services.reservations.getAllReservationsAdmin,
-    {},
-  );
-  const usersQuery = useQuery(api.services.admin.getAllUsers, {});
-  const categoriesQuery = useQuery(api.services.categories.getCategories, {});
+  // Fetch real data from Convex analytics service
+  const kpiData = useQuery(api.services.analytics.getDashboardKPIs, {});
+  const topProductsData = useQuery(api.services.analytics.getTopProducts, { limit: 8 });
+  const revenueData = useQuery(api.services.analytics.getRevenueData, {});
+  const categoryData = useQuery(api.services.analytics.getCategoryData, {});
+  const customerGrowth = useQuery(api.services.analytics.getCustomerGrowth, {});
+  const recentActivity = useQuery(api.services.analytics.getRecentActivity, { limit: 5 });
 
   // Redirect if not authenticated or not admin/super_admin user
   useEffect(() => {
@@ -75,290 +71,56 @@ export default function ControlPanel() {
     }
   }, [isAuthenticated, user, router]);
 
-  // Calculate real KPI data from queries with percentage changes
-  const kpiData = useMemo(() => {
-    const totalRevenue =
-      ordersQuery?.reduce((sum, order) => sum + (order.totalAmount || 0), 0) ||
-      0;
-    const activeOrders =
-      ordersQuery?.filter((order) =>
-        ["pending", "confirmed", "processing"].includes(order.status),
-      ).length || 0;
-    const totalCustomers = usersQuery?.length || 0;
-    const totalOrders = ordersQuery?.length || 0;
-    const conversionRate =
-      totalOrders > 0 && totalCustomers > 0
-        ? ((totalOrders / totalCustomers) * 100).toFixed(1)
-        : "0.0";
-
-    // Calculate realistic percentage changes based on actual data
-    const revenueChange =
-      totalRevenue > 10000 ? "+12.5%" : totalRevenue > 0 ? "+5.2%" : "+0.0%";
-    const ordersChange =
-      activeOrders > 10 ? "+8.3%" : activeOrders > 0 ? "+3.1%" : "+0.0%";
-    const customersChange =
-      totalCustomers > 50 ? "+15.2%" : totalCustomers > 0 ? "+7.8%" : "+0.0%";
-    const conversionChange =
-      parseFloat(conversionRate) > 5.0
-        ? "+5.7%"
-        : parseFloat(conversionRate) > 0
-          ? "+2.3%"
-          : "+0.0%";
+  // Format KPI data from analytics service
+  const formattedKpiData = useMemo(() => {
+    if (!kpiData) return [];
 
     return [
       {
         title: "Total Revenue",
-        value: `₱${totalRevenue.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-        change: revenueChange,
-        trend: "up" as const,
-        period: "all time",
+        value: `₱${kpiData.totalRevenue.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        change: kpiData.changes.revenue,
+        trend: kpiData.changes.revenue.startsWith("+") ? "up" as const : "down" as const,
+        period: "vs last month",
         icon: DollarSign,
       },
       {
         title: "Active Orders",
-        value: activeOrders.toString(),
-        change: ordersChange,
-        trend: "up" as const,
-        period: "currently active",
+        value: kpiData.activeOrders.toString(),
+        change: kpiData.changes.orders,
+        trend: kpiData.changes.orders.startsWith("+") ? "up" as const : "down" as const,
+        period: "vs last month",
         icon: ShoppingCart,
       },
       {
         title: "Total Customers",
-        value: totalCustomers.toString(),
-        change: customersChange,
-        trend: "up" as const,
-        period: "registered",
+        value: kpiData.totalCustomers.toString(),
+        change: kpiData.changes.customers,
+        trend: kpiData.changes.customers.startsWith("+") ? "up" as const : "down" as const,
+        period: "vs last month",
         icon: Users,
       },
       {
         title: "Conversion Rate",
-        value: `${conversionRate}%`,
-        change: conversionChange,
-        trend: "up" as const,
+        value: `${kpiData.conversionRate}%`,
+        change: kpiData.changes.conversion,
+        trend: kpiData.changes.conversion.startsWith("+") ? "up" as const : "down" as const,
         period: "orders per customer",
         icon: TrendingUp,
       },
     ];
-  }, [ordersQuery, usersQuery]);
+  }, [kpiData]);
 
-  // Generate revenue data from orders
-  const revenueData = useMemo(() => {
-    if (!ordersQuery || ordersQuery.length === 0) {
-      return [
-        { month: "Jan", revenue: 0, orders: 0 },
-        { month: "Feb", revenue: 0, orders: 0 },
-        { month: "Mar", revenue: 0, orders: 0 },
-        { month: "Apr", revenue: 0, orders: 0 },
-        { month: "May", revenue: 0, orders: 0 },
-        { month: "Jun", revenue: 0, orders: 0 },
-        { month: "Jul", revenue: 0, orders: 0 },
-        { month: "Aug", revenue: 0, orders: 0 },
-        { month: "Sep", revenue: 0, orders: 0 },
-        { month: "Oct", revenue: 0, orders: 0 },
-        { month: "Nov", revenue: 0, orders: 0 },
-        { month: "Dec", revenue: 0, orders: 0 },
-      ];
-    }
 
-    const monthNames = [
-      "Jan",
-      "Feb",
-      "Mar",
-      "Apr",
-      "May",
-      "Jun",
-      "Jul",
-      "Aug",
-      "Sep",
-      "Oct",
-      "Nov",
-      "Dec",
-    ];
-    const monthlyData = monthNames.map((month, index) => {
-      const monthOrders = ordersQuery.filter((order) => {
-        const orderDate = new Date(order.createdAt);
-        return orderDate.getMonth() === index;
-      });
 
-      const revenue = monthOrders.reduce(
-        (sum, order) => sum + (order.totalAmount || 0),
-        0,
-      );
-      return {
-        month,
-        revenue,
-        orders: monthOrders.length,
-      };
-    });
-
-    return monthlyData;
-  }, [ordersQuery]);
-
-  // Generate category data from products
-  const categoryData = useMemo(() => {
-    if (!productsQuery || productsQuery.length === 0 || !categoriesQuery) {
-      return [{ name: "No Data", value: 100, count: 0, color: "#6B7280" }];
-    }
-
-    const categoryCount = productsQuery.reduce(
-      (acc, product) => {
-        const category = categoriesQuery.find(
-          (cat) => cat._id === product.categoryId,
-        );
-        const categoryName = category?.name || "Uncategorized";
-        acc[categoryName] = (acc[categoryName] || 0) + 1;
-        return acc;
-      },
-      {} as Record<string, number>,
-    );
-
-    const total = Object.values(categoryCount).reduce(
-      (sum, count) => sum + count,
-      0,
-    );
-
-    const colors = [
-      "#FF6B00",
-      "#3B82F6",
-      "#10B981",
-      "#F59E0B",
-      "#8B5CF6",
-      "#EF4444",
-    ];
-
-    return Object.entries(categoryCount).map(([category, count], index) => ({
-      name: category,
-      value: Math.round((count / total) * 100),
-      count,
-      color: colors[index % colors.length],
-    }));
-  }, [productsQuery, categoriesQuery]);
-
-  // Generate top products data
-  const topProductsData = useMemo(() => {
-    if (!productsQuery || productsQuery.length === 0) {
-      return [];
-    }
-
-    return productsQuery.slice(0, 8).map((product) => ({
-      id: product._id,
-      name: product.name,
-      sales: Math.floor(Math.random() * 500) + 50, // This would need real sales data
-      revenue: product.price * (Math.floor(Math.random() * 100) + 10),
-      growth: Math.floor(Math.random() * 20) - 5,
-      category: "Uncategorized",
-      trend: Math.random() > 0.3 ? "up" : ("down" as const),
-      margin: Math.floor(Math.random() * 30) + 50,
-      stockLevel:
-        product.stock > 10 ? "High" : product.stock > 0 ? "Medium" : "Low",
-      image: "📦",
-    }));
-  }, [productsQuery]);
 
   // Generate daily traffic (placeholder - would need real analytics data)
   // Daily traffic data would require real analytics integration
 
-  // Generate customer growth data from real user data
-  const customerGrowth = useMemo(() => {
-    if (!usersQuery || usersQuery.length === 0) {
-      return [
-        { week: "W1", newCustomers: 0, returning: 0 },
-        { week: "W2", newCustomers: 0, returning: 0 },
-        { week: "W3", newCustomers: 0, returning: 0 },
-        { week: "W4", newCustomers: 0, returning: 0 },
-      ];
-    }
 
-    // Group users by signup date for the last 4 weeks
-    const now = new Date();
-    const fourWeeksAgo = new Date(now.getTime() - 4 * 7 * 24 * 60 * 60 * 1000);
-
-    const weeklyData = [
-      { week: "W1", newCustomers: 0, returning: 0 },
-      { week: "W2", newCustomers: 0, returning: 0 },
-      { week: "W3", newCustomers: 0, returning: 0 },
-      { week: "W4", newCustomers: 0, returning: 0 },
-    ];
-
-    usersQuery.forEach((user) => {
-      if (user.createdAt) {
-        const userDate = new Date(user.createdAt);
-        if (userDate >= fourWeeksAgo) {
-          const weeksAgo = Math.floor(
-            (now.getTime() - userDate.getTime()) / (7 * 24 * 60 * 60 * 1000),
-          );
-          const weekIndex = Math.min(3, Math.max(0, 3 - weeksAgo));
-          weeklyData[weekIndex].newCustomers += 1;
-        } else {
-          // Users older than 4 weeks are considered returning
-          weeklyData[3].returning += 1;
-        }
-      }
-    });
-
-    return weeklyData;
-  }, [usersQuery]);
-
-  // Generate recent activity from real data
-  const recentActivity = useMemo(() => {
-    const activities: Array<{
-      type: string;
-      message: string;
-      amount: string | null;
-      time: string;
-      status: string;
-    }> = [];
-
-    // Add recent orders
-    if (ordersQuery && ordersQuery.length > 0) {
-      const recentOrders = ordersQuery.slice(0, 3);
-      recentOrders.forEach((order) => {
-        activities.push({
-          type: "order",
-          message: `New order #${order._id.slice(0, 8)} received`,
-          amount: `₱${order.totalAmount?.toLocaleString("en-PH", { minimumFractionDigits: 2 })}`,
-          time: getRelativeTime(order.createdAt),
-          status: "success",
-        });
-      });
-    }
-
-    // Add recent reservations
-    if (reservationsQuery && reservationsQuery.length > 0) {
-      const recentReservations = reservationsQuery.slice(0, 2);
-      recentReservations.forEach((reservation) => {
-        activities.push({
-          type: "reservation",
-          message: `New reservation #${reservation.reservationCode}`,
-          amount: null,
-          time: getRelativeTime(reservation.createdAt),
-          status: "info",
-        });
-      });
-    }
-
-    // Add low stock alerts
-    if (productsQuery && productsQuery.length > 0) {
-      const lowStockProducts = productsQuery
-        .filter((p) => p.stock <= 5)
-        .slice(0, 2);
-      lowStockProducts.forEach((product) => {
-        activities.push({
-          type: "alert",
-          message: `Low stock alert: ${product.name}`,
-          amount: `${product.stock} left`,
-          time: "Low stock",
-          status: "warning",
-        });
-      });
-    }
-
-    return activities.slice(0, 5);
-  }, [ordersQuery, reservationsQuery, productsQuery]);
 
   // Loading state
-  const isLoading =
-    !productsQuery || !ordersQuery || !reservationsQuery || !usersQuery;
+  const isLoading = !kpiData || !topProductsData || !revenueData || !categoryData || !customerGrowth || !recentActivity;
 
   if (isLoading) {
     return (
@@ -439,7 +201,7 @@ export default function ControlPanel() {
         <div className="p-6 space-y-6">
           {/* KPI Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-            {kpiData.map((kpi, index) => (
+            {formattedKpiData.map((kpi, index) => (
               <div
                 key={index}
                 className="bg-secondary/40 backdrop-blur-sm rounded-xl p-6 border border-white/10"
@@ -756,7 +518,7 @@ export default function ControlPanel() {
                             {product.sales}
                           </p>
                           <p className="text-white/50 text-xs">
-                            {product.orders + product.reservations} orders
+                            {product.reservations} reservations
                           </p>
                         </div>
                         <div className="col-span-2 text-center">

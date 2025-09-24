@@ -105,8 +105,41 @@ export const getFeaturedProducts = query({
       .withIndex("by_active", (q) => q.eq("isActive", true))
       .filter((q) => q.neq(q.field("badge"), undefined))
       .take(limit);
-    
+
     return products;
+  },
+});
+
+// Get top rated products (sorted by rating, highest first)
+export const getTopRatedProducts = query({
+  args: {
+    limit: v.optional(v.number()),
+    minRating: v.optional(v.number()),
+  },
+  handler: async (ctx, { limit = 10, minRating = 0 }) => {
+    const products = await ctx.db
+      .query("products")
+      .withIndex("by_active", (q) => q.eq("isActive", true))
+      .collect();
+
+    // Filter by minimum rating and sort by rating (highest first)
+    const topRatedProducts = products
+      .filter(product =>
+        product.rating !== undefined &&
+        product.rating !== null &&
+        product.rating >= minRating
+      )
+      .sort((a, b) => {
+        // Sort by rating (descending), then by reviews count (descending)
+        if (b.rating !== a.rating) {
+          return (b.rating || 0) - (a.rating || 0);
+        }
+        // If ratings are equal, sort by number of reviews
+        return (b.reviews || 0) - (a.reviews || 0);
+      })
+      .slice(0, limit);
+
+    return topRatedProducts;
   },
 });
 
