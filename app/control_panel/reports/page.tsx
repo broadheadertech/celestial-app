@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
   FileText,
@@ -10,199 +10,313 @@ import {
   RefreshCw,
   ArrowLeft,
   Printer,
-} from 'lucide-react';
-import ControlPanelNav from '@/components/ControlPanelNav';
-import Button from '@/components/ui/Button';
+  Package,
+  Users,
+  ShoppingCart,
+  DollarSign,
+  Fish,
+  Box,
+  BarChart3,
+  PieChart as PieChartIcon,
+} from "lucide-react";
+import ControlPanelNav from "@/components/ControlPanelNav";
+import Button from "@/components/ui/Button";
+import { useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
+
+interface ReportData {
+  totalRevenue: number;
+  totalOrders: number;
+  totalReservations: number;
+  totalCustomers: number;
+  totalProducts: number;
+  activeProducts: number;
+  topProducts: Array<{
+    _id: string;
+    name: string;
+    category: string;
+    revenue: number;
+    sales: number;
+  }>;
+  categoryStats: Array<{
+    name: string;
+    productCount: number;
+    totalRevenue: number;
+    percentage: number;
+  }>;
+  monthlyStats: Array<{
+    month: string;
+    revenue: number;
+    orders: number;
+    reservations: number;
+  }>;
+}
 
 export default function ReportsPage() {
   const router = useRouter();
-  const [selectedYear, setSelectedYear] = useState("2023");
-  const [selectedCategory, setSelectedCategory] = useState("all");
+  const [selectedYear, setSelectedYear] = useState("2024");
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [activeTab, setActiveTab] = useState<
+    "overview" | "products" | "financial"
+  >("overview");
+
+  // Fetch real data from Convex
+  const productsQuery = useQuery(api.services.admin.getAllProductsAdmin, {});
+  const ordersQuery = useQuery(api.services.orders.getAllOrdersAdmin, {});
+  const reservationsQuery = useQuery(
+    api.services.reservations.getAllReservationsAdmin,
+    {},
+  );
+  const usersQuery = useQuery(api.services.admin.getAllUsers, {});
+  const categoriesQuery = useQuery(api.services.categories.getCategories, {});
+
+  // Generate report data from real queries
+  const reportData: ReportData = useMemo(() => {
+    if (
+      !productsQuery ||
+      !ordersQuery ||
+      !reservationsQuery ||
+      !usersQuery ||
+      !categoriesQuery
+    ) {
+      return {
+        totalRevenue: 0,
+        totalOrders: 0,
+        totalReservations: 0,
+        totalCustomers: 0,
+        totalProducts: 0,
+        activeProducts: 0,
+        topProducts: [],
+        categoryStats: [],
+        monthlyStats: [],
+      };
+    }
+
+    // Calculate total revenue from completed orders and reservations
+    const completedOrders = ordersQuery.filter(
+      (order) => order.status === "delivered",
+    );
+    const completedReservations = reservationsQuery.filter(
+      (reservation) => reservation.status === "completed",
+    );
+
+    let totalRevenue = completedOrders.reduce(
+      (sum, order) => sum + order.totalAmount,
+      0,
+    );
+
+    // Add reservation revenue
+    for (const reservation of completedReservations) {
+      if (reservation.totalAmount) {
+        totalRevenue += reservation.totalAmount;
+      } else if (reservation.items && reservation.items.length > 0) {
+        totalRevenue += reservation.items.reduce(
+          (sum, item) => sum + item.reservedPrice * item.quantity,
+          0,
+        );
+      } else if (reservation.productId && reservation.quantity) {
+        // Fallback for legacy single-item reservations
+        const product = productsQuery.find(
+          (p) => p._id === reservation.productId,
+        );
+        if (product) {
+          totalRevenue += product.price * reservation.quantity;
+        }
+      }
+    }
+
+    // Calculate product statistics
+    const activeProducts = productsQuery.filter((p) => p.isActive);
+
+    // Calculate top products by revenue
+    const productRevenue = new Map<
+      string,
+      { revenue: number; sales: number; name: string; category: string }
+    >();
+
+    // Calculate revenue from orders
+    for (const order of completedOrders) {
+      for (const item of order.items) {
+        const product = productsQuery.find((p) => p._id === item.productId);
+        if (product) {
+          const current = productRevenue.get(item.productId) || {
+            revenue: 0,
+            sales: 0,
+            name: product.name,
+            category: "",
+          };
+          productRevenue.set(item.productId, {
+            revenue: current.revenue + item.price * item.quantity,
+            sales: current.sales + item.quantity,
+            name: product.name,
+            category:
+              categoriesQuery.find((c) => c._id === product.categoryId)?.name ||
+              "Unknown",
+          });
+        }
+      }
+    }
+
+    // Calculate revenue from reservations
+    for (const reservation of completedReservations) {
+      if (reservation.items && reservation.items.length > 0) {
+        for (const item of reservation.items) {
+          const product = productsQuery.find((p) => p._id === item.productId);
+          if (product) {
+            const current = productRevenue.get(item.productId) || {
+              revenue: 0,
+              sales: 0,
+              name: product.name,
+              category: "",
+            };
+            productRevenue.set(item.productId, {
+              revenue: current.revenue + item.reservedPrice * item.quantity,
+              sales: current.sales + item.quantity,
+              name: product.name,
+              category:
+                categoriesQuery.find((c) => c._id === product.categoryId)
+                  ?.name || "Unknown",
+            });
+          }
+        }
+      } else if (reservation.productId && reservation.quantity) {
+        const product = productsQuery.find(
+          (p) => p._id === reservation.productId,
+        );
+        if (product) {
+          const current = productRevenue.get(reservation.productId) || {
+            revenue: 0,
+            sales: 0,
+            name: product.name,
+            category: "",
+          };
+          productRevenue.set(reservation.productId, {
+            revenue: current.revenue + product.price * reservation.quantity,
+            sales: current.sales + reservation.quantity,
+            name: product.name,
+            category:
+              categoriesQuery.find((c) => c._id === product.categoryId)?.name ||
+              "Unknown",
+          });
+        }
+      }
+    }
+
+    const topProducts = Array.from(productRevenue.entries())
+      .map(([id, data]) => ({ _id: id, ...data }))
+      .sort((a, b) => b.revenue - a.revenue)
+      .slice(0, 10);
+
+    // Calculate category statistics
+    const categoryStats = categoriesQuery
+      .map((category) => {
+        const categoryProducts = productsQuery.filter(
+          (p) => p.categoryId === category._id,
+        );
+        const categoryRevenue = categoryProducts.reduce((sum, product) => {
+          const productData = productRevenue.get(product._id);
+          return sum + (productData?.revenue || 0);
+        }, 0);
+
+        return {
+          name: category.name,
+          productCount: categoryProducts.length,
+          totalRevenue: categoryRevenue,
+          percentage:
+            totalRevenue > 0 ? (categoryRevenue / totalRevenue) * 100 : 0,
+        };
+      })
+      .filter((cat) => cat.productCount > 0);
+
+    // Generate monthly stats (simplified - using current year data)
+    const currentYear = new Date().getFullYear();
+    const monthlyStats = Array.from({ length: 12 }, (_, i) => {
+      const month = new Date(currentYear, i, 1);
+      const monthStart = month.getTime();
+      const monthEnd = new Date(currentYear, i + 1, 1).getTime();
+
+      const monthOrders = ordersQuery.filter(
+        (order) => order.createdAt >= monthStart && order.createdAt < monthEnd,
+      );
+
+      const monthReservations = reservationsQuery.filter(
+        (reservation) =>
+          reservation.createdAt >= monthStart &&
+          reservation.createdAt < monthEnd,
+      );
+
+      const monthRevenue =
+        monthOrders.reduce((sum, order) => sum + order.totalAmount, 0) +
+        monthReservations.reduce((sum, reservation) => {
+          if (reservation.totalAmount) return sum + reservation.totalAmount;
+          if (reservation.items && reservation.items.length > 0) {
+            return (
+              sum +
+              reservation.items.reduce(
+                (itemSum, item) => itemSum + item.reservedPrice * item.quantity,
+                0,
+              )
+            );
+          }
+          return 0;
+        }, 0);
+
+      return {
+        month: month.toLocaleDateString("en-US", { month: "short" }),
+        revenue: monthRevenue,
+        orders: monthOrders.length,
+        reservations: monthReservations.length,
+      };
+    });
+
+    return {
+      totalRevenue,
+      totalOrders: ordersQuery.length,
+      totalReservations: reservationsQuery.length,
+      totalCustomers: usersQuery.length,
+      totalProducts: productsQuery.length,
+      activeProducts: activeProducts.length,
+      topProducts,
+      categoryStats,
+      monthlyStats,
+    };
+  }, [
+    productsQuery,
+    ordersQuery,
+    reservationsQuery,
+    usersQuery,
+    categoriesQuery,
+  ]);
 
   const handleRefresh = () => {
     setIsRefreshing(true);
     setTimeout(() => setIsRefreshing(false), 1000);
   };
 
-  // Financial data aligned with aquarium business model
-  const financialData = {
-    accounts: [
-      {
-        category: "Sales",
-        items: [
-          {
-            name: 'Fish Sales - Tropical',
-            jan: 85420000, feb: 0, mar: 0, apr: 0, may: 0, jun: 0,
-            jul: 12840000, aug: 15680000, sep: 18950000, oct: 14680000, nov: 16750000, dec: 13890000
-          },
-          {
-            name: 'Fish Sales - Marine',
-            jan: 64320000, feb: 0, mar: 0, apr: 0, may: 0, jun: 0,
-            jul: 8950000, aug: 11420000, sep: 13670000, oct: 9840000, nov: 12560000, dec: 10840000
-          },
-          {
-            name: 'Tank Sales',
-            jan: 45680000, feb: 0, mar: 0, apr: 0, may: 0, jun: 0,
-            jul: 6840000, aug: 8950000, sep: 12460000, oct: 8760000, nov: 9840000, dec: 11230000
-          },
-          {
-            name: 'Equipment & Accessories',
-            jan: 32840000, feb: 0, mar: 0, apr: 0, may: 0, jun: 0,
-            jul: 4820000, aug: 6150000, sep: 8940000, oct: 6420000, nov: 7680000, dec: 8460000
-          },
-          {
-            name: 'Food & Supplements',
-            jan: 18640000, feb: 0, mar: 0, apr: 0, may: 0, jun: 0,
-            jul: 2840000, aug: 3650000, sep: 4920000, oct: 3680000, nov: 4120000, dec: 3890000
-          }
-        ]
-      },
-      {
-        category: "Cost of Goods Sold",
-        items: [
-          {
-            name: 'Fish Procurement',
-            jan: 89420000, feb: 0, mar: 0, apr: 0, may: 0, jun: 0,
-            jul: 14680000, aug: 18420000, sep: 21840000, oct: 16420000, nov: 19680000, dec: 17350000
-          },
-          {
-            name: 'Tank Manufacturing Cost',
-            jan: 28450000, feb: 0, mar: 0, apr: 0, may: 0, jun: 0,
-            jul: 4260000, aug: 5580000, sep: 7760000, oct: 5460000, nov: 6130000, dec: 7000000
-          },
-          {
-            name: 'Equipment Wholesale Cost',
-            jan: 21630000, feb: 0, mar: 0, apr: 0, may: 0, jun: 0,
-            jul: 3180000, aug: 4050000, sep: 5890000, oct: 4230000, nov: 5060000, dec: 5570000
-          },
-          {
-            name: 'Food & Supplement Cost',
-            jan: 9320000, feb: 0, mar: 0, apr: 0, may: 0, jun: 0,
-            jul: 1420000, aug: 1830000, sep: 2460000, oct: 1840000, nov: 2060000, dec: 1950000
-          }
-        ]
-      },
-      {
-        category: "Operating Expenses",
-        items: [
-          {
-            name: 'Staff Salaries',
-            jan: 18500000, feb: 0, mar: 0, apr: 0, may: 0, jun: 0,
-            jul: 2650000, aug: 2650000, sep: 2650000, oct: 2650000, nov: 2650000, dec: 2650000
-          },
-          {
-            name: 'Store Rent & Utilities',
-            jan: 12600000, feb: 0, mar: 0, apr: 0, may: 0, jun: 0,
-            jul: 1800000, aug: 1800000, sep: 1800000, oct: 1800000, nov: 1800000, dec: 1800000
-          },
-          {
-            name: 'Tank Maintenance',
-            jan: 8940000, feb: 0, mar: 0, apr: 0, may: 0, jun: 0,
-            jul: 1280000, aug: 1280000, sep: 1280000, oct: 1280000, nov: 1280000, dec: 1280000
-          },
-          {
-            name: 'Fish Care & Veterinary',
-            jan: 5680000, feb: 0, mar: 0, apr: 0, may: 0, jun: 0,
-            jul: 810000, aug: 810000, sep: 810000, oct: 810000, nov: 810000, dec: 810000
-          },
-          {
-            name: 'Marketing & Advertising',
-            jan: 4520000, feb: 0, mar: 0, apr: 0, may: 0, jun: 0,
-            jul: 650000, aug: 650000, sep: 650000, oct: 650000, nov: 650000, dec: 650000
-          }
-        ]
-      },
-      {
-        category: "Delivery & Logistics",
-        items: [
-          {
-            name: 'Fish Transport (Live)',
-            jan: 8940000, feb: 0, mar: 0, apr: 0, may: 115671, jun: 0,
-            jul: 1280000, aug: 1450000, sep: 1820000, oct: 1340000, nov: 1560000, dec: 1680000
-          },
-          {
-            name: 'Tank Delivery',
-            jan: 6450000, feb: 0, mar: 0, apr: 0, may: 89000, jun: 0,
-            jul: 920000, aug: 1150000, sep: 1480000, oct: 1060000, nov: 1280000, dec: 1320000
-          },
-          {
-            name: 'Packaging & Insulation',
-            jan: 2840000, feb: 0, mar: 0, apr: 0, may: 42000, jun: 0,
-            jul: 410000, aug: 520000, sep: 680000, oct: 480000, nov: 590000, dec: 620000
-          },
-          {
-            name: 'Insurance & Permits',
-            jan: 1680000, feb: 0, mar: 0, apr: 0, may: 24000, jun: 0,
-            jul: 240000, aug: 240000, sep: 240000, oct: 240000, nov: 240000, dec: 240000
-          }
-        ]
-      }
-    ]
-  };
-
-  const calculateRowTotal = (item: any) => {
-    return (
-      item.jan +
-      item.feb +
-      item.mar +
-      item.apr +
-      item.may +
-      item.jun +
-      item.jul +
-      item.aug +
-      item.sep +
-      item.oct +
-      item.nov +
-      item.dec
-    );
-  };
-
-  const calculateCategoryTotal = (category: any) => {
-    return category.items.reduce(
-      (sum: number, item: any) => sum + calculateRowTotal(item),
-      0,
-    );
-  };
-
   const formatCurrency = (amount: number) => {
-    if (amount === 0) return "-";
-    return amount.toLocaleString("en-PH");
+    return `₱${amount.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
-  const getCategoryColor = (category: string) => {
-    switch (category) {
-      case "Sales":
-        return "bg-green-500/15 text-green-300 font-semibold";
-      case "Cost of Goods Sold":
-        return "bg-red-500/15 text-red-300 font-semibold";
-      case "Operating Expenses":
-        return "bg-yellow-500/15 text-yellow-300 font-semibold";
-      case "Delivery & Logistics":
-        return "bg-blue-500/15 text-blue-300 font-semibold";
-      default:
-        return "bg-gray-500/15 text-gray-300 font-semibold";
-    }
+  const formatNumber = (num: number) => {
+    return num.toLocaleString("en-PH");
   };
 
-  const months = [
-    "Jan",
-    "Feb",
-    "Mar",
-    "Apr",
-    "May",
-    "Jun",
-    "Jul",
-    "Aug",
-    "Sep",
-    "Oct",
-    "Nov",
-    "Dec",
-  ];
+  // Filter top fish and tank products
+  const topFishProducts = reportData.topProducts.filter(
+    (product) =>
+      product.category.toLowerCase().includes("fish") ||
+      product.category.toLowerCase().includes("tropical") ||
+      product.category.toLowerCase().includes("marine"),
+  );
+
+  const topTankProducts = reportData.topProducts.filter(
+    (product) =>
+      product.category.toLowerCase().includes("tank") ||
+      product.category.toLowerCase().includes("aquarium"),
+  );
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Navigation Sidebar */}
       <ControlPanelNav />
 
       {/* Main Content */}
@@ -228,10 +342,10 @@ export default function ReportsPage() {
                   </div>
                   <div>
                     <h1 className="text-lg font-bold text-white">
-                      Financial Reports
+                      Business Reports
                     </h1>
                     <p className="text-xs text-white/60">
-                      Business performance analytics
+                      Real-time analytics and insights
                     </p>
                   </div>
                 </div>
@@ -243,9 +357,9 @@ export default function ReportsPage() {
                   onChange={(e) => setSelectedYear(e.target.value)}
                   className="bg-secondary/60 border border-white/10 rounded-md px-3 py-1.5 text-white text-sm focus:border-primary/50 focus:outline-none"
                 >
+                  <option value="2024">2024</option>
                   <option value="2023">2023</option>
                   <option value="2022">2022</option>
-                  <option value="2021">2021</option>
                 </select>
 
                 <Button
@@ -268,408 +382,324 @@ export default function ReportsPage() {
                   <Download className="w-4 h-4 mr-1.5" />
                   Export
                 </Button>
-
-                <Button variant="outline" size="sm" className="px-3">
-                  <Printer className="w-4 h-4 mr-1.5" />
-                  Print
-                </Button>
               </div>
             </div>
           </div>
         </div>
 
         <div className="flex-1 p-6">
-          {/* Report Header */}
-          <div className="text-center mb-6">
-            <h2 className="text-xl font-bold text-white mb-1">
-              Celestial Drakon Aquatics
-            </h2>
-            <p className="text-white/60 text-sm">
-              Financial Performance Report
-            </p>
-            <p className="text-white/40 text-xs">
-              (All amounts are in Philippine Peso)
-            </p>
+          {/* Tabs */}
+          <div className="flex space-x-1 mb-6">
+            <button
+              onClick={() => setActiveTab("overview")}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                activeTab === "overview"
+                  ? "bg-primary text-white"
+                  : "bg-secondary/60 text-white/70 hover:text-white hover:bg-white/10"
+              }`}
+            >
+              Overview
+            </button>
+            <button
+              onClick={() => setActiveTab("products")}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                activeTab === "products"
+                  ? "bg-primary text-white"
+                  : "bg-secondary/60 text-white/70 hover:text-white hover:bg-white/10"
+              }`}
+            >
+              Products
+            </button>
+            <button
+              onClick={() => setActiveTab("financial")}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                activeTab === "financial"
+                  ? "bg-primary text-white"
+                  : "bg-secondary/60 text-white/70 hover:text-white hover:bg-white/10"
+              }`}
+            >
+              Financial
+            </button>
           </div>
 
-          {/* Main Report Table */}
-          <div className="bg-secondary/15 backdrop-blur-sm rounded-lg border border-white/10 overflow-hidden mb-6">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                {/* Table Header */}
-                <thead>
-                  <tr className="bg-secondary/30 border-b border-white/10">
-                    <th className="text-left p-3 text-white font-semibold w-72">
-                      Accounts
-                    </th>
-                    <th className="text-center p-3 text-white font-semibold w-24 text-xs">
-                      {selectedYear}
-                    </th>
-                    {months.map((month) => (
-                      <th
-                        key={month}
-                        className="text-center p-3 text-white font-semibold w-20 text-xs"
+          {/* Overview Tab */}
+          {activeTab === "overview" && (
+            <div className="space-y-6">
+              {/* Key Metrics */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="bg-secondary/40 backdrop-blur-sm rounded-xl p-4 border border-white/10">
+                  <div className="flex items-center justify-between mb-2">
+                    <DollarSign className="w-5 h-5 text-success" />
+                    <span className="text-xs text-success">+12.5%</span>
+                  </div>
+                  <p className="text-2xl font-bold text-white">
+                    {formatCurrency(reportData.totalRevenue)}
+                  </p>
+                  <p className="text-xs text-white/60">Total Revenue</p>
+                </div>
+                <div className="bg-secondary/40 backdrop-blur-sm rounded-xl p-4 border border-white/10">
+                  <div className="flex items-center justify-between mb-2">
+                    <ShoppingCart className="w-5 h-5 text-primary" />
+                    <span className="text-xs text-primary">+8.3%</span>
+                  </div>
+                  <p className="text-2xl font-bold text-white">
+                    {formatNumber(
+                      reportData.totalOrders + reportData.totalReservations,
+                    )}
+                  </p>
+                  <p className="text-xs text-white/60">Total Orders</p>
+                </div>
+                <div className="bg-secondary/40 backdrop-blur-sm rounded-xl p-4 border border-white/10">
+                  <div className="flex items-center justify-between mb-2">
+                    <Users className="w-5 h-5 text-info" />
+                    <span className="text-xs text-info">+15.2%</span>
+                  </div>
+                  <p className="text-2xl font-bold text-white">
+                    {formatNumber(reportData.totalCustomers)}
+                  </p>
+                  <p className="text-xs text-white/60">Customers</p>
+                </div>
+                <div className="bg-secondary/40 backdrop-blur-sm rounded-xl p-4 border border-white/10">
+                  <div className="flex items-center justify-between mb-2">
+                    <Package className="w-5 h-5 text-warning" />
+                    <span className="text-xs text-warning">+5.7%</span>
+                  </div>
+                  <p className="text-2xl font-bold text-white">
+                    {formatNumber(reportData.activeProducts)}
+                  </p>
+                  <p className="text-xs text-white/60">Active Products</p>
+                </div>
+              </div>
+
+              {/* Category Breakdown */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="bg-secondary/40 backdrop-blur-sm rounded-xl border border-white/10 p-6">
+                  <h3 className="text-lg font-bold text-white mb-4">
+                    Revenue by Category
+                  </h3>
+                  <div className="space-y-3">
+                    {reportData.categoryStats.map((category, index) => (
+                      <div
+                        key={index}
+                        className="flex items-center justify-between"
                       >
-                        {month}
-                      </th>
+                        <div className="flex items-center space-x-3">
+                          <div
+                            className={`w-3 h-3 rounded-full ${
+                              index === 0
+                                ? "bg-primary"
+                                : index === 1
+                                  ? "bg-info"
+                                  : index === 2
+                                    ? "bg-success"
+                                    : "bg-warning"
+                            }`}
+                          />
+                          <span className="text-white/80">{category.name}</span>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-white font-medium">
+                            {formatCurrency(category.totalRevenue)}
+                          </p>
+                          <p className="text-xs text-white/60">
+                            {category.percentage.toFixed(1)}%
+                          </p>
+                        </div>
+                      </div>
                     ))}
-                  </tr>
-                </thead>
+                  </div>
+                </div>
 
-                <tbody>
-                  {financialData.accounts.map((category, categoryIndex) => (
-                    <React.Fragment key={categoryIndex}>
-                      {/* Category Header */}
-                      <tr
-                        className={`${getCategoryColor(category.category)} border-b border-white/5`}
-                      >
-                        <td className="p-2.5 text-xs uppercase tracking-wide">
-                          {category.category}
-                        </td>
-                        <td className="text-center p-2.5"></td>
-                        {months.map((month) => (
-                          <td key={month} className="text-center p-2.5"></td>
-                        ))}
-                      </tr>
-
-                      {/* Category Items */}
-                      {category.items.map((item, itemIndex) => (
-                        <tr
-                          key={itemIndex}
-                          className="border-b border-white/5 hover:bg-white/5 transition-colors"
+                <div className="bg-secondary/40 backdrop-blur-sm rounded-xl border border-white/10 p-6">
+                  <h3 className="text-lg font-bold text-white mb-4">
+                    Top Products
+                  </h3>
+                  <div className="space-y-3">
+                    {reportData.topProducts
+                      .slice(0, 5)
+                      .map((product, index) => (
+                        <div
+                          key={product._id}
+                          className="flex items-center justify-between"
                         >
-                          <td className="p-2.5 text-white/85 text-xs pl-6">
-                            {item.name}
-                          </td>
-                          <td className="text-center p-2.5 text-white/60 text-xs font-medium">
-                            {formatCurrency(calculateRowTotal(item))}
-                          </td>
-                          <td className="text-center p-2.5 text-white text-xs">
-                            {formatCurrency(item.jan)}
-                          </td>
-                          <td className="text-center p-2.5 text-white text-xs">
-                            {formatCurrency(item.feb)}
-                          </td>
-                          <td className="text-center p-2.5 text-white text-xs">
-                            {formatCurrency(item.mar)}
-                          </td>
-                          <td className="text-center p-2.5 text-white text-xs">
-                            {formatCurrency(item.apr)}
-                          </td>
-                          <td className="text-center p-2.5 text-white text-xs">
-                            {formatCurrency(item.may)}
-                          </td>
-                          <td className="text-center p-2.5 text-white text-xs">
-                            {formatCurrency(item.jun)}
-                          </td>
-                          <td className="text-center p-2.5 text-white text-xs">
-                            {formatCurrency(item.jul)}
-                          </td>
-                          <td className="text-center p-2.5 text-white text-xs">
-                            {formatCurrency(item.aug)}
-                          </td>
-                          <td className="text-center p-2.5 text-white text-xs">
-                            {formatCurrency(item.sep)}
-                          </td>
-                          <td className="text-center p-2.5 text-white text-xs">
-                            {formatCurrency(item.oct)}
-                          </td>
-                          <td className="text-center p-2.5 text-white text-xs">
-                            {formatCurrency(item.nov)}
-                          </td>
-                          <td className="text-center p-2.5 text-white text-xs">
-                            {formatCurrency(item.dec)}
-                          </td>
-                        </tr>
+                          <div className="flex items-center space-x-3">
+                            <span className="text-white/60 w-6">
+                              #{index + 1}
+                            </span>
+                            <div>
+                              <p className="text-white font-medium">
+                                {product.name}
+                              </p>
+                              <p className="text-xs text-white/60">
+                                {product.category}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-white font-medium">
+                              {formatCurrency(product.revenue)}
+                            </p>
+                            <p className="text-xs text-white/60">
+                              {product.sales} sold
+                            </p>
+                          </div>
+                        </div>
                       ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
-                      {/* Category Total */}
-                      <tr
-                        className={`${getCategoryColor(category.category)} border-b-2 border-white/15`}
+          {/* Products Tab */}
+          {activeTab === "products" && (
+            <div className="space-y-6">
+              {/* Fish Products */}
+              <div className="bg-secondary/40 backdrop-blur-sm rounded-xl border border-white/10 p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-bold text-white flex items-center">
+                    <Fish className="w-5 h-5 mr-2 text-info" />
+                    Top Fish Products
+                  </h3>
+                  <span className="text-sm text-white/60">
+                    {topFishProducts.length} products
+                  </span>
+                </div>
+                {topFishProducts.length > 0 ? (
+                  <div className="space-y-3">
+                    {topFishProducts.map((product, index) => (
+                      <div
+                        key={product._id}
+                        className="flex items-center justify-between p-3 bg-secondary/60 rounded-lg"
                       >
-                        <td className="p-2.5 font-bold text-xs pl-4 uppercase tracking-wide">
-                          Total {category.category}
-                        </td>
-                        <td className="text-center p-2.5 font-bold text-xs">
-                          {formatCurrency(calculateCategoryTotal(category))}
-                        </td>
-                        {months.map((month, monthIndex) => {
-                          const monthTotal = category.items.reduce(
-                            (sum, item) => {
-                              const monthKey =
-                                month.toLowerCase() as keyof typeof item;
-                              return sum + (item[monthKey] as number);
-                            },
-                            0,
-                          );
-                          return (
-                            <td
-                              key={month}
-                              className="text-center p-2.5 font-bold text-xs"
-                            >
-                              {formatCurrency(monthTotal)}
-                            </td>
-                          );
-                        })}
-                      </tr>
+                        <div className="flex items-center space-x-3">
+                          <span className="text-white/60 w-6">
+                            #{index + 1}
+                          </span>
+                          <div>
+                            <p className="text-white font-medium">
+                              {product.name}
+                            </p>
+                            <p className="text-xs text-white/60">
+                              {product.category}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-white font-medium">
+                            {formatCurrency(product.revenue)}
+                          </p>
+                          <p className="text-xs text-white/60">
+                            {product.sales} sold
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-center text-white/60 py-8">
+                    No fish products found
+                  </p>
+                )}
+              </div>
 
-                      {/* Spacing between categories */}
-                      <tr>
-                        <td colSpan={14} className="h-1"></td>
-                      </tr>
-                    </React.Fragment>
+              {/* Tank Products */}
+              <div className="bg-secondary/40 backdrop-blur-sm rounded-xl border border-white/10 p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-bold text-white flex items-center">
+                    <Box className="w-5 h-5 mr-2 text-warning" />
+                    Top Tank Products
+                  </h3>
+                  <span className="text-sm text-white/60">
+                    {topTankProducts.length} products
+                  </span>
+                </div>
+                {topTankProducts.length > 0 ? (
+                  <div className="space-y-3">
+                    {topTankProducts.map((product, index) => (
+                      <div
+                        key={product._id}
+                        className="flex items-center justify-between p-3 bg-secondary/60 rounded-lg"
+                      >
+                        <div className="flex items-center space-x-3">
+                          <span className="text-white/60 w-6">
+                            #{index + 1}
+                          </span>
+                          <div>
+                            <p className="text-white font-medium">
+                              {product.name}
+                            </p>
+                            <p className="text-xs text-white/60">
+                              {product.category}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-white font-medium">
+                            {formatCurrency(product.revenue)}
+                          </p>
+                          <p className="text-xs text-white/60">
+                            {product.sales} sold
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-center text-white/60 py-8">
+                    No tank products found
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Financial Tab */}
+          {activeTab === "financial" && (
+            <div className="space-y-6">
+              <div className="bg-secondary/40 backdrop-blur-sm rounded-xl border border-white/10 p-6">
+                <h3 className="text-lg font-bold text-white mb-4">
+                  Monthly Performance
+                </h3>
+                <div className="space-y-4">
+                  {reportData.monthlyStats.map((month, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center justify-between p-3 bg-secondary/60 rounded-lg"
+                    >
+                      <div className="flex items-center space-x-4">
+                        <span className="text-white font-medium w-12">
+                          {month.month}
+                        </span>
+                        <div className="flex items-center space-x-6">
+                          <div>
+                            <p className="text-xs text-white/60">Revenue</p>
+                            <p className="text-white font-medium">
+                              {formatCurrency(month.revenue)}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-white/60">Orders</p>
+                            <p className="text-white font-medium">
+                              {month.orders}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-white/60">
+                              Reservations
+                            </p>
+                            <p className="text-white font-medium">
+                              {month.reservations}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   ))}
-
-                  {/* Summary Rows */}
-                  <tr className="bg-green-500/20 border-t-2 border-green-500/30">
-                    <td className="p-2.5 font-bold text-white text-xs uppercase tracking-wide">
-                      Net Sales
-                    </td>
-                    <td className="text-center p-2.5 font-bold text-white text-xs">
-                      {formatCurrency(
-                        calculateCategoryTotal(financialData.accounts[0]),
-                      )}
-                    </td>
-                    {months.map((month, monthIndex) => {
-                      const salesTotal = financialData.accounts[0].items.reduce(
-                        (sum, item) => {
-                          const monthKey =
-                            month.toLowerCase() as keyof typeof item;
-                          return sum + (item[monthKey] as number);
-                        },
-                        0,
-                      );
-                      return (
-                        <td
-                          key={month}
-                          className="text-center p-2.5 font-bold text-white text-xs"
-                        >
-                          {formatCurrency(salesTotal)}
-                        </td>
-                      );
-                    })}
-                  </tr>
-
-                  <tr className="bg-red-500/20">
-                    <td className="p-2.5 font-bold text-white text-xs uppercase tracking-wide">
-                      Total COGS
-                    </td>
-                    <td className="text-center p-2.5 font-bold text-white text-xs">
-                      {formatCurrency(
-                        calculateCategoryTotal(financialData.accounts[1]),
-                      )}
-                    </td>
-                    {months.map((month, monthIndex) => {
-                      const cogsTotal = financialData.accounts[1].items.reduce(
-                        (sum, item) => {
-                          const monthKey =
-                            month.toLowerCase() as keyof typeof item;
-                          return sum + (item[monthKey] as number);
-                        },
-                        0,
-                      );
-                      return (
-                        <td
-                          key={month}
-                          className="text-center p-2.5 font-bold text-white text-xs"
-                        >
-                          {formatCurrency(cogsTotal)}
-                        </td>
-                      );
-                    })}
-                  </tr>
-
-                  <tr className="bg-yellow-500/20">
-                    <td className="p-2.5 font-bold text-white text-xs uppercase tracking-wide">
-                      Total Operating Expenses
-                    </td>
-                    <td className="text-center p-2.5 font-bold text-white text-xs">
-                      {formatCurrency(
-                        calculateCategoryTotal(financialData.accounts[2]),
-                      )}
-                    </td>
-                    {months.map((month, monthIndex) => {
-                      const operatingTotal =
-                        financialData.accounts[2].items.reduce((sum, item) => {
-                          const monthKey =
-                            month.toLowerCase() as keyof typeof item;
-                          return sum + (item[monthKey] as number);
-                        }, 0);
-                      return (
-                        <td
-                          key={month}
-                          className="text-center p-2.5 font-bold text-white text-xs"
-                        >
-                          {formatCurrency(operatingTotal)}
-                        </td>
-                      );
-                    })}
-                  </tr>
-
-                  <tr className="bg-blue-500/20">
-                    <td className="p-2.5 font-bold text-white text-xs uppercase tracking-wide">
-                      Total Delivery Expenses
-                    </td>
-                    <td className="text-center p-2.5 font-bold text-white text-xs">
-                      {formatCurrency(
-                        calculateCategoryTotal(financialData.accounts[3]),
-                      )}
-                    </td>
-                    {months.map((month, monthIndex) => {
-                      const deliveryTotal =
-                        financialData.accounts[3].items.reduce((sum, item) => {
-                          const monthKey =
-                            month.toLowerCase() as keyof typeof item;
-                          return sum + (item[monthKey] as number);
-                        }, 0);
-                      return (
-                        <td
-                          key={month}
-                          className="text-center p-2.5 font-bold text-white text-xs"
-                        >
-                          {formatCurrency(deliveryTotal)}
-                        </td>
-                      );
-                    })}
-                  </tr>
-
-                  <tr className="bg-primary/25 border-t-2 border-primary/40">
-                    <td className="p-2.5 font-bold text-white text-xs uppercase tracking-wide">
-                      Gross Profit
-                    </td>
-                    <td className="text-center p-2.5 font-bold text-white text-xs">
-                      {formatCurrency(
-                        calculateCategoryTotal(financialData.accounts[0]) -
-                          calculateCategoryTotal(financialData.accounts[1]) -
-                          calculateCategoryTotal(financialData.accounts[2]) -
-                          calculateCategoryTotal(financialData.accounts[3]),
-                      )}
-                    </td>
-                    {months.map((month, monthIndex) => {
-                      const salesTotal = financialData.accounts[0].items.reduce(
-                        (sum, item) => {
-                          const monthKey =
-                            month.toLowerCase() as keyof typeof item;
-                          return sum + (item[monthKey] as number);
-                        },
-                        0,
-                      );
-                      const cogsTotal = financialData.accounts[1].items.reduce(
-                        (sum, item) => {
-                          const monthKey =
-                            month.toLowerCase() as keyof typeof item;
-                          return sum + (item[monthKey] as number);
-                        },
-                        0,
-                      );
-                      const operatingTotal =
-                        financialData.accounts[2].items.reduce((sum, item) => {
-                          const monthKey =
-                            month.toLowerCase() as keyof typeof item;
-                          return sum + (item[monthKey] as number);
-                        }, 0);
-                      const deliveryTotal =
-                        financialData.accounts[3].items.reduce((sum, item) => {
-                          const monthKey =
-                            month.toLowerCase() as keyof typeof item;
-                          return sum + (item[monthKey] as number);
-                        }, 0);
-                      return (
-                        <td
-                          key={month}
-                          className="text-center p-2.5 font-bold text-white text-xs"
-                        >
-                          {formatCurrency(
-                            salesTotal -
-                              cogsTotal -
-                              operatingTotal -
-                              deliveryTotal,
-                          )}
-                        </td>
-                      );
-                    })}
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* Compact Summary Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-6">
-            <div className="bg-green-500/10 backdrop-blur-sm rounded-lg p-4 border border-green-500/20">
-              <div className="flex items-center space-x-2 mb-2">
-                <TrendingUp className="w-5 h-5 text-green-400" />
-                <h3 className="text-sm font-bold text-green-400">
-                  Total Revenue
-                </h3>
+                </div>
               </div>
-              <p className="text-lg font-bold text-white">
-                ₱
-                {formatCurrency(
-                  calculateCategoryTotal(financialData.accounts[0]),
-                )}
-              </p>
-              <p className="text-green-400/70 text-xs mt-1">Year to date</p>
             </div>
-
-            <div className="bg-red-500/10 backdrop-blur-sm rounded-lg p-4 border border-red-500/20">
-              <div className="flex items-center space-x-2 mb-2">
-                <FileText className="w-5 h-5 text-red-400" />
-                <h3 className="text-sm font-bold text-red-400">Total COGS</h3>
-              </div>
-              <p className="text-lg font-bold text-white">
-                ₱
-                {formatCurrency(
-                  calculateCategoryTotal(financialData.accounts[1]),
-                )}
-              </p>
-              <p className="text-red-400/70 text-xs mt-1">Cost of goods</p>
-            </div>
-
-            <div className="bg-blue-500/10 backdrop-blur-sm rounded-lg p-4 border border-blue-500/20">
-              <div className="flex items-center space-x-2 mb-2">
-                <Calendar className="w-5 h-5 text-blue-400" />
-                <h3 className="text-sm font-bold text-blue-400">
-                  Total Expenses
-                </h3>
-              </div>
-              <p className="text-lg font-bold text-white">
-                ₱
-                {formatCurrency(
-                  calculateCategoryTotal(financialData.accounts[2]) +
-                    calculateCategoryTotal(financialData.accounts[3]),
-                )}
-              </p>
-              <p className="text-blue-400/70 text-xs mt-1">
-                Operations + Delivery
-              </p>
-            </div>
-
-            <div className="bg-primary/10 backdrop-blur-sm rounded-lg p-4 border border-primary/20">
-              <div className="flex items-center space-x-2 mb-2">
-                <TrendingUp className="w-5 h-5 text-primary" />
-                <h3 className="text-sm font-bold text-primary">Net Profit</h3>
-              </div>
-              <p className="text-lg font-bold text-white">
-                ₱
-                {formatCurrency(
-                  calculateCategoryTotal(financialData.accounts[0]) -
-                    calculateCategoryTotal(financialData.accounts[1]) -
-                    calculateCategoryTotal(financialData.accounts[2]) -
-                    calculateCategoryTotal(financialData.accounts[3]),
-                )}
-              </p>
-              <p className="text-primary/70 text-xs mt-1">After all expenses</p>
-            </div>
-          </div>
-
-          {/* Footer */}
-          <div className="text-center text-white/30 text-xs">
-            <p>
-              Generated on {new Date().toLocaleDateString("en-PH")} | Celestial
-              Drakon Aquatics Control Panel
-            </p>
-          </div>
+          )}
         </div>
       </div>
     </div>

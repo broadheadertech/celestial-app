@@ -398,7 +398,13 @@ export default function ReservationsPage() {
                   <RefreshCw className="w-4 h-4 mr-2" />
                   Refresh
                 </Button>
-                <Button size="sm" className="bg-primary hover:bg-primary/90">
+                <Button
+                  size="sm"
+                  className="bg-primary hover:bg-primary/90"
+                  onClick={() =>
+                    router.push("/control_panel/reservations/edit")
+                  }
+                >
                   <Plus className="w-4 h-4 mr-2" />
                   New Reservation
                 </Button>

@@ -141,6 +141,7 @@ export default function ProductsPage() {
 
   // Mutations
   const deleteProduct = useMutation(api.services.admin.deleteProduct);
+  const updateProduct = useMutation(api.services.admin.updateProduct);
 
   // Create category mapping
   const categoryMap = useMemo(() => {
@@ -276,7 +277,7 @@ export default function ProductsPage() {
   // Handle product actions
   const handleProductAction = async (productId: string, actionType: string) => {
     if (actionType === "Edit") {
-      router.push(`/control_panel/products?id=${productId}&action=edit`);
+      router.push(`/control_panel/products/form?id=${productId}`);
     } else if (actionType === "View") {
       router.push(`/control_panel/products?id=${productId}&action=view`);
     } else if (actionType === "Delete") {
@@ -294,8 +295,30 @@ export default function ProductsPage() {
           setIsDeleting(false);
         }
       }
-    } else if (actionType === "Toggle") {
-      console.log("Toggle status for product:", productId);
+    } else if (actionType === "Deactivate") {
+      try {
+        await updateProduct({
+          id: productId as Id<"products">,
+          isActive: false,
+          productStatus: "inactive",
+        });
+        setSelectedProduct(null);
+      } catch (error) {
+        console.error("Error deactivating product:", error);
+        alert("Failed to deactivate product. Please try again.");
+      }
+    } else if (actionType === "Activate") {
+      try {
+        await updateProduct({
+          id: productId as Id<"products">,
+          isActive: true,
+          productStatus: "active",
+        });
+        setSelectedProduct(null);
+      } catch (error) {
+        console.error("Error activating product:", error);
+        alert("Failed to activate product. Please try again.");
+      }
     }
     setSelectedProduct(null);
   };
@@ -307,7 +330,7 @@ export default function ProductsPage() {
 
   // Handle add product
   const handleAddProduct = () => {
-    router.push("/control_panel/products?action=add");
+    router.push("/control_panel/products/form");
   };
 
   // View certificate
@@ -882,7 +905,7 @@ export default function ProductsPage() {
               </div>
             </div>
           </div>
-        </div> 
+        </div>
 
         {/* Stats */}
         <div className="px-6 py-4 border-b border-white/10">
@@ -1029,20 +1052,29 @@ export default function ProductsPage() {
             <h2 className="text-lg font-bold text-white">
               Products ({filteredProducts.length})
             </h2>
-            {filteredProducts.length === 0 &&
-              productsQuery &&
-              productsQuery.length > 0 && (
-                <button
-                  onClick={() => {
-                    setSearchQuery("");
-                    setSelectedCategory("All");
-                    setSelectedStatus("all");
-                  }}
-                  className="px-3 py-1 rounded-lg bg-primary/10 border border-primary text-primary text-xs hover:bg-primary/20 transition-colors"
-                >
-                  Clear Filters
-                </button>
-              )}
+            <div className="flex items-center space-x-3">
+              {filteredProducts.length === 0 &&
+                productsQuery &&
+                productsQuery.length > 0 && (
+                  <button
+                    onClick={() => {
+                      setSearchQuery("");
+                      setSelectedCategory("All");
+                      setSelectedStatus("all");
+                    }}
+                    className="px-3 py-1 rounded-lg bg-primary/10 border border-primary text-primary text-xs hover:bg-primary/20 transition-colors"
+                  >
+                    Clear Filters
+                  </button>
+                )}
+              <Button
+                onClick={handleAddProduct}
+                className="bg-primary hover:bg-primary/90"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Add Product
+              </Button>
+            </div>
           </div>
 
           {isLoading ? (
@@ -1173,22 +1205,59 @@ export default function ProductsPage() {
                                 <div className="py-1">
                                   <button
                                     onClick={() =>
-                                      handleProductAction(product._id, "Toggle")
+                                      handleProductAction(product._id, "View")
                                     }
                                     className="w-full px-4 py-2 text-left text-white hover:bg-white/10 flex items-center space-x-2"
                                   >
-                                    {product.productStatus === "active" ? (
-                                      <EyeOff className="w-4 h-4" />
-                                    ) : (
-                                      <Eye className="w-4 h-4" />
-                                    )}
-                                    <span>
-                                      {product.productStatus === "active"
-                                        ? "Deactivate"
-                                        : "Activate"}
-                                    </span>
+                                    <Eye className="w-4 h-4" />
+                                    <span>View Details</span>
                                   </button>
+                                  <button
+                                    onClick={() =>
+                                      handleProductAction(product._id, "Edit")
+                                    }
+                                    className="w-full px-4 py-2 text-left text-white hover:bg-white/10 flex items-center space-x-2"
+                                  >
+                                    <Edit className="w-4 h-4" />
+                                    <span>Edit Product</span>
+                                  </button>
+                                  {product.productStatus === "active" ? (
+                                    <button
+                                      onClick={() =>
+                                        handleProductAction(
+                                          product._id,
+                                          "Deactivate",
+                                        )
+                                      }
+                                      className="w-full px-4 py-2 text-left text-white hover:bg-white/10 flex items-center space-x-2"
+                                    >
+                                      <EyeOff className="w-4 h-4" />
+                                      <span>Deactivate</span>
+                                    </button>
+                                  ) : (
+                                    <button
+                                      onClick={() =>
+                                        handleProductAction(
+                                          product._id,
+                                          "Activate",
+                                        )
+                                      }
+                                      className="w-full px-4 py-2 text-left text-white hover:bg-white/10 flex items-center space-x-2"
+                                    >
+                                      <Eye className="w-4 h-4" />
+                                      <span>Activate</span>
+                                    </button>
+                                  )}
                                   <div className="border-t border-white/10 my-1"></div>
+                                  <button
+                                    onClick={() =>
+                                      handleProductAction(product._id, "Delete")
+                                    }
+                                    className="w-full px-4 py-2 text-left text-error hover:bg-error/10 flex items-center space-x-2"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                    <span>Delete Product</span>
+                                  </button>
                                 </div>
                               </div>
                             )}
@@ -1265,7 +1334,21 @@ export default function ProductsPage() {
                               size="sm"
                               className="border-primary/20 text-primary hover:bg-primary/10"
                             >
+                              <Eye className="w-4 h-4 mr-1" />
                               View
+                            </Button>
+                            <Button
+                              onClick={() =>
+                                router.push(
+                                  `/control_panel/products/form?id=${product._id}`,
+                                )
+                              }
+                              variant="outline"
+                              size="sm"
+                              className="border-info/20 text-info hover:bg-info/10"
+                            >
+                              <Edit className="w-4 h-4 mr-1" />
+                              Edit
                             </Button>
                           </div>
                         </div>
