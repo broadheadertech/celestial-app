@@ -49,13 +49,15 @@ export default function ControlPanel() {
 
   const [dateRange, setDateRange] = useState("30");
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [productFilter, setProductFilter] = useState<
-    "all" | "fish" | "aquarium"
-  >("all");
+  const [productFilter, setProductFilter] = useState<string>("all");
 
   // Fetch real data from Convex analytics service
   const kpiData = useQuery(api.services.analytics.getDashboardKPIs, {});
-  const topProductsData = useQuery(api.services.analytics.getTopProducts, { limit: 8 });
+  const categoriesData = useQuery(api.services.categories.getCategories, {});
+  const topProductsData = useQuery(api.services.analytics.getTopProducts, {
+    limit: 8,
+    categoryId: productFilter !== "all" ? productFilter as any : undefined
+  });
   const revenueData = useQuery(api.services.analytics.getRevenueData, {});
   const categoryData = useQuery(api.services.analytics.getCategoryData, {});
   const customerGrowth = useQuery(api.services.analytics.getCustomerGrowth, {});
@@ -120,7 +122,7 @@ export default function ControlPanel() {
 
 
   // Loading state
-  const isLoading = !kpiData || !topProductsData || !revenueData || !categoryData || !customerGrowth || !recentActivity;
+  const isLoading = !kpiData || !topProductsData || !revenueData || !categoryData || !customerGrowth || !recentActivity || !categoriesData;
 
   if (isLoading) {
     return (
@@ -399,16 +401,26 @@ export default function ControlPanel() {
                   <div className="relative">
                     <select
                       value={productFilter}
-                      onChange={(e) =>
-                        setProductFilter(
-                          e.target.value as "all" | "fish" | "aquarium",
-                        )
-                      }
+                      onChange={(e) => setProductFilter(e.target.value)}
                       className="bg-secondary/60 border border-white/10 rounded-lg px-3 py-2 pr-8 text-white text-sm focus:border-primary/50 focus:outline-none appearance-none"
                     >
                       <option value="all">All Products</option>
-                      <option value="fish">🐠 Fish Products</option>
-                      <option value="aquarium">🏠 Aquarium Products</option>
+                      {categoriesData?.map((category) => {
+                        // Add category icons based on name
+                        const getCategoryIcon = (name: string) => {
+                          const lowerName = name.toLowerCase();
+                          if (lowerName.includes('saltwater') || lowerName.includes('marine')) return '🐠';
+                          if (lowerName.includes('freshwater')) return '🔵';
+                          if (lowerName.includes('tank') || lowerName.includes('aquarium')) return '🟢';
+                          return '📦';
+                        };
+
+                        return (
+                          <option key={category._id} value={category._id}>
+                            {getCategoryIcon(category.name)} {category.name}
+                          </option>
+                        );
+                      })}
                     </select>
                     <ChevronDown className="w-4 h-4 text-white/60 absolute right-2 top-1/2 transform -translate-y-1/2 pointer-events-none" />
                   </div>
@@ -570,9 +582,7 @@ export default function ControlPanel() {
                         Showing: {topProductsData.length}{" "}
                         {productFilter === "all"
                           ? "products"
-                          : productFilter === "fish"
-                            ? "fish products"
-                            : "aquarium products"}
+                          : categoriesData?.find(cat => cat._id === productFilter)?.name?.toLowerCase() + " products" || "filtered products"}
                       </span>
                       <div className="flex items-center space-x-4">
                         <span className="text-info font-medium">

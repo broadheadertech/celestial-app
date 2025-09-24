@@ -5,13 +5,23 @@ import { v } from "convex/values";
 export const getTopProducts = query({
   args: {
     limit: v.optional(v.number()),
+    categoryId: v.optional(v.id("categories")),
   },
-  handler: async (ctx, { limit = 8 }) => {
-    // Get all products
-    const products = await ctx.db
-      .query("products")
-      .withIndex("by_active", (q) => q.eq("isActive", true))
-      .collect();
+  handler: async (ctx, { limit = 8, categoryId }) => {
+    // Get all products, optionally filtered by category
+    let products;
+    if (categoryId) {
+      products = await ctx.db
+        .query("products")
+        .withIndex("by_category", (q) => q.eq("categoryId", categoryId))
+        .filter((q) => q.eq(q.field("isActive"), true))
+        .collect();
+    } else {
+      products = await ctx.db
+        .query("products")
+        .withIndex("by_active", (q) => q.eq("isActive", true))
+        .collect();
+    }
 
     // Get all orders and reservations to calculate sales and revenue per product
     const [orders, reservations] = await Promise.all([
