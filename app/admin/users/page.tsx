@@ -116,17 +116,16 @@ export default function AdminUsersPage() {
     setSelectedUser(null);
   };
 
-  const handleToggleUserRole = async (userId: string, currentRole: string) => {
+  const handlePromoteToAdmin = async (userId: string) => {
     try {
-      const newRole = currentRole === 'admin' ? 'client' : 'admin';
       await updateUserRole({
         userId: userId as Id<'users'>,
-        role: newRole as 'admin' | 'client',
+        role: 'admin',
       });
-      showConfirmation('Success', `User role changed to ${newRole} successfully!`, 'success');
+      showConfirmation('Success', 'User promoted to admin successfully!', 'success');
     } catch (error) {
-      console.error('Error updating user role:', error);
-      showConfirmation('Error', 'Error updating user role. Please try again.', 'error');
+      console.error('Error promoting user:', error);
+      showConfirmation('Error', 'Error promoting user to admin. Please try again.', 'error');
     }
     setSelectedUser(null);
   };
@@ -153,7 +152,7 @@ export default function AdminUsersPage() {
               </button>
               <div>
                 <h1 className="text-2xl font-bold text-white">User Management</h1>
-                <p className="text-sm text-white/60">Manage user accounts and permissions</p>
+                <p className="text-sm text-white/60">Manage client accounts and permissions</p>
               </div>
             </div>
 
@@ -280,7 +279,7 @@ export default function AdminUsersPage() {
       <div className="px-4 sm:px-6 py-4">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-bold text-white">
-            Users ({filteredUsers.length})
+            Client Users ({filteredUsers.length})
           </h2>
           {filteredUsers.length === 0 && clientOnlyUsers && clientOnlyUsers.length > 0 && (
             <button
@@ -335,11 +334,6 @@ export default function AdminUsersPage() {
                           {user.firstName[0]}{user.lastName[0]}
                         </span>
                       </div>
-                      {user.role === 'admin' && (
-                        <div className="absolute -top-1 -right-1 p-1 rounded-full bg-warning">
-                          <Shield className="w-3 h-3 text-white" />
-                        </div>
-                      )}
                     </div>
 
                     {/* User Info */}
@@ -384,37 +378,12 @@ export default function AdminUsersPage() {
                             <div className="absolute right-0 top-8 w-48 bg-secondary border border-white/10 rounded-lg shadow-xl z-10">
                               <div className="py-1">
                                 <button
-                                  onClick={() => router.push(`/admin/users/${user._id}`)}
-                                  className="w-full px-4 py-2 text-left text-white hover:bg-white/10 flex items-center space-x-2"
-                                >
-                                  <Edit className="w-4 h-4" />
-                                  <span>View Profile</span>
-                                </button>
-                                <button
                                   onClick={() => handleToggleUserStatus(user._id, user.isActive ?? false)}
                                   className="w-full px-4 py-2 text-left text-white hover:bg-white/10 flex items-center space-x-2"
                                 >
                                   {user.isActive ? <ShieldOff className="w-4 h-4" /> : <Shield className="w-4 h-4" />}
                                   <span>{user.isActive ? 'Deactivate' : 'Activate'}</span>
                                 </button>
-                                {user.role === 'client' && (
-                                  <button
-                                    onClick={() => handleToggleUserRole(user._id, user.role)}
-                                    className="w-full px-4 py-2 text-left text-white hover:bg-white/10 flex items-center space-x-2"
-                                  >
-                                    <Shield className="w-4 h-4" />
-                                    <span>Make Admin</span>
-                                  </button>
-                                )}
-                                {user.role === 'admin' && (
-                                  <button
-                                    onClick={() => handleToggleUserRole(user._id, user.role)}
-                                    className="w-full px-4 py-2 text-left text-white hover:bg-white/10 flex items-center space-x-2"
-                                  >
-                                    <User className="w-4 h-4" />
-                                    <span>Make Client</span>
-                                  </button>
-                                )}
                                 <div className="border-t border-white/10 my-1"></div>
                                 <button
                                   onClick={() => handleDeleteUser(user._id)}
@@ -432,12 +401,8 @@ export default function AdminUsersPage() {
                       {/* User Stats and Info */}
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center space-x-4">
-                          <div className={`px-2 py-1 rounded-lg text-xs font-medium ${
-                            user.role === 'admin' 
-                              ? 'bg-warning/10 text-warning border border-warning/30'
-                              : 'bg-primary/10 text-primary border border-primary/30'
-                          }`}>
-                            {user.role === 'admin' ? 'Administrator' : 'Client'}
+                          <div className="px-2 py-1 rounded-lg text-xs font-medium bg-primary/10 text-primary border border-primary/30">
+                            Client User
                           </div>
                           
                           <div className="flex items-center space-x-1 text-xs text-white/60">
@@ -447,7 +412,7 @@ export default function AdminUsersPage() {
                         </div>
 
                         <div className="text-right">
-                          {user.role === 'client' && user.totalOrders > 0 && (
+                          {user.totalOrders > 0 && (
                             <>
                               <p className="text-sm font-medium text-white">
                                 {user.totalOrders} orders
@@ -456,12 +421,6 @@ export default function AdminUsersPage() {
                                 {formatCurrency(user.totalSpent || 0)} spent
                               </p>
                             </>
-                          )}
-                          {user.role === 'admin' && (
-                            <div className="flex items-center space-x-1 text-xs text-warning">
-                              <Shield className="w-3 h-3" />
-                              <span>Admin Account</span>
-                            </div>
                           )}
                         </div>
                       </div>
@@ -474,13 +433,6 @@ export default function AdminUsersPage() {
                         </div>
                         
                         <div className="flex items-center space-x-2">
-                          <button
-                            onClick={() => router.push(`/admin/users/${user._id}`)}
-                            className="px-3 py-1.5 rounded-lg bg-primary/10 border border-primary/20 text-primary text-xs hover:bg-primary/20 transition-colors"
-                          >
-                            View
-                          </button>
-                          
                           <button
                             onClick={() => handleToggleUserStatus(user._id, user.isActive ?? false)}
                             className={`px-3 py-1.5 rounded-lg text-xs hover:opacity-80 transition-colors ${
