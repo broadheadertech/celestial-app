@@ -61,32 +61,34 @@ export default function AdminUsersPage() {
     setShowConfirmationModal(true);
   };
 
-  // Calculate stats from real data
+  // Filter to show only client users (excluding admin and super_admin)
+  const clientOnlyUsers = useMemo(() => {
+    if (!users) return [];
+    return users.filter(user => user.role === 'client');
+  }, [users]);
+
+  // Calculate stats from real data (clients only)
   const userStats = useMemo(() => {
-    if (!users) return {
+    if (!clientOnlyUsers) return {
       total: 0,
       active: 0,
       inactive: 0,
-      admins: 0,
-      clients: 0,
       newThisMonth: 0,
     };
 
-    const total = users.length;
-    const active = users.filter(u => u.isActive).length;
-    const inactive = users.filter(u => !u.isActive).length;
-    const admins = users.filter(u => u.role === 'admin').length;
-    const clients = users.filter(u => u.role === 'client').length;
-    const newThisMonth = users.filter(u => u.createdAt > Date.now() - 2592000000).length;
+    const total = clientOnlyUsers.length;
+    const active = clientOnlyUsers.filter(u => u.isActive).length;
+    const inactive = clientOnlyUsers.filter(u => !u.isActive).length;
+    const newThisMonth = clientOnlyUsers.filter(u => u.createdAt > Date.now() - 2592000000).length;
 
-    return { total, active, inactive, admins, clients, newThisMonth };
-  }, [users]);
+    return { total, active, inactive, newThisMonth };
+  }, [clientOnlyUsers]);
 
-  // Apply additional client-side filters
+  // Apply additional client-side filters (already only clients)
   const filteredUsers = useMemo(() => {
-    if (!users) return [];
+    if (!clientOnlyUsers) return [];
 
-    let filtered = users;
+    let filtered = clientOnlyUsers;
 
     // Status filter (additional to API filter)
     if (selectedStatus !== 'all') {
@@ -98,7 +100,7 @@ export default function AdminUsersPage() {
     }
 
     return filtered.sort((a, b) => b.createdAt - a.createdAt);
-  }, [users, selectedStatus]);
+  }, [clientOnlyUsers, selectedStatus]);
 
   const handleToggleUserStatus = async (userId: string, currentStatus: boolean) => {
     try {
@@ -206,33 +208,33 @@ export default function AdminUsersPage() {
               </span>
             </div>
             <p className="text-lg font-bold text-white">{userStats.active}</p>
-            <p className="text-xs text-white/60">Active Users</p>
+            <p className="text-xs text-white/60">Active Clients</p>
+          </div>
+          
+          <div className="flex-shrink-0 bg-secondary/40 backdrop-blur-sm rounded-xl p-3 border border-white/10" style={{ minWidth: '120px' }}>
+            <div className="flex items-center justify-between mb-2">
+              <div className="p-1.5 rounded-lg bg-error/10">
+                <User className="w-4 h-4 text-error" />
+              </div>
+              <span className="text-xs font-medium text-error">
+                {userStats.inactive}
+              </span>
+            </div>
+            <p className="text-lg font-bold text-white">{userStats.inactive}</p>
+            <p className="text-xs text-white/60">Inactive Clients</p>
           </div>
           
           <div className="flex-shrink-0 bg-secondary/40 backdrop-blur-sm rounded-xl p-3 border border-white/10" style={{ minWidth: '120px' }}>
             <div className="flex items-center justify-between mb-2">
               <div className="p-1.5 rounded-lg bg-primary/10">
-                <User className="w-4 h-4 text-primary" />
+                <Calendar className="w-4 h-4 text-primary" />
               </div>
-              <span className="text-xs font-medium text-info">
-                {userStats.inactive} inactive
+              <span className="text-xs font-medium text-primary">
+                This month
               </span>
             </div>
-            <p className="text-lg font-bold text-white">{userStats.clients}</p>
-            <p className="text-xs text-white/60">Clients</p>
-          </div>
-          
-          <div className="flex-shrink-0 bg-secondary/40 backdrop-blur-sm rounded-xl p-3 border border-white/10" style={{ minWidth: '120px' }}>
-            <div className="flex items-center justify-between mb-2">
-              <div className="p-1.5 rounded-lg bg-warning/10">
-                <Shield className="w-4 h-4 text-warning" />
-              </div>
-              <span className="text-xs font-medium text-warning">
-                {userStats.newThisMonth} new
-              </span>
-            </div>
-            <p className="text-lg font-bold text-white">{userStats.admins}</p>
-            <p className="text-xs text-white/60">Admins</p>
+            <p className="text-lg font-bold text-white">{userStats.newThisMonth}</p>
+            <p className="text-xs text-white/60">New Clients</p>
           </div>
         </div>
       </div>
@@ -241,36 +243,6 @@ export default function AdminUsersPage() {
       {showFilters && (
         <div className="bg-secondary/60 border-b border-white/10 px-4 sm:px-6 py-4">
           <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-white mb-2">Role</label>
-              <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-2">
-                {[
-                  { value: 'all', label: 'All', count: userStats.total },
-                  { value: 'client', label: 'Clients', count: userStats.clients },
-                  { value: 'admin', label: 'Admins', count: userStats.admins },
-                ].map((role) => (
-                  <button
-                    key={role.value}
-                    onClick={() => setSelectedRole(role.value)}
-                    className={`flex-shrink-0 px-3 py-2 rounded-lg text-sm border transition-colors ${
-                      selectedRole === role.value
-                        ? 'bg-primary border-primary text-white'
-                        : 'bg-secondary/60 border-white/10 text-white/70 hover:text-white hover:border-primary/20'
-                    }`}
-                  >
-                    <span>{role.label}</span>
-                    <div className={`ml-2 px-1.5 py-0.5 rounded text-xs ${
-                      selectedRole === role.value
-                        ? 'bg-white/20 text-white'
-                        : 'bg-primary/10 text-primary'
-                    }`}>
-                      {role.count}
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-
             <div>
               <label className="block text-sm font-medium text-white mb-2">Status</label>
               <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-2">
@@ -310,7 +282,7 @@ export default function AdminUsersPage() {
           <h2 className="text-lg font-bold text-white">
             Users ({filteredUsers.length})
           </h2>
-          {filteredUsers.length === 0 && users && users.length > 0 && (
+          {filteredUsers.length === 0 && clientOnlyUsers && clientOnlyUsers.length > 0 && (
             <button
               onClick={() => {
                 setSearchQuery('');
@@ -335,14 +307,17 @@ export default function AdminUsersPage() {
             <Users className="w-16 h-16 text-white/20 mx-auto mb-4" />
             <h3 className="text-xl font-bold text-white mb-2">No users found</h3>
             <p className="text-white/60 mb-6 text-center">
-              {!users || users.length === 0
-                ? 'No users have been registered yet.'
+              {!clientOnlyUsers || clientOnlyUsers.length === 0
+                ? 'No clients have been registered yet.'
                 : 'Try adjusting your search terms or filters.'}
             </p>
           </div>
         ) : (
           <div className="space-y-4">
             {filteredUsers.map((user) => {
+              // Double-check to ensure only client users are displayed
+              if (user.role !== 'client') return null;
+              
               return (
                 <div
                   key={user._id}
