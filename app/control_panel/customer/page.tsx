@@ -89,6 +89,8 @@ export default function CustomerManagement() {
   const deleteUser = useMutation(api.services.admin.deleteUser);
   const resetUserPassword = useMutation(api.services.admin.resetUserPassword);
   const bulkUpdateUsers = useMutation(api.services.admin.bulkUpdateUsers);
+  const banUser = useMutation(api.services.admin.banUser);
+  const unbanUser = useMutation(api.services.admin.unbanUser);
 
   const showConfirmation = (
     title: string, 
@@ -129,8 +131,8 @@ export default function CustomerManagement() {
     const oneMonthAgo = now - 2592000000;
 
     const total = users.length;
-    const active = users.filter(u => u.isActive).length;
-    const inactive = users.filter(u => !u.isActive).length;
+    const active = users.filter(u => u.isActive && !u.isBanned).length;
+    const inactive = users.filter(u => !u.isActive && !u.isBanned).length;
     const banned = users.filter(u => u.isBanned).length;
     const admins = users.filter(u => u.role === 'admin').length;
     const superAdmins = users.filter(u => u.role === 'super_admin').length;
@@ -255,23 +257,6 @@ export default function CustomerManagement() {
     );
   };
 
-  const handleResetPassword = async (userId: string) => {
-    showConfirmation(
-      'Reset Password',
-      'Send a password reset link to this user?',
-      'info',
-      async () => {
-        try {
-          await resetUserPassword({ userId: userId as Id<'users'> });
-          showConfirmation('Success', 'Password reset link sent!', 'success');
-        } catch (error) {
-          console.error('Error resetting password:', error);
-          showConfirmation('Error', 'Failed to reset password.', 'error');
-        }
-      }
-    );
-  };
-
   const handleBulkAction = async (action: string) => {
     if (selectedUsers.size === 0) {
       showConfirmation('No Selection', 'Please select users first.', 'warning');
@@ -384,6 +369,43 @@ export default function CustomerManagement() {
     } else {
       setSelectedUsers(new Set(filteredUsers.map(u => u._id)));
     }
+  };
+
+  // Banning functionality
+  const handleBanUser = async (userId: string) => {
+    showConfirmation(
+      'Ban User',
+      'Are you sure you want to ban this user? They will not be able to access their account.',
+      'warning',
+      async () => {
+        try {
+          await banUser({ userId: userId as Id<'users'> });
+          showConfirmation('Success', 'User has been banned successfully.', 'success');
+        } catch (error) {
+          console.error('Error banning user:', error);
+          showConfirmation('Error', 'Failed to ban user.', 'error');
+        }
+        setSelectedUser(null);
+      }
+    );
+  };
+
+  const handleUnbanUser = async (userId: string) => {
+    showConfirmation(
+      'Unban User',
+      'Are you sure you want to unban this user? They will regain access to their account.',
+      'info',
+      async () => {
+        try {
+          await unbanUser({ userId: userId as Id<'users'> });
+          showConfirmation('Success', 'User has been unbanned successfully.', 'success');
+        } catch (error) {
+          console.error('Error unbanning user:', error);
+          showConfirmation('Error', 'Failed to unban user.', 'error');
+        }
+        setSelectedUser(null);
+      }
+    );
   };
 
   // Fix 5: Conditionally render parts that depend on browser APIs or client-side only data
@@ -936,36 +958,11 @@ export default function CustomerManagement() {
                           {selectedUser === user._id && (
                             <div className="absolute right-0 top-8 w-56 bg-[var(--color-secondary)] border border-[var(--color-muted)]/10 rounded-lg shadow-xl z-10">
                               <div className="py-1">
-                                <button
-                                  onClick={() => router.push(`/control_panel/customers/${user._id}`)}
-                                  className="w-full px-4 py-2 text-left text-[var(--color-foreground)] hover:bg-[var(--color-muted)]/10 flex items-center space-x-2"
-                                >
-                                  <Eye className="w-4 h-4" />
-                                  <span>View Full Profile</span>
-                                </button>
-                                
-                                <button
-                                  onClick={() => router.push(`/control_panel/customers/${user._id}/edit`)}
-                                  className="w-full px-4 py-2 text-left text-[var(--color-foreground)] hover:bg-[var(--color-muted)]/10 flex items-center space-x-2"
-                                >
-                                  <Edit className="w-4 h-4" />
-                                  <span>Edit Profile</span>
-                                </button>
-
                                 <div className="border-t border-[var(--color-muted)]/10 my-1"></div>
 
                                 {/* Role Management */}
                                 {user.role !== 'super_admin' && (
                                   <>
-                                    {user.role === 'client' && (
-                                      <button
-                                        onClick={() => handleChangeUserRole(user._id, 'admin')}
-                                        className="w-full px-4 py-2 text-left text-[var(--color-warning)] hover:bg-[var(--color-warning)]/10 flex items-center space-x-2"
-                                      >
-                                        <Shield className="w-4 h-4" />
-                                        <span>Promote to Admin</span>
-                                      </button>
-                                    )}
                                     {user.role === 'admin' && (
                                       <>
                                         <button
@@ -998,10 +995,11 @@ export default function CustomerManagement() {
                                   <span>{user.isActive ? 'Deactivate Account' : 'Activate Account'}</span>
                                 </button>
 
+                                {/* Ban/Unban Actions */}
                                 {!user.isBanned ? (
                                   <button
                                     onClick={() => handleBanUser(user._id)}
-                                    className="w-full px-4 py-2 text-left text-[var(--color-warning)] hover:bg-[var(--color-warning)]/10 flex items-center space-x-2"
+                                    className="w-full px-4 py-2 text-left text-[var(--color-error)] hover:bg-[var(--color-error)]/10 flex items-center space-x-2"
                                   >
                                     <Ban className="w-4 h-4" />
                                     <span>Ban User</span>
@@ -1016,13 +1014,6 @@ export default function CustomerManagement() {
                                   </button>
                                 )}
 
-                                <button
-                                  onClick={() => handleResetPassword(user._id)}
-                                  className="w-full px-4 py-2 text-left text-[var(--color-info)] hover:bg-[var(--color-info)]/10 flex items-center space-x-2"
-                                >
-                                  <Lock className="w-4 h-4" />
-                                  <span>Reset Password</span>
-                                </button>
 
                                 <div className="border-t border-[var(--color-muted)]/10 my-1"></div>
 
@@ -1093,24 +1084,6 @@ export default function CustomerManagement() {
                             </div>
                           )}
                         </div>
-                        
-                        <div className="flex items-center space-x-2">
-                          <button
-                            onClick={() => router.push(`/control_panel/customers/${user._id}`)}
-                            className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-[var(--color-primary)]/10 to-[var(--color-warning)]/10 border border-[var(--color-primary)]/20 text-[var(--color-primary)] text-xs hover:from-[var(--color-primary)]/20 hover:to-[var(--color-warning)]/20 transition-colors"
-                          >
-                            Manage
-                          </button>
-                          
-                          {user.role === 'client' && (
-                            <button
-                              onClick={() => router.push(`/control_panel/customers/${user._id}/orders`)}
-                              className="px-3 py-1.5 rounded-lg bg-[var(--color-primary)]/10 border border-[var(--color-primary)]/20 text-[var(--color-primary)] text-xs hover:bg-[var(--color-primary)]/20 transition-colors"
-                            >
-                              Orders
-                            </button>
-                          )}
-                        </div>
                       </div>
                     </div>
                   </div>
@@ -1159,13 +1132,4 @@ export default function CustomerManagement() {
       </div>
     </div>
   );
-}
-
-// Helper functions for Super Admin actions
-function handleBanUser(userId: string) {
-  console.log('Ban user:', userId);
-}
-
-function handleUnbanUser(userId: string) {
-  console.log('Unban user:', userId);
 }

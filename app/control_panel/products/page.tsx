@@ -1203,24 +1203,7 @@ export default function ProductsPage() {
                             {selectedProduct === product._id && (
                               <div className="absolute right-0 top-8 w-48 bg-secondary border border-white/10 rounded-lg shadow-xl z-10">
                                 <div className="py-1">
-                                  <button
-                                    onClick={() =>
-                                      handleProductAction(product._id, "View")
-                                    }
-                                    className="w-full px-4 py-2 text-left text-white hover:bg-white/10 flex items-center space-x-2"
-                                  >
-                                    <Eye className="w-4 h-4" />
-                                    <span>View Details</span>
-                                  </button>
-                                  <button
-                                    onClick={() =>
-                                      handleProductAction(product._id, "Edit")
-                                    }
-                                    className="w-full px-4 py-2 text-left text-white hover:bg-white/10 flex items-center space-x-2"
-                                  >
-                                    <Edit className="w-4 h-4" />
-                                    <span>Edit Product</span>
-                                  </button>
+
                                   {product.productStatus === "active" ? (
                                     <button
                                       onClick={() =>
@@ -1249,15 +1232,6 @@ export default function ProductsPage() {
                                     </button>
                                   )}
                                   <div className="border-t border-white/10 my-1"></div>
-                                  <button
-                                    onClick={() =>
-                                      handleProductAction(product._id, "Delete")
-                                    }
-                                    className="w-full px-4 py-2 text-left text-error hover:bg-error/10 flex items-center space-x-2"
-                                  >
-                                    <Trash2 className="w-4 h-4" />
-                                    <span>Delete Product</span>
-                                  </button>
                                 </div>
                               </div>
                             )}
