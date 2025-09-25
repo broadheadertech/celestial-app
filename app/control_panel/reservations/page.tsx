@@ -398,16 +398,6 @@ export default function ReservationsPage() {
                   <RefreshCw className="w-4 h-4 mr-2" />
                   Refresh
                 </Button>
-                <Button
-                  size="sm"
-                  className="bg-primary hover:bg-primary/90"
-                  onClick={() =>
-                    router.push("/control_panel/reservations/edit")
-                  }
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  New Reservation
-                </Button>
               </div>
             </div>
           </div>
@@ -689,132 +679,7 @@ export default function ReservationsPage() {
                             </p>
                           </div>
 
-                          {/* Actions Menu */}
-                          <div className="relative">
-                            <button
-                              onClick={() =>
-                                setSelectedReservation(
-                                  selectedReservation === reservation._id
-                                    ? null
-                                    : reservation._id,
-                                )
-                              }
-                              className="p-1 rounded hover:bg-white/10 transition-colors"
-                            >
-                              <MoreVertical className="w-4 h-4 text-white/60" />
-                            </button>
 
-                            {selectedReservation === reservation._id && (
-                              <div className="absolute right-0 top-8 w-48 bg-secondary border border-white/10 rounded-lg shadow-xl z-10">
-                                <div className="py-1">
-                                  <button
-                                    onClick={() =>
-                                      handleReservationAction(
-                                        reservation._id,
-                                        "View",
-                                      )
-                                    }
-                                    className="w-full px-4 py-2 text-left text-white hover:bg-white/10 flex items-center space-x-2"
-                                  >
-                                    <Eye className="w-4 h-4" />
-                                    <span>View Details</span>
-                                  </button>
-                                  <button
-                                    onClick={() =>
-                                      handleReservationAction(
-                                        reservation._id,
-                                        "Edit",
-                                      )
-                                    }
-                                    className="w-full px-4 py-2 text-left text-white hover:bg-white/10 flex items-center space-x-2"
-                                  >
-                                    <Edit className="w-4 h-4" />
-                                    <span>Edit Reservation</span>
-                                  </button>
-                                  {reservation.status === "pending" && (
-                                    <button
-                                      onClick={() =>
-                                        handleReservationAction(
-                                          reservation._id,
-                                          "Confirm",
-                                        )
-                                      }
-                                      disabled={
-                                        updatingReservation === reservation._id
-                                      }
-                                      className="w-full px-4 py-2 text-left text-white hover:bg-white/10 flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                                    >
-                                      {updatingReservation ===
-                                      reservation._id ? (
-                                        <RefreshCw className="w-4 h-4 animate-spin" />
-                                      ) : (
-                                        <CheckCircle className="w-4 h-4" />
-                                      )}
-                                      <span>
-                                        {updatingReservation === reservation._id
-                                          ? "Confirming..."
-                                          : "Confirm"}
-                                      </span>
-                                    </button>
-                                  )}
-                                  {reservation.status === "confirmed" && (
-                                    <button
-                                      onClick={() =>
-                                        handleReservationAction(
-                                          reservation._id,
-                                          "Complete",
-                                        )
-                                      }
-                                      disabled={
-                                        updatingReservation === reservation._id
-                                      }
-                                      className="w-full px-4 py-2 text-left text-white hover:bg-white/10 flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                                    >
-                                      {updatingReservation ===
-                                      reservation._id ? (
-                                        <RefreshCw className="w-4 h-4 animate-spin" />
-                                      ) : (
-                                        <CheckCircle2 className="w-4 h-4" />
-                                      )}
-                                      <span>
-                                        {updatingReservation === reservation._id
-                                          ? "Completing..."
-                                          : "Mark Complete"}
-                                      </span>
-                                    </button>
-                                  )}
-                                  {["pending", "confirmed"].includes(
-                                    reservation.status,
-                                  ) && (
-                                    <button
-                                      onClick={() =>
-                                        handleReservationAction(
-                                          reservation._id,
-                                          "Cancel",
-                                        )
-                                      }
-                                      disabled={
-                                        updatingReservation === reservation._id
-                                      }
-                                      className="w-full px-4 py-2 text-left text-error hover:bg-error/10 flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                                    >
-                                      {updatingReservation ===
-                                      reservation._id ? (
-                                        <RefreshCw className="w-4 h-4 animate-spin" />
-                                      ) : (
-                                        <XCircle className="w-4 h-4" />
-                                      )}
-                                      <span>
-                                        {updatingReservation === reservation._id
-                                          ? "Cancelling..."
-                                          : "Cancel"}
-                                      </span>
-                                    </button>
-                                  )}
-                                </div>
-                              </div>
-                            )}
-                          </div>
                         </div>
 
                         {/* Status and Pickup Info */}

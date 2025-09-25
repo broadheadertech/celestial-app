@@ -54,7 +54,7 @@ const navItems: NavItem[] = [
     id: "customers",
     label: "Customers",
     icon: Users,
-    path: "/control_panel/customers",
+    path: "/control_panel/customer",
   },
   {
     id: "reports",
