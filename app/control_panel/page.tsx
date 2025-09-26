@@ -424,12 +424,6 @@ export default function ControlPanel() {
                     </select>
                     <ChevronDown className="w-4 h-4 text-white/60 absolute right-2 top-1/2 transform -translate-y-1/2 pointer-events-none" />
                   </div>
-                  <button className="p-1.5 hover:bg-white/10 rounded-lg transition-colors">
-                    <Search className="w-4 h-4 text-white/60" />
-                  </button>
-                  <button className="p-1.5 hover:bg-white/10 rounded-lg transition-colors">
-                    <MoreVertical className="w-4 h-4 text-white/60" />
-                  </button>
                 </div>
               </div>
 
