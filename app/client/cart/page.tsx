@@ -187,7 +187,7 @@ export default function CartPage() {
       <div className="min-h-screen bg-background">
         {/* Header */}
         <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-white/10">
-          <div className="px-6 py-4">
+          <div className="px-4 py-4">
             <div className="flex items-center space-x-4">
               <button
                 onClick={() => setShowGuestForm(false)}
@@ -201,7 +201,7 @@ export default function CartPage() {
         </div>
 
         {/* Guest Form */}
-        <div className="px-6 py-6">
+        <div className="px-4 py-6">
           <Card className="mb-6">
             <div className="space-y-4">
               <div>
@@ -247,7 +247,7 @@ export default function CartPage() {
                     error={guestErrors.address}
                     required
                   />
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <Input
                       label="Pickup Date"
                       type="date"
@@ -313,7 +313,7 @@ export default function CartPage() {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-white/10">
-        <div className="px-6 py-4">
+        <div className="px-4 py-4">
           <div className="flex items-center space-x-4">
             <button
               onClick={() => router.back()}
@@ -329,7 +329,7 @@ export default function CartPage() {
       </div>
 
       {/* Cart Content */}
-      <div className="px-6 py-6">
+      <div className="px-4 py-6">
         {cartItems.length === 0 ? (
           <div className="text-center py-12">
             <ShoppingBag className="w-16 h-16 text-muted mx-auto mb-4" />

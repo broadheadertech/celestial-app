@@ -23,7 +23,8 @@ import {
   Thermometer,
   Utensils,
   X,
-  Eye
+  Eye,
+  Flame
 } from 'lucide-react';
 import { useAuthStore, useIsAuthenticated } from '@/store/auth';
 import { useCartStore } from '@/store/cart';
@@ -83,6 +84,11 @@ export default function ProductDetailPage() {
   const fishData = useQuery(api.services.products.getFishByProductId,
     params?.id && productQuery ? { productId: params.id as Id<"products"> } : "skip"
   );
+
+  // Fetch top reserved products to check if current product is most reserved
+  const topReservedProducts = useQuery(api.services.products.getTopRatedProducts,
+    { limit: 10 }
+  ) || [];
 
   const { user } = useAuthStore();
   const isAuthenticated = useIsAuthenticated();
@@ -147,6 +153,12 @@ export default function ProductDetailPage() {
   const getDiscountPercentage = (): number => {
     if (!hasDiscount() || !product?.originalPrice) return 0;
     return Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100);
+  };
+
+  // Check if current product is in the most reserved list (top 10)
+  const isMostReserved = (): boolean => {
+    if (!product || !topReservedProducts || topReservedProducts.length === 0) return false;
+    return topReservedProducts.some(topProduct => topProduct._id === product._id);
   };
 
   // Tank specifications component
@@ -383,6 +395,14 @@ export default function ProductDetailPage() {
           <div className="flex items-start justify-between mb-3">
             <div className="flex-1 mr-4">
               <h1 className="text-2xl font-bold text-white mb-2 leading-8">{product.name}</h1>
+
+              {/* Most Reserved Product Badge */}
+              {isMostReserved() && (
+                <div className="inline-flex items-center px-3 py-1 rounded-full bg-gradient-to-r from-red-500 to-orange-500 mb-2 shadow-lg">
+                  <Flame className="w-4 h-4 text-white mr-1.5" />
+                  <span className="text-white text-sm font-bold">Most Reserved Product</span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -581,7 +601,7 @@ export default function ProductDetailPage() {
       </div>
 
       {/* Bottom Reservation Bar */}
-      <div className="fixed bottom-0 left-0 right-0 px-6 py-4 bg-[#121212]/95 backdrop-blur-sm border-t border-white/10">
+      <div className="fixed bottom-0 left-0 right-0 px-4 py-4 bg-[#121212]/95 backdrop-blur-sm border-t border-white/10">
         <div className="flex gap-3">
           <button
             onClick={handleAddToCart}

@@ -184,7 +184,7 @@ export default function ProfileEditPage() {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-white/10">
-        <div className="px-6 py-4">
+        <div className="px-4 py-4">
           <div className="flex items-center justify-between">
             <button
               onClick={() => router.back()}
@@ -198,7 +198,7 @@ export default function ProfileEditPage() {
         </div>
       </div>
 
-      <div className="px-6 py-6">
+      <div className="px-4 py-6">
         {/* Tab Navigation */}
         <div className="mb-6">
           <div className="flex bg-secondary rounded-xl p-1">
@@ -244,7 +244,7 @@ export default function ProfileEditPage() {
             {/* Profile Form */}
             <Card className="p-6">
               <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <Input
                       label="First Name"

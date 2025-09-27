@@ -46,6 +46,7 @@ export default function ClientDashboard() {
   const [currentBannerIndex, setCurrentBannerIndex] = useState(0);
   const [isRedirecting, setIsRedirecting] = useState(false);
   const [showNotificationModal, setShowNotificationModal] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState('all');
 
   // Lazy loading states
   const [loadedSections, setLoadedSections] = useState({
@@ -62,6 +63,7 @@ export default function ClientDashboard() {
     limit: 18,
     minRating: 4.0
   }) || [];
+  const categoriesQuery = useQuery(api.services.categories.getCategories, { isActive: true }) || [];
 
   // Get client notifications - only if user is authenticated
   const clientNotifications = useQuery(
@@ -123,45 +125,68 @@ export default function ClientDashboard() {
     );
   }
 
-  // Essential categories with natural aquatic theme
-  const featuredCategories = [
-    { key: 'tropical', icon: Fish, name: 'Tropical Fish' },
-    { key: 'freshwater', icon: Droplet, name: 'Freshwater' },
-    { key: 'tanks', icon: Box, name: 'Aquarium Tanks' },
-    { key: 'plants', icon: Leaf, name: 'Live Plants' }
-  ];
+  // Map real categories to featured ones with icons
+  const featuredCategories = useMemo(() => {
+    const iconMap: Record<string, any> = {
+      'tropical fish': Fish,
+      'freshwater': Droplet,
+      'tanks': Box,
+      'aquarium tanks': Box,
+      'plants': Leaf,
+      'live plants': Leaf,
+      'decorations': Leaf,
+      'lighting': Zap,
+      'filtration': RefreshCw,
+      'food': Package,
+    };
+
+    // Add "All Categories" as first option
+    const allOption = {
+      key: 'all',
+      name: 'All Categories',
+      icon: Package,
+      category: null
+    };
+
+    const categoryOptions = categoriesQuery.slice(0, 3).map(category => ({
+      key: category._id,
+      name: category.name,
+      icon: iconMap[category.name.toLowerCase()] || Package,
+      category: category
+    }));
+
+    return [allOption, ...categoryOptions];
+  }, [categoriesQuery]);
+
+  // Filter products based on selected category
+  const filteredProducts = useMemo(() => {
+    if (selectedCategory === 'all') {
+      return productsQuery;
+    }
+
+    return productsQuery.filter(product => product.categoryId === selectedCategory);
+  }, [productsQuery, selectedCategory]);
 
   // Lazy loaded product sections using useMemo for optimization
   const productSections = useMemo(() => {
-    const shuffled = [...productsQuery].sort(() => Math.random() - 0.5);
+    const shuffled = [...filteredProducts].sort(() => Math.random() - 0.5);
 
     // Sort products for different sections
-    const limitedStock = [...productsQuery]
+    const limitedStock = [...filteredProducts]
       .filter(product => product.stock <= 10 && product.stock > 0)
       .sort((a, b) => a.stock - b.stock) // Sort by lowest stock first
       .slice(0, 6);
 
-    const newArrivals = [...productsQuery]
+    const newArrivals = [...filteredProducts]
       .sort((a, b) => b.createdAt - a.createdAt) // Sort by newest first
       .slice(0, 12);
 
-    // Use the properly sorted top rated products (4.0+ rating)
-    // If no top rated products available, sort all products by rating as fallback
-    let topRated = topRatedProductsQuery.slice(0, 18);
-
-    if (topRated.length === 0) {
-      // Fallback: sort all products by rating if no products meet 4.0+ threshold
-      topRated = [...productsQuery]
-        .filter(product => product.rating !== undefined && product.rating !== null)
-        .sort((a, b) => {
-          // Sort by rating (descending), then by reviews count (descending)
-          if (b.rating !== a.rating) {
-            return (b.rating || 0) - (a.rating || 0);
-          }
-          return (b.reviews || 0) - (a.reviews || 0);
-        })
-        .slice(0, 18);
+    // Filter top rated products by category if a category is selected
+    let topRated = topRatedProductsQuery;
+    if (selectedCategory !== 'all') {
+      topRated = topRatedProductsQuery.filter(product => product.categoryId === selectedCategory);
     }
+    topRated = topRated.slice(0, 18);
 
     return {
       limitedStock: limitedStock.length > 0 ? limitedStock : shuffled.slice(0, 6),
@@ -169,7 +194,7 @@ export default function ClientDashboard() {
       topRated,
       featured: shuffled.slice(18, 24),
     };
-  }, [productsQuery, topRatedProductsQuery]);
+  }, [filteredProducts, topRatedProductsQuery, selectedCategory]);
 
   // Progressive loading function
   const loadSection = useCallback(async (sectionName: string) => {
@@ -417,22 +442,27 @@ export default function ClientDashboard() {
           </div>
 
           <div className="grid grid-cols-2 gap-2.5">
-            {featuredCategories.map((category) => {
-              const colorMap = {
-                'tropical': 'from-amber-600 to-orange-700 shadow-amber-600/20',
-                'freshwater': 'from-slate-600 to-slate-700 shadow-slate-600/20',
-                'tanks': 'from-stone-600 to-gray-700 shadow-stone-600/20',
-                'plants': 'from-teal-700 to-green-800 shadow-teal-700/20'
-              };
+            {featuredCategories.map((category, index) => {
+              const colorOptions = [
+                'from-amber-600 to-orange-700 shadow-amber-600/20',
+                'from-slate-600 to-slate-700 shadow-slate-600/20',
+                'from-stone-600 to-gray-700 shadow-stone-600/20',
+                'from-teal-700 to-green-800 shadow-teal-700/20',
+                'from-blue-600 to-blue-700 shadow-blue-600/20',
+                'from-purple-600 to-purple-700 shadow-purple-600/20',
+              ];
+              const colorClass = colorOptions[index % colorOptions.length];
 
               return (
                 <button
                   key={category.key}
-                  onClick={() => router.push(`/client/search?category=${category.key}`)}
-                  className="group relative overflow-hidden"
+                  onClick={() => setSelectedCategory(category.key)}
+                  className={`group relative overflow-hidden ${
+                    selectedCategory === category.key ? 'ring-2 ring-primary ring-offset-2 ring-offset-background' : ''
+                  }`}
                   aria-label={category.name}
                 >
-                  <div className={`w-full h-16 rounded-xl bg-gradient-to-r ${colorMap[category.key as keyof typeof colorMap]} shadow-lg hover:shadow-xl transition-all duration-300 group-hover:scale-105`}>
+                  <div className={`w-full h-16 rounded-xl bg-gradient-to-r ${colorClass} shadow-lg hover:shadow-xl transition-all duration-300 group-hover:scale-105`}>
                     <div className="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition-colors" />
                     <div className="h-full flex items-center px-4 space-x-3 relative z-10">
                       <div className="p-1.5 bg-white/15 rounded-md backdrop-blur-sm border border-white/10">
@@ -572,7 +602,7 @@ export default function ClientDashboard() {
                     <Star className="w-5 h-5 text-yellow-500" />
                     <h3 className="font-bold text-white">Top Rated</h3>
                     <div className="bg-yellow-500/20 px-2 py-0.5 rounded-full">
-                      <span className="text-xs text-yellow-400 font-medium">⭐ 4.8+</span>
+                      <span className="text-xs text-yellow-400 font-medium">🔥 Most Reserved</span>
                     </div>
                   </div>
                   <Button
