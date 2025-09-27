@@ -194,7 +194,7 @@ export default function ProfilePage() {
       <div className="min-h-screen bg-background">
         {/* Header */}
         <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-white/10">
-          <div className="px-6 py-4">
+          <div className="px-4 py-4">
             <div className="flex items-center space-x-4">
               <button
                 onClick={() => router.back()}

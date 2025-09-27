@@ -118,7 +118,7 @@ export default function CategoriesPage() {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-white/10">
-        <div className="px-6 py-4">
+        <div className="px-4 py-4">
           <div className="flex items-center justify-between">
             <button
               onClick={() => router.back()}
@@ -133,7 +133,7 @@ export default function CategoriesPage() {
       </div>
 
       {/* Search Bar */}
-      <div className="px-6 py-4">
+      <div className="px-4 py-4">
         <div className="flex items-center bg-secondary border border-white/10 rounded-xl px-4 py-3">
           <Search className="w-5 h-5 text-muted mr-3" />
           <input
@@ -146,7 +146,7 @@ export default function CategoriesPage() {
         </div>
       </div>
 
-      <div className="px-6 pb-8">
+      <div className="px-4 pb-8">
         {/* Featured Categories */}
         {searchQuery === '' && featuredCategories.length > 0 && (
           <div className="mb-8">
