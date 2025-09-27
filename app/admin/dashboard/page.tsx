@@ -344,47 +344,6 @@ export default function AdminDashboardPage() {
             </button>
           </div>
 
-          {/* Test Notifications Section (Development Only) */}
-          <div className="mt-6 pt-4 border-t border-white/10">
-            <h4 className="text-sm font-medium text-white/70 mb-3">Test Notifications</h4>
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-              <button
-                onClick={() => handleTestNotification('order')}
-                className="flex items-center justify-center p-2 bg-blue-500/10 border border-blue-500/20 rounded-lg hover:bg-blue-500/20 transition-colors text-xs"
-              >
-                <ShoppingBag className="w-3 h-3 text-blue-500 mr-1" />
-                Order
-              </button>
-              <button
-                onClick={() => handleTestNotification('reservation')}
-                className="flex items-center justify-center p-2 bg-orange-500/10 border border-orange-500/20 rounded-lg hover:bg-orange-500/20 transition-colors text-xs"
-              >
-                <Package className="w-3 h-3 text-orange-500 mr-1" />
-                Reservation
-              </button>
-              <button
-                onClick={() => handleTestNotification('user')}
-                className="flex items-center justify-center p-2 bg-green-500/10 border border-green-500/20 rounded-lg hover:bg-green-500/20 transition-colors text-xs"
-              >
-                <Users className="w-3 h-3 text-green-500 mr-1" />
-                User
-              </button>
-              <button
-                onClick={() => handleTestNotification('payment')}
-                className="flex items-center justify-center p-2 bg-red-500/10 border border-red-500/20 rounded-lg hover:bg-red-500/20 transition-colors text-xs"
-              >
-                <DollarSign className="w-3 h-3 text-red-500 mr-1" />
-                Payment
-              </button>
-              <button
-                onClick={() => handleTestNotification('alert')}
-                className="flex items-center justify-center p-2 bg-yellow-500/10 border border-yellow-500/20 rounded-lg hover:bg-yellow-500/20 transition-colors text-xs"
-              >
-                <Bell className="w-3 h-3 text-yellow-500 mr-1" />
-                Alert
-              </button>
-            </div>
-          </div>
         </div>
       </div>
 

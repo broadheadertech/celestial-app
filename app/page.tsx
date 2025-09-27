@@ -230,39 +230,7 @@ export default function HomePage() {
           </Button>
         </Card>
 
-        {/* Quick Access */}
-        <div className="space-y-3 mb-8">
-          <p className="text-center text-sm text-muted">Quick Access</p>
-          <div className="grid grid-cols-3 gap-2">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setFormData({ email: 'superadmin@gmail.com', password: 'Admin123!' });
-              }}
-              className="text-xs"
-            >
-              Super Admin
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setFormData({ email: 'admin@celestial.com', password: 'admin123' });
-              }}
-              className="text-xs"
-            >
-              Admin
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setFormData({ email: 'client@celestial.com', password: 'client123' });
-              }}
-              className="text-xs"
-            >
-              Client
-            </Button>
-          </div>
-        </div>
+
 
         {/* Footer Links */}
         <div className="text-center space-y-4">
@@ -275,16 +243,6 @@ export default function HomePage() {
               Sign Up
             </button>
           </p>
-
-          <div className="border-t border-white/10 pt-4">
-            <Button
-              variant="ghost"
-              onClick={() => router.push('/client/dashboard')}
-              className="w-full"
-            >
-              Continue as Guest
-            </Button>
-          </div>
         </div>
       </div>
     </div>
