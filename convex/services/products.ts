@@ -116,14 +116,14 @@ export const getTopRatedProducts = query({
     limit: v.optional(v.number()),
     minRating: v.optional(v.number()),
   },
-  handler: async (ctx, { limit = 10, minRating = 0 }) => {
+  handler: async (ctx, { limit = 10, minRating = 4.0 }) => {
     const products = await ctx.db
       .query("products")
       .withIndex("by_active", (q) => q.eq("isActive", true))
       .collect();
 
-    // Filter by minimum rating and sort by rating (highest first)
-    const topRatedProducts = products
+    // First try with the specified minimum rating
+    let topRatedProducts = products
       .filter(product =>
         product.rating !== undefined &&
         product.rating !== null &&
@@ -136,10 +136,36 @@ export const getTopRatedProducts = query({
         }
         // If ratings are equal, sort by number of reviews
         return (b.reviews || 0) - (a.reviews || 0);
-      })
-      .slice(0, limit);
+      });
 
-    return topRatedProducts;
+    // If we don't have enough products meeting the minimum rating,
+    // gradually lower the threshold to get more products
+    if (topRatedProducts.length < limit && minRating > 0) {
+      const fallbackThresholds = [3.5, 3.0, 2.5, 0];
+
+      for (const threshold of fallbackThresholds) {
+        if (topRatedProducts.length >= limit) break;
+
+        const additionalProducts = products
+          .filter(product =>
+            product.rating !== undefined &&
+            product.rating !== null &&
+            product.rating >= threshold &&
+            product.rating < minRating &&
+            !topRatedProducts.some(existing => existing._id === product._id)
+          )
+          .sort((a, b) => {
+            if (b.rating !== a.rating) {
+              return (b.rating || 0) - (a.rating || 0);
+            }
+            return (b.reviews || 0) - (a.reviews || 0);
+          });
+
+        topRatedProducts = [...topRatedProducts, ...additionalProducts];
+      }
+    }
+
+    return topRatedProducts.slice(0, limit);
   },
 });
 

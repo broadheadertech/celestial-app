@@ -145,8 +145,23 @@ export default function ClientDashboard() {
       .sort((a, b) => b.createdAt - a.createdAt) // Sort by newest first
       .slice(0, 12);
 
-    // Use the properly sorted top rated products
-    const topRated = topRatedProductsQuery.slice(0, 18);
+    // Use the properly sorted top rated products (4.0+ rating)
+    // If no top rated products available, sort all products by rating as fallback
+    let topRated = topRatedProductsQuery.slice(0, 18);
+
+    if (topRated.length === 0) {
+      // Fallback: sort all products by rating if no products meet 4.0+ threshold
+      topRated = [...productsQuery]
+        .filter(product => product.rating !== undefined && product.rating !== null)
+        .sort((a, b) => {
+          // Sort by rating (descending), then by reviews count (descending)
+          if (b.rating !== a.rating) {
+            return (b.rating || 0) - (a.rating || 0);
+          }
+          return (b.reviews || 0) - (a.reviews || 0);
+        })
+        .slice(0, 18);
+    }
 
     return {
       limitedStock: limitedStock.length > 0 ? limitedStock : shuffled.slice(0, 6),
