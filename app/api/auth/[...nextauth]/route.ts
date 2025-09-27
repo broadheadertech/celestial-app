@@ -4,6 +4,10 @@ import CredentialsProvider from 'next-auth/providers/credentials';
 import { ConvexHttpClient } from 'convex/browser';
 import { api } from '@/convex/_generated/api';
 
+// Add required configuration for static export
+export const dynamic = 'force-static';
+export const revalidate = false;
+
 type Role = 'client' | 'admin' | 'super_admin';
 
 const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);

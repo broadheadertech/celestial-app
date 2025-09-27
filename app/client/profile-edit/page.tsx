@@ -16,14 +16,22 @@ import {
   EyeOff
 } from 'lucide-react';
 import { useAuthStore, useIsAuthenticated } from '@/store/auth';
+import { useMutation } from 'convex/react';
+import { api } from '@/convex/_generated/api';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Card from '@/components/ui/Card';
+import { useToastHelpers } from '@/components/ui/ToastManager';
 
 export default function ProfileEditPage() {
   const router = useRouter();
   const { user } = useAuthStore();
   const isAuthenticated = useIsAuthenticated();
+  const { success, error } = useToastHelpers();
+
+  // Convex mutations
+  const updateUserProfile = useMutation(api.services.auth.updateUserProfile);
+  const changePassword = useMutation(api.services.auth.changePassword);
 
   const [activeTab, setActiveTab] = useState<'profile' | 'password'>('profile');
   const [isLoading, setIsLoading] = useState(false);
@@ -129,16 +137,23 @@ export default function ProfileEditPage() {
 
   const handleSaveProfile = async () => {
     if (!validateProfile()) return;
+    if (!user) return;
 
     setIsLoading(true);
     try {
-      // Mock API call - replace with actual API
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      await updateUserProfile({
+        userId: user._id,
+        firstName: profileData.firstName.trim(),
+        lastName: profileData.lastName.trim(),
+        email: profileData.email.trim(),
+        phone: profileData.phone.trim() || undefined,
+      });
 
-      alert('Profile updated successfully!');
+      success('Profile Updated', 'Your profile has been updated successfully!');
       router.back();
-    } catch (error) {
-      alert('Failed to update profile. Please try again.');
+    } catch (err) {
+      console.error('Profile update error:', err);
+      error('Update Failed', 'Failed to update profile. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -146,21 +161,26 @@ export default function ProfileEditPage() {
 
   const handleChangePassword = async () => {
     if (!validatePassword()) return;
+    if (!user) return;
 
     setIsLoading(true);
     try {
-      // Mock API call - replace with actual API
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      await changePassword({
+        userId: user._id,
+        currentPassword: passwordData.currentPassword,
+        newPassword: passwordData.newPassword,
+      });
 
-      alert('Password changed successfully!');
+      success('Password Changed', 'Your password has been updated successfully!');
       setPasswordData({
         currentPassword: '',
         newPassword: '',
         confirmPassword: '',
       });
       setActiveTab('profile');
-    } catch (error) {
-      alert('Failed to change password. Please try again.');
+    } catch (err) {
+      console.error('Password change error:', err);
+      error('Change Failed', 'Failed to change password. Please verify your current password.');
     } finally {
       setIsLoading(false);
     }

@@ -341,17 +341,46 @@ function SearchContent() {
             <p className="text-white/60 mb-6 max-w-sm mx-auto">
               We couldn't find any products matching your criteria. Try adjusting your search or filters.
             </p>
-            <Button
-              onClick={() => {
-                setSearchQuery('');
-                setSelectedCategory('all');
-                setSortBy('default');
-              }}
-              className="bg-primary/20 border border-primary/30 hover:bg-primary/30"
-            >
-              <Sparkles className="w-4 h-4 mr-2" />
-              Clear All Filters
-            </Button>
+
+            <div className="flex flex-col sm:flex-row gap-3 justify-center mb-6">
+              <Button
+                onClick={() => {
+                  setSearchQuery('');
+                  setSelectedCategory('all');
+                  setSortBy('default');
+                }}
+                className="bg-primary/20 border border-primary/30 hover:bg-primary/30"
+              >
+                <Sparkles className="w-4 h-4 mr-2" />
+                Clear All Filters
+              </Button>
+              <Button
+                onClick={() => router.push('/client/categories')}
+                variant="outline"
+                className="border-white/20 text-white hover:bg-white/10"
+              >
+                Browse Categories
+              </Button>
+            </div>
+
+            {/* Popular suggestions */}
+            {productsQuery.length > 0 && (
+              <div className="mt-8">
+                <h4 className="text-sm font-medium text-white/80 mb-4">Popular Products</h4>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-w-md mx-auto">
+                  {productsQuery.slice(0, 6).map((product) => (
+                    <button
+                      key={product._id}
+                      onClick={() => router.push(`/client/product/${product._id}`)}
+                      className="p-3 bg-secondary/50 rounded-xl border border-white/10 hover:bg-secondary/70 transition-colors text-left"
+                    >
+                      <p className="text-sm font-medium text-white line-clamp-2">{product.name}</p>
+                      <p className="text-xs text-primary mt-1">₱{product.price.toFixed(2)}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           <>

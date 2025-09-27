@@ -16,78 +16,46 @@ import {
   ChevronRight
 } from 'lucide-react';
 import { useAuthStore, useIsAuthenticated } from '@/store/auth';
+import { useQuery } from 'convex/react';
+import { api } from '@/convex/_generated/api';
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
-
-// Mock categories data
-const mockCategories = [
-  {
-    _id: 'fish',
-    name: 'Aquarium Fish',
-    description: 'Tropical, marine, and freshwater species',
-    image: '/api/placeholder/300/200',
-    count: 45,
-    featured: true,
-    trending: true,
-    icon: Fish
-  },
-  {
-    _id: 'tanks',
-    name: 'Aquarium Tanks',
-    description: 'Various sizes and styles available',
-    image: '/api/placeholder/300/200',
-    count: 28,
-    featured: true,
-    trending: false,
-    icon: Package
-  },
-  {
-    _id: 'lighting',
-    name: 'Lighting Systems',
-    description: 'LED and fluorescent lighting solutions',
-    image: '/api/placeholder/300/200',
-    count: 15,
-    featured: true,
-    trending: true,
-    icon: Lightbulb
-  },
-  {
-    _id: 'filtration',
-    name: 'Filtration Systems',
-    description: 'Keep your tank water crystal clear',
-    image: '/api/placeholder/300/200',
-    count: 12,
-    featured: false,
-    trending: false,
-    icon: Wrench
-  },
-  {
-    _id: 'decorations',
-    name: 'Decorations',
-    description: 'Plants, rocks, and tank accessories',
-    image: '/api/placeholder/300/200',
-    count: 33,
-    featured: false,
-    trending: true,
-    icon: Palette
-  },
-  {
-    _id: 'food',
-    name: 'Fish Food & Supplies',
-    description: 'Nutrition and care products',
-    image: '/api/placeholder/300/200',
-    count: 22,
-    featured: false,
-    trending: false,
-    icon: Utensils
-  }
-];
 
 export default function CategoriesPage() {
   const router = useRouter();
   const { user } = useAuthStore();
   const isAuthenticated = useIsAuthenticated();
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Fetch real categories and products from Convex
+  const categoriesQuery = useQuery(api.services.categories.getCategories, { isActive: true }) || [];
+  const productsQuery = useQuery(api.services.products.getProducts, { isActive: true }) || [];
+
+  // Icon mapping for categories
+  const getIconForCategory = (categoryName: string) => {
+    const name = categoryName.toLowerCase();
+    if (name.includes('fish')) return Fish;
+    if (name.includes('tank')) return Package;
+    if (name.includes('light')) return Lightbulb;
+    if (name.includes('filter')) return Wrench;
+    if (name.includes('decoration') || name.includes('plant')) return Palette;
+    if (name.includes('food') || name.includes('supply')) return Utensils;
+    return Package; // Default icon
+  };
+
+  // Calculate product count for each category
+  const getCategoryProductCount = (categoryId: string) => {
+    return productsQuery.filter(product => product.categoryId === categoryId).length;
+  };
+
+  // Transform categories with real data
+  const categories = categoriesQuery.map(category => ({
+    ...category,
+    count: getCategoryProductCount(category._id),
+    icon: getIconForCategory(category.name),
+    featured: getCategoryProductCount(category._id) > 5, // Featured if has more than 5 products
+    trending: getCategoryProductCount(category._id) > 10, // Trending if has more than 10 products
+  }));
 
   // Redirect admins and super_admins to their respective dashboards
   if (isAuthenticated && user?.role === 'admin') {
@@ -101,18 +69,52 @@ export default function CategoriesPage() {
   }
 
   // Filter categories based on search
-  const filteredCategories = mockCategories.filter(category =>
+  const filteredCategories = categories.filter(category =>
     category.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    category.description.toLowerCase().includes(searchQuery.toLowerCase())
+    (category.description && category.description.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   // Separate featured and regular categories
   const featuredCategories = filteredCategories.filter(cat => cat.featured);
   const regularCategories = filteredCategories.filter(cat => !cat.featured);
 
-  const handleCategoryPress = (categoryId: string) => {
-    router.push(`/client/search?category=${categoryId}`);
+  const handleCategoryPress = (categoryId: string, categoryName: string) => {
+    // Use category name for search page compatibility
+    router.push(`/client/search?category=${categoryName.toLowerCase()}`);
   };
+
+  // Loading state
+  if (!categoriesQuery || !productsQuery) {
+    return (
+      <div className="min-h-screen bg-background">
+        {/* Header */}
+        <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-white/10">
+          <div className="px-4 py-4">
+            <div className="flex items-center justify-between">
+              <button
+                onClick={() => router.back()}
+                className="p-2 rounded-full bg-secondary border border-white/10 hover:bg-white/10 transition-colors"
+              >
+                <ArrowLeft className="w-5 h-5 text-white" />
+              </button>
+              <h1 className="text-xl font-semibold text-white">Categories</h1>
+              <div className="w-10" />
+            </div>
+          </div>
+        </div>
+
+        {/* Loading skeleton */}
+        <div className="px-4 py-4">
+          <div className="h-12 bg-secondary rounded-xl animate-pulse mb-6" />
+          <div className="space-y-4">
+            {[...Array(6)].map((_, i) => (
+              <div key={i} className="h-24 bg-secondary rounded-xl animate-pulse" />
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -165,7 +167,7 @@ export default function CategoriesPage() {
                   <Card
                     key={`featured-${category._id}`}
                     className="overflow-hidden hover:scale-[1.02] transition-transform cursor-pointer"
-                    onClick={() => handleCategoryPress(category._id)}
+                    onClick={() => handleCategoryPress(category._id, category.name)}
                   >
                     <div className="relative">
                       <div className="h-32 bg-gradient-to-r from-primary/20 to-info/20 flex items-center justify-center">
@@ -222,7 +224,7 @@ export default function CategoriesPage() {
                   <Card
                     key={category._id}
                     className="p-4 hover:scale-[1.02] transition-transform cursor-pointer"
-                    onClick={() => handleCategoryPress(category._id)}
+                    onClick={() => handleCategoryPress(category._id, category.name)}
                   >
                     <div className="flex items-center space-x-4">
                       <div className="w-12 h-12 rounded-xl bg-primary/20 flex items-center justify-center">

@@ -3,10 +3,13 @@ import "./globals.css";
 import { AuthInitializer } from "@/components/AuthInitializer";
 import { AuthProvider } from "@/components/AuthProvider";
 import { ConvexProvider } from "@/components/ConvexProvider";
+import { ToastProvider } from "@/components/ui/ToastManager";
+import { SplashScreenHider } from "@/components/SplashScreenHider";
 
 export const metadata: Metadata = {
   title: "Celestial Drakon Aquatics",
-  description: "Premium aquatic products and services - Your trusted partner for aquarium fish, tanks, and accessories.",
+  description:
+    "Premium aquatic products and services - Your trusted partner for aquarium fish, tanks, and accessories.",
   keywords: ["aquarium", "fish", "tanks", "aquatic", "Philippines"],
   authors: [{ name: "Celestial Drakon Aquatics" }],
 };
@@ -32,10 +35,13 @@ export default function RootLayout({
       <body className="antialiased">
         <ConvexProvider>
           <AuthProvider>
-            <AuthInitializer />
-            <div className="min-h-screen bg-background text-foreground">
-              {children}
-            </div>
+            <ToastProvider>
+              <SplashScreenHider />
+              <AuthInitializer />
+              <div className="min-h-screen bg-background text-foreground">
+                {children}
+              </div>
+            </ToastProvider>
           </AuthProvider>
         </ConvexProvider>
       </body>

@@ -332,12 +332,25 @@ export default function CartPage() {
       <div className="px-4 py-6">
         {cartItems.length === 0 ? (
           <div className="text-center py-12">
-            <ShoppingBag className="w-16 h-16 text-muted mx-auto mb-4" />
+            <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-primary/20 to-info/20 rounded-full flex items-center justify-center">
+              <ShoppingBag className="w-10 h-10 text-primary" />
+            </div>
             <h3 className="text-xl font-semibold text-white mb-2">Your cart is empty</h3>
-            <p className="text-muted mb-6">Add some products to get started</p>
-            <Button onClick={() => router.push('/client/search')}>
-              Browse Products
-            </Button>
+            <p className="text-muted mb-6 max-w-sm mx-auto">
+              Start building your aquarium! Browse our collection of fish, tanks, and accessories.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <Button onClick={() => router.push('/client/search')}>
+                Browse Products
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => router.push('/client/categories')}
+                className="border-white/20 text-white hover:bg-white/10"
+              >
+                View Categories
+              </Button>
+            </div>
           </div>
         ) : (
           <>

@@ -285,9 +285,16 @@ export const notifyReservationReadyForPickup = mutation({
     const pickupInfo = args.pickupLocation ? ` at ${args.pickupLocation}` : "";
     const pickupDateTime = args.pickupDate && args.pickupTime ? `\n\n📅 Pickup Schedule: ${args.pickupDate} at ${args.pickupTime}` : "";
     const additionalNotes = args.notes ? `\n\nNote: ${args.notes}` : "";
-    
+
     const message = `Hello ${args.customerName}! Your reservation for ${args.quantity}x ${args.productName} is now ready for pickup${pickupInfo}. Please visit us to collect your items.${pickupDateTime}${additionalNotes}`;
-    
+
+    // Calculate pickup time for push notification scheduling
+    let scheduledPushTime: number | undefined;
+    if (args.pickupDate && args.pickupTime) {
+      const pickupDateTime = new Date(`${args.pickupDate}T${args.pickupTime}`);
+      scheduledPushTime = pickupDateTime.getTime() - (2 * 60 * 60 * 1000); // 2 hours before pickup
+    }
+
     await ctx.db.insert("notifications", {
       title,
       message,
@@ -296,11 +303,21 @@ export const notifyReservationReadyForPickup = mutation({
       priority: "high",
       relatedId: args.reservationId,
       relatedType: "reservation",
+      targetUserId: args.customerEmail, // For targeting specific users
+      targetUserEmail: args.customerEmail,
+      scheduledPushTime,
+      pushNotificationSent: false,
       metadata: {
         customerName: args.customerName,
         customerEmail: args.customerEmail,
         productName: args.productName,
         status: "ready_for_pickup",
+        pushAction: "view_reservation",
+        pushData: {
+          reservationId: args.reservationId,
+          pickupDate: args.pickupDate,
+          pickupTime: args.pickupTime,
+        },
       },
       createdAt: Date.now(),
       updatedAt: Date.now(),
@@ -708,5 +725,214 @@ export const createTestNotification = mutation({
     });
 
     return notificationId;
+  },
+});
+
+// Schedule push notification for a specific notification
+export const schedulePushNotification = mutation({
+  args: {
+    notificationId: v.id("notifications"),
+    scheduledTime: v.optional(v.number()), // Unix timestamp
+    immediate: v.optional(v.boolean()),
+  },
+  handler: async (ctx, { notificationId, scheduledTime, immediate = false }) => {
+    const notification = await ctx.db.get(notificationId);
+    if (!notification) {
+      throw new Error("Notification not found");
+    }
+
+    const now = Date.now();
+    const scheduleTime = immediate ? now + 1000 : (scheduledTime || now + 1000);
+
+    await ctx.db.patch(notificationId, {
+      scheduledPushTime: scheduleTime,
+      pushNotificationSent: false,
+      updatedAt: now,
+    });
+
+    return { success: true, scheduledTime };
+  },
+});
+
+// Mark push notification as sent
+export const markPushNotificationSent = mutation({
+  args: {
+    notificationId: v.id("notifications"),
+    localNotificationId: v.optional(v.number()),
+  },
+  handler: async (ctx, { notificationId, localNotificationId }) => {
+    const notification = await ctx.db.get(notificationId);
+    if (!notification) {
+      throw new Error("Notification not found");
+    }
+
+    await ctx.db.patch(notificationId, {
+      pushNotificationSent: true,
+      pushNotificationId: localNotificationId,
+      updatedAt: Date.now(),
+    });
+
+    return notification;
+  },
+});
+
+// Get notifications that need push notifications scheduled
+export const getPendingPushNotifications = query({
+  args: {
+    currentTime: v.optional(v.number()),
+  },
+  handler: async (ctx, { currentTime = Date.now() }) => {
+    const pendingNotifications = await ctx.db
+      .query("notifications")
+      .withIndex("by_push_scheduled")
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("pushNotificationSent"), false),
+          q.lte(q.field("scheduledPushTime"), currentTime),
+          q.gt(q.field("scheduledPushTime"), 0)
+        )
+      )
+      .collect();
+
+    return pendingNotifications;
+  },
+});
+
+// Create notification with push notification integration
+export const createNotificationWithPush = mutation({
+  args: {
+    title: v.string(),
+    message: v.string(),
+    type: v.union(
+      v.literal("reservation"),
+      v.literal("order"),
+      v.literal("user"),
+      v.literal("product"),
+      v.literal("payment"),
+      v.literal("alert"),
+      v.literal("warning"),
+      v.literal("success"),
+      v.literal("system")
+    ),
+    priority: v.optional(v.union(
+      v.literal("low"),
+      v.literal("medium"),
+      v.literal("high"),
+      v.literal("urgent")
+    )),
+    relatedId: v.optional(v.string()),
+    relatedType: v.optional(v.string()),
+    targetUserId: v.optional(v.string()),
+    targetUserEmail: v.optional(v.string()),
+    scheduledPushTime: v.optional(v.number()),
+    pushAction: v.optional(v.string()),
+    pushData: v.optional(v.object({
+      reservationId: v.optional(v.string()),
+      orderId: v.optional(v.string()),
+      productId: v.optional(v.string()),
+    })),
+    metadata: v.optional(v.object({
+      customerName: v.optional(v.string()),
+      customerEmail: v.optional(v.string()),
+      productName: v.optional(v.string()),
+      amount: v.optional(v.number()),
+      status: v.optional(v.string()),
+    })),
+  },
+  handler: async (ctx, args) => {
+    const now = Date.now();
+
+    const notificationId = await ctx.db.insert("notifications", {
+      title: args.title,
+      message: args.message,
+      type: args.type,
+      isRead: false,
+      priority: args.priority || "medium",
+      relatedId: args.relatedId,
+      relatedType: args.relatedType,
+      targetUserId: args.targetUserId,
+      targetUserEmail: args.targetUserEmail,
+      scheduledPushTime: args.scheduledPushTime,
+      pushNotificationSent: false,
+      metadata: {
+        ...args.metadata,
+        pushAction: args.pushAction,
+        pushData: args.pushData,
+      },
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    return notificationId;
+  },
+});
+
+// Cancel push notifications for a specific entity
+export const cancelPushNotifications = mutation({
+  args: {
+    relatedType: v.string(),
+    relatedId: v.string(),
+  },
+  handler: async (ctx, { relatedType, relatedId }) => {
+    const notifications = await ctx.db
+      .query("notifications")
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("relatedType"), relatedType),
+          q.eq(q.field("relatedId"), relatedId),
+          q.eq(q.field("pushNotificationSent"), false)
+        )
+      )
+      .collect();
+
+    const cancelledIds: string[] = [];
+
+    for (const notification of notifications) {
+      await ctx.db.patch(notification._id, {
+        scheduledPushTime: undefined,
+        pushNotificationSent: true, // Mark as "sent" to prevent scheduling
+        updatedAt: Date.now(),
+      });
+      cancelledIds.push(notification._id);
+    }
+
+    return { cancelledCount: cancelledIds.length, cancelledIds };
+  },
+});
+
+// Get user's push notification preferences
+export const getPushNotificationPreferences = query({
+  args: {
+    userId: v.string(),
+  },
+  handler: async (ctx, { userId }) => {
+    // This would typically be stored in a user preferences table
+    // For now, return default preferences
+    return {
+      orderUpdates: true,
+      reservationUpdates: true,
+      promotions: false,
+      lowStockAlerts: false,
+      newArrivals: true,
+    };
+  },
+});
+
+// Update push notification preferences
+export const updatePushNotificationPreferences = mutation({
+  args: {
+    userId: v.string(),
+    preferences: v.object({
+      orderUpdates: v.optional(v.boolean()),
+      reservationUpdates: v.optional(v.boolean()),
+      promotions: v.optional(v.boolean()),
+      lowStockAlerts: v.optional(v.boolean()),
+      newArrivals: v.optional(v.boolean()),
+    }),
+  },
+  handler: async (ctx, { userId, preferences }) => {
+    // This would typically update a user preferences table
+    // For now, just return success
+    return { success: true, preferences };
   },
 });

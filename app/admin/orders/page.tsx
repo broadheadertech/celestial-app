@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo, useRef, useEffect } from 'react';
+import useWindowSize from '@/hooks/useWindowSize';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import {
@@ -83,6 +84,7 @@ type CombinedItem = {
 
 export default function AdminOrdersPage() {
   const router = useRouter();
+  const { width } = useWindowSize();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
@@ -113,7 +115,7 @@ export default function AdminOrdersPage() {
   // Update dropdown position on scroll or resize
   useEffect(() => {
     const updateDropdownPosition = () => {
-      if (selectedItem) {
+      if (typeof window !== 'undefined' && selectedItem) {
         const buttonElement = buttonRefs.current[selectedItem];
         if (buttonElement) {
           const rect = buttonElement.getBoundingClientRect();
@@ -125,11 +127,11 @@ export default function AdminOrdersPage() {
       }
     };
 
-    if (selectedItem) {
+    if (typeof window !== 'undefined' && selectedItem) {
       updateDropdownPosition();
       window.addEventListener('scroll', updateDropdownPosition);
       window.addEventListener('resize', updateDropdownPosition);
-      
+
       return () => {
         window.removeEventListener('scroll', updateDropdownPosition);
         window.removeEventListener('resize', updateDropdownPosition);
@@ -444,7 +446,7 @@ export default function AdminOrdersPage() {
                   className="border border-white/10 hover:border-primary/30 px-2 sm:px-3 text-xs sm:text-sm"
                 >
                   <RefreshCw className={`w-3 h-3 sm:w-4 sm:h-4 ${isRefreshing ? 'animate-spin' : ''} ${
-                    window.innerWidth < 640 ? '' : 'mr-2'
+                    width && width < 640 ? '' : 'mr-2'
                   }`} />
                   <span className="hidden sm:inline">Refresh</span>
                 </Button>
@@ -453,7 +455,7 @@ export default function AdminOrdersPage() {
                   size="sm"
                   className="border border-white/10 hover:border-primary/30 px-2 sm:px-3 text-xs sm:text-sm"
                 >
-                  <Download className={`w-3 h-3 sm:w-4 sm:h-4 ${window.innerWidth < 640 ? '' : 'mr-2'}`} />
+                  <Download className={`w-3 h-3 sm:w-4 sm:h-4 ${width && width < 640 ? '' : 'mr-2'}`} />
                   <span className="hidden sm:inline">Export</span>
                 </Button>
               </div>

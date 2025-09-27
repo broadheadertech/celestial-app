@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import useWindowSize from "@/hooks/useWindowSize";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
@@ -34,6 +35,7 @@ import ClientBottomNavbar from "@/components/client/ClientBottomNavbar";
 
 export default function ReservationsPage() {
   const router = useRouter();
+  const { width } = useWindowSize();
   const { user, guestId } = useAuthStore();
   const isAuthenticated = useIsAuthenticated();
   const isGuest = useIsGuest();
@@ -217,7 +219,7 @@ export default function ReservationsPage() {
               >
                 <RefreshCw
                   className={`w-3 h-3 sm:w-4 sm:h-4 ${isRefreshing ? "animate-spin" : ""} ${
-                    window.innerWidth < 640 ? "" : "mr-2"
+                    width && width < 640 ? "" : "mr-2"
                   }`}
                 />
                 <span className="hidden sm:inline">Refresh</span>

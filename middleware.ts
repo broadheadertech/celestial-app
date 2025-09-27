@@ -1,4 +1,4 @@
-import { withAuth } from 'next-auth/middleware';
+import { withAuth } from "next-auth/middleware";
 
 export default withAuth(
   function middleware(req) {
@@ -9,23 +9,27 @@ export default withAuth(
       authorized: ({ token, req }) => {
         const { pathname } = req.nextUrl;
 
-        // Always allow auth pages and API routes
-        if (pathname.startsWith('/auth') || pathname.startsWith('/api/auth')) {
+        // Always allow auth pages, API routes, and root path
+        if (
+          pathname.startsWith("/auth") ||
+          pathname.startsWith("/api/auth") ||
+          pathname === "/"
+        ) {
           return true;
         }
 
         // Admin routes require admin role
-        if (pathname.startsWith('/admin')) {
-          return token?.role === 'admin';
+        if (pathname.startsWith("/admin")) {
+          return token?.role === "admin";
         }
 
         // Control panel requires admin or super_admin role
-        if (pathname.startsWith('/control_panel')) {
-          return token?.role === 'admin' || token?.role === 'super_admin';
+        if (pathname.startsWith("/control_panel")) {
+          return token?.role === "admin" || token?.role === "super_admin";
         }
 
         // Client dashboard requires authentication
-        if (pathname.startsWith('/client/dashboard')) {
+        if (pathname.startsWith("/client/dashboard")) {
           return !!token;
         }
 
@@ -33,7 +37,7 @@ export default withAuth(
         return true;
       },
     },
-  }
+  },
 );
 
 export const config = {
@@ -41,6 +45,6 @@ export const config = {
     /*
      * Match all paths except static files and images
      */
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.png$|.*\\.jpg$|.*\\.jpeg$|.*\\.gif$|.*\\.svg$).*)',
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.png$|.*\\.jpg$|.*\\.jpeg$|.*\\.gif$|.*\\.svg$).*)",
   ],
 };

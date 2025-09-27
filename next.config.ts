@@ -9,6 +9,8 @@ const nextConfig: NextConfig = {
     // Some typed routes still rely on incremental fixes; allow the build to proceed for Capacitor packaging
     ignoreBuildErrors: true,
   },
+  generateBuildId: async () => 'celestial-app-build',
+  trailingSlash: true,
   images: {
     remotePatterns: [
       {
@@ -24,6 +26,7 @@ const nextConfig: NextConfig = {
     dangerouslyAllowSVG: true,
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
   },
-};
+  skipTrailingSlashRedirect: true,
+  };
 
 export default nextConfig;

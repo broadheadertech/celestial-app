@@ -35,6 +35,7 @@ import Button from '@/components/ui/Button';
 import ProductCard from '@/components/ui/ProductCard';
 import ClientNotificationModal from '@/components/modal/ClientNotifModal';
 import ClientBottomNavbar from '@/components/client/ClientBottomNavbar';
+import { useToastHelpers } from '@/components/ui/ToastManager';
 
 export default function ClientDashboard() {
   const router = useRouter();
@@ -43,10 +44,12 @@ export default function ClientDashboard() {
   const isAuthenticated = useIsAuthenticated();
   const isGuest = useIsGuest();
   const cartItemCount = useCartItemCount();
+  const { success, error } = useToastHelpers();
   const [currentBannerIndex, setCurrentBannerIndex] = useState(0);
   const [isRedirecting, setIsRedirecting] = useState(false);
   const [showNotificationModal, setShowNotificationModal] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('all');
+  const [isHydrated, setIsHydrated] = useState(false);
 
   // Lazy loading states
   const [loadedSections, setLoadedSections] = useState({
@@ -56,6 +59,11 @@ export default function ClientDashboard() {
     featured: false,
   });
   const [isLoadingSection, setIsLoadingSection] = useState<string | null>(null);
+
+  // Handle hydration to prevent SSR mismatch
+  useEffect(() => {
+    setIsHydrated(true);
+  }, []);
 
   // Fetch data from Convex
   const productsQuery = useQuery(api.services.products.getProducts, { isActive: true }) || [];
@@ -245,8 +253,17 @@ export default function ClientDashboard() {
   }, [loadedSections.featured, loadedSections.topRated, loadSection]);
 
   const handleAddToCart = (product: Product) => {
-    if (product.stock === 0) return;
-    addItem(product, 1);
+    if (product.stock === 0) {
+      error('Out of Stock', 'This product is currently out of stock');
+      return;
+    }
+
+    try {
+      addItem(product, 1);
+      success('Added to Cart', `${product.name} has been added to your cart`);
+    } catch (err) {
+      error('Failed to Add', 'Could not add item to cart. Please try again.');
+    }
   };
 
   const handleQuantityChange = (product: Product, change: number) => {
@@ -356,7 +373,7 @@ export default function ClientDashboard() {
                 className="relative p-2 rounded-xl bg-secondary/60 border border-white/10 hover:bg-secondary/80 transition-colors"
               >
                 <ShoppingCart className="w-5 h-5 text-white" />
-                {cartItemCount > 0 && (
+                {isHydrated && cartItemCount > 0 && (
                   <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-primary text-white text-xs rounded-full flex items-center justify-center font-bold shadow-lg">
                     {cartItemCount > 9 ? '9+' : cartItemCount}
                   </span>
@@ -397,14 +414,17 @@ export default function ClientDashboard() {
             />
 
             {/* Banner indicators */}
-            <div className="absolute bottom-3 left-1/2 transform -translate-x-1/2 flex space-x-2">
+            <div className="absolute bottom-3 left-1/2 transform -translate-x-1/2 flex space-x-2" role="tablist" aria-label="Banner navigation">
               {banners.map((_, index) => (
                 <button
                   key={index}
                   onClick={() => setCurrentBannerIndex(index)}
-                  className={`w-2 h-2 rounded-full transition-colors ${
+                  className={`w-2 h-2 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-1 focus:ring-offset-transparent ${
                     index === currentBannerIndex ? 'bg-white' : 'bg-white/40'
                   }`}
+                  role="tab"
+                  aria-selected={index === currentBannerIndex}
+                  aria-label={`Go to banner ${index + 1}`}
                 />
               ))}
             </div>
@@ -457,10 +477,11 @@ export default function ClientDashboard() {
                 <button
                   key={category.key}
                   onClick={() => setSelectedCategory(category.key)}
-                  className={`group relative overflow-hidden ${
+                  className={`group relative overflow-hidden focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background ${
                     selectedCategory === category.key ? 'ring-2 ring-primary ring-offset-2 ring-offset-background' : ''
                   }`}
-                  aria-label={category.name}
+                  aria-label={`Filter by ${category.name}`}
+                  aria-pressed={selectedCategory === category.key}
                 >
                   <div className={`w-full h-16 rounded-xl bg-gradient-to-r ${colorClass} shadow-lg hover:shadow-xl transition-all duration-300 group-hover:scale-105`}>
                     <div className="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition-colors" />

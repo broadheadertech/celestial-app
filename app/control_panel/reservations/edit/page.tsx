@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -48,7 +48,7 @@ interface ProductOption {
   categoryName: string;
 }
 
-export default function ReservationEditPage() {
+function ReservationEditPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const reservationId = searchParams.get("id");
@@ -696,5 +696,20 @@ export default function ReservationEditPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function ReservationEditPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-white/60">Loading reservation editor...</p>
+        </div>
+      </div>
+    }>
+      <ReservationEditPageContent />
+    </Suspense>
   );
 }
