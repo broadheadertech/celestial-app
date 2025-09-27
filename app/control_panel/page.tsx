@@ -143,6 +143,216 @@ export default function ControlPanel() {
     setTimeout(() => setIsRefreshing(false), 1500);
   };
 
+  function RevenueChartWithDebug({ revenueData }: { revenueData: any[] }) {
+  
+  // Debug logging
+  useEffect(() => {
+    console.log("=== REVENUE CHART DEBUG ===");
+    console.log("Raw revenueData:", revenueData);
+    console.log("Data type:", typeof revenueData);
+    console.log("Is array:", Array.isArray(revenueData));
+    console.log("Data length:", revenueData?.length);
+    
+    if (revenueData && Array.isArray(revenueData)) {
+      console.log("September data:", revenueData.find(item => item.month === 'Sep'));
+      console.log("All months with revenue > 0:", revenueData.filter(item => item.revenue > 0));
+      
+      revenueData.forEach((item, index) => {
+        console.log(`Month ${index + 1} (${item.month}):`, {
+          revenue: item.revenue,
+          orders: item.orders,
+          revenueType: typeof item.revenue,
+          ordersType: typeof item.orders
+        });
+      });
+      
+      const totalRevenue = revenueData.reduce((sum, item) => sum + (item.revenue || 0), 0);
+      const totalOrders = revenueData.reduce((sum, item) => sum + (item.orders || 0), 0);
+      
+      console.log("Total Revenue:", totalRevenue);
+      console.log("Total Orders:", totalOrders);
+    }
+    console.log("=== END DEBUG ===");
+  }, [revenueData]);
+
+  // Check if data is valid
+  const isValidData = revenueData && Array.isArray(revenueData) && revenueData.length > 0;
+  const hasRevenue = isValidData && revenueData.some(item => item.revenue > 0);
+  
+  return (
+    <div className="xl:col-span-2 bg-secondary/40 backdrop-blur-sm rounded-xl p-6 border border-white/10">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h3 className="text-lg font-semibold text-white">
+            Revenue Trends
+          </h3>
+          <p className="text-sm text-white/60">
+            Monthly revenue and order patterns
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button className="p-2 hover:bg-white/10 rounded-lg transition-colors">
+            <Filter className="w-4 h-4 text-white/60" />
+          </button>
+          <button className="p-2 hover:bg-white/10 rounded-lg transition-colors">
+            <MoreVertical className="w-4 h-4 text-white/60" />
+          </button>
+        </div>
+      </div>
+
+      {/* Debug Info Panel - Remove this in production */}
+      <div className="mb-4 p-3 bg-black/20 rounded-lg border border-yellow-500/30">
+        <h4 className="text-yellow-400 font-medium text-sm mb-2">🐛 Debug Info</h4>
+        <div className="text-xs space-y-1">
+          <div className="text-white/70">
+            Data Status: {!revenueData ? "❌ No data" : !isValidData ? "❌ Invalid data" : !hasRevenue ? "⚠️ No revenue" : "✅ Has revenue"}
+          </div>
+          {revenueData && (
+            <>
+              <div className="text-white/70">
+                Data Length: {revenueData.length} items
+              </div>
+              <div className="text-white/70">
+                September Revenue: ₱{revenueData.find(item => item.month === 'Sep')?.revenue || 0}
+              </div>
+              <div className="text-white/70">
+                Months with Revenue: {revenueData.filter(item => item.revenue > 0).map(item => item.month).join(', ') || 'None'}
+              </div>
+              <div className="text-white/70">
+                Total Revenue: ₱{revenueData.reduce((sum, item) => sum + (item.revenue || 0), 0).toLocaleString()}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Loading State */}
+      {!revenueData && (
+        <div className="h-80 flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+            <p className="text-white/60">Loading revenue data...</p>
+          </div>
+        </div>
+      )}
+
+      {/* Invalid Data State */}
+      {revenueData && !isValidData && (
+        <div className="h-80 flex items-center justify-center">
+          <div className="text-center">
+            <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mb-4 mx-auto">
+              <span className="text-red-400 text-2xl">⚠️</span>
+            </div>
+            <p className="text-white/60 mb-2">Invalid revenue data format</p>
+            <p className="text-white/40 text-sm">Expected array, got: {typeof revenueData}</p>
+          </div>
+        </div>
+      )}
+
+      {/* No Revenue State */}
+      {isValidData && !hasRevenue && (
+        <div className="h-80 flex items-center justify-center">
+          <div className="text-center">
+            <div className="w-16 h-16 bg-white/10 rounded-full flex items-center justify-center mb-4 mx-auto">
+              <DollarSign className="w-8 h-8 text-white/40" />
+            </div>
+            <p className="text-white/60 mb-2">No revenue data available</p>
+            <p className="text-white/40 text-sm">
+              {revenueData.length} months loaded, but all show ₱0 revenue
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Chart - Only render if we have valid data */}
+      {isValidData && (
+        <div className="h-80">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart 
+              data={revenueData}
+              margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+            >
+              <defs>
+                <linearGradient
+                  id="revenueGradient"
+                  x1="0"
+                  y1="0"
+                  x2="0"
+                  y2="1"
+                >
+                  <stop
+                    offset="5%"
+                    stopColor="#FF6B00"
+                    stopOpacity={0.3}
+                  />
+                  <stop
+                    offset="95%"
+                    stopColor="#FF6B00"
+                    stopOpacity={0}
+                  />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+              <XAxis 
+                dataKey="month" 
+                stroke="#9CA3AF" 
+                fontSize={12}
+                tick={{ fill: '#9CA3AF' }}
+              />
+              <YAxis 
+                stroke="#9CA3AF" 
+                fontSize={12}
+                tick={{ fill: '#9CA3AF' }}
+                tickFormatter={(value) => `₱${value.toLocaleString()}`}
+              />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: "#1F2937",
+                  border: "1px solid #374151",
+                  borderRadius: "8px",
+                }}
+                labelStyle={{ color: "#F3F4F6" }}
+                formatter={(value: number, name: string) => [
+                  `₱${Number(value).toLocaleString()}`,
+                  name === 'revenue' ? 'Revenue' : name
+                ]}
+                labelFormatter={(label) => `Month: ${label}`}
+              />
+              <Area
+                type="monotone"
+                dataKey="revenue"
+                stroke="#FF6B00"
+                strokeWidth={2}
+                fillOpacity={1}
+                fill="url(#revenueGradient)"
+                dot={{ fill: '#FF6B00', strokeWidth: 2, r: 4 }}
+                activeDot={{ r: 6, stroke: '#FF6B00', strokeWidth: 2 }}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
+      {/* Data Table for Debugging - Remove in production */}
+      {isValidData && (
+        <div className="mt-4 p-3 bg-black/20 rounded-lg border border-blue-500/30">
+          <h4 className="text-blue-400 font-medium text-sm mb-2">📊 Raw Data</h4>
+          <div className="grid grid-cols-4 gap-2 text-xs">
+            {revenueData.slice(0, 12).map((item, index) => (
+              <div key={index} className={`p-2 rounded ${item.revenue > 0 ? 'bg-green-500/20 border border-green-500/30' : 'bg-gray-500/20'}`}>
+                <div className="text-white font-medium">{item.month}</div>
+                <div className="text-green-400">₱{item.revenue?.toLocaleString() || 0}</div>
+                <div className="text-blue-400">{item.orders || 0} orders</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
   return (
     <div className="min-h-screen bg-background">
       {/* Navigation Sidebar */}

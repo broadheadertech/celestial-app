@@ -228,34 +228,63 @@ export const getDashboardKPIs = query({
 export const getRevenueData = query({
   args: {},
   handler: async (ctx) => {
-    const orders = await ctx.db.query("orders").collect();
+    try {
+      const reservations = await ctx.db.query("reservations").collect();
 
-    const monthNames = [
-      "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-      "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
-    ];
+      const monthNames = [
+        "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+        "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+      ];
 
-    const currentYear = new Date().getFullYear();
+      const currentYear = new Date().getFullYear();
 
-    const monthlyData = monthNames.map((month, index) => {
-      const monthOrders = orders.filter(order => {
-        const orderDate = new Date(order.createdAt);
-        return orderDate.getMonth() === index && orderDate.getFullYear() === currentYear;
+      const monthlyData = monthNames.map((month, index) => {
+        const monthReservations = reservations.filter(reservation => {
+          if (!reservation.createdAt) return false;
+          
+          const reservationDate = typeof reservation.createdAt === 'number' 
+            ? new Date(reservation.createdAt) 
+            : new Date(reservation.createdAt);
+            
+          if (isNaN(reservationDate.getTime())) return false;
+          
+          return reservationDate.getMonth() === index && reservationDate.getFullYear() === currentYear;
+        });
+
+        let reservationRevenue = 0;
+        for (const reservation of monthReservations) {
+          if (reservation.items && Array.isArray(reservation.items)) {
+            for (const item of reservation.items) {
+              reservationRevenue += (item.reservedPrice || 0) * (item.quantity || 0);
+            }
+          } else if (reservation.productId && reservation.quantity) {
+            reservationRevenue += reservation.totalAmount || 0;
+          } else {
+            reservationRevenue += reservation.totalAmount || 0;
+          }
+        }
+
+        return {
+          month,
+          revenue: Math.round(reservationRevenue),
+          orders: monthReservations.length,
+        };
       });
 
-      const revenue = monthOrders.reduce(
-        (sum, order) => sum + (order.totalAmount || 0),
-        0
-      );
+      return monthlyData;
 
-      return {
+    } catch (error) {
+      const monthNames = [
+        "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+        "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+      ];
+      
+      return monthNames.map((month) => ({
         month,
-        revenue,
-        orders: monthOrders.length,
-      };
-    });
-
-    return monthlyData;
+        revenue: 0,
+        orders: 0,
+      }));
+    }
   },
 });
 
