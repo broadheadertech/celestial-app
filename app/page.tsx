@@ -22,24 +22,41 @@ export default function HomePage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [hasRedirected, setHasRedirected] = useState(false);
 
-  // Redirect if already authenticated
+  // Check if user has completed onboarding
   useEffect(() => {
-    if (status === 'authenticated' && session?.user) {
-      const role = (session.user as { role?: string })?.role;
-      const path = role === 'admin' ? '/admin/dashboard' :
-                   role === 'super_admin' ? '/control_panel' :
-                   '/client/dashboard';
-      router.push(path);
-    }
-  }, [session, status, router]);
+    const checkOnboardingStatus = () => {
+      const hasCompletedOnboarding = localStorage.getItem('onboarding_completed');
+      const isFirstVisit = !hasCompletedOnboarding;
 
-  // Don't render if authenticated
-  if (status === 'loading' || (status === 'authenticated' && session?.user)) {
+      // If it's the first visit and we haven't redirected yet, go to onboarding
+      if (isFirstVisit && !hasRedirected && status !== 'loading') {
+        setHasRedirected(true);
+        router.push('/onboarding');
+        return;
+      }
+
+      // If user is authenticated, redirect to appropriate dashboard
+      if (status === 'authenticated' && session?.user && !hasRedirected) {
+        const role = (session.user as { role?: string })?.role;
+        const path = role === 'admin' ? '/admin/dashboard' :
+                     role === 'super_admin' ? '/control_panel' :
+                     '/client/dashboard';
+        setHasRedirected(true);
+        router.push(path);
+      }
+    };
+
+    checkOnboardingStatus();
+  }, [session, status, router, hasRedirected]);
+
+  // Show loading while determining redirect
+  if (status === 'loading' || hasRedirected) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary to-accent">
         <div className="text-center">
-          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-white">Loading...</p>
         </div>
       </div>
@@ -100,15 +117,22 @@ export default function HomePage() {
     }
   };
 
+  const handleBackToOnboarding = () => {
+    // Allow users to go back to onboarding if needed
+    localStorage.removeItem('onboarding_completed');
+    router.push('/onboarding');
+  };
+
   return (
-    <div className="min-h-screen flex flex-col px-6 py-8">
+    <div className="min-h-screen flex flex-col px-6 py-8 bg-gradient-to-br from-background to-background-dark">
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <button
-          onClick={() => router.push('/landing')}
+          onClick={handleBackToOnboarding}
           className="flex items-center justify-center w-10 h-10 rounded-full bg-secondary border border-white/10 hover:bg-white/10 transition-colors"
+          title="Back to Onboarding"
         >
-          <span className="text-white text-sm">ℹ️</span>
+          <span className="text-white text-sm">←</span>
         </button>
         <h1 className="text-xl font-semibold text-white">Sign In</h1>
         <div className="w-10" />
