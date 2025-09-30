@@ -1,7 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  output: "export", // Generate static HTML files for Capacitor
+  // Disable static export for development to support dynamic routes
+  // Re-enable "output: export" only when building for production/Capacitor
+  // output: "export",
   eslint: {
     // Skip linting during `next build` so we can produce mobile assets without refactoring
     ignoreDuringBuilds: true,
