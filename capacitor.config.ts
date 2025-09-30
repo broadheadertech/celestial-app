@@ -7,7 +7,8 @@ const config: CapacitorConfig = {
   bundledWebRuntime: false,
   icon: "public/logo.jpeg",
   server: {
-    cleartext: true,
+    // Remove server URL for static deployment
+    allowNavigation: ["*"]
   },
   plugins: {
     CapacitorHttp: {

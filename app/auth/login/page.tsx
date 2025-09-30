@@ -30,7 +30,7 @@ export default function LoginPage() {
       const path = role === 'admin' ? '/admin/dashboard' :
                    role === 'super_admin' ? '/control_panel' :
                    '/client/dashboard';
-      router.push(path);
+      requestAnimationFrame(() => router.replace(path));
     }
   }, [session, status, router]);
 
@@ -90,26 +90,11 @@ export default function LoginPage() {
 
   // Show loading state
   if (status === 'loading') {
-    return (
-      <div className="min-h-screen flex items-center justify-center px-6 py-8">
-        <div className="text-center">
-          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-white">Loading...</p>
-        </div>
-      </div>
-    );
+    return null;
   }
 
-  // Show loading state if authenticated (will redirect)
   if (status === 'authenticated' && session?.user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center px-6 py-8">
-        <div className="text-center">
-          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-white">Redirecting...</p>
-        </div>
-      </div>
-    );
+    return null;
   }
 
   // Main login form

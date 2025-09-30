@@ -1,12 +1,12 @@
 "use client";
 
-import { useSession, signIn, signOut } from 'next-auth/react';
-import { useAuthStore } from '@/store/auth';
-import { useRouter } from 'next/navigation';
-import { useEffect, useCallback } from 'react';
-import { ConvexHttpClient } from 'convex/browser';
-import { api } from '@/convex/_generated/api';
-import type { RegisterData, User } from '@/types';
+import { useSession, signIn, signOut } from "next-auth/react";
+import { useAuthStore } from "@/store/auth";
+import { useRouter } from "next/navigation";
+import { useEffect, useCallback } from "react";
+import { ConvexHttpClient } from "convex/browser";
+import { api } from "@/convex/_generated/api";
+import type { RegisterData, User } from "@/types";
 
 const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
@@ -19,13 +19,13 @@ export function useAuth() {
     initializeGuestSession,
     user,
     isAuthenticated,
-    isLoading
+    isLoading,
   } = useAuthStore();
   const router = useRouter();
 
   // Sync NextAuth session with Zustand store
   useEffect(() => {
-    if (status === 'loading') return;
+    if (status === "loading") return;
 
     if (session?.user) {
       const sessionUser = session.user as any;
@@ -34,11 +34,15 @@ export function useAuth() {
       const storeUser: User = {
         _id: sessionUser.id,
         email: sessionUser.email!,
-        firstName: sessionUser.firstName || sessionUser.name?.split(' ')[0] || 'User',
-        lastName: sessionUser.lastName || sessionUser.name?.split(' ').slice(1).join(' ') || '',
-        role: sessionUser.role || 'client',
+        firstName:
+          sessionUser.firstName || sessionUser.name?.split(" ")[0] || "User",
+        lastName:
+          sessionUser.lastName ||
+          sessionUser.name?.split(" ").slice(1).join(" ") ||
+          "",
+        role: sessionUser.role || "client",
         isActive: true,
-        loginMethod: 'facebook',
+        loginMethod: "facebook",
         createdAt: Date.now(),
         updatedAt: Date.now(),
       };
@@ -46,7 +50,7 @@ export function useAuth() {
       if (!user || user._id !== sessionUser.id) {
         login(storeUser);
       }
-    } else if (status === 'unauthenticated') {
+    } else if (status === "unauthenticated") {
       if (user) {
         logout();
       }
@@ -57,8 +61,8 @@ export function useAuth() {
   const loginWithFacebook = useCallback(async () => {
     try {
       setLoading(true);
-      const result = await signIn('facebook', {
-        callbackUrl: '/client/dashboard',
+      const result = await signIn("facebook", {
+        callbackUrl: "/client/dashboard",
       });
       return result;
     } catch (error) {
@@ -67,85 +71,78 @@ export function useAuth() {
     }
   }, [setLoading]);
 
-  const loginWithEmail = useCallback(async (email: string, password: string) => {
-    try {
-      setLoading(true);
+  const loginWithEmail = useCallback(
+    async (email: string, password: string) => {
+      try {
+        setLoading(true);
 
-      const result = await signIn('credentials', {
-        redirect: false,
-        email,
-        password,
-      });
+        const result = await signIn("credentials", {
+          redirect: false,
+          email,
+          password,
+        });
 
-      if (result?.error) {
+        if (result?.error) {
+          setLoading(false);
+          throw new Error("Invalid email or password");
+        }
+
+        // Don't use setTimeout - it can cause race conditions
+        // The useEffect above will handle redirecting when session updates
+        return result;
+      } catch (error) {
         setLoading(false);
-        throw new Error('Invalid email or password');
+        throw error;
       }
+    },
+    [setLoading],
+  );
 
-      // Don't use setTimeout - it can cause race conditions
-      // The useEffect above will handle redirecting when session updates
-      return result;
-    } catch (error) {
-      setLoading(false);
-      throw error;
-    }
-  }, [setLoading]);
+  // Redirect logic is handled by the main page.tsx, not here
 
-  // Add a separate effect to handle redirection after successful login
-  useEffect(() => {
-    if (status === 'authenticated' && session?.user) {
-      const role = (session.user as any)?.role;
-      const redirectPath = role === 'admin' ? '/admin/dashboard' :
-                         role === 'super_admin' ? '/control_panel' :
-                         '/client/dashboard';
-      
-      // Only redirect if we're currently on the login page
-      if (window.location.pathname === '/auth/login') {
-        router.push(redirectPath);
+  const registerWithEmail = useCallback(
+    async (data: RegisterData & { password: string }) => {
+      try {
+        setLoading(true);
+
+        const result = await convex.mutation(api.services.auth.register, {
+          email: data.email.toLowerCase(),
+          password: data.password,
+          firstName: data.firstName.trim(),
+          lastName: data.lastName.trim(),
+          phone: data.phone?.trim(),
+          role: "client",
+        });
+
+        if (!result?.success) {
+          throw new Error(result?.message || "Registration failed");
+        }
+
+        // Auto-login after registration
+        await signIn("credentials", {
+          redirect: false,
+          email: data.email,
+          password: data.password,
+        });
+
+        router.push("/client/dashboard");
+        return result.user as User;
+      } catch (error) {
+        setLoading(false);
+        throw error;
       }
-    }
-  }, [session, status, router]);
-
-  const registerWithEmail = useCallback(async (data: RegisterData & { password: string }) => {
-    try {
-      setLoading(true);
-
-      const result = await convex.mutation(api.services.auth.register, {
-        email: data.email.toLowerCase(),
-        password: data.password,
-        firstName: data.firstName.trim(),
-        lastName: data.lastName.trim(),
-        phone: data.phone?.trim(),
-        role: 'client',
-      });
-
-      if (!result?.success) {
-        throw new Error(result?.message || 'Registration failed');
-      }
-
-      // Auto-login after registration
-      await signIn('credentials', {
-        redirect: false,
-        email: data.email,
-        password: data.password,
-      });
-
-      router.push('/client/dashboard');
-      return result.user as User;
-    } catch (error) {
-      setLoading(false);
-      throw error;
-    }
-  }, [setLoading, router]);
+    },
+    [setLoading, router],
+  );
 
   const handleLogout = useCallback(async () => {
     try {
       setLoading(true);
-      await signOut({ callbackUrl: '/', redirect: false });
+      await signOut({ callbackUrl: "/", redirect: false });
       logout();
-      router.push('/');
+      router.push("/");
     } catch (error) {
-      console.error('Logout error:', error);
+      console.error("Logout error:", error);
     } finally {
       setLoading(false);
     }
@@ -155,12 +152,12 @@ export function useAuth() {
     // NextAuth state
     session,
     sessionStatus: status,
-    isNextAuthLoading: status === 'loading',
+    isNextAuthLoading: status === "loading",
 
     // Combined auth state
     user,
     isAuthenticated,
-    isLoading: isLoading || status === 'loading',
+    isLoading: isLoading || status === "loading",
 
     // Auth methods
     loginWithFacebook,

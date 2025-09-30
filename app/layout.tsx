@@ -4,7 +4,6 @@ import { AuthInitializer } from "@/components/AuthInitializer";
 import { AuthProvider } from "@/components/AuthProvider";
 import { ConvexProvider } from "@/components/ConvexProvider";
 import { ToastProvider } from "@/components/ui/ToastManager";
-import { SplashScreenHider } from "@/components/SplashScreenHider";
 
 export const metadata: Metadata = {
   title: "Celestial Drakon Aquatics",
@@ -18,7 +17,6 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
-  userScalable: "no",
   themeColor: "#FF6B00",
 };
 
@@ -36,7 +34,6 @@ export default function RootLayout({
         <ConvexProvider>
           <AuthProvider>
             <ToastProvider>
-              <SplashScreenHider />
               <AuthInitializer />
               <div className="min-h-screen bg-background text-foreground">
                 {children}
