@@ -3,6 +3,8 @@ import "./globals.css";
 import { AuthInitializer } from "@/components/AuthInitializer";
 import { AuthProvider } from "@/components/AuthProvider";
 import { ConvexProvider } from "@/components/ConvexProvider";
+import { ReservationProvider } from "@/context/ReservationContext";
+import ClientReservationOverlay from "@/components/ui/ClientReservationOverlay";
 
 export const metadata: Metadata = {
   title: "Celestial Drakon Aquatics",
@@ -15,7 +17,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
-  userScalable: "no",
+  userScalable: false,
   themeColor: "#FF6B00",
 };
 
@@ -32,10 +34,13 @@ export default function RootLayout({
       <body className="antialiased">
         <ConvexProvider>
           <AuthProvider>
-            <AuthInitializer />
-            <div className="min-h-screen bg-background text-foreground">
-              {children}
-            </div>
+            <ReservationProvider>
+              <AuthInitializer />
+              <div className="min-h-screen bg-background text-foreground">
+                {children}
+              </div>
+              <ClientReservationOverlay />
+            </ReservationProvider>
           </AuthProvider>
         </ConvexProvider>
       </body>

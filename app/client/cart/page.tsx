@@ -9,21 +9,17 @@ import {
   Trash2,
   ShoppingBag,
   Clock,
-  User,
-  Search,
-  Calendar,
-  MapPin
 } from 'lucide-react';
 import { useCartStore, useCartItems, useCartTotal } from '@/store/cart';
 import { useAuthStore, useIsAuthenticated, useIsGuest } from '@/store/auth';
-import { formatCurrency, generateId } from '@/lib/utils';
+import { formatCurrency } from '@/lib/utils';
 import { useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Card from '@/components/ui/Card';
-import ReservationOverlay from '@/components/ui/ReservationOverlay';
 import ClientBottomNavbar from '@/components/client/ClientBottomNavbar';
+import { useReservation } from '@/context/ReservationContext';
 
 export default function CartPage() {
   const router = useRouter();
@@ -33,6 +29,7 @@ export default function CartPage() {
   const { user, guestId } = useAuthStore();
   const isAuthenticated = useIsAuthenticated();
   const isGuest = useIsGuest();
+  const { showReservation } = useReservation();
 
   // Convex mutation for creating reservations
   const createReservation = useMutation(api.services.reservations.createReservation);
@@ -50,8 +47,6 @@ export default function CartPage() {
 
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [showGuestForm, setShowGuestForm] = useState(false);
-  const [showReservationOverlay, setShowReservationOverlay] = useState(false);
-  const [reservationCode, setReservationCode] = useState<string>('');
   const [guestInfo, setGuestInfo] = useState({
     name: '',
     email: '',
@@ -102,8 +97,6 @@ export default function CartPage() {
       return;
     }
 
-    // Show reservation overlay immediately
-    setShowReservationOverlay(true);
     setIsCheckingOut(true);
 
     try {
@@ -149,15 +142,16 @@ export default function CartPage() {
       ]);
 
       if (result) {
-        setReservationCode(result.reservationCode);
+        // Use global reservation context
+        showReservation(result.reservationCode);
         // Clear cart after successful reservation
         clearCart();
+        // Navigate to dashboard
+        router.push('/client/dashboard');
       }
 
     } catch (error) {
       console.error('Checkout failed:', error);
-      // Hide overlay on error and show error message
-      setShowReservationOverlay(false);
       // You might want to show an error message to user here
     } finally {
       setIsCheckingOut(false);
@@ -169,17 +163,6 @@ export default function CartPage() {
     if (guestErrors[field]) {
       setGuestErrors(prev => ({ ...prev, [field]: '' }));
     }
-  };
-
-  const handleReservationComplete = () => {
-    setShowReservationOverlay(false);
-    router.push('/client/dashboard');
-  };
-
-  const handleReservationSuccess = () => {
-    // This is called when admin approves the reservation
-    // In a real app, this would be triggered by real-time updates
-    console.log('Reservation approved by admin');
   };
 
   if (showGuestForm && !isAuthenticated) {
@@ -297,14 +280,6 @@ export default function CartPage() {
             </Button>
           </div>
         </div>
-
-        {/* Reservation Overlay for Guest Form */}
-        <ReservationOverlay
-          isVisible={showReservationOverlay}
-          onComplete={handleReservationComplete}
-          onSuccess={handleReservationSuccess}
-          reservationCode={reservationCode}
-        />
       </div>
     );
   }
@@ -484,14 +459,6 @@ export default function CartPage() {
 
       {/* Bottom padding */}
       <div className="h-16" />
-
-      {/* Reservation Overlay */}
-      <ReservationOverlay
-        isVisible={showReservationOverlay}
-        onComplete={handleReservationComplete}
-        onSuccess={handleReservationSuccess}
-        reservationCode={reservationCode}
-      />
     </div>
   );
 }
