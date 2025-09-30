@@ -139,24 +139,15 @@ export default function AdminSettingsPage() {
         },
       });
 
-      // Step 1: Sign out from NextAuth
-      console.log("🔐 Signing out from NextAuth...");
-      await signOut({
-        callbackUrl: "/auth/login",
-        redirect: false,
-      });
-
-      // Step 2: Clear auth store
+      // Step 1: Clear auth store (calls useAuth's logout)
       console.log("🗄️ Clearing auth store...");
-      authStoreLogout();
+      await logout();
 
-      // Step 3: Clear localStorage
+      // Step 2: Clear localStorage
       console.log("🧹 Clearing localStorage...");
       try {
         localStorage.removeItem("celestial-auth-storage");
-        localStorage.removeItem("next-auth.session-token");
-        localStorage.removeItem("next-auth.csrf-token");
-        localStorage.removeItem("next-auth.callback-url");
+        localStorage.removeItem("onboarding_completed");
         // Clear any other potential auth-related items
         Object.keys(localStorage).forEach((key) => {
           if (
@@ -171,21 +162,17 @@ export default function AdminSettingsPage() {
         console.warn("Could not clear localStorage:", storageError);
       }
 
-      // Step 4: Force redirect to login
+      // Step 3: Show success message briefly
       console.log("🔄 Redirecting to login...");
-
-      // Show success message briefly
       setModalMessage("Successfully logged out!");
       setShowSuccessModal(true);
 
-      // Force redirect using multiple methods to ensure it works
+      // Step 4: Force redirect to login
       setTimeout(() => {
         setShowSuccessModal(false);
-        // Multiple redirect methods to ensure it works
+        // Use window.location for hard redirect
         window.location.href = "/auth/login";
-        router.replace("/auth/login");
-        router.push("/auth/login");
-      }, 1000);
+      }, 800);
     } catch (error) {
       console.error("❌ Logout error:", error);
       setModalMessage("Error during logout. Redirecting to login...");
@@ -196,7 +183,7 @@ export default function AdminSettingsPage() {
         setShowErrorModal(false);
         // Force redirect on error
         window.location.href = "/auth/login";
-      }, 2000);
+      }, 1500);
     } finally {
       setIsLoggingOut(false);
     }

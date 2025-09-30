@@ -1,22 +1,22 @@
-'use client';
+"use client";
 
-import React from 'react';
+import React, { useState } from "react";
 import {
   Star,
   Plus,
   Minus,
   ShoppingCart,
   Image as ImageIcon,
-  Zap
-} from 'lucide-react';
-import { formatCurrency, getStockStatus } from '@/lib/utils';
-import { Product } from '@/types';
-import Button from './Button';
+  Zap,
+} from "lucide-react";
+import { formatCurrency, getStockStatus } from "@/lib/utils";
+import { Product } from "@/types";
+import Button from "./Button";
 
 interface ProductCardProps {
   product: Product;
   cartItem?: { quantity: number } | null;
-  viewMode?: 'grid' | 'list';
+  viewMode?: "grid" | "list";
   onAddToCart: (product: Product) => void;
   onQuantityChange: (product: Product, change: number) => void;
   onClick?: (product: Product) => void;
@@ -25,37 +25,59 @@ interface ProductCardProps {
 const ProductCard: React.FC<ProductCardProps> = ({
   product,
   cartItem,
-  viewMode = 'grid',
+  viewMode = "grid",
   onAddToCart,
   onQuantityChange,
   onClick,
 }) => {
+  const [imageError, setImageError] = useState(false);
+  const [imageLoaded, setImageLoaded] = useState(false);
+
   const stockStatus = getStockStatus(product.stock);
-  const hasDiscount = product.originalPrice && product.originalPrice > product.price;
+  const hasDiscount =
+    product.originalPrice && product.originalPrice > product.price;
   const discountPercent = hasDiscount
-    ? Math.round(((product.originalPrice! - product.price) / product.originalPrice!) * 100)
+    ? Math.round(
+        ((product.originalPrice! - product.price) / product.originalPrice!) *
+          100,
+      )
     : 0;
   const rawBadge = product.badge;
-  const hasBadge = typeof rawBadge === 'string' && rawBadge.trim().length > 0;
-  const badgeText = hasBadge ? rawBadge!.trim() : '';
+  const hasBadge = typeof rawBadge === "string" && rawBadge.trim().length > 0;
+  const badgeText = hasBadge ? rawBadge!.trim() : "";
+
+  const hasValidImage = product.image && !imageError;
 
   // Enhanced image component with better fallback
   const ProductImage = ({ className }: { className: string }) => (
-    <div className={`relative ${className} bg-gradient-to-br from-secondary to-secondary/80 overflow-hidden group`}>
-      {product.image ? (
-        <img
-          src={product.image}
-          alt={product.name}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-          onError={(e) => {
-            e.currentTarget.style.display = 'none';
-            e.currentTarget.nextElementSibling?.classList.remove('hidden');
-          }}
-        />
-      ) : null}
-      <div className={`absolute inset-0 bg-gradient-to-br from-primary/10 to-info/10 flex items-center justify-center ${product.image ? 'hidden' : ''}`}>
-        <ImageIcon className="w-8 h-8 text-white/30" />
-      </div>
+    <div
+      className={`relative ${className} bg-gradient-to-br from-secondary/80 to-secondary/60 overflow-hidden group`}
+    >
+      {hasValidImage && (
+        <>
+          {/* Loading skeleton */}
+          {!imageLoaded && (
+            <div className="absolute inset-0 bg-secondary/50 animate-pulse" />
+          )}
+          <img
+            src={product.image}
+            alt={product.name}
+            className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ${imageLoaded ? "opacity-100" : "opacity-0"}`}
+            onLoad={() => setImageLoaded(true)}
+            onError={() => {
+              setImageError(true);
+              setImageLoaded(true);
+            }}
+          />
+        </>
+      )}
+
+      {/* Fallback icon - only show if no image or error */}
+      {(!product.image || imageError) && (
+        <div className="absolute inset-0 bg-gradient-to-br from-secondary/80 to-secondary/60 flex items-center justify-center">
+          <ImageIcon className="w-8 h-8 text-white/30" />
+        </div>
+      )}
 
       {/* Hover overlay */}
       <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
@@ -78,23 +100,31 @@ const ProductCard: React.FC<ProductCardProps> = ({
   );
 
   // Compact badge component
-  const Badge = ({ children, variant = 'default' }: { children: React.ReactNode; variant?: 'default' | 'discount' | 'new' | 'limited' }) => {
+  const Badge = ({
+    children,
+    variant = "default",
+  }: {
+    children: React.ReactNode;
+    variant?: "default" | "discount" | "new" | "limited";
+  }) => {
     const variants = {
-      default: 'bg-primary/80 text-white border border-primary/20',
-      discount: 'bg-red-500/80 text-white border border-red-500/20',
-      new: 'bg-green-500/80 text-white border border-green-500/20',
-      limited: 'bg-orange-500/80 text-white border border-orange-500/20'
+      default: "bg-primary/80 text-white border border-primary/20",
+      discount: "bg-red-500/80 text-white border border-red-500/20",
+      new: "bg-green-500/80 text-white border border-green-500/20",
+      limited: "bg-orange-500/80 text-white border border-orange-500/20",
     };
 
     return (
-      <span className={`${variants[variant]} text-[9px] font-medium px-1.5 py-0.5 rounded-full shadow-sm backdrop-blur-sm`}>
+      <span
+        className={`${variants[variant]} text-[9px] font-medium px-1.5 py-0.5 rounded-full shadow-sm backdrop-blur-sm`}
+      >
         {children}
       </span>
     );
   };
 
   // List view layout
-  if (viewMode === 'list') {
+  if (viewMode === "list") {
     return (
       <div className="bg-secondary/60 backdrop-blur-sm border border-white/5 rounded-xl p-3 hover:border-primary/30 hover:bg-secondary/80 transition-all duration-300 group">
         <div className="flex gap-3">
@@ -107,7 +137,9 @@ const ProductCard: React.FC<ProductCardProps> = ({
               </h3>
               <div className="flex gap-1 flex-shrink-0">
                 {hasBadge && <Badge>{badgeText}</Badge>}
-                {hasDiscount && <Badge variant="discount">-{discountPercent}%</Badge>}
+                {hasDiscount && (
+                  <Badge variant="discount">-{discountPercent}%</Badge>
+                )}
               </div>
             </div>
 
@@ -119,13 +151,19 @@ const ProductCard: React.FC<ProductCardProps> = ({
                 </div>
               )}
               <span className={`${stockStatus.textColor} font-medium`}>
-                {product.stock === 0 ? 'Sold Out' : product.stock > 5 ? `${product.stock} in stock` : stockStatus.status}
+                {product.stock === 0
+                  ? "Sold Out"
+                  : product.stock > 5
+                    ? `${product.stock} in stock`
+                    : stockStatus.status}
               </span>
             </div>
 
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="font-bold text-white text-base">{formatCurrency(product.price)}</span>
+                <span className="font-bold text-white text-base">
+                  {formatCurrency(product.price)}
+                </span>
                 {hasDiscount && (
                   <span className="text-xs text-white/50 line-through">
                     {formatCurrency(product.originalPrice!)}
@@ -159,7 +197,11 @@ const ProductCard: React.FC<ProductCardProps> = ({
                   disabled={product.stock === 0}
                   className="h-6 px-2 text-xs"
                 >
-                  {product.stock === 0 ? 'Sold Out' : <Plus className="w-3 h-3" />}
+                  {product.stock === 0 ? (
+                    "Sold Out"
+                  ) : (
+                    <Plus className="w-3 h-3" />
+                  )}
                 </Button>
               )}
             </div>
@@ -183,12 +225,18 @@ const ProductCard: React.FC<ProductCardProps> = ({
           </div>
           <div className="flex flex-col gap-0.5">
             {/* Stock Badge */}
-            <Badge variant={
-              product.stock === 0 ? 'limited' :
-              product.stock <= 5 ? 'limited' :
-              product.stock <= 15 ? 'new' : 'default'
-            }>
-              {product.stock === 0 ? 'Sold Out' : `${product.stock} left`}
+            <Badge
+              variant={
+                product.stock === 0
+                  ? "limited"
+                  : product.stock <= 5
+                    ? "limited"
+                    : product.stock <= 15
+                      ? "new"
+                      : "default"
+              }
+            >
+              {product.stock === 0 ? "Sold Out" : `${product.stock} left`}
             </Badge>
           </div>
         </div>
@@ -197,16 +245,16 @@ const ProductCard: React.FC<ProductCardProps> = ({
       {/* Content Section */}
       <div className="p-2 space-y-1.5">
         {/* Title */}
-        <h3 className="font-medium text-white text-xs line-clamp-2 leading-tight group-hover:text-primary transition-colors">
+        <h3 className="font-medium text-white text-xs line-clamp-2 leading-tight group-hover:text-primary transition-colors min-h-[2rem]">
           {product.name}
         </h3>
-
-    
 
         {/* Price Section */}
         <div className="space-y-0.5">
           <div className="flex items-center gap-1">
-            <span className="font-bold text-white text-sm">{formatCurrency(product.price)}</span>
+            <span className="font-bold text-white text-sm">
+              {formatCurrency(product.price)}
+            </span>
             {hasDiscount && (
               <span className="text-[10px] text-white/40 line-through">
                 {formatCurrency(product.originalPrice!)}
@@ -237,7 +285,9 @@ const ProductCard: React.FC<ProductCardProps> = ({
                   <Plus className="w-2.5 h-2.5" />
                 </button>
               </div>
-              <span className="text-[10px] text-primary font-medium">In Cart</span>
+              <span className="text-[10px] text-primary font-medium">
+                In Cart
+              </span>
             </div>
           ) : (
             <Button
@@ -247,7 +297,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
               className="w-full hover:shadow-md transition-shadow"
             >
               <ShoppingCart className="w-2.5 h-2.5 mr-1" />
-              {product.stock === 0 ? 'Out of Stock' : 'Add'}
+              {product.stock === 0 ? "Out of Stock" : "Add"}
             </Button>
           )}
         </div>
