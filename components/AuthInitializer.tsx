@@ -1,10 +1,17 @@
-'use client';
+"use client";
 
-import { useAuth } from '@/hooks/useAuth';
+import { useEffect } from "react";
+import { useAuthStore } from "@/store/auth";
 
 export function AuthInitializer() {
-  // This hook handles all the authentication logic
-  useAuth();
+  const { initializeGuestSession, user } = useAuthStore();
+
+  useEffect(() => {
+    // Initialize guest session if no user is logged in
+    if (!user) {
+      initializeGuestSession();
+    }
+  }, [user, initializeGuestSession]);
 
   return null; // This component doesn't render anything
 }

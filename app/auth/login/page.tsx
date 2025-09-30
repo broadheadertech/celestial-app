@@ -2,18 +2,18 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useSession } from 'next-auth/react';
-import { ArrowLeft, Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Card from '@/components/ui/Card';
 import { isValidEmail } from '@/lib/utils';
+import { useAuthStore } from '@/store/auth';
 
 export default function LoginPage() {
   const router = useRouter();
-  const { data: session, status } = useSession();
-  const { loginWithFacebook, loginWithEmail, isLoading } = useAuth();
+  const { user, isAuthenticated } = useAuthStore();
+  const { loginWithEmail, isLoading } = useAuth();
 
   const [formData, setFormData] = useState({
     email: '',
@@ -22,17 +22,46 @@ export default function LoginPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [hasRedirected, setHasRedirected] = useState(false);
 
-  // Redirect if already authenticated
+  // Check if user has completed onboarding
   useEffect(() => {
-    if (status === 'authenticated' && session?.user) {
-      const role = (session.user as { role?: string })?.role;
-      const path = role === 'admin' ? '/admin/dashboard' :
-                   role === 'super_admin' ? '/control_panel' :
-                   '/client/dashboard';
-      requestAnimationFrame(() => router.replace(path));
-    }
-  }, [session, status, router]);
+    const checkOnboardingStatus = () => {
+      const hasCompletedOnboarding = localStorage.getItem('onboarding_completed');
+      const isFirstVisit = !hasCompletedOnboarding;
+
+      // If it's the first visit and we haven't redirected yet, go to onboarding
+      if (isFirstVisit && !hasRedirected && !isAuthenticated) {
+        setHasRedirected(true);
+        router.push('/onboarding');
+        return;
+      }
+
+      // If user is authenticated, redirect to appropriate dashboard
+      if (isAuthenticated && user && !hasRedirected) {
+        const role = user.role;
+        const path = role === 'admin' ? '/admin/dashboard' :
+                     role === 'super_admin' ? '/control_panel' :
+                     '/client/dashboard';
+        setHasRedirected(true);
+        router.push(path);
+      }
+    };
+
+    checkOnboardingStatus();
+  }, [user, isAuthenticated, router, hasRedirected]);
+
+  // Show loading while determining redirect
+  if (hasRedirected) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary to-accent">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-white">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -63,6 +92,7 @@ export default function LoginPage() {
 
     try {
       await loginWithEmail(formData.email, formData.password);
+      // Redirect will be handled by useEffect after login
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Invalid email or password';
       setErrors({ general: message });
@@ -73,12 +103,8 @@ export default function LoginPage() {
 
   const handleFacebookLogin = async () => {
     setErrors({});
-    try {
-      await loginWithFacebook();
-    } catch (error) {
-      console.error('Facebook login error:', error);
-      setErrors({ general: 'Facebook login failed. Please try again.' });
-    }
+    // Facebook OAuth doesn't work with static export
+    setErrors({ general: 'Facebook login is not available in mobile app. Please use email/password.' });
   };
 
   const handleInputChange = (field: string, value: string) => {
@@ -88,25 +114,22 @@ export default function LoginPage() {
     }
   };
 
-  // Show loading state
-  if (status === 'loading') {
-    return null;
-  }
+  const handleBackToOnboarding = () => {
+    // Allow users to go back to onboarding if needed
+    localStorage.removeItem('onboarding_completed');
+    router.push('/onboarding');
+  };
 
-  if (status === 'authenticated' && session?.user) {
-    return null;
-  }
-
-  // Main login form
   return (
-    <div className="min-h-screen flex flex-col px-6 py-8">
+    <div className="min-h-screen flex flex-col px-6 py-8 bg-gradient-to-br from-background to-background-dark">
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <button
-          onClick={() => router.back()}
+          onClick={handleBackToOnboarding}
           className="flex items-center justify-center w-10 h-10 rounded-full bg-secondary border border-white/10 hover:bg-white/10 transition-colors"
+          title="Back to Onboarding"
         >
-          <ArrowLeft className="w-5 h-5 text-white" />
+          <span className="text-white text-sm">←</span>
         </button>
         <h1 className="text-xl font-semibold text-white">Sign In</h1>
         <div className="w-10" />

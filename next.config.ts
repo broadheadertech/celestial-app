@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  output: "export", // Generate static HTML files for Capacitor
   eslint: {
     // Skip linting during `next build` so we can produce mobile assets without refactoring
     ignoreDuringBuilds: true,
@@ -9,24 +10,21 @@ const nextConfig: NextConfig = {
     // Some typed routes still rely on incremental fixes; allow the build to proceed for Capacitor packaging
     ignoreBuildErrors: true,
   },
-  generateBuildId: async () => 'celestial-app-build',
   trailingSlash: true,
   images: {
     remotePatterns: [
       {
-        protocol: 'https',
-        hostname: 'images.unsplash.com',
+        protocol: "https",
+        hostname: "images.unsplash.com",
       },
       {
-        protocol: 'https',
-        hostname: '**',
+        protocol: "https",
+        hostname: "**",
       },
     ],
-    unoptimized: true, // For mobile/Expo compatibility
+    unoptimized: true, // Required for static export
     dangerouslyAllowSVG: true,
-    contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
   },
-  skipTrailingSlashRedirect: true,
-  };
+};
 
 export default nextConfig;

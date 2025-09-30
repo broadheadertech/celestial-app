@@ -1,14 +1,14 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { AuthInitializer } from "@/components/AuthInitializer";
-import { AuthProvider } from "@/components/AuthProvider";
 import { ConvexProvider } from "@/components/ConvexProvider";
 import { ReservationProvider } from "@/context/ReservationContext";
 import ClientReservationOverlay from "@/components/ui/ClientReservationOverlay";
 
 export const metadata: Metadata = {
   title: "Celestial Drakon Aquatics",
-  description: "Premium aquatic products and services - Your trusted partner for aquarium fish, tanks, and accessories.",
+  description:
+    "Premium aquatic products and services - Your trusted partner for aquarium fish, tanks, and accessories.",
   keywords: ["aquarium", "fish", "tanks", "aquatic", "Philippines"],
   authors: [{ name: "Celestial Drakon Aquatics" }],
 };
@@ -33,15 +33,13 @@ export default function RootLayout({
       </head>
       <body className="antialiased">
         <ConvexProvider>
-          <AuthProvider>
-            <ReservationProvider>
-              <AuthInitializer />
-              <div className="min-h-screen bg-background text-foreground">
-                {children}
-              </div>
-              <ClientReservationOverlay />
-            </ReservationProvider>
-          </AuthProvider>
+          <ReservationProvider>
+            <AuthInitializer />
+            <div className="min-h-screen bg-background text-foreground">
+              {children}
+            </div>
+            <ClientReservationOverlay />
+          </ReservationProvider>
         </ConvexProvider>
       </body>
     </html>
