@@ -36,6 +36,7 @@ import ProductCard from "@/components/ui/ProductCard";
 import ClientNotificationModal from "@/components/modal/ClientNotifModal";
 import ClientBottomNavbar from "@/components/client/ClientBottomNavbar";
 import { useToastHelpers } from "@/components/ui/ToastManager";
+import { localNotificationService } from "@/lib/notifications/localNotifications";
 
 export default function ClientDashboard() {
   const router = useRouter();
@@ -65,6 +66,9 @@ export default function ClientDashboard() {
   // Handle hydration to prevent SSR mismatch
   useEffect(() => {
     setIsHydrated(true);
+
+    // Initialize local notifications
+    localNotificationService.initialize();
   }, []);
 
   // Fetch data from Convex
@@ -125,11 +129,23 @@ export default function ClientDashboard() {
     if (confirmedReservations.length > 0) {
       setHasShownReservationNotif(true);
       const reservation = confirmedReservations[0];
+
+      // Show toast notification
       success(
         reservation.title,
         reservation.message + " - Check your reservations for pickup details.",
         { duration: 8000 },
       );
+
+      // Show native notification on mobile
+      localNotificationService.showNotification({
+        title: reservation.title,
+        body: reservation.message,
+        data: {
+          type: "reservation",
+          notificationId: reservation._id,
+        },
+      });
     }
   }, [clientNotifications, hasShownReservationNotif, isHydrated, success]);
 
