@@ -104,7 +104,7 @@ const BottomNavbar: React.FC<BottomNavbarProps> = ({ className = '' }) => {
   };
 
   return (
-    <div className={`fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur-sm border-t border-white/10 sm:hidden ${className}`}>
+    <div className={`fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur-sm border-t border-white/10 sm:hidden safe-area-bottom ${className}`}>
       <div className="grid grid-cols-5 py-2">
         {navItems.map((item) => {
           const IconComponent = item.icon;

@@ -97,7 +97,7 @@ const ClientBottomNavbar: React.FC<ClientBottomNavbarProps> = ({ className = '' 
   };
 
   return (
-    <div className={`fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur-md border-t border-white/10 ${className}`}>
+    <div className={`fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur-md border-t border-white/10 safe-area-bottom ${className}`}>
       <div className="grid grid-cols-4 py-1">
         {navItems.map((item) => {
           const IconComponent = item.icon;

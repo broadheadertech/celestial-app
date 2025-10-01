@@ -19,6 +19,7 @@ export const viewport: Viewport = {
   maximumScale: 1,
   userScalable: false,
   themeColor: "#FF6B00",
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
@@ -35,7 +36,7 @@ export default function RootLayout({
         <ConvexProvider>
           <ReservationProvider>
             <AuthInitializer />
-            <div className="min-h-screen bg-background text-foreground">
+            <div className="min-h-screen-safe bg-background text-foreground safe-area-wrapper">
               {children}
             </div>
             <ClientReservationOverlay />

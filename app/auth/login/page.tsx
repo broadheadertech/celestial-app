@@ -54,10 +54,15 @@ export default function LoginPage() {
   // Show loading while determining redirect
   if (hasRedirected) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary to-accent">
+      <div className="min-h-screen flex items-center justify-center bg-black">
         <div className="text-center">
-          <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-white">Loading...</p>
+          <div className="loading-spinner mx-auto mb-6"></div>
+          <div className="loading-dots mb-4">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+          <p className="text-gray-400 animate-float">Loading...</p>
         </div>
       </div>
     );
