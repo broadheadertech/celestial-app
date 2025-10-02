@@ -1,9 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Disable static export for development to support dynamic routes
-  // Re-enable "output: export" only when building for production/Capacitor
-  // output: "export",
+  // Disable static export to avoid generateStaticParams errors
+  // Dynamic routes will work properly with server-side rendering
   eslint: {
     // Skip linting during `next build` so we can produce mobile assets without refactoring
     ignoreDuringBuilds: true,
@@ -24,7 +23,7 @@ const nextConfig: NextConfig = {
         hostname: "**",
       },
     ],
-    unoptimized: true, // Required for static export
+    unoptimized: true,
     dangerouslyAllowSVG: true,
   },
 };
