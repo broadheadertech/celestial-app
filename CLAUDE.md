@@ -206,18 +206,20 @@ lib/                 # Utility functions
 ### Configuration
 - **App ID:** com.celestial.app
 - **App Name:** CelestialApp
-- **Web Directory:** out (Next.js static export)
-- **Development Server:** http://10.0.2.2:3000
+- **Web Directory:** public (minimal, not used in dev mode)
+- **Development Server:** http://10.0.2.2:3000 (Android emulator points to host machine)
 
-### Build Process
-1. **Web Build:** `npm run build` (creates static files)
-2. **Capacitor Sync:** `npx cap sync android`
-3. **Android Build:** `cd android && ./gradlew assembleDebug`
+### Development Workflow
+1. **Start Dev Server:** `npm run dev` (runs on http://localhost:3000)
+2. **Sync Capacitor:** `npx cap sync android` (syncs configuration only)
+3. **Run on Device/Emulator:** `npx cap run android` (or open Android Studio)
+
+**Note:** The app connects directly to the Next.js dev server running on your machine. No static build (`out` directory) is required for development or production. Dynamic routes work seamlessly without `generateStaticParams()`.
 
 ### Mobile-Specific Features
 - **Responsive Design:** Mobile-first UI components
 - **Native Navigation:** Bottom navigation for mobile
-- **Offline Support:** Local storage for cart and auth state
+- **Real-time Connection:** Direct connection to Next.js server for live updates
 - **Push Notifications:** Via Convex real-time updates
 
 ## 8. API & Data Flow
@@ -283,14 +285,12 @@ NEXT_PUBLIC_CONVEX_URL=your_convex_url
 ```bash
 # Development
 npm run dev              # Start dev server with Turbopack
-npm run build            # Build for production
-npm run start            # Start production server
 npm run lint             # Run ESLint
 
-# Mobile Development
-npx cap sync android     # Sync web assets to Android
+# Mobile Development (connects to dev server)
+npx cap sync android     # Sync Capacitor configuration
 npx cap open android     # Open Android Studio
-npx cap run android      # Build and run on device
+npx cap run android      # Build and run on device/emulator
 ```
 
 ## 11. Business Rules & Constraints
@@ -370,15 +370,20 @@ npx cap run android      # Build and run on device
 
 ## 16. Deployment & DevOps
 
-### Web Deployment
-- **Static Export:** `npm run build` creates static files
-- **Capacitor Sync:** Mobile app asset synchronization
-- **Environment Variables:** Production configuration
+### Development Setup
+- **Dev Server:** `npm run dev` runs Next.js on port 3000
+- **Capacitor Sync:** `npx cap sync android` syncs configuration
+- **Mobile Testing:** App connects to dev server at http://10.0.2.2:3000
+
+### Production Deployment
+- **Next.js Server:** Deploy to Vercel, Railway, or any Node.js host
+- **Mobile App:** Point `server.url` in capacitor.config.ts to production URL
+- **Environment Variables:** Configure production environment settings
 
 ### Mobile Deployment
-- **Android APK:** Debug and release builds
+- **Android APK:** Debug and release builds via Android Studio
 - **App Store:** Future iOS deployment
-- **OTA Updates:** Web-based content updates
+- **Live Updates:** App connects to deployed Next.js server for real-time data
 
 ## 17. Monitoring & Analytics
 

@@ -3,9 +3,11 @@ import type { CapacitorConfig } from '@capacitor/cli';
 const config: CapacitorConfig = {
   appId: 'com.celestial.app',
   appName: 'CelestialApp',
-  webDir: 'out',
+  webDir: 'public', // Minimal directory for Capacitor (not used when server.url is set)
   server: {
-    androidScheme: 'https'
+    androidScheme: 'https',
+    url: 'http://10.0.2.2:3000', // Development server (10.0.2.2 is Android emulator's host machine)
+    cleartext: true
   },
   plugins: {
     SplashScreen: {
