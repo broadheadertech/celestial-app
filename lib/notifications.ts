@@ -47,7 +47,7 @@ export class NotificationService {
 
     // Handle deep linking based on notification type
     if (extra?.type === 'reservation' && extra?.reservationId) {
-      window.location.href = `/client/reservations/${extra.reservationId}`;
+      window.location.href = `/client/reservations`;
     } else if (extra?.type === 'order' && extra?.orderId) {
       window.location.href = `/client/orders/${extra.orderId}`;
     } else if (extra?.type === 'product' && extra?.productId) {
