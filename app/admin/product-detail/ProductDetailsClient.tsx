@@ -1,11 +1,11 @@
 'use client';
 
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { Id } from '@/convex/_generated/dataModel';
 import { ArrowLeft, Award, Edit, Eye, X, CheckCircle, AlertTriangle, RefreshCw, Fish, Waves, Trash2 } from 'lucide-react';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Button from '@/components/ui/Button';
 
@@ -24,11 +24,27 @@ const getStockStatus = (stock: number) => {
   return { text: 'In Stock', color: '#10B981' };
 };
 
-export default function ProductDetailsPage() {
+export default function ProductDetailsClient() {
   const router = useRouter();
-  const params = useParams();
-  const id = params?.id as string;
-  
+  const searchParams = useSearchParams();
+
+  // Get product ID from query parameter
+  const id = searchParams.get('id');
+
+  // Removed capacitor fix - no longer needed
+  useEffect(() => {
+    if (false) {
+      const requestedPath = sessionStorage.getItem('_capacitor_requested_path');
+      if (requestedPath && requestedPath.startsWith('/admin/products/')) {
+        const productId = requestedPath.split('/admin/products/')[1]?.split('/')[0];
+        if (productId) {
+          sessionStorage.removeItem('_capacitor_requested_path');
+          router.replace(`/admin/products/${productId}`);
+        }
+      }
+    }
+  }, [id, router]);
+
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [certificateModalVisible, setCertificateModalVisible] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);

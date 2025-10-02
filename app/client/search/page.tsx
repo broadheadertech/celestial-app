@@ -192,7 +192,7 @@ function SearchContent() {
   };
 
   const handleProductClick = (product: Product) => {
-    router.push(`/client/product/${product._id}`);
+    router.push(`/client/product-detail?id=${product._id}`);
   };
 
   return (
@@ -371,7 +371,7 @@ function SearchContent() {
                   {productsQuery.slice(0, 6).map((product) => (
                     <button
                       key={product._id}
-                      onClick={() => router.push(`/client/product/${product._id}`)}
+                      onClick={() => router.push(`/client/product-detail?id=${product._id}`)}
                       className="p-3 bg-secondary/50 rounded-xl border border-white/10 hover:bg-secondary/70 transition-colors text-left"
                     >
                       <p className="text-sm font-medium text-white line-clamp-2">{product.name}</p>

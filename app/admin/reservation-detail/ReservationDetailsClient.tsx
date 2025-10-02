@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   ArrowLeft,
   User,
@@ -51,8 +51,10 @@ const statusColors = {
 
 export default function ReservationDetailsClient() {
   const router = useRouter();
-  const params = useParams();
-  const reservationId = params.id as string;
+  const searchParams = useSearchParams();
+
+  // Get reservation ID from query parameter
+  const reservationId = searchParams.get('id');
 
   const [isUpdating, setIsUpdating] = useState(false);
   const [showStatusModal, setShowStatusModal] = useState(false);
@@ -69,9 +71,9 @@ export default function ReservationDetailsClient() {
   });
 
   // Fetch reservation data using Convex
-  const reservation = useQuery(api.services.reservations.getReservationByIdAdmin, {
-    reservationId: reservationId as Id<'reservations'>
-  });
+  const reservation = useQuery(api.services.reservations.getReservationByIdAdmin,
+    reservationId ? { reservationId: reservationId as Id<'reservations'> } : "skip"
+  );
 
   // Mutations for updating reservation status
   const updateReservationStatus = useMutation(api.services.reservations.updateReservationStatus);
