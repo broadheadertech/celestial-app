@@ -756,7 +756,11 @@ export default function AdminOrdersPage() {
             <div className="p-2 max-h-96 overflow-y-auto scrollbar-hidden">
               <button
                 onClick={() => {
-                  router.push(`/admin/${item.type}s/${item._id}`);
+                  if (item.type === 'reservation') {
+                    router.push(`/admin/reservation-detail?id=${item._id}`);
+                  } else {
+                    router.push(`/admin/orders/${item._id}`);
+                  }
                   setSelectedItem(null);
                   setDropdownPosition(null);
                 }}
