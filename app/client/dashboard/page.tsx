@@ -336,7 +336,7 @@ export default function ClientDashboard() {
   };
 
   const handleProductClick = (product: Product) => {
-    router.push(`/client/product/${product._id}`);
+    router.push(`/client/product-detail?id=${product._id}`);
   };
 
   // Get unread notification count

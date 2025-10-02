@@ -184,7 +184,7 @@ export default function AdminProductsPage() {
     if (action === 'Edit') {
       router.push(`/admin/products/form?id=${productId}`);
     } else if (action === 'View') {
-      router.push(`/admin/products/${productId}`);
+      router.push(`/admin/product-detail?id=${productId}`);
     } else if (action === 'Toggle') {
       console.log('Toggle status for product:', productId);
     } else if (action === 'Delete') {
@@ -536,7 +536,7 @@ export default function AdminProductsPage() {
                         
                         <div className="flex items-center space-x-1.5 sm:space-x-2">
                           <button
-                            onClick={() => router.push(`/admin/products/${product._id}`)}
+                            onClick={() => router.push(`/admin/product-detail?id=${product._id}`)}
                             className="px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg bg-primary/10 border border-primary/20 text-primary text-xs hover:bg-primary/20 transition-colors"
                           >
                             View

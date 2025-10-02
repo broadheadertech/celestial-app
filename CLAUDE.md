@@ -206,21 +206,52 @@ lib/                 # Utility functions
 ### Configuration
 - **App ID:** com.celestial.app
 - **App Name:** CelestialApp
-- **Web Directory:** public (minimal, not used in dev mode)
-- **Development Server:** http://10.0.2.2:3000 (Android emulator points to host machine)
+- **Web Directory:** out (Next.js static export)
+- **Architecture:** Standalone static SPA with client-side routing
 
-### Development Workflow
-1. **Start Dev Server:** `npm run dev` (runs on http://localhost:3000)
-2. **Sync Capacitor:** `npx cap sync android` (syncs configuration only)
-3. **Run on Device/Emulator:** `npx cap run android` (or open Android Studio)
+### Build Process
 
-**Note:** The app connects directly to the Next.js dev server running on your machine. No static build (`out` directory) is required for development or production. Dynamic routes work seamlessly without `generateStaticParams()`.
+The app uses Next.js static export with catch-all routes for dynamic pages:
+
+1. **Build Next.js Static Export:**
+   ```bash
+   npm run build
+   # Creates static files in /out directory
+   ```
+
+2. **Sync with Capacitor:**
+   ```bash
+   npx cap sync android
+   # Copies /out to Android assets
+   ```
+
+3. **Build APK:**
+   ```bash
+   cd android
+   ./gradlew assembleDebug    # For testing
+   ./gradlew assembleRelease  # For production
+   ```
+
+4. **APK Location:**
+   - Debug: `android/app/build/outputs/apk/debug/app-debug.apk`
+   - Release: `android/app/build/outputs/apk/release/app-release.apk`
+
+### Dynamic Routes Implementation
+
+Dynamic routes use catch-all patterns for static export compatibility:
+- `/client/product/[[...id]]` - Handles all product detail pages
+- `/admin/products/[[...id]]` - Handles admin product management
+- `/admin/reservations/[[...id]]` - Handles reservation management
+
+All routes are pre-built as static HTML and use client-side routing with `useParams()` to fetch data from Convex.
 
 ### Mobile-Specific Features
+- **Standalone APK:** No server required, all static files bundled
+- **Client-Side Data:** Real-time data fetching from Convex
 - **Responsive Design:** Mobile-first UI components
 - **Native Navigation:** Bottom navigation for mobile
-- **Real-time Connection:** Direct connection to Next.js server for live updates
-- **Push Notifications:** Via Convex real-time updates
+- **Native Features:** Camera, push notifications via Capacitor plugins
+- **Offline-Ready:** Static assets cached by service worker (future)
 
 ## 8. API & Data Flow
 
@@ -285,10 +316,16 @@ NEXT_PUBLIC_CONVEX_URL=your_convex_url
 ```bash
 # Development
 npm run dev              # Start dev server with Turbopack
+npm run build            # Build static export for production
 npm run lint             # Run ESLint
 
-# Mobile Development (connects to dev server)
-npx cap sync android     # Sync Capacitor configuration
+# Mobile APK Build (Complete Process)
+npm run build                    # 1. Build Next.js static export
+npx cap sync android             # 2. Sync to Android
+cd android && ./gradlew assembleDebug    # 3. Build debug APK
+cd android && ./gradlew assembleRelease  # 3. Build release APK (for production)
+
+# Development Testing
 npx cap open android     # Open Android Studio
 npx cap run android      # Build and run on device/emulator
 ```
@@ -370,20 +407,49 @@ npx cap run android      # Build and run on device/emulator
 
 ## 16. Deployment & DevOps
 
-### Development Setup
-- **Dev Server:** `npm run dev` runs Next.js on port 3000
-- **Capacitor Sync:** `npx cap sync android` syncs configuration
-- **Mobile Testing:** App connects to dev server at http://10.0.2.2:3000
+### Static Export Build Process
 
-### Production Deployment
-- **Next.js Server:** Deploy to Vercel, Railway, or any Node.js host
-- **Mobile App:** Point `server.url` in capacitor.config.ts to production URL
-- **Environment Variables:** Configure production environment settings
+The app uses Next.js static export for standalone mobile deployment:
 
-### Mobile Deployment
-- **Android APK:** Debug and release builds via Android Studio
-- **App Store:** Future iOS deployment
-- **Live Updates:** App connects to deployed Next.js server for real-time data
+```bash
+# 1. Build static export
+npm run build
+# Output: /out directory with all static files
+
+# 2. Sync to Capacitor
+npx cap sync android
+# Copies static files to Android assets
+
+# 3. Build APK
+cd android
+./gradlew assembleDebug    # For testing
+./gradlew assembleRelease  # For production
+```
+
+### APK Distribution
+
+1. **Debug APK** (for testing):
+   - Location: `android/app/build/outputs/apk/debug/app-debug.apk`
+   - Install directly on device or emulator
+
+2. **Release APK** (for production):
+   - Location: `android/app/build/outputs/apk/release/app-release.apk`
+   - Sign with keystore
+   - Upload to Google Play Store
+
+### Deployment Architecture
+
+- **Static Files:** All HTML, CSS, JS bundled in APK
+- **Data Layer:** Client-side fetching from Convex API
+- **No Server Required:** APK runs standalone
+- **Updates:** Convex schema updates reflect immediately
+- **Versioning:** New features require new APK build
+
+### Benefits
+- **Truly Standalone:** No hosting costs for mobile app
+- **Fast Performance:** All assets loaded locally
+- **Offline-Capable:** UI works without internet (data requires connection)
+- **Simple Deployment:** Single APK file distribution
 
 ## 17. Monitoring & Analytics
 

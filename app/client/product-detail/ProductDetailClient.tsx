@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import {
   ArrowLeft,
@@ -69,20 +69,23 @@ interface FishData {
 
 export default function ProductDetailClient() {
   const router = useRouter();
-  const params = useParams();
+  const searchParams = useSearchParams();
+
+  // Get product ID from query parameter
+  const productId = searchParams.get('id');
 
   // Fetch real product data from Convex
   const productQuery = useQuery(api.services.products.getProduct,
-    params?.id ? { productId: params.id as Id<"products"> } : "skip"
+    productId ? { productId: productId as Id<"products"> } : "skip"
   );
 
   // Fetch fish and tank data based on product ID (only after product is loaded)
   const tankData = useQuery(api.services.products.getTankByProductId,
-    params?.id && productQuery ? { productId: params.id as Id<"products"> } : "skip"
+    productId && productQuery ? { productId: productId as Id<"products"> } : "skip"
   );
 
   const fishData = useQuery(api.services.products.getFishByProductId,
-    params?.id && productQuery ? { productId: params.id as Id<"products"> } : "skip"
+    productId && productQuery ? { productId: productId as Id<"products"> } : "skip"
   );
 
   // Fetch top reserved products to check if current product is most reserved

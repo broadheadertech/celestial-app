@@ -104,7 +104,7 @@ export class RealtimeService {
         } else if (data?.reservationId) {
           window.location.href = `/client/reservations`;
         } else if (data?.productId) {
-          window.location.href = `/client/product/${data.productId}`;
+          window.location.href = `/client/product-detail?id=${data.productId}`;
         }
       };
     }

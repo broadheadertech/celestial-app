@@ -51,7 +51,7 @@ export class NotificationService {
     } else if (extra?.type === 'order' && extra?.orderId) {
       window.location.href = `/client/orders/${extra.orderId}`;
     } else if (extra?.type === 'product' && extra?.productId) {
-      window.location.href = `/client/product/${extra.productId}`;
+      window.location.href = `/client/product-detail?id=${extra.productId}`;
     } else if (extra?.pushAction) {
       // Handle custom push actions
       this.handleCustomAction(extra.pushAction, extra);

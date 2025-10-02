@@ -1,14 +1,15 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
+// Production configuration - APK points to deployed server
 const config: CapacitorConfig = {
   appId: 'com.celestial.app',
   appName: 'CelestialApp',
-  webDir: 'out',
+  webDir: 'public',
   server: {
     androidScheme: 'https',
-    // Enable fallback to index.html for client-side routing
-    iosScheme: 'capacitor',
-    hostname: 'localhost'
+    // Replace with your production server URL
+    url: 'https://your-production-domain.com',
+    cleartext: false
   },
   plugins: {
     SplashScreen: {
