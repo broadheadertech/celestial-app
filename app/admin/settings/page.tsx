@@ -75,14 +75,6 @@ export default function AdminSettingsPage() {
     }
   }, [isAuthenticated, user, router]);
 
-  // Handle logout success - force redirect if user is no longer authenticated
-  useEffect(() => {
-    if (!isAuthenticated && user === null) {
-      console.log("User logged out, redirecting to login...");
-      window.location.href = "/auth/login";
-    }
-  }, [isAuthenticated, user]);
-
   // Populate settings from user data
   useEffect(() => {
     if (currentUser) {
@@ -115,65 +107,12 @@ export default function AdminSettingsPage() {
   const handleLogout = async () => {
     setIsLoggingOut(true);
     try {
-      console.log("🚪 Starting logout process...");
-      setShowLogoutConfirm(false);
-
-      setSettings({
-        email: "",
-        firstName: "",
-        lastName: "",
-        phone: "",
-        notifications: {
-          emailNotifications: true,
-          lowStockAlerts: true,
-          orderNotifications: true,
-          systemAlerts: true,
-        },
-        security: {
-          changePassword: false,
-          currentPassword: "",
-          newPassword: "",
-          confirmPassword: "",
-        },
-      });
-
-      console.log("🗄️ Clearing auth store...");
       await logout();
-
-      console.log("🧹 Clearing localStorage...");
-      try {
-        localStorage.removeItem("celestial-auth-storage");
-        localStorage.removeItem("onboarding_completed");
-        Object.keys(localStorage).forEach((key) => {
-          if (
-            key.includes("auth") ||
-            key.includes("session") ||
-            key.includes("token")
-          ) {
-            localStorage.removeItem(key);
-          }
-        });
-      } catch (storageError) {
-        console.warn("Could not clear localStorage:", storageError);
-      }
-
-      console.log("🔄 Redirecting to login...");
-      setModalMessage("Successfully logged out!");
-      setShowSuccessModal(true);
-
-      setTimeout(() => {
-        setShowSuccessModal(false);
-        window.location.href = "/auth/login";
-      }, 800);
+      setShowLogoutConfirm(false);
     } catch (error) {
-      console.error("❌ Logout error:", error);
-      setModalMessage("Error during logout. Redirecting to login...");
+      console.error('Logout error:', error);
+      setModalMessage('Error during logout. Please try again.');
       setShowErrorModal(true);
-
-      setTimeout(() => {
-        setShowErrorModal(false);
-        window.location.href = "/auth/login";
-      }, 1500);
     } finally {
       setIsLoggingOut(false);
     }
@@ -629,19 +568,10 @@ export default function AdminSettingsPage() {
                   <p className="text-xs sm:text-sm text-white/60 mt-1 leading-relaxed">
                     Sign out of your admin account
                   </p>
-                  {process.env.NODE_ENV === "development" && (
-                    <p className="text-xs text-yellow-400 mt-2 break-all font-mono leading-relaxed">
-                      Auth: {isAuthenticated ? "✅" : "❌"} | User:{" "}
-                      {user ? `${user.firstName} (${user.role})` : "None"}
-                    </p>
-                  )}
                 </div>
               </div>
               <Button
-                onClick={() => {
-                  console.log("🚪 Logout button clicked");
-                  setShowLogoutConfirm(true);
-                }}
+                onClick={() => setShowLogoutConfirm(true)}
                 className="w-full sm:w-auto flex-shrink-0 bg-error/10 border border-error/20 text-error hover:bg-error/20 active:bg-error/30 active:scale-95 transition-all text-sm px-4 py-2.5 font-medium shadow-lg whitespace-nowrap"
                 disabled={isLoggingOut}
               >
@@ -731,20 +661,14 @@ export default function AdminSettingsPage() {
             </div>
             <div className="flex flex-col-reverse sm:flex-row gap-2 sm:gap-3">
               <Button
-                onClick={() => {
-                  console.log("Cancel logout clicked");
-                  setShowLogoutConfirm(false);
-                }}
+                onClick={() => setShowLogoutConfirm(false)}
                 disabled={isLoggingOut}
                 className="flex-1 bg-white/10 border border-white/20 text-white hover:bg-white/20 active:bg-white/30 active:scale-95 transition-all"
               >
                 Cancel
               </Button>
               <Button
-                onClick={() => {
-                  console.log("Confirm logout clicked");
-                  handleLogout();
-                }}
+                onClick={handleLogout}
                 disabled={isLoggingOut}
                 className="flex-1 bg-error hover:bg-error/90 active:scale-95 transition-all"
               >
