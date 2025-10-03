@@ -4,7 +4,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 const config: CapacitorConfig = {
   appId: 'com.celestial.app',
   appName: 'CelestialApp',
-  webDir: 'public',
+  webDir: 'out',
   server: {
     androidScheme: 'https',
     // Replace with your production server URL
