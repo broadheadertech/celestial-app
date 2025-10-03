@@ -83,7 +83,7 @@ export default function AdminDashboardPage() {
     }
   };
 
-  // Stats cards data with real data - compact design
+  // Stats cards data with real data
   const statsCards = useMemo(() => {
     if (!dashboardStats) return [];
 
@@ -133,63 +133,64 @@ export default function AdminDashboardPage() {
   }, [dashboardStats]);
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      {/* Header */}
+    <div className="min-h-screen bg-background text-foreground pb-20 sm:pb-6">
+      {/* Header - Mobile Optimized */}
       <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-white/10">
-        <div className="px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-xl font-bold text-foreground">Dashboard</h1>
-              <p className="text-sm text-muted">Welcome back! Here&apos;s your business overview.</p>
+        <div className="px-3 sm:px-6 py-3 sm:py-4">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex-1 min-w-0">
+              <h1 className="text-lg sm:text-xl font-bold text-foreground truncate">Dashboard</h1>
+              <p className="text-xs sm:text-sm text-muted truncate hidden xs:block">Welcome back! Here&apos;s your overview.</p>
             </div>
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
               {/* Notification Bell */}
               <button
                 onClick={() => setIsNotificationModalOpen(true)}
-                className="relative p-2 rounded-lg bg-secondary border border-white/10 hover:bg-white/10 transition-colors"
+                className="relative p-2 sm:p-2.5 rounded-lg bg-secondary border border-white/10 hover:bg-white/10 active:scale-95 transition-all touch-manipulation"
                 title="Notifications"
               >
-                <Bell className="w-5 h-5 text-foreground" />
+                <Bell className="w-4 h-4 sm:w-5 sm:h-5 text-foreground" />
                 {unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-error text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-medium">
+                  <span className="absolute -top-1 -right-1 bg-error text-white text-[10px] sm:text-xs rounded-full min-w-[18px] h-[18px] sm:min-w-[20px] sm:h-[20px] flex items-center justify-center font-medium px-1">
                     {unreadCount > 9 ? '9+' : unreadCount}
                   </span>
                 )}
               </button>
               <button
                 onClick={() => router.push('/admin/analytics')}
-                className="p-2 rounded-lg bg-secondary border border-white/10 hover:bg-white/10 transition-colors"
+                className="p-2 sm:p-2.5 rounded-lg bg-secondary border border-white/10 hover:bg-white/10 active:scale-95 transition-all touch-manipulation hidden xs:flex"
                 title="View Analytics"
               >
-                <BarChart3 className="w-5 h-5 text-foreground" />
+                <BarChart3 className="w-4 h-4 sm:w-5 sm:h-5 text-foreground" />
               </button>
               <button
                 onClick={() => router.push('/admin/settings')}
-                className="p-2 rounded-lg bg-secondary border border-white/10 hover:bg-white/10 transition-colors"
+                className="p-2 sm:p-2.5 rounded-lg bg-secondary border border-white/10 hover:bg-white/10 active:scale-95 transition-all touch-manipulation hidden sm:flex"
                 title="Settings"
               >
-                <Activity className="w-5 h-5 text-foreground" />
+                <Activity className="w-4 h-4 sm:w-5 sm:h-5 text-foreground" />
               </button>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Stats Cards - Compact Modern Design */}
-      <div className="px-4 sm:px-6 py-4">
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+      {/* Main Content */}
+      <div className="px-3 sm:px-6 py-3 sm:py-4">
+        {/* Stats Cards - Mobile First Grid */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 mb-4 sm:mb-6">
           {statsCards.map((stat) => {
             const IconComponent = stat.icon;
             return (
               <div
                 key={stat.id}
-                className="bg-secondary/40 border border-primary/10 rounded-lg p-3 backdrop-blur-sm hover:border-primary/20 hover:bg-secondary/50 transition-all duration-200 group"
+                className="bg-secondary/40 border border-primary/10 rounded-lg sm:rounded-xl p-3 sm:p-4 backdrop-blur-sm hover:border-primary/20 hover:bg-secondary/50 transition-all duration-200 group"
               >
-                <div className="flex items-start justify-between mb-2.5">
-                  <div className={`p-1.5 rounded-md ${stat.bgColor} group-hover:scale-105 transition-transform`}>
-                    <IconComponent className={`w-4 h-4 ${stat.color}`} />
+                <div className="flex items-start justify-between mb-2 sm:mb-2.5">
+                  <div className={`p-1.5 sm:p-2 rounded-md ${stat.bgColor} group-hover:scale-105 transition-transform`}>
+                    <IconComponent className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${stat.color}`} />
                   </div>
-                  <span className={`text-xs font-medium px-2 py-0.5 rounded-md ${
+                  <span className={`text-[10px] sm:text-xs font-medium px-1.5 sm:px-2 py-0.5 rounded-md whitespace-nowrap ${
                     stat.change.startsWith('+')
                       ? 'text-success bg-success/15'
                       : 'text-muted bg-muted/15'
@@ -197,58 +198,61 @@ export default function AdminDashboardPage() {
                     {stat.change}
                   </span>
                 </div>
-                <div className="space-y-1">
-                  <p className="text-lg font-bold text-foreground leading-none">{stat.value}</p>
-                  <p className="text-xs text-muted/70 leading-tight">{stat.title}</p>
+                <div className="space-y-0.5 sm:space-y-1">
+                  <p className="text-base sm:text-lg font-bold text-foreground leading-none truncate">{stat.value}</p>
+                  <p className="text-[10px] sm:text-xs text-muted/70 leading-tight line-clamp-2">{stat.title}</p>
                 </div>
               </div>
             );
           })}
         </div>
 
-        {/* Charts and Recent Activity */}
-        <div className="grid lg:grid-cols-2 gap-6">
+        {/* Recent Orders & Low Stock - Stacked on Mobile */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-6">
           {/* Recent Orders */}
-          <div className="bg-secondary/50 border border-primary/10 rounded-xl p-6 backdrop-blur-sm">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-foreground">Recent Orders</h3>
+          <div className="bg-secondary/50 border border-primary/10 rounded-xl p-4 sm:p-6 backdrop-blur-sm">
+            <div className="flex items-center justify-between mb-3 sm:mb-4">
+              <h3 className="text-base sm:text-lg font-bold text-foreground">Recent Orders</h3>
               <button
                 onClick={() => router.push('/admin/orders')}
-                className="text-sm text-primary hover:text-primary/80 transition-colors"
+                className="text-xs sm:text-sm text-primary hover:text-primary/80 transition-colors font-medium touch-manipulation"
               >
                 View All
               </button>
             </div>
-            <div className="space-y-3">
+            <div className="space-y-2 sm:space-y-3">
               {!recentOrders ? (
-                <div className="text-center py-8">
-                  <RefreshCw className="w-6 h-6 animate-spin text-primary mx-auto mb-2" />
-                  <p className="text-sm text-muted">Loading recent orders...</p>
+                <div className="text-center py-6 sm:py-8">
+                  <RefreshCw className="w-5 h-5 sm:w-6 sm:h-6 animate-spin text-primary mx-auto mb-2" />
+                  <p className="text-xs sm:text-sm text-muted">Loading recent orders...</p>
                 </div>
               ) : recentOrders.length === 0 ? (
-                <div className="text-center py-8">
-                  <ShoppingBag className="w-8 h-8 text-muted mx-auto mb-2" />
-                  <p className="text-sm text-muted">No recent orders</p>
+                <div className="text-center py-6 sm:py-8">
+                  <ShoppingBag className="w-6 h-6 sm:w-8 sm:h-8 text-muted mx-auto mb-2" />
+                  <p className="text-xs sm:text-sm text-muted">No recent orders</p>
                 </div>
               ) : (
                 recentOrders.map((order) => {
                   const StatusIcon = getOrderStatusIcon(order.status);
                   return (
-                    <div key={order._id} className="flex items-center justify-between p-3 bg-background/50 rounded-lg border border-white/5">
-                      <div className="flex items-center space-x-3">
-                        <div className="p-2 rounded-lg bg-primary/10">
-                          <ShoppingBag className="w-4 h-4 text-primary" />
+                    <div 
+                      key={order._id} 
+                      className="flex items-center justify-between gap-2 p-2.5 sm:p-3 bg-background/50 rounded-lg border border-white/5 hover:border-white/10 transition-colors"
+                    >
+                      <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                        <div className="p-1.5 sm:p-2 rounded-lg bg-primary/10 flex-shrink-0">
+                          <ShoppingBag className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-primary" />
                         </div>
-                        <div>
-                          <p className="font-medium text-foreground text-sm">{order.customerName}</p>
-                          <p className="text-xs text-muted">{order.type} • {order.itemCount || 1} items</p>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-foreground text-xs sm:text-sm truncate">{order.customerName}</p>
+                          <p className="text-[10px] sm:text-xs text-muted truncate">{order.type} • {order.itemCount || 1} items</p>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <p className="font-bold text-foreground text-sm">{formatCurrency(order.totalAmount)}</p>
-                        <div className="flex items-center space-x-1">
-                          <StatusIcon className={`w-3 h-3 ${getOrderStatusColor(order.status)}`} />
-                          <span className={`text-xs capitalize ${getOrderStatusColor(order.status)}`}>
+                      <div className="text-right flex-shrink-0">
+                        <p className="font-bold text-foreground text-xs sm:text-sm whitespace-nowrap">{formatCurrency(order.totalAmount)}</p>
+                        <div className="flex items-center justify-end gap-1">
+                          <StatusIcon className={`w-2.5 h-2.5 sm:w-3 sm:h-3 ${getOrderStatusColor(order.status)}`} />
+                          <span className={`text-[10px] sm:text-xs capitalize ${getOrderStatusColor(order.status)} whitespace-nowrap`}>
                             {order.status}
                           </span>
                         </div>
@@ -261,46 +265,49 @@ export default function AdminDashboardPage() {
           </div>
 
           {/* Low Stock Alert */}
-          <div className="bg-secondary/50 border border-primary/10 rounded-xl p-6 backdrop-blur-sm">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-foreground">Low Stock Alert</h3>
+          <div className="bg-secondary/50 border border-primary/10 rounded-xl p-4 sm:p-6 backdrop-blur-sm">
+            <div className="flex items-center justify-between mb-3 sm:mb-4">
+              <h3 className="text-base sm:text-lg font-bold text-foreground">Low Stock Alert</h3>
               <button
                 onClick={() => router.push('/admin/products')}
-                className="text-sm text-primary hover:text-primary/80 transition-colors"
+                className="text-xs sm:text-sm text-primary hover:text-primary/80 transition-colors font-medium touch-manipulation"
               >
                 Manage
               </button>
             </div>
-            <div className="space-y-3">
+            <div className="space-y-2 sm:space-y-3">
               {!lowStockProducts ? (
-                <div className="text-center py-8">
-                  <RefreshCw className="w-6 h-6 animate-spin text-primary mx-auto mb-2" />
-                  <p className="text-sm text-muted">Loading low stock products...</p>
+                <div className="text-center py-6 sm:py-8">
+                  <RefreshCw className="w-5 h-5 sm:w-6 sm:h-6 animate-spin text-primary mx-auto mb-2" />
+                  <p className="text-xs sm:text-sm text-muted">Loading low stock products...</p>
                 </div>
               ) : lowStockProducts.length === 0 ? (
-                <div className="text-center py-8">
-                  <CheckCircle className="w-8 h-8 text-success mx-auto mb-2" />
-                  <p className="text-sm text-muted">All products are well stocked!</p>
+                <div className="text-center py-6 sm:py-8">
+                  <CheckCircle className="w-6 h-6 sm:w-8 sm:h-8 text-success mx-auto mb-2" />
+                  <p className="text-xs sm:text-sm text-muted">All products are well stocked!</p>
                 </div>
               ) : (
                 lowStockProducts.map((product) => (
-                  <div key={product._id} className="flex items-center justify-between p-3 bg-background/50 rounded-lg border border-white/5">
-                    <div className="flex items-center space-x-3">
-                      <div className="p-2 rounded-lg bg-warning/10">
-                        <Package className="w-4 h-4 text-warning" />
+                  <div 
+                    key={product._id} 
+                    className="flex items-center justify-between gap-2 p-2.5 sm:p-3 bg-background/50 rounded-lg border border-white/5 hover:border-white/10 transition-colors"
+                  >
+                    <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                      <div className="p-1.5 sm:p-2 rounded-lg bg-warning/10 flex-shrink-0">
+                        <Package className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-warning" />
                       </div>
-                      <div>
-                        <p className="font-medium text-foreground text-sm">{product.name}</p>
-                        <p className="text-xs text-muted">{product.categoryName}</p>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-foreground text-xs sm:text-sm truncate">{product.name}</p>
+                        <p className="text-[10px] sm:text-xs text-muted truncate">{product.categoryName}</p>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <div className={`px-2 py-1 rounded text-xs font-medium ${
+                    <div className="text-right flex-shrink-0">
+                      <div className={`px-2 py-1 rounded text-[10px] sm:text-xs font-medium whitespace-nowrap ${
                         product.stock === 0
                           ? 'bg-error/10 text-error'
                           : 'bg-warning/10 text-warning'
                       }`}>
-                        {product.stock === 0 ? 'Out of stock' : `${product.stock} left`}
+                        {product.stock === 0 ? 'Out' : `${product.stock} left`}
                       </div>
                     </div>
                   </div>
@@ -310,40 +317,39 @@ export default function AdminDashboardPage() {
           </div>
         </div>
 
-        {/* Quick Actions */}
-        <div className="mt-8 bg-secondary/50 border border-primary/10 rounded-xl p-6 backdrop-blur-sm">
-          <h3 className="text-lg font-bold text-foreground mb-4">Quick Actions</h3>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        {/* Quick Actions - Mobile Optimized Grid */}
+        <div className="mt-4 sm:mt-8 bg-secondary/50 border border-primary/10 rounded-xl p-4 sm:p-6 backdrop-blur-sm">
+          <h3 className="text-base sm:text-lg font-bold text-foreground mb-3 sm:mb-4">Quick Actions</h3>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
             <button
               onClick={() => router.push('/admin/products/form')}
-              className="flex flex-col items-center p-4 bg-primary/10 border border-primary/20 rounded-lg hover:bg-primary/20 transition-colors"
+              className="flex flex-col items-center justify-center p-3 sm:p-4 bg-primary/10 border border-primary/20 rounded-lg hover:bg-primary/20 active:scale-95 transition-all touch-manipulation min-h-[80px] sm:min-h-[100px]"
             >
-              <Package className="w-6 h-6 text-primary mb-2" />
-              <span className="text-sm font-medium text-primary">Add Product</span>
+              <Package className="w-5 h-5 sm:w-6 sm:h-6 text-primary mb-1.5 sm:mb-2" />
+              <span className="text-xs sm:text-sm font-medium text-primary text-center">Add Product</span>
             </button>
             <button
               onClick={() => router.push('/admin/orders')}
-              className="flex flex-col items-center p-4 bg-info/10 border border-info/20 rounded-lg hover:bg-info/20 transition-colors"
+              className="flex flex-col items-center justify-center p-3 sm:p-4 bg-info/10 border border-info/20 rounded-lg hover:bg-info/20 active:scale-95 transition-all touch-manipulation min-h-[80px] sm:min-h-[100px]"
             >
-              <ShoppingBag className="w-6 h-6 text-info mb-2" />
-              <span className="text-sm font-medium text-info">View Orders</span>
+              <ShoppingBag className="w-5 h-5 sm:w-6 sm:h-6 text-info mb-1.5 sm:mb-2" />
+              <span className="text-xs sm:text-sm font-medium text-info text-center">View Orders</span>
             </button>
             <button
               onClick={() => router.push('/admin/users')}
-              className="flex flex-col items-center p-4 bg-warning/10 border border-warning/20 rounded-lg hover:bg-warning/20 transition-colors"
+              className="flex flex-col items-center justify-center p-3 sm:p-4 bg-warning/10 border border-warning/20 rounded-lg hover:bg-warning/20 active:scale-95 transition-all touch-manipulation min-h-[80px] sm:min-h-[100px]"
             >
-              <Users className="w-6 h-6 text-warning mb-2" />
-              <span className="text-sm font-medium text-warning">Manage Users</span>
+              <Users className="w-5 h-5 sm:w-6 sm:h-6 text-warning mb-1.5 sm:mb-2" />
+              <span className="text-xs sm:text-sm font-medium text-warning text-center">Manage Users</span>
             </button>
             <button
               onClick={() => router.push('/admin/analytics')}
-              className="flex flex-col items-center p-4 bg-success/10 border border-success/20 rounded-lg hover:bg-success/20 transition-colors"
+              className="flex flex-col items-center justify-center p-3 sm:p-4 bg-success/10 border border-success/20 rounded-lg hover:bg-success/20 active:scale-95 transition-all touch-manipulation min-h-[80px] sm:min-h-[100px]"
             >
-              <BarChart3 className="w-6 h-6 text-success mb-2" />
-              <span className="text-sm font-medium text-success">View Analytics</span>
+              <BarChart3 className="w-5 h-5 sm:w-6 sm:h-6 text-success mb-1.5 sm:mb-2" />
+              <span className="text-xs sm:text-sm font-medium text-success text-center">View Analytics</span>
             </button>
           </div>
-
         </div>
       </div>
 
@@ -355,9 +361,6 @@ export default function AdminDashboardPage() {
 
       {/* Bottom Navigation */}
       <BottomNavbar />
-
-      {/* Bottom padding for mobile navigation */}
-      <div className="h-16 sm:hidden" />
     </div>
   );
 }

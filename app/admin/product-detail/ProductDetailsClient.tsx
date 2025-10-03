@@ -28,10 +28,8 @@ export default function ProductDetailsClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // Get product ID from query parameter
   const id = searchParams.get('id');
 
-  // Removed capacitor fix - no longer needed
   useEffect(() => {
     if (false) {
       const requestedPath = sessionStorage.getItem('_capacitor_requested_path');
@@ -53,17 +51,14 @@ export default function ProductDetailsClient() {
   const [modalMessage, setModalMessage] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // Fetch real product data from Convex - use admin API to get all products and filter
   const allProducts = useQuery(api.services.admin.getAllProductsAdmin, {});
   const product = allProducts?.find(p => p._id === id);
   
-  // Fix: Only query category if we have a valid categoryId
   const category = useQuery(
     api.services.categories.getCategory,
     product?.categoryId ? { categoryId: product.categoryId as Id<"categories"> } : "skip"
   );
   
-  // Fix: Only query fish/tank data if we have a valid product ID
   const fishData = useQuery(
     api.services.products.getFishByProductId,
     product?._id ? { productId: product._id as Id<"products"> } : "skip"
@@ -74,33 +69,30 @@ export default function ProductDetailsClient() {
     product?._id ? { productId: product._id as Id<"products"> } : "skip"
   );
   
-  // Add delete mutation
   const deleteProduct = useMutation(api.services.admin.deleteProduct);
   
-  // Loading state
   if (allProducts === undefined) {
     return (
-      <div className="min-h-screen bg-[#121212] flex items-center justify-center">
+      <div className="min-h-screen bg-[#121212] flex items-center justify-center p-4">
         <div className="text-center">
-          <RefreshCw className="w-8 h-8 animate-spin text-primary mx-auto mb-4" />
-          <h1 className="font-bold text-xl text-white mb-4">Loading product...</h1>
-          <p className="text-white/60 text-sm">Please wait while we fetch the product details.</p>
+          <RefreshCw className="w-8 h-8 sm:w-10 sm:h-10 animate-spin text-primary mx-auto mb-4" />
+          <h1 className="font-bold text-lg sm:text-xl text-white mb-2">Loading product...</h1>
+          <p className="text-white/60 text-xs sm:text-sm">Please wait while we fetch the product details.</p>
         </div>
       </div>
     );
   }
 
-  // Product not found
   if (!product) {
     return (
-      <div className="min-h-screen bg-[#121212] flex items-center justify-center">
-        <div className="text-center">
-          <AlertTriangle className="w-12 h-12 text-error mx-auto mb-4" />
-          <h1 className="font-bold text-xl text-white mb-4">Product Not Found</h1>
-          <p className="text-white/60 text-sm mb-6">The product you're looking for doesn't exist or has been removed.</p>
+      <div className="min-h-screen bg-[#121212] flex items-center justify-center p-4">
+        <div className="text-center max-w-md mx-auto">
+          <AlertTriangle className="w-12 h-12 sm:w-16 sm:h-16 text-error mx-auto mb-4" />
+          <h1 className="font-bold text-lg sm:text-xl text-white mb-2">Product Not Found</h1>
+          <p className="text-white/60 text-xs sm:text-sm mb-6">The product you're looking for doesn't exist or has been removed.</p>
           <Button
             onClick={() => router.push('/admin/products')}
-            className="bg-primary hover:bg-primary/90"
+            className="bg-primary hover:bg-primary/90 w-full sm:w-auto"
           >
             Back to Products
           </Button>
@@ -116,37 +108,22 @@ export default function ProductDetailsClient() {
   const isFishProduct = category?.name?.toLowerCase().includes('fish') || false;
   const isTankProduct = category?.name?.toLowerCase().includes('tank') || category?.name?.toLowerCase().includes('aquarium') || false;
 
-  // Helper function to normalize image URLs
   const normalizeImageUrl = (url: string | undefined): string => {
     if (!url) return '/img/logo-app.png';
-    
-    // Handle file:// URLs by converting to data URLs or using fallback
     if (url.startsWith('file://')) {
       console.warn('File URL detected, using fallback image:', url);
       return '/img/logo-app.png';
     }
-    
-    // Handle relative URLs
-    if (url.startsWith('/')) {
-      return url;
-    }
-    
-    // Handle absolute URLs
-    if (url.startsWith('http')) {
-      return url;
-    }
-    
-    // Default fallback
+    if (url.startsWith('/')) return url;
+    if (url.startsWith('http')) return url;
     return '/img/logo-app.png';
   };
 
-  // Combine main image with additional images for display, with fallback to logo
   const allImageUrls = [
     product.image,
     ...(product.images || [])
   ].filter(Boolean).map(normalizeImageUrl);
 
-  // Use logo as fallback if no images
   const displayImages = allImageUrls.length > 0 ? allImageUrls : ['/img/logo-app.png'];
 
   const handleDelete = async () => {
@@ -183,39 +160,40 @@ export default function ProductDetailsClient() {
 
   return (
     <div className="min-h-screen bg-[#121212]">
-      {/* Header */}
-      <div className="flex items-center justify-between px-6 pt-16 pb-4">
-        <button
-          onClick={() => router.push('/admin/products')}
-          className="w-10 h-10 rounded-full flex items-center justify-center bg-white/5 hover:bg-white/10 transition-colors"
-        >
-          <ArrowLeft size={20} color="#FFFFFF" />
-        </button>
-        <h1 className="font-bold text-xl text-white">Product Details</h1>
-        <div className="flex">
+      {/* Header - Improved mobile spacing */}
+      <div className="sticky top-0 z-40 bg-[#121212]/95 backdrop-blur-md border-b border-white/10">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4">
+          <button
+            onClick={() => router.push('/admin/products')}
+            className="w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center bg-white/5 hover:bg-white/10 active:scale-95 transition-all"
+            aria-label="Go back"
+          >
+            <ArrowLeft size={18} color="#FFFFFF" className="sm:w-5 sm:h-5" />
+          </button>
+          <h1 className="font-bold text-base sm:text-xl text-white">Product Details</h1>
           <button
             onClick={handleEdit}
-            className="w-10 h-10 rounded-full flex items-center justify-center bg-white/5 hover:bg-white/10 transition-colors mr-2"
+            className="w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center bg-white/5 hover:bg-white/10 active:scale-95 transition-all"
+            aria-label="Edit product"
           >
-            <Edit size={18} color="#FF6B00" />
+            <Edit size={16} color="#FF6B00" className="sm:w-[18px] sm:h-[18px]" />
           </button>
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
-        {/* Product Images */}
-        <div className="px-6 mb-6">
-          <div className="rounded-2xl overflow-hidden mb-4 relative">
-            <div className="relative w-full h-80">
+      <div className="flex-1 overflow-y-auto pb-6">
+        {/* Product Images - Improved mobile layout */}
+        <div className="px-4 sm:px-6 pt-4 sm:pt-6 mb-4 sm:mb-6">
+          <div className="rounded-xl sm:rounded-2xl overflow-hidden mb-3 sm:mb-4 relative bg-[#1A1A1A]">
+            <div className="relative w-full h-64 sm:h-80 md:h-96">
               <Image
                 src={displayImages[activeImageIndex]}
                 alt={product.name}
                 fill
-                className="object-cover"
+                className="object-contain sm:object-cover"
                 unoptimized={true}
                 onError={(e) => {
                   console.error('Image load error:', e);
-                  // Fallback to logo if image fails to load
                   const target = e.target as HTMLImageElement;
                   target.src = '/img/logo-app.png';
                 }}
@@ -223,40 +201,40 @@ export default function ProductDetailsClient() {
             </div>
             
             {discount > 0 && (
-              <div className="absolute top-4 left-4 px-2 py-1 rounded-lg bg-[#EF4444]">
+              <div className="absolute top-3 sm:top-4 left-3 sm:left-4 px-2 py-1 rounded-lg bg-[#EF4444] shadow-lg">
                 <span className="font-bold text-xs text-white">-{discount}%</span>
               </div>
             )}
             
             {product.badge && (
-              <div className="absolute top-4 right-4 px-2 py-1 rounded-lg bg-[#FF6B00]">
+              <div className="absolute top-3 sm:top-4 right-3 sm:right-4 px-2 py-1 rounded-lg bg-[#FF6B00] shadow-lg">
                 <span className="font-bold text-xs text-white">{product.badge}</span>
               </div>
             )}
 
-            {/* Certificate indicator */}
             {product.certificate && (
               <button
                 onClick={handleViewCertificate}
-                className="absolute bottom-4 right-4 w-10 h-10 rounded-full flex items-center justify-center bg-[#10B981]/60 hover:bg-[#10B981]/80 transition-colors"
+                className="absolute bottom-3 sm:bottom-4 right-3 sm:right-4 w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center bg-[#10B981]/80 hover:bg-[#10B981] active:scale-95 transition-all shadow-lg"
+                aria-label="View certificate"
               >
-                <Award size={20} color="#FFFFFF" />
+                <Award size={18} color="#FFFFFF" className="sm:w-5 sm:h-5" />
               </button>
             )}
           </div>
           
-          {/* Image Thumbnails */}
+          {/* Image Thumbnails - Improved mobile scrolling */}
           {displayImages.length > 1 && (
-            <div className="flex overflow-x-auto space-x-2 scrollbar-hide">
+            <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-2 -mx-4 px-4 sm:mx-0 sm:px-0">
               {displayImages.map((imageUrl, index) => (
                 <button
                   key={index}
                   onClick={() => setActiveImageIndex(index)}
-                  className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-colors ${
-                    activeImageIndex === index ? 'border-[#FF6B00]' : 'border-transparent'
+                  className={`flex-shrink-0 w-14 h-14 sm:w-16 sm:h-16 rounded-lg overflow-hidden border-2 transition-all active:scale-95 ${
+                    activeImageIndex === index ? 'border-[#FF6B00] shadow-lg' : 'border-transparent opacity-60'
                   }`}
                 >
-                  <div className="relative w-full h-full">
+                  <div className="relative w-full h-full bg-[#1A1A1A]">
                     <Image
                       src={imageUrl}
                       alt={`${product.name} ${index + 1}`}
@@ -276,139 +254,139 @@ export default function ProductDetailsClient() {
           )}
         </div>
 
-        {/* Product Info */}
-        <div className="px-6 mb-6">
-          <div className="flex items-center justify-between mb-2">
-            <h1 className="font-bold text-2xl text-white flex-1">{product.name}</h1>
+        {/* Product Info - Improved mobile layout */}
+        <div className="px-4 sm:px-6 mb-4 sm:mb-6">
+          <div className="flex items-start justify-between gap-3 mb-3">
+            <h1 className="font-bold text-xl sm:text-2xl text-white flex-1 leading-tight">{product.name}</h1>
             {product.certificate && (
               <button
                 onClick={handleViewCertificate}
-                className="ml-2 px-3 py-1 rounded-lg flex items-center bg-[#10B981]/10 hover:bg-[#10B981]/20 transition-colors"
+                className="flex-shrink-0 px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-lg flex items-center gap-1.5 bg-[#10B981]/10 hover:bg-[#10B981]/20 active:scale-95 transition-all"
               >
-                <Award size={16} color="#10B981" />
-                <span className="font-medium text-sm ml-1 text-[#10B981]">Certified</span>
+                <Award size={14} color="#10B981" className="sm:w-4 sm:h-4" />
+                <span className="font-medium text-xs sm:text-sm text-[#10B981]">Certified</span>
               </button>
             )}
           </div>
           
-          <p className="text-base mb-4 text-[#B3B3B3]">
+          <p className="text-sm sm:text-base mb-4 text-[#B3B3B3]">
             {category?.name || 'Unknown Category'}
           </p>
           
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center">
-              <span className="font-bold text-3xl text-[#FF6B00]">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-4">
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-2xl sm:text-3xl text-[#FF6B00]">
                 ₱{product.price.toFixed(2)}
               </span>
               {product.originalPrice && product.originalPrice > product.price && (
-                <span className="text-lg line-through ml-2 text-[#666666]">
+                <span className="text-base sm:text-lg line-through text-[#666666]">
                   ₱{product.originalPrice.toFixed(2)}
                 </span>
               )}
             </div>
-            <div className="px-3 py-1 rounded-lg" style={{ backgroundColor: `${stockStatus.color}20` }}>
-              <span className="font-medium text-sm" style={{ color: stockStatus.color }}>
+            <div className="px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-lg inline-flex items-center justify-center" style={{ backgroundColor: `${stockStatus.color}20` }}>
+              <span className="font-medium text-xs sm:text-sm whitespace-nowrap" style={{ color: stockStatus.color }}>
                 {stockStatus.text}
               </span>
             </div>
           </div>
           
-          <p className="text-base text-[#CCCCCC]">{product.description}</p>
+          <p className="text-sm sm:text-base text-[#CCCCCC] leading-relaxed">{product.description}</p>
         </div>
 
-        {/* Certificate Section */}
+        {/* Certificate Section - Improved mobile design */}
         {product.certificate && (
-          <div className="px-6 mb-6">
-            <h2 className="font-bold text-lg mb-4 text-white">Certificate</h2>
+          <div className="px-4 sm:px-6 mb-4 sm:mb-6">
+            <h2 className="font-bold text-base sm:text-lg mb-3 sm:mb-4 text-white">Certificate</h2>
             
             <button
               onClick={handleViewCertificate}
-              className="w-full rounded-2xl p-4 flex items-center justify-between bg-[#1A1A1A] hover:bg-[#222222] transition-colors"
+              className="w-full rounded-xl sm:rounded-2xl p-3 sm:p-4 flex items-center justify-between gap-3 bg-[#1A1A1A] hover:bg-[#222222] active:scale-[0.99] transition-all"
             >
-              <div className="flex items-center flex-1">
-                <div className="w-12 h-12 rounded-lg flex items-center justify-center mr-4 bg-[#10B981]/10">
-                  <Award size={24} color="#10B981" />
+              <div className="flex items-center gap-3 flex-1 min-w-0">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center flex-shrink-0 bg-[#10B981]/10">
+                  <Award size={20} color="#10B981" className="sm:w-6 sm:h-6" />
                 </div>
-                <div className="flex-1 text-left">
-                  <div className="font-bold text-base text-white">Product Certificate</div>
-                  <div className="text-sm text-[#B3B3B3]">Tap to view certificate</div>
+                <div className="flex-1 text-left min-w-0">
+                  <div className="font-bold text-sm sm:text-base text-white truncate">Product Certificate</div>
+                  <div className="text-xs sm:text-sm text-[#B3B3B3]">Tap to view certificate</div>
                 </div>
               </div>
-              <Eye size={20} color="#FF6B00" />
+              <Eye size={18} color="#FF6B00" className="flex-shrink-0 sm:w-5 sm:h-5" />
             </button>
           </div>
         )}
 
-        {/* Fish Data Section */}
+        {/* Fish Data Section - Improved mobile layout */}
         {isFishProduct && fishData && (
-          <div className="px-6 mb-6">
-            <h2 className="font-bold text-lg mb-4 text-white flex items-center">
-              <Fish className="mr-2" size={20} color="#FF6B00" />
+          <div className="px-4 sm:px-6 mb-4 sm:mb-6">
+            <h2 className="font-bold text-base sm:text-lg mb-3 sm:mb-4 text-white flex items-center gap-2">
+              <Fish size={18} color="#FF6B00" className="sm:w-5 sm:h-5" />
               Fish Information
             </h2>
             
-            <div className="rounded-2xl p-4 bg-[#1A1A1A]">
-              <div className="grid grid-cols-1 gap-3">
+            <div className="rounded-xl sm:rounded-2xl p-3 sm:p-4 bg-[#1A1A1A]">
+              <div className="grid grid-cols-1 gap-2 sm:gap-3">
                 {fishData.scientificName && (
-                  <div className="flex justify-between py-2 border-b border-[#333333]">
-                    <span className="font-medium text-base text-[#B3B3B3]">Scientific Name</span>
-                    <span className="text-base text-white font-medium">{fishData.scientificName}</span>
+                  <div className="flex justify-between items-center gap-3 py-2 sm:py-2.5 border-b border-[#333333]">
+                    <span className="font-medium text-xs sm:text-sm text-[#B3B3B3]">Scientific Name</span>
+                    <span className="text-xs sm:text-sm text-white font-medium text-right">{fishData.scientificName}</span>
                   </div>
                 )}
                 
                 {fishData.size && (
-                  <div className="flex justify-between py-2 border-b border-[#333333]">
-                    <span className="font-medium text-base text-[#B3B3B3]">Size</span>
-                    <span className="text-base text-white">{fishData.size} cm</span>
+                  <div className="flex justify-between items-center gap-3 py-2 sm:py-2.5 border-b border-[#333333]">
+                    <span className="font-medium text-xs sm:text-sm text-[#B3B3B3]">Size</span>
+                    <span className="text-xs sm:text-sm text-white">{fishData.size} cm</span>
                   </div>
                 )}
                 
                 {fishData.weight && (
-                  <div className="flex justify-between py-2 border-b border-[#333333]">
-                    <span className="font-medium text-base text-[#B3B3B3]">Weight</span>
-                    <span className="text-base text-white">{fishData.weight} g</span>
+                  <div className="flex justify-between items-center gap-3 py-2 sm:py-2.5 border-b border-[#333333]">
+                    <span className="font-medium text-xs sm:text-sm text-[#B3B3B3]">Weight</span>
+                    <span className="text-xs sm:text-sm text-white">{fishData.weight} g</span>
                   </div>
                 )}
                 
                 {fishData.temperature && (
-                  <div className="flex justify-between py-2 border-b border-[#333333]">
-                    <span className="font-medium text-base text-[#B3B3B3]">Temperature</span>
-                    <span className="text-base text-white">{fishData.temperature}°C</span>
+                  <div className="flex justify-between items-center gap-3 py-2 sm:py-2.5 border-b border-[#333333]">
+                    <span className="font-medium text-xs sm:text-sm text-[#B3B3B3]">Temperature</span>
+                    <span className="text-xs sm:text-sm text-white">{fishData.temperature}°C</span>
                   </div>
                 )}
                 
                 {fishData.age !== undefined && (
-                  <div className="flex justify-between py-2 border-b border-[#333333]">
-                    <span className="font-medium text-base text-[#B3B3B3]">Age</span>
-                    <span className="text-base text-white">{fishData.age} months</span>
+                  <div className="flex justify-between items-center gap-3 py-2 sm:py-2.5 border-b border-[#333333]">
+                    <span className="font-medium text-xs sm:text-sm text-[#B3B3B3]">Age</span>
+                    <span className="text-xs sm:text-sm text-white">{fishData.age} months</span>
                   </div>
                 )}
                 
                 {fishData.phLevel && (
-                  <div className="flex justify-between py-2 border-b border-[#333333]">
-                    <span className="font-medium text-base text-[#B3B3B3]">pH Level</span>
-                    <span className="text-base text-white">{fishData.phLevel}</span>
+                  <div className="flex justify-between items-center gap-3 py-2 sm:py-2.5 border-b border-[#333333]">
+                    <span className="font-medium text-xs sm:text-sm text-[#B3B3B3]">pH Level</span>
+                    <span className="text-xs sm:text-sm text-white">{fishData.phLevel}</span>
                   </div>
                 )}
                 
                 {fishData.lifespan && (
-                  <div className="flex justify-between py-2 border-b border-[#333333]">
-                    <span className="font-medium text-base text-[#B3B3B3]">Lifespan</span>
-                    <span className="text-base text-white">{fishData.lifespan}</span>
+                  <div className="flex justify-between items-center gap-3 py-2 sm:py-2.5 border-b border-[#333333]">
+                    <span className="font-medium text-xs sm:text-sm text-[#B3B3B3]">Lifespan</span>
+                    <span className="text-xs sm:text-sm text-white">{fishData.lifespan}</span>
                   </div>
                 )}
                 
                 {fishData.origin && (
-                  <div className="flex justify-between py-2 border-b border-[#333333]">
-                    <span className="font-medium text-base text-[#B3B3B3]">Origin</span>
-                    <span className="text-base text-white">{fishData.origin}</span>
+                  <div className="flex justify-between items-center gap-3 py-2 sm:py-2.5 border-b border-[#333333]">
+                    <span className="font-medium text-xs sm:text-sm text-[#B3B3B3]">Origin</span>
+                    <span className="text-xs sm:text-sm text-white">{fishData.origin}</span>
                   </div>
                 )}
                 
                 {fishData.diet && (
-                  <div className="flex justify-between py-2">
-                    <span className="font-medium text-base text-[#B3B3B3]">Diet</span>
-                    <span className="text-base text-white">{fishData.diet}</span>
+                  <div className="flex justify-between items-center gap-3 py-2 sm:py-2.5">
+                    <span className="font-medium text-xs sm:text-sm text-[#B3B3B3]">Diet</span>
+                    <span className="text-xs sm:text-sm text-white">{fishData.diet}</span>
                   </div>
                 )}
               </div>
@@ -416,71 +394,71 @@ export default function ProductDetailsClient() {
           </div>
         )}
 
-        {/* Tank Data Section */}
+        {/* Tank Data Section - Improved mobile layout */}
         {isTankProduct && tankData && (
-          <div className="px-6 mb-6">
-            <h2 className="font-bold text-lg mb-4 text-white flex items-center">
-              <Waves className="mr-2" size={20} color="#FF6B00" />
+          <div className="px-4 sm:px-6 mb-4 sm:mb-6">
+            <h2 className="font-bold text-base sm:text-lg mb-3 sm:mb-4 text-white flex items-center gap-2">
+              <Waves size={18} color="#FF6B00" className="sm:w-5 sm:h-5" />
               Tank Specifications
             </h2>
             
-            <div className="rounded-2xl p-4 bg-[#1A1A1A]">
-              <div className="grid grid-cols-1 gap-3">
+            <div className="rounded-xl sm:rounded-2xl p-3 sm:p-4 bg-[#1A1A1A]">
+              <div className="grid grid-cols-1 gap-2 sm:gap-3">
                 {tankData.tankType && (
-                  <div className="flex justify-between py-2 border-b border-[#333333]">
-                    <span className="font-medium text-base text-[#B3B3B3]">Tank Type</span>
-                    <span className="text-base text-white font-medium">{tankData.tankType}</span>
+                  <div className="flex justify-between items-center gap-3 py-2 sm:py-2.5 border-b border-[#333333]">
+                    <span className="font-medium text-xs sm:text-sm text-[#B3B3B3]">Tank Type</span>
+                    <span className="text-xs sm:text-sm text-white font-medium">{tankData.tankType}</span>
                   </div>
                 )}
                 
                 {tankData.material && (
-                  <div className="flex justify-between py-2 border-b border-[#333333]">
-                    <span className="font-medium text-base text-[#B3B3B3]">Material</span>
-                    <span className="text-base text-white">{tankData.material}</span>
+                  <div className="flex justify-between items-center gap-3 py-2 sm:py-2.5 border-b border-[#333333]">
+                    <span className="font-medium text-xs sm:text-sm text-[#B3B3B3]">Material</span>
+                    <span className="text-xs sm:text-sm text-white">{tankData.material}</span>
                   </div>
                 )}
                 
                 {tankData.capacity && (
-                  <div className="flex justify-between py-2 border-b border-[#333333]">
-                    <span className="font-medium text-base text-[#B3B3B3]">Capacity</span>
-                    <span className="text-base text-white">{tankData.capacity} L</span>
+                  <div className="flex justify-between items-center gap-3 py-2 sm:py-2.5 border-b border-[#333333]">
+                    <span className="font-medium text-xs sm:text-sm text-[#B3B3B3]">Capacity</span>
+                    <span className="text-xs sm:text-sm text-white">{tankData.capacity} L</span>
                   </div>
                 )}
                 
                 {tankData.dimensions && (
-                  <div className="flex justify-between py-2 border-b border-[#333333]">
-                    <span className="font-medium text-base text-[#B3B3B3]">Dimensions</span>
-                    <span className="text-base text-white">
+                  <div className="flex justify-between items-start gap-3 py-2 sm:py-2.5 border-b border-[#333333]">
+                    <span className="font-medium text-xs sm:text-sm text-[#B3B3B3]">Dimensions</span>
+                    <span className="text-xs sm:text-sm text-white text-right">
                       {tankData.dimensions.length} × {tankData.dimensions.width} × {tankData.dimensions.height} cm
                     </span>
                   </div>
                 )}
                 
                 {tankData.weight && (
-                  <div className="flex justify-between py-2 border-b border-[#333333]">
-                    <span className="font-medium text-base text-[#B3B3B3]">Weight</span>
-                    <span className="text-base text-white">{tankData.weight} kg</span>
+                  <div className="flex justify-between items-center gap-3 py-2 sm:py-2.5 border-b border-[#333333]">
+                    <span className="font-medium text-xs sm:text-sm text-[#B3B3B3]">Weight</span>
+                    <span className="text-xs sm:text-sm text-white">{tankData.weight} kg</span>
                   </div>
                 )}
                 
                 {tankData.thickness && (
-                  <div className="flex justify-between py-2 border-b border-[#333333]">
-                    <span className="font-medium text-base text-[#B3B3B3]">Thickness</span>
-                    <span className="text-base text-white">{tankData.thickness} mm</span>
+                  <div className="flex justify-between items-center gap-3 py-2 sm:py-2.5 border-b border-[#333333]">
+                    <span className="font-medium text-xs sm:text-sm text-[#B3B3B3]">Thickness</span>
+                    <span className="text-xs sm:text-sm text-white">{tankData.thickness} mm</span>
                   </div>
                 )}
                 
                 {tankData.lighting && (
-                  <div className="flex justify-between py-2 border-b border-[#333333]">
-                    <span className="font-medium text-base text-[#B3B3B3]">Lighting</span>
-                    <span className="text-base text-white">{tankData.lighting} W</span>
+                  <div className="flex justify-between items-center gap-3 py-2 sm:py-2.5 border-b border-[#333333]">
+                    <span className="font-medium text-xs sm:text-sm text-[#B3B3B3]">Lighting</span>
+                    <span className="text-xs sm:text-sm text-white">{tankData.lighting} W</span>
                   </div>
                 )}
                 
                 {tankData.filtation && (
-                  <div className="flex justify-between py-2">
-                    <span className="font-medium text-base text-[#B3B3B3]">Filtration</span>
-                    <span className="text-base text-white">{tankData.filtation} L/h</span>
+                  <div className="flex justify-between items-center gap-3 py-2 sm:py-2.5">
+                    <span className="font-medium text-xs sm:text-sm text-[#B3B3B3]">Filtration</span>
+                    <span className="text-xs sm:text-sm text-white">{tankData.filtation} L/h</span>
                   </div>
                 )}
               </div>
@@ -488,59 +466,56 @@ export default function ProductDetailsClient() {
           </div>
         )}
 
-        {/* Product Details */}
-        <div className="px-6 mb-6">
-          <h2 className="font-bold text-lg mb-4 text-white">Product Details</h2>
+        {/* Product Details - Improved mobile layout */}
+        <div className="px-4 sm:px-6 mb-4 sm:mb-6">
+          <h2 className="font-bold text-base sm:text-lg mb-3 sm:mb-4 text-white">Product Details</h2>
           
-          <div className="rounded-2xl p-4 bg-[#1A1A1A]">
-            <div className="flex justify-between py-3 border-b border-[#333333]">
-              <span className="font-medium text-base text-[#B3B3B3]">SKU</span>
-              <span className="text-base text-white">{product.sku || 'N/A'}</span>
+          <div className="rounded-xl sm:rounded-2xl p-3 sm:p-4 bg-[#1A1A1A]">
+            <div className="flex justify-between items-center gap-3 py-2.5 sm:py-3 border-b border-[#333333]">
+              <span className="font-medium text-xs sm:text-sm text-[#B3B3B3]">SKU</span>
+              <span className="text-xs sm:text-sm text-white">{product.sku || 'N/A'}</span>
             </div>
             
-            <div className="flex justify-between py-3 border-b border-[#333333]">
-              <span className="font-medium text-base text-[#B3B3B3]">Stock</span>
-              <span className="text-base text-white">{product.stock} units</span>
+            <div className="flex justify-between items-center gap-3 py-2.5 sm:py-3 border-b border-[#333333]">
+              <span className="font-medium text-xs sm:text-sm text-[#B3B3B3]">Stock</span>
+              <span className="text-xs sm:text-sm text-white">{product.stock} units</span>
             </div>
             
             {product.lifespan && (
-              <div className="flex justify-between py-3 border-b border-[#333333]">
-                <span className="font-medium text-base text-[#B3B3B3]">Lifespan</span>
-                <span className="text-base text-white">{product.lifespan}</span>
+              <div className="flex justify-between items-center gap-3 py-2.5 sm:py-3 border-b border-[#333333]">
+                <span className="font-medium text-xs sm:text-sm text-[#B3B3B3]">Lifespan</span>
+                <span className="text-xs sm:text-sm text-white">{product.lifespan}</span>
               </div>
             )}
             
-            <div className="flex justify-between py-3">
-              <span className="font-medium text-base text-[#B3B3B3]">Status</span>
+            <div className="flex justify-between items-center gap-3 py-2.5 sm:py-3">
+              <span className="font-medium text-xs sm:text-sm text-[#B3B3B3]">Status</span>
               <div className="px-2 py-1 rounded" style={{ backgroundColor: `${getStatusColor(product.isActive ? 'active' : 'inactive')}20` }}>
-                <span className="font-medium text-sm" style={{ color: getStatusColor(product.isActive ? 'active' : 'inactive') }}>
+                <span className="font-medium text-xs" style={{ color: getStatusColor(product.isActive ? 'active' : 'inactive') }}>
                   {product.isActive ? 'Active' : 'Inactive'}
                 </span>
               </div>
             </div>
           </div>
         </div>
-
-        {/* Bottom spacing */}
-        <div className="h-20" />
       </div>
 
-      {/* Success Modal */}
+      {/* Success Modal - Improved mobile design */}
       {showSuccessModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-secondary border border-white/10 rounded-xl p-6 w-full max-w-md">
-            <div className="flex items-center space-x-3 mb-4">
-              <div className="p-2 bg-success/10 rounded-lg">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-secondary border border-white/10 rounded-xl p-5 sm:p-6 w-full max-w-sm shadow-2xl animate-in zoom-in-95 slide-in-from-bottom-4 duration-300">
+            <div className="flex items-start gap-3 mb-4">
+              <div className="p-2 bg-success/10 rounded-lg flex-shrink-0">
                 <CheckCircle className="w-5 h-5 text-success" />
               </div>
-              <div>
-                <h3 className="text-lg font-semibold text-white">Success</h3>
-                <p className="text-sm text-white/60">{modalMessage}</p>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-base sm:text-lg font-semibold text-white mb-1">Success</h3>
+                <p className="text-xs sm:text-sm text-white/60 break-words">{modalMessage}</p>
               </div>
             </div>
             <Button
               onClick={() => setShowSuccessModal(false)}
-              className="w-full bg-success hover:bg-success/90"
+              className="w-full bg-success hover:bg-success/90 active:scale-95 transition-all"
             >
               OK
             </Button>
@@ -548,22 +523,22 @@ export default function ProductDetailsClient() {
         </div>
       )}
 
-      {/* Error Modal */}
+      {/* Error Modal - Improved mobile design */}
       {showErrorModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-secondary border border-white/10 rounded-xl p-6 w-full max-w-md">
-            <div className="flex items-center space-x-3 mb-4">
-              <div className="p-2 bg-error/10 rounded-lg">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-secondary border border-white/10 rounded-xl p-5 sm:p-6 w-full max-w-sm shadow-2xl animate-in zoom-in-95 slide-in-from-bottom-4 duration-300">
+            <div className="flex items-start gap-3 mb-4">
+              <div className="p-2 bg-error/10 rounded-lg flex-shrink-0">
                 <AlertTriangle className="w-5 h-5 text-error" />
               </div>
-              <div>
-                <h3 className="text-lg font-semibold text-white">Error</h3>
-                <p className="text-sm text-white/60">{modalMessage}</p>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-base sm:text-lg font-semibold text-white mb-1">Error</h3>
+                <p className="text-xs sm:text-sm text-white/60 break-words">{modalMessage}</p>
               </div>
             </div>
             <Button
               onClick={() => setShowErrorModal(false)}
-              className="w-full bg-error hover:bg-error/90"
+              className="w-full bg-error hover:bg-error/90 active:scale-95 transition-all"
             >
               OK
             </Button>
@@ -571,22 +546,23 @@ export default function ProductDetailsClient() {
         </div>
       )}
 
-      {/* Certificate Modal */}
+      {/* Certificate Modal - Improved mobile design */}
       {certificateModalVisible && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/95">
           <div className="relative w-full h-full">
             {/* Close button */}
             <button
               onClick={() => setCertificateModalVisible(false)}
-              className="absolute top-16 right-6 w-10 h-10 rounded-full flex items-center justify-center z-10 bg-white/20 hover:bg-white/30 transition-colors"
+              className="absolute top-4 sm:top-6 right-4 sm:right-6 w-10 h-10 rounded-full flex items-center justify-center z-10 bg-white/20 hover:bg-white/30 active:scale-95 transition-all shadow-lg"
+              aria-label="Close certificate"
             >
               <X size={20} color="#FFFFFF" />
             </button>
             
             {/* Certificate Image */}
-            <div className="flex-1 flex items-center justify-center p-6 h-full">
+            <div className="flex-1 flex items-center justify-center p-4 sm:p-6 h-full">
               {product.certificate ? (
-                <div className="relative w-full max-w-4xl h-[80vh]">
+                <div className="relative w-full max-w-4xl h-[70vh] sm:h-[80vh]">
                   <Image
                     src={normalizeImageUrl(product.certificate)}
                     alt="Product Certificate"
@@ -602,18 +578,18 @@ export default function ProductDetailsClient() {
                 </div>
               ) : (
                 <div className="flex items-center justify-center">
-                  <span className="text-base text-white">No certificate available</span>
+                  <span className="text-sm sm:text-base text-white">No certificate available</span>
                 </div>
               )}
             </div>
             
             {/* Bottom info */}
-            <div className="absolute bottom-6 left-6 right-6">
-              <div className="rounded-xl p-4 bg-white/10 backdrop-blur">
-                <h3 className="font-bold text-lg text-center mb-2 text-white">
+            <div className="absolute bottom-4 sm:bottom-6 left-4 sm:left-6 right-4 sm:right-6">
+              <div className="rounded-xl p-3 sm:p-4 bg-white/10 backdrop-blur-md">
+                <h3 className="font-bold text-base sm:text-lg text-center mb-1 sm:mb-2 text-white">
                   Product Certificate
                 </h3>
-                <p className="text-sm text-center text-[#B3B3B3]">
+                <p className="text-xs sm:text-sm text-center text-[#B3B3B3] truncate">
                   {product.name}
                 </p>
               </div>
