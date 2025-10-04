@@ -35,6 +35,7 @@ import { api } from '@/convex/_generated/api';
 import { Id } from '@/convex/_generated/dataModel';
 import Button from '@/components/ui/Button';
 import { Product } from '@/types';
+import SafeAreaProvider from '@/components/provider/SafeAreaProvider';
 
 interface TankData {
   _id: string;
@@ -69,7 +70,7 @@ interface FishData {
   _creationTime: number;
 }
 
-export default function ProductDetailClient() {
+function ProductDetailContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -345,7 +346,7 @@ export default function ProductDetailClient() {
   // Loading state
   if (!product) {
     return (
-      <div className="min-h-screen bg-[#121212] flex items-center justify-center px-4">
+      <div className="min-h-screen bg-[#121212] flex items-center justify-center px-4 safe-area-container">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FF6B00] mx-auto mb-4"></div>
           <p className="text-white font-medium">Loading product details...</p>
@@ -358,8 +359,8 @@ export default function ProductDetailClient() {
 
   return (
     <div className="min-h-screen bg-[#121212]">
-      {/* Fixed Header */}
-      <div className="fixed top-0 left-0 right-0 z-40 flex items-center justify-between px-4 sm:px-6 pt-4 pb-3 bg-gradient-to-b from-[#121212] to-transparent">
+      {/* Fixed Header with Safe Area */}
+      <div className="fixed top-0 left-0 right-0 z-40 flex items-center justify-between px-4 sm:px-6 pt-4 pb-3 bg-gradient-to-b from-[#121212] to-transparent safe-area-top">
         <button
           onClick={() => router.back()}
           className="p-2 rounded-xl bg-black/60 backdrop-blur-md border border-white/10 hover:bg-black/80 transition-colors"
@@ -368,7 +369,7 @@ export default function ProductDetailClient() {
         </button>
       </div>
 
-      <div className="pb-24 sm:pb-28 pt-16">
+      <div className="pb-24 sm:pb-28 pt-16 safe-area-horizontal">
         {/* Main Product Image with Swipe Support */}
         <div className="px-4 sm:px-6 mb-4 sm:mb-6">
           <div 
@@ -680,8 +681,8 @@ export default function ProductDetailClient() {
         </div>
       </div>
 
-      {/* Bottom Reservation Bar - Fixed */}
-      <div className="fixed bottom-0 left-0 right-0 px-3 sm:px-4 py-3 sm:py-4 bg-[#121212]/95 backdrop-blur-md border-t border-white/10 z-50 safe-bottom">
+      {/* Bottom Reservation Bar - Fixed with Safe Area */}
+      <div className="fixed bottom-0 left-0 right-0 px-3 sm:px-4 py-3 sm:py-4 bg-[#121212]/95 backdrop-blur-md border-t border-white/10 z-50 safe-area-bottom">
         <div className="flex gap-2 sm:gap-3 max-w-2xl mx-auto">
           <button
             onClick={handleAddToCart}
@@ -707,9 +708,9 @@ export default function ProductDetailClient() {
         </div>
       </div>
 
-      {/* Certificate Modal */}
+      {/* Certificate Modal with Safe Area */}
       {showCertificateModal && (
-        <div className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 z-[60] animate-fade-in">
+        <div className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 z-[60] animate-fade-in safe-area-container">
           <div className="w-full max-w-md mx-auto">
             {/* Modal Header */}
             <div className="flex items-center justify-between mb-4">
@@ -747,5 +748,13 @@ export default function ProductDetailClient() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function ProductDetailClient() {
+  return (
+    <SafeAreaProvider applySafeArea={false}>
+      <ProductDetailContent />
+    </SafeAreaProvider>
   );
 }

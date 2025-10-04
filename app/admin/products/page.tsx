@@ -23,6 +23,7 @@ import { useRouter } from 'next/navigation';
 import { useQuery } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import BottomNavbar from '@/components/common/BottomNavbar';
+import SafeAreaProvider from '@/components/provider/SafeAreaProvider';
 
 const ITEMS_PER_PAGE = 15;
 
@@ -48,7 +49,7 @@ const getStockStatus = (stock: number) => {
   };
 };
 
-export default function AdminProductsPage() {
+function AdminProductsContent() {
   const router = useRouter();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -226,8 +227,8 @@ export default function AdminProductsPage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground pb-20 sm:pb-6">
-      {/* Header - Mobile Optimized */}
-      <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-white/10">
+      {/* Header - Mobile Optimized with Safe Area */}
+      <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-white/10 safe-area-top">
         <div className="px-3 sm:px-6 py-3 sm:py-4">
           <div className="flex items-center justify-between gap-2 mb-3 sm:mb-4">
             <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0">
@@ -290,7 +291,7 @@ export default function AdminProductsPage() {
         </div>
       </div>
 
-      {/* Stats - Horizontal Scroll on Mobile */}
+      {/* Stats - Horizontal Scroll on Mobile with Safe Area */}
       <div className="px-3 sm:px-6 py-3 sm:py-4 border-b border-white/10">
         <div className="grid grid-cols-3 gap-2 sm:gap-3">
           {statsArray.map((stat) => {
@@ -320,7 +321,7 @@ export default function AdminProductsPage() {
         </div>
       </div>
 
-      {/* Filters Panel */}
+      {/* Filters Panel with Safe Area */}
       {showFilters && (
         <div className="bg-secondary/60 border-b border-white/10 px-3 sm:px-6 py-3 sm:py-4">
           <div className="space-y-3 sm:space-y-4">
@@ -394,7 +395,7 @@ export default function AdminProductsPage() {
         </div>
       )}
       
-      {/* Products List */}
+      {/* Products List with Safe Area */}
       <div className="px-3 sm:px-6 py-3 sm:py-4">
         <div className="flex items-center justify-between mb-3 sm:mb-4">
           <h2 className="text-sm sm:text-lg font-bold text-white">
@@ -598,7 +599,7 @@ export default function AdminProductsPage() {
               })}
             </div>
 
-{/* Pagination */}
+            {/* Pagination */}
             {totalPages > 1 && (
               <div className="mt-6 sm:mt-8 flex items-center justify-center gap-3 sm:gap-4">
                 <button
@@ -668,5 +669,14 @@ export default function AdminProductsPage() {
         }
       `}</style>
     </div>
+  );
+}
+
+// Main Export with SafeAreaProvider
+export default function AdminProductsPage() {
+  return (
+    <SafeAreaProvider applySafeArea={false}>
+      <AdminProductsContent />
+    </SafeAreaProvider>
   );
 }

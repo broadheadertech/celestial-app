@@ -37,8 +37,9 @@ import ClientNotificationModal from "@/components/modal/ClientNotifModal";
 import ClientBottomNavbar from "@/components/client/ClientBottomNavbar";
 import { useToastHelpers } from "@/components/ui/ToastManager";
 import { localNotificationService } from "@/lib/notifications/localNotifications";
+import SafeAreaProvider from "@/components/provider/SafeAreaProvider";
 
-export default function ClientDashboard() {
+function ClientDashboardContent() {
   const router = useRouter();
   const { user } = useAuthStore();
   const { addItem, getItemById, updateQuantity } = useCartStore();
@@ -161,7 +162,7 @@ export default function ClientDashboard() {
   // Show loading state while redirecting
   if (isRedirecting) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      <div className="min-h-screen bg-background flex items-center justify-center p-4 safe-area-container">
         <div className="text-center">
           <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-white/60 text-sm">Redirecting...</p>
@@ -373,9 +374,9 @@ export default function ClientDashboard() {
         }
       `}</style>
 
-      {/* Enhanced Fixed Header */}
-      <div className="fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-md border-b border-white/10">
-        <div className="px-3 sm:px-4 py-2.5 sm:py-3">
+      {/* Enhanced Fixed Header with Safe Area */}
+      <div className="fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-md border-b border-white/10 safe-area-top">
+        <div className="mx-3 px-3 sm:px-4 py-2.5 sm:py-3 safe-area-horizontal">
           <div className="flex items-center justify-between max-w-7xl mx-auto">
             <div className="flex items-center space-x-2 sm:space-x-3 flex-1 min-w-0">
               <div className="w-8 h-8 sm:w-9 sm:h-9 bg-gradient-to-br from-primary to-orange-600 rounded-lg flex items-center justify-center flex-shrink-0 shadow-lg">
@@ -427,7 +428,7 @@ export default function ClientDashboard() {
         </div>
       </div>
 
-      <div className="pt-[110px] sm:pt-[120px] pb-20 sm:pb-24">
+      <div className="pt-[110px] sm:pt-[120px] pb-20 sm:pb-24 safe-area-horizontal">
         {/* Reservation Status Banner */}
         {isHydrated &&
           clientNotifications &&
@@ -652,7 +653,7 @@ export default function ClientDashboard() {
                       <span className="text-[10px] sm:text-xs text-blue-400 font-medium whitespace-nowrap">Fresh Stock!</span>
                     </div>
                   </div>
-                 <Button
+                  <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => router.push("/client/search?sort=newest")}
@@ -889,5 +890,14 @@ export default function ClientDashboard() {
         onClearAll={handleClearAll}
       />
     </div>
+  );
+}
+
+// Main Export with SafeAreaProvider
+export default function ClientDashboard() {
+  return (
+    <SafeAreaProvider applySafeArea={false}>
+      <ClientDashboardContent />
+    </SafeAreaProvider>
   );
 }

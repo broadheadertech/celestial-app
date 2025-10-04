@@ -8,6 +8,7 @@ import { ArrowLeft, Award, Edit, Eye, X, CheckCircle, AlertTriangle, RefreshCw, 
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Button from '@/components/ui/Button';
+import SafeAreaProvider from '@/components/provider/SafeAreaProvider';
 
 const getStatusColor = (status: string) => {
   switch (status) {
@@ -24,7 +25,7 @@ const getStockStatus = (stock: number) => {
   return { text: 'In Stock', color: '#10B981' };
 };
 
-export default function ProductDetailsClient() {
+function ProductDetailsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -160,8 +161,8 @@ export default function ProductDetailsClient() {
 
   return (
     <div className="min-h-screen bg-[#121212]">
-      {/* Header - Improved mobile spacing */}
-      <div className="sticky top-0 z-40 bg-[#121212]/95 backdrop-blur-md border-b border-white/10">
+      {/* Header with Safe Area */}
+      <div className="sticky top-0 z-40 bg-[#121212]/95 backdrop-blur-md border-b border-white/10 safe-area-top">
         <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4">
           <button
             onClick={() => router.push('/admin/products')}
@@ -182,7 +183,7 @@ export default function ProductDetailsClient() {
       </div>
 
       <div className="flex-1 overflow-y-auto pb-6">
-        {/* Product Images - Improved mobile layout */}
+        {/* Product Images */}
         <div className="px-4 sm:px-6 pt-4 sm:pt-6 mb-4 sm:mb-6">
           <div className="rounded-xl sm:rounded-2xl overflow-hidden mb-3 sm:mb-4 relative bg-[#1A1A1A]">
             <div className="relative w-full h-64 sm:h-80 md:h-96">
@@ -223,7 +224,7 @@ export default function ProductDetailsClient() {
             )}
           </div>
           
-          {/* Image Thumbnails - Improved mobile scrolling */}
+          {/* Image Thumbnails */}
           {displayImages.length > 1 && (
             <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-2 -mx-4 px-4 sm:mx-0 sm:px-0">
               {displayImages.map((imageUrl, index) => (
@@ -254,7 +255,7 @@ export default function ProductDetailsClient() {
           )}
         </div>
 
-        {/* Product Info - Improved mobile layout */}
+        {/* Product Info */}
         <div className="px-4 sm:px-6 mb-4 sm:mb-6">
           <div className="flex items-start justify-between gap-3 mb-3">
             <h1 className="font-bold text-xl sm:text-2xl text-white flex-1 leading-tight">{product.name}</h1>
@@ -294,7 +295,7 @@ export default function ProductDetailsClient() {
           <p className="text-sm sm:text-base text-[#CCCCCC] leading-relaxed">{product.description}</p>
         </div>
 
-        {/* Certificate Section - Improved mobile design */}
+        {/* Certificate Section */}
         {product.certificate && (
           <div className="px-4 sm:px-6 mb-4 sm:mb-6">
             <h2 className="font-bold text-base sm:text-lg mb-3 sm:mb-4 text-white">Certificate</h2>
@@ -317,7 +318,7 @@ export default function ProductDetailsClient() {
           </div>
         )}
 
-        {/* Fish Data Section - Improved mobile layout */}
+        {/* Fish Data Section */}
         {isFishProduct && fishData && (
           <div className="px-4 sm:px-6 mb-4 sm:mb-6">
             <h2 className="font-bold text-base sm:text-lg mb-3 sm:mb-4 text-white flex items-center gap-2">
@@ -394,7 +395,7 @@ export default function ProductDetailsClient() {
           </div>
         )}
 
-        {/* Tank Data Section - Improved mobile layout */}
+        {/* Tank Data Section */}
         {isTankProduct && tankData && (
           <div className="px-4 sm:px-6 mb-4 sm:mb-6">
             <h2 className="font-bold text-base sm:text-lg mb-3 sm:mb-4 text-white flex items-center gap-2">
@@ -466,7 +467,7 @@ export default function ProductDetailsClient() {
           </div>
         )}
 
-        {/* Product Details - Improved mobile layout */}
+        {/* Product Details */}
         <div className="px-4 sm:px-6 mb-4 sm:mb-6">
           <h2 className="font-bold text-base sm:text-lg mb-3 sm:mb-4 text-white">Product Details</h2>
           
@@ -500,7 +501,7 @@ export default function ProductDetailsClient() {
         </div>
       </div>
 
-      {/* Success Modal - Improved mobile design */}
+      {/* Success Modal */}
       {showSuccessModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div className="bg-secondary border border-white/10 rounded-xl p-5 sm:p-6 w-full max-w-sm shadow-2xl animate-in zoom-in-95 slide-in-from-bottom-4 duration-300">
@@ -523,7 +524,7 @@ export default function ProductDetailsClient() {
         </div>
       )}
 
-      {/* Error Modal - Improved mobile design */}
+      {/* Error Modal */}
       {showErrorModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div className="bg-secondary border border-white/10 rounded-xl p-5 sm:p-6 w-full max-w-sm shadow-2xl animate-in zoom-in-95 slide-in-from-bottom-4 duration-300">
@@ -546,7 +547,7 @@ export default function ProductDetailsClient() {
         </div>
       )}
 
-      {/* Certificate Modal - Improved mobile design */}
+      {/* Certificate Modal */}
       {certificateModalVisible && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/95">
           <div className="relative w-full h-full">
@@ -597,6 +598,24 @@ export default function ProductDetailsClient() {
           </div>
         </div>
       )}
+
+      <style jsx global>{`
+        .scrollbar-hide {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+        .scrollbar-hide::-webkit-scrollbar {
+          display: none;
+        }
+      `}</style>
     </div>
+  );
+}
+
+export default function ProductDetailsClient() {
+  return (
+    <SafeAreaProvider applySafeArea={false}>
+      <ProductDetailsContent />
+    </SafeAreaProvider>
   );
 }

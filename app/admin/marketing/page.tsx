@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import BottomNavbar from '@/components/common/BottomNavbar';
+import SafeAreaProvider from '@/components/provider/SafeAreaProvider';
 import {
   ArrowLeft,
   Mail,
@@ -105,7 +106,7 @@ const statusColors = {
   paused: 'bg-gray-500/20 text-gray-400'
 };
 
-export default function EmailMarketingPage() {
+function EmailMarketingContent() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedType, setSelectedType] = useState('all');
@@ -159,9 +160,9 @@ export default function EmailMarketingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-white/10">
+    <div className="min-h-screen bg-background text-foreground pb-20 sm:pb-6">
+      {/* Header with Safe Area */}
+      <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-white/10 safe-area-top">
         <div className="px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
@@ -439,9 +440,15 @@ export default function EmailMarketingPage() {
         message={confirmationModalProps.message}
         type={confirmationModalProps.type}
       />
-
-      {/* Bottom padding for mobile navigation */}
-      <div className="h-16 sm:hidden" />
     </div>
+  );
+}
+
+// Main Export with SafeAreaProvider
+export default function EmailMarketingPage() {
+  return (
+    <SafeAreaProvider applySafeArea={false}>
+      <EmailMarketingContent />
+    </SafeAreaProvider>
   );
 }

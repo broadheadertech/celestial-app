@@ -36,8 +36,9 @@ import { api } from '@/convex/_generated/api';
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
 import ClientBottomNavbar from '@/components/client/ClientBottomNavbar';
+import SafeAreaProvider from '@/components/provider/SafeAreaProvider';
 
-export default function ProfilePage() {
+function ProfileContent() {
   const router = useRouter();
   const { logout } = useAuth();
   const isAuthenticated = useIsAuthenticated();
@@ -192,8 +193,8 @@ export default function ProfilePage() {
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-background">
-        {/* Header */}
-        <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-white/10">
+        {/* Header with Safe Area */}
+        <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-white/10 safe-area-top">
           <div className="px-4 sm:px-6 py-3 sm:py-4">
             <div className="flex items-center space-x-3 sm:space-x-4">
               <button
@@ -208,7 +209,7 @@ export default function ProfilePage() {
         </div>
 
         {/* Guest Profile */}
-        <div className="px-4 sm:px-6 py-6 sm:py-8 max-w-md mx-auto">
+        <div className="px-4 sm:px-6 py-6 sm:py-8 max-w-md mx-auto safe-area-bottom">
           <div className="text-center mb-6 sm:mb-8">
             <div className="w-20 h-20 sm:w-24 sm:h-24 bg-secondary rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4 border-2 border-white/10">
               <User className="w-10 h-10 sm:w-12 sm:h-12 text-muted" />
@@ -308,16 +309,14 @@ export default function ProfilePage() {
             </button>
           </div>
         </div>
-
-        <div className="h-16" />
       </div>
     );
   }
 
   return (
     <div className="min-h-screen bg-background pb-20 sm:pb-6">
-      {/* Fixed Header */}
-      <div className="fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-md border-b border-white/10">
+      {/* Fixed Header with Safe Area */}
+      <div className="fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-md border-b border-white/10 safe-area-top">
         <div className="px-4 sm:px-6 py-3">
           <div className="flex items-center justify-between max-w-2xl mx-auto">
             <div className="flex items-center space-x-2 sm:space-x-3 flex-1 min-w-0">
@@ -357,8 +356,8 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {/* Profile Content */}
-      <div className="px-4 sm:px-6 pt-20 pb-6">
+      {/* Profile Content with Safe Area */}
+      <div className="px-4 sm:px-6 pt-20 pb-6 safe-area-bottom">
         <div className="max-w-2xl mx-auto space-y-4 sm:space-y-6">
           {/* Profile Information */}
           <Card className="p-4 sm:p-6">
@@ -804,5 +803,13 @@ export default function ProfilePage() {
       {/* Client Bottom Navigation */}
       <ClientBottomNavbar />
     </div>
+  );
+}
+
+export default function ProfilePage() {
+  return (
+    <SafeAreaProvider applySafeArea={false}>
+      <ProfileContent />
+    </SafeAreaProvider>
   );
 }

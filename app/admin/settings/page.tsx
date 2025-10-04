@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import BottomNavbar from "@/components/common/BottomNavbar";
+import SafeAreaProvider from "@/components/provider/SafeAreaProvider";
 import {
   ArrowLeft,
   User,
@@ -28,7 +29,7 @@ import { useAuth } from "@/hooks/useAuth";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 
-export default function AdminSettingsPage() {
+function AdminSettingsContent() {
   const router = useRouter();
   const { user, logout: authStoreLogout } = useAuthStore();
   const { logout } = useAuth();
@@ -162,9 +163,9 @@ export default function AdminSettingsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background pb-20 sm:pb-6">
-      {/* Sticky Header - Improved mobile spacing */}
-      <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-md border-b border-white/10 shadow-lg">
+    <div className="min-h-screen bg-background text-foreground pb-20 sm:pb-6">
+      {/* Sticky Header with Safe Area */}
+      <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-md border-b border-white/10 shadow-lg safe-area-top">
         <div className="px-4 sm:px-6 py-3 sm:py-4">
           <div className="flex items-center justify-between gap-2 sm:gap-4">
             <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
@@ -692,5 +693,14 @@ export default function AdminSettingsPage() {
       {/* Bottom Navigation */}
       <BottomNavbar />
     </div>
+  );
+}
+
+// Main Export with SafeAreaProvider
+export default function AdminSettingsPage() {
+  return (
+    <SafeAreaProvider applySafeArea={false}>
+      <AdminSettingsContent />
+    </SafeAreaProvider>
   );
 }

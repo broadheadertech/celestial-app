@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import BottomNavbar from '@/components/common/BottomNavbar';
+import SafeAreaProvider from '@/components/provider/SafeAreaProvider';
 import {
   ArrowLeft,
   BarChart3,
@@ -105,7 +106,7 @@ const timeFilters = [
   { label: '1 Year', value: '1y' },
 ];
 
-export default function AdminAnalyticsPage() {
+function AdminAnalyticsContent() {
   const router = useRouter();
   const [selectedTimeFilter, setSelectedTimeFilter] = useState('30d');
   const [isLoading, setIsLoading] = useState(false);
@@ -170,9 +171,9 @@ export default function AdminAnalyticsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-white/10">
+    <div className="min-h-screen bg-background text-foreground pb-20 sm:pb-6">
+      {/* Header with Safe Area */}
+      <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-white/10 safe-area-top">
         <div className="px-4 sm:px-6 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
@@ -538,8 +539,25 @@ export default function AdminAnalyticsPage() {
         </div>
       )}
 
-      {/* Bottom padding for mobile navigation */}
-      <div className="h-16 sm:hidden" />
+      {/* Scrollbar hide style */}
+      <style jsx global>{`
+        .scrollbar-hide {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+        .scrollbar-hide::-webkit-scrollbar {
+          display: none;
+        }
+      `}</style>
     </div>
+  );
+}
+
+// Main Export with SafeAreaProvider
+export default function AdminAnalyticsPage() {
+  return (
+    <SafeAreaProvider applySafeArea={false}>
+      <AdminAnalyticsContent />
+    </SafeAreaProvider>
   );
 }

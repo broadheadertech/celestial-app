@@ -6,6 +6,7 @@ import { ArrowLeft, Eye, EyeOff, Check, X } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Card from '@/components/ui/Card';
+import SafeAreaProvider from '@/components/provider/SafeAreaProvider';
 import { isValidEmail, isValidPhone, validatePassword } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -18,7 +19,7 @@ interface FormData {
   confirmPassword: string;
 }
 
-export default function RegisterPage() {
+function RegisterContent() {
   const router = useRouter();
   const { registerWithEmail } = useAuth();
 
@@ -130,8 +131,8 @@ export default function RegisterPage() {
 
   return (
     <div className="min-h-screen flex flex-col px-6 py-8">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-8">
+      {/* Header with Safe Area */}
+      <div className="flex items-center justify-between mb-8 safe-area-top pt-4">
         <button
           onClick={handleBack}
           className="flex items-center justify-center w-10 h-10 rounded-full bg-secondary border border-white/10 hover:bg-white/10 transition-colors"
@@ -168,7 +169,7 @@ export default function RegisterPage() {
       </div>
 
       {/* Registration Form */}
-      <div className="flex-1 max-w-sm mx-auto w-full">
+      <div className="flex-1 max-w-sm mx-auto w-full pb-8">
         <Card className="mb-6">
           <form onSubmit={currentStep === 1 ? (e) => { e.preventDefault(); handleNext(); } : handleSubmit} className="space-y-6">
             {errors.general && (
@@ -319,5 +320,14 @@ export default function RegisterPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+// Main Export with SafeAreaProvider
+export default function RegisterPage() {
+  return (
+    <SafeAreaProvider applySafeArea={false}>
+      <RegisterContent />
+    </SafeAreaProvider>
   );
 }

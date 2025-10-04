@@ -1,13 +1,14 @@
+// app/onboarding/page.tsx
 'use client';
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, ArrowRight, Check } from 'lucide-react';
 import Image from 'next/image';
+import SafeAreaProvider, { useSafeArea } from '@/components/provider/SafeAreaProvider';
 
 const ONBOARDING_KEY = 'onboarding_completed';
 
-// Simplified onboarding data
 const onboardingSteps = [
   {
     id: 1,
@@ -35,11 +36,13 @@ const onboardingSteps = [
   }
 ];
 
-export default function OnboardingPage() {
+// Onboarding Content Component (consumes safe area context)
+function OnboardingContent() {
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
   const [imageErrors, setImageErrors] = useState<{[key: number]: boolean}>({});
+  const { isMobileApp, isInitialized } = useSafeArea();
 
   const handleNext = () => {
     if (isAnimating) return;
@@ -97,63 +100,65 @@ export default function OnboardingPage() {
   const currentStepData = onboardingSteps[currentStep];
 
   return (
-    <div className="min-h-screen bg-background flex flex-col safe-area-inset">
-      {/* Mobile-optimized Header with larger touch targets */}
-      <div className="absolute top-0 left-0 right-0 z-10 px-4 pt-4 pb-2">
-        <div className="flex items-center justify-between max-w-6xl mx-auto w-full">
-          <button
-            onClick={handlePrevious}
-            className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 ${
-              currentStep === 0 
-                ? 'opacity-0 pointer-events-none' 
-                : 'opacity-100 bg-white/10 backdrop-blur-sm hover:bg-white/20'
-            }`}
-            disabled={currentStep === 0}
-            aria-label="Previous step"
-          >
-            <ChevronLeft size={24} className="text-white" />
-          </button>
-          
-          {/* Mobile-optimized Progress Dots */}
-          <div className="flex items-center space-x-2">
-            {onboardingSteps.map((_, index) => (
-              <button
-                key={index}
-                onClick={() => goToStep(index)}
-                className="p-1.5"
-                aria-label={`Go to step ${index + 1}`}
-              >
-                <div
-                  className={`rounded-full transition-all duration-500 ${
-                    index === currentStep 
-                      ? 'w-6 h-1.5 bg-primary shadow-lg shadow-primary/30' 
-                      : index < currentStep 
-                        ? 'w-1.5 h-1.5 bg-primary/50' 
-                        : 'w-1.5 h-1.5 bg-white/30 hover:bg-white/50'
-                  }`}
-                />
-              </button>
-            ))}
+    <div className="min-h-screen bg-background flex flex-col">
+      {/* Header with Safe Area Support - Fixed spacing */}
+      <div className="absolute top-0 left-0 right-0 z-10 mb-2">
+        <div className="px-4 pt-6 pb-4 bg-gradient-to-b from-black/60 via-black/40 to-transparent">
+          <div className="flex items-center justify-between max-w-6xl mx-auto w-full">
+            <button
+              onClick={handlePrevious}
+              className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 ${
+                currentStep === 0 
+                  ? 'opacity-0 pointer-events-none' 
+                  : 'opacity-100 bg-white/10 backdrop-blur-sm hover:bg-white/20 active:scale-95'
+              }`}
+              disabled={currentStep === 0}
+              aria-label="Previous step"
+            >
+              <ChevronLeft size={24} className="text-white" />
+            </button>
+            
+            {/* Progress Dots */}
+            <div className="flex items-center space-x-2">
+              {onboardingSteps.map((_, index) => (
+                <button
+                  key={index}
+                  onClick={() => goToStep(index)}
+                  className="p-1.5 active:scale-90 transition-transform"
+                  aria-label={`Go to step ${index + 1}`}
+                >
+                  <div
+                    className={`rounded-full transition-all duration-500 ${
+                      index === currentStep 
+                        ? 'w-6 h-1.5 bg-primary shadow-lg shadow-primary/30' 
+                        : index < currentStep 
+                          ? 'w-1.5 h-1.5 bg-primary/50' 
+                          : 'w-1.5 h-1.5 bg-white/30 hover:bg-white/50'
+                    }`}
+                  />
+                </button>
+              ))}
+            </div>
+            
+            <button
+              onClick={handleSkip}
+              className="text-white/90 hover:text-white active:scale-95 transition-all duration-300 text-sm font-medium px-4 py-2 rounded-full"
+            >
+              Skip
+            </button>
           </div>
-          
-          <button
-            onClick={handleSkip}
-            className="text-white/60 hover:text-white transition-colors duration-300 text-sm font-medium px-3 py-1.5 rounded-full hover:bg-white/10"
-          >
-            Skip
-          </button>
         </div>
       </div>
 
-      {/* Main Content - Mobile-optimized Layout */}
+      {/* Main Content */}
       <div className="flex-1 flex flex-col relative">
         <div 
           className={`flex-1 transition-all duration-500 ${
             isAnimating ? 'opacity-0' : 'opacity-100'
           }`}
         >
-          {/* Mobile-optimized Image Section - reduced height for better content visibility */}
-          <div className="relative h-[40vh] w-full overflow-hidden">
+          {/* Image Section - Adjusted height to prevent overlap */}
+          <div className="relative h-[45vh] w-full overflow-hidden">
             {!imageErrors[currentStepData.id] ? (
               <>
                 <Image
@@ -165,11 +170,10 @@ export default function OnboardingPage() {
                   onError={() => handleImageError(currentStepData.id)}
                   unoptimized
                 />
-                {/* Enhanced Gradient overlay for better text readability */}
-                <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent/70 to-background" />
+                {/* Enhanced gradient overlay for better separation */}
+                <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-background" />
               </>
             ) : (
-              /* Mobile-optimized Fallback */
               <div className="w-full h-full bg-gradient-to-b from-secondary/20 to-background flex items-center justify-center">
                 <div className="text-center">
                   <div className="w-16 h-16 mx-auto rounded-full bg-white/5 flex items-center justify-center mb-4 animate-pulse">
@@ -181,10 +185,10 @@ export default function OnboardingPage() {
             )}
           </div>
 
-          {/* Mobile-optimized Content Section */}
+          {/* Content Section */}
           <div className="flex-1 flex flex-col justify-center px-5 py-6">
             <div className="text-center space-y-6">
-              {/* Mobile-optimized Title Section */}
+              {/* Title Section */}
               <div className="space-y-3">
                 {currentStep === 0 ? (
                   <h1 className="text-3xl font-bold tracking-tight">
@@ -203,12 +207,12 @@ export default function OnboardingPage() {
                 )}
               </div>
               
-              {/* Mobile-optimized Description with better readability */}
+              {/* Description */}
               <p className="text-white/70 text-base leading-relaxed px-2">
                 {currentStepData.description}
               </p>
 
-              {/* Mobile-optimized Feature Display */}
+              {/* Features */}
               <div className="pt-2">
                 <div className="flex flex-wrap justify-center gap-3">
                   {currentStepData.features.map((feature, index) => (
@@ -228,38 +232,38 @@ export default function OnboardingPage() {
           </div>
         </div>
 
-        {/* Mobile-optimized Bottom Action */}
-        <div className="absolute bottom-0 left-0 right-0 p-5 pt-12 pb-6">
-          <div className="max-w-md mx-auto w-full">
-            <button
-              className="w-full rounded-full py-4 px-6 flex items-center justify-center bg-primary hover:bg-primary/90 active:scale-[0.98] transition-all duration-200 shadow-xl shadow-primary/25 hover:shadow-primary/35 group disabled:opacity-70 disabled:cursor-not-allowed relative overflow-hidden"
-              onClick={handleNext}
-              disabled={isAnimating}
-            >
-              {/* Subtle animated shine effect */}
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent w-full -translate-x-full group-hover:animate-shine" />
-              
-              <span className="text-white text-base font-medium mr-2 relative z-10">
-                {currentStep === onboardingSteps.length - 1 ? 'Get Started' : 'Continue'}
-              </span>
-              <ArrowRight className="w-4 h-4 text-white group-hover:translate-x-1 transition-transform duration-300 relative z-10" />
-            </button>
+        {/* Bottom Action with Safe Area Support */}
+        <div className="absolute bottom-0 left-0 right-0 safe-area-bottom">
+          <div className="p-5 pt-12 pb-6 safe-area-inset-bottom bg-gradient-to-t from-background via-background to-transparent">
+            <div className="max-w-md mx-auto w-full">
+              <button
+                className="w-full rounded-full py-4 px-6 flex items-center justify-center bg-primary hover:bg-primary/90 active:scale-[0.98] transition-all duration-200 shadow-xl shadow-primary/25 hover:shadow-primary/35 group disabled:opacity-70 disabled:cursor-not-allowed relative overflow-hidden"
+                onClick={handleNext}
+                disabled={isAnimating}
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent w-full -translate-x-full group-hover:animate-shine" />
+                
+                <span className="text-white text-base font-medium mr-2 relative z-10">
+                  {currentStep === onboardingSteps.length - 1 ? 'Get Started' : 'Continue'}
+                </span>
+                <ArrowRight className="w-4 h-4 text-white group-hover:translate-x-1 transition-transform duration-300 relative z-10" />
+              </button>
 
-            {/* Mobile-optimized hint on last page */}
-            {currentStep === onboardingSteps.length - 1 && (
-              <div className="flex items-center justify-center mt-4 space-x-1.5">
-                <Check className="w-4 h-4 text-primary/70" />
-                <p className="text-center text-white/40 text-xs">
-                  Start your aquatic journey today
-                </p>
-              </div>
-            )}
+              {currentStep === onboardingSteps.length - 1 && (
+                <div className="flex items-center justify-center mt-4 space-x-1.5">
+                  <Check className="w-4 h-4 text-primary/70" />
+                  <p className="text-center text-white/40 text-xs">
+                    Start your aquatic journey today
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
       
-      {/* Add global styles for shine animation */}
-      <style jsx global>{`
+      {/* Shine Animation */}
+      <style jsx>{`
         @keyframes shine {
           0% { transform: translateX(-100%); }
           100% { transform: translateX(100%); }
@@ -269,5 +273,14 @@ export default function OnboardingPage() {
         }
       `}</style>
     </div>
+  );
+}
+
+// Main Page Component with SafeAreaProvider
+export default function OnboardingPage() {
+  return (
+    <SafeAreaProvider applySafeArea={false}>
+      <OnboardingContent />
+    </SafeAreaProvider>
   );
 }

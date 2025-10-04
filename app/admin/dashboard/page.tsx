@@ -19,6 +19,7 @@ import { useQuery, useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import BottomNavbar from '@/components/common/BottomNavbar';
 import NotificationModal from '@/components/modal/NotificationModal';
+import SafeAreaProvider from '@/components/provider/SafeAreaProvider';
 
 const formatCurrency = (amount: number) => {
   return `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`;
@@ -46,7 +47,7 @@ const getOrderStatusIcon = (status: string) => {
   }
 };
 
-export default function AdminDashboardPage() {
+function AdminDashboardContent() {
   const router = useRouter();
   const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
 
@@ -134,8 +135,8 @@ export default function AdminDashboardPage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground pb-20 sm:pb-6">
-      {/* Header - Mobile Optimized */}
-      <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-white/10">
+      {/* Header - Mobile Optimized with Safe Area */}
+      <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-white/10 safe-area-top">
         <div className="px-3 sm:px-6 py-3 sm:py-4">
           <div className="flex items-center justify-between gap-2">
             <div className="flex-1 min-w-0">
@@ -175,7 +176,7 @@ export default function AdminDashboardPage() {
         </div>
       </div>
 
-      {/* Main Content */}
+      {/* Main Content with Safe Area Horizontal */}
       <div className="px-3 sm:px-6 py-3 sm:py-4">
         {/* Stats Cards - Mobile First Grid */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 mb-4 sm:mb-6">
@@ -362,5 +363,14 @@ export default function AdminDashboardPage() {
       {/* Bottom Navigation */}
       <BottomNavbar />
     </div>
+  );
+}
+
+// Main Export with SafeAreaProvider
+export default function AdminDashboardPage() {
+  return (
+    <SafeAreaProvider applySafeArea={false}>
+      <AdminDashboardContent />
+    </SafeAreaProvider>
   );
 }

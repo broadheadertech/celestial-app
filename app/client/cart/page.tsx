@@ -20,8 +20,9 @@ import Input from '@/components/ui/Input';
 import Card from '@/components/ui/Card';
 import ClientBottomNavbar from '@/components/client/ClientBottomNavbar';
 import { useReservation } from '@/context/ReservationContext';
+import SafeAreaProvider from '@/components/provider/SafeAreaProvider';
 
-export default function CartPage() {
+function CartContent() {
   const router = useRouter();
   const cartItems = useCartItems();
   const cartTotal = useCartTotal();
@@ -168,8 +169,8 @@ export default function CartPage() {
   if (showGuestForm && !isAuthenticated) {
     return (
       <div className="min-h-screen bg-background">
-        {/* Header */}
-        <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-white/10">
+        {/* Header with Safe Area */}
+        <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-white/10 safe-area-top">
           <div className="px-4 py-4">
             <div className="flex items-center space-x-4">
               <button
@@ -184,7 +185,7 @@ export default function CartPage() {
         </div>
 
         {/* Guest Form */}
-        <div className="px-4 py-6">
+        <div className="px-4 py-6 safe-area-bottom">
           <Card className="mb-6">
             <div className="space-y-4">
               <div>
@@ -286,8 +287,8 @@ export default function CartPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-white/10">
+      {/* Header with Safe Area */}
+      <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-white/10 safe-area-top">
         <div className="px-4 py-4">
           <div className="flex items-center space-x-4">
             <button
@@ -470,8 +471,16 @@ export default function CartPage() {
       {/* Client Bottom Navigation */}
       <ClientBottomNavbar />
 
-      {/* Bottom padding */}
-      <div className="h-16" />
+      {/* Bottom padding with safe area */}
+      <div className="h-16 safe-area-bottom" />
     </div>
+  );
+}
+
+export default function CartPage() {
+  return (
+    <SafeAreaProvider applySafeArea={false}>
+      <CartContent />
+    </SafeAreaProvider>
   );
 }

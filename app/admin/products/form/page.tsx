@@ -15,6 +15,7 @@ import {
 import { api } from '@/convex/_generated/api';
 import { Id } from '@/convex/_generated/dataModel';
 import ConfirmationModal from '@/components/ui/ConfirmationModal';
+import SafeAreaProvider from '@/components/provider/SafeAreaProvider';
 
 interface ProductFormData {
   // Base product fields
@@ -105,7 +106,7 @@ const initialFormData: ProductFormData = {
   filtration: ''
 };
 
-function ProductFormContent() {
+function ProductFormContentInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const productId = searchParams.get('id');
@@ -570,8 +571,8 @@ function ProductFormContent() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
+      {/* Header with Safe Area */}
+      <div className="mt-2 flex items-center justify-between px-6 py-4 border-b border-white/10 safe-area-top">
         <button
           onClick={() => router.back()}
           className="w-10 h-10 rounded-full flex items-center justify-center bg-white/5 hover:bg-white/10 transition-colors"
@@ -1009,7 +1010,7 @@ function ProductFormContent() {
           </div>
         )}
 
-        {/* Bottom spacing */}
+        {/* Bottom spacing for safe area */}
         <div className="h-20" />
       </div>
 
@@ -1022,6 +1023,14 @@ function ProductFormContent() {
         type={confirmationModalProps.type}
       />
     </div>
+  );
+}
+
+function ProductFormContent() {
+  return (
+    <SafeAreaProvider applySafeArea={false}>
+      <ProductFormContentInner />
+    </SafeAreaProvider>
   );
 }
 

@@ -28,6 +28,7 @@ import Button from '@/components/ui/Button';
 import ProductCard from '@/components/ui/ProductCard';
 import ClientBottomNavbar from '@/components/client/ClientBottomNavbar';
 import { Product } from '@/types';
+import SafeAreaProvider from '@/components/provider/SafeAreaProvider';
 
 function SearchContent() {
   const router = useRouter();
@@ -185,8 +186,8 @@ function SearchContent() {
 
   return (
     <div className="min-h-screen bg-background" ref={topRef}>
-      {/* Compact Header */}
-      <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-md border-b border-white/10">
+      {/* Compact Header with Safe Area */}
+      <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-md border-b border-white/10 safe-area-top">
         <div className="px-3 sm:px-4 py-2.5 sm:py-3">
           <div className="flex items-center gap-2 sm:gap-3">
             <button
@@ -596,25 +597,27 @@ function SearchContent() {
       {/* Client Bottom Navigation */}
       <ClientBottomNavbar />
 
-      {/* Bottom padding for mobile navbar */}
-      <div className="h-16 sm:h-20" />
+      {/* Bottom padding for mobile navbar with safe area */}
+      <div className="h-16 sm:h-20 safe-area-bottom" />
     </div>
   );
 }
 
 export default function SearchPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-background px-4 sm:px-6 py-6 sm:py-8">
-        <div className="flex items-center justify-center min-h-[50vh]">
-          <div className="text-center">
-            <Loader2 className="w-6 h-6 sm:w-8 sm:h-8 animate-spin text-primary mx-auto mb-4" />
-            <p className="text-sm sm:text-base text-white/60">Loading search...</p>
+    <SafeAreaProvider applySafeArea={false}>
+      <Suspense fallback={
+        <div className="min-h-screen bg-background px-4 sm:px-6 py-6 sm:py-8 safe-area-container">
+          <div className="flex items-center justify-center min-h-[50vh]">
+            <div className="text-center">
+              <Loader2 className="w-6 h-6 sm:w-8 sm:h-8 animate-spin text-primary mx-auto mb-4" />
+              <p className="text-sm sm:text-base text-white/60">Loading search...</p>
+            </div>
           </div>
         </div>
-      </div>
-    }>
-      <SearchContent />
-    </Suspense>
+      }>
+        <SearchContent />
+      </Suspense>
+    </SafeAreaProvider>
   );
 }

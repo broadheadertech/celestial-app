@@ -27,6 +27,7 @@ import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
 import Input from '@/components/ui/Input';
 import ConfirmationModal from '@/components/ui/ConfirmationModal';
+import SafeAreaProvider from '@/components/provider/SafeAreaProvider';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { Id } from '@/convex/_generated/dataModel';
@@ -49,7 +50,7 @@ const statusColors = {
   cancelled: 'bg-gray-500/20 text-gray-400 border-gray-500/30'
 };
 
-export default function ReservationDetailsClient() {
+function ReservationDetailsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -136,7 +137,6 @@ export default function ReservationDetailsClient() {
       setNewStatus('');
       setStatusNote('');
 
-      // Show success message
       showConfirmation('Success', 'Reservation status updated successfully!', 'success');
     } catch (error) {
       console.error('Error updating status:', error);
@@ -163,7 +163,6 @@ export default function ReservationDetailsClient() {
       setStatusNote('');
       setShowPickupModal(false);
 
-      // Show success message
       showConfirmation('Success', 'Reservation marked as ready for pickup! Customer has been notified.', 'success');
     } catch (error) {
       console.error('Error marking ready for pickup:', error);
@@ -184,7 +183,6 @@ export default function ReservationDetailsClient() {
       showConfirmation('No Email', 'No email address available for this customer', 'warning');
       return;
     }
-    // Implementation for sending email to customer
     showConfirmation('Email Sent', `Sending confirmation email to ${customerEmail}`, 'info');
   };
 
@@ -230,12 +228,11 @@ export default function ReservationDetailsClient() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Enhanced Header - Better responsive layout */}
-      <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-white/10">
+    <div className="min-h-screen bg-background text-foreground pb-20 sm:pb-6">
+      {/* Enhanced Header with Safe Area */}
+      <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-white/10 safe-area-top">
         <div className="px-3 sm:px-6 lg:px-8 py-3 sm:py-4">
           <div className="flex items-center justify-between gap-3">
-            {/* Left side - Back button and title */}
             <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
               <button
                 onClick={() => router.back()}
@@ -250,14 +247,13 @@ export default function ReservationDetailsClient() {
                 <p className="text-xs sm:text-sm text-muted">Reservation Details</p>
               </div>
             </div>
-
           </div>
         </div>
       </div>
 
-      {/* Enhanced main content with better responsive layout */}
+      {/* Main content */}
       <div className="px-3 sm:px-6 lg:px-8 py-3 sm:py-6 max-w-7xl mx-auto">
-        {/* Status and Overview - Enhanced responsive grid */}
+        {/* Status and Overview */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-6 mb-3 sm:mb-6">
           <Card className="lg:col-span-2 p-4 sm:p-6">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4 sm:mb-6">
@@ -278,7 +274,6 @@ export default function ReservationDetailsClient() {
               </div>
             </div>
 
-            {/* Enhanced responsive grid for info */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-sm">
               <div className="space-y-1">
                 <span className="text-muted">Reservation Date:</span>
@@ -301,7 +296,7 @@ export default function ReservationDetailsClient() {
             </div>
           </Card>
 
-          {/* Enhanced Customer Card */}
+          {/* Customer Card */}
           <Card className="p-4 sm:p-6">
             <div className="flex items-center gap-3 mb-4">
               <div className="p-2 sm:p-3 bg-primary/20 rounded-lg sm:rounded-xl shrink-0">
@@ -345,9 +340,7 @@ export default function ReservationDetailsClient() {
         {/* Compact Action Section */}
         <Card className="p-3 sm:p-4 mb-3 sm:mb-6">
           <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
-            {/* Primary Actions Row */}
             <div className="flex items-center gap-2 flex-wrap">
-              {/* Confirm Reservation */}
               {reservation.status === 'pending' && (
                 <Button
                   onClick={() => {
@@ -365,7 +358,6 @@ export default function ReservationDetailsClient() {
                 </Button>
               )}
 
-              {/* Mark Ready for Pickup */}
               {reservation.status === 'confirmed' && (
                 <Button
                   onClick={() => setShowPickupModal(true)}
@@ -379,7 +371,6 @@ export default function ReservationDetailsClient() {
                 </Button>
               )}
 
-              {/* Mark as Picked Up */}
               {reservation.status === 'ready_for_pickup' && (
                 <Button
                   onClick={() => {
@@ -397,7 +388,6 @@ export default function ReservationDetailsClient() {
                 </Button>
               )}
 
-              {/* Cancel Reservation */}
               {['pending', 'confirmed', 'ready_for_pickup'].includes(reservation.status) && (
                 <Button
                   onClick={() => {
@@ -416,7 +406,6 @@ export default function ReservationDetailsClient() {
               )}
             </div>
 
-            {/* Utility Actions */}
             <div className="flex items-center gap-2 flex-wrap">
               <Button
                 onClick={() => setShowStatusModal(true)}
@@ -449,7 +438,6 @@ export default function ReservationDetailsClient() {
               </Button>
             </div>
 
-            {/* Status Note Input - Inline */}
             <div className="flex-1 min-w-0">
               <Input
                 value={statusNote}
@@ -461,7 +449,7 @@ export default function ReservationDetailsClient() {
           </div>
         </Card>
 
-        {/* Enhanced Pickup Schedule */}
+        {/* Pickup Schedule */}
         {reservation.guestInfo?.pickupSchedule && (
           <Card className="p-4 sm:p-6 mb-3 sm:mb-6">
             <div className="flex items-center gap-3 mb-4">
@@ -498,7 +486,7 @@ export default function ReservationDetailsClient() {
           </Card>
         )}
 
-        {/* Enhanced Reserved Items */}
+        {/* Reserved Items */}
         <Card className="p-4 sm:p-6 mb-3 sm:mb-6">
           <div className="flex items-center gap-3 mb-4 sm:mb-6">
             <div className="p-2 sm:p-3 bg-success/20 rounded-lg sm:rounded-xl shrink-0">
@@ -544,7 +532,7 @@ export default function ReservationDetailsClient() {
           </div>
         </Card>
 
-        {/* Enhanced Notes */}
+        {/* Notes */}
         {reservation.notes && (
           <Card className="p-4 sm:p-6 mb-3 sm:mb-6">
             <div className="flex items-center gap-3 mb-4">
@@ -563,7 +551,7 @@ export default function ReservationDetailsClient() {
           </Card>
         )}
 
-        {/* Enhanced Basic Info */}
+        {/* Basic Info */}
         <Card className="p-4 sm:p-6 mb-16 sm:mb-20">
           <div className="flex items-center gap-3 mb-4 sm:mb-6">
             <div className="p-2 sm:p-3 bg-info/20 rounded-lg sm:rounded-xl shrink-0">
@@ -596,7 +584,7 @@ export default function ReservationDetailsClient() {
         </Card>
       </div>
 
-      {/* Enhanced Status Update Modal - Better mobile responsive */}
+      {/* Status Update Modal */}
       {showStatusModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-3 sm:p-6">
           <Card className="w-full max-w-md mx-3">
@@ -727,9 +715,15 @@ export default function ReservationDetailsClient() {
         message={confirmationModalProps.message}
         type={confirmationModalProps.type}
       />
-
-      {/* Enhanced bottom spacing */}
-      <div className="h-16 sm:h-20" />
     </div>
+  );
+}
+
+// Main Export with SafeAreaProvider
+export default function ReservationDetailsClient() {
+  return (
+    <SafeAreaProvider applySafeArea={false}>
+      <ReservationDetailsContent />
+    </SafeAreaProvider>
   );
 }

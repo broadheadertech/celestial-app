@@ -6,6 +6,7 @@ import { useQuery, useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { Id } from '@/convex/_generated/dataModel';
 import BottomNavbar from '@/components/common/BottomNavbar';
+import SafeAreaProvider from '@/components/provider/SafeAreaProvider';
 import {
   ArrowLeft,
   Search,
@@ -32,7 +33,7 @@ const formatCurrency = (amount: number) => {
   return `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`;
 };
 
-export default function AdminUsersPage() {
+function AdminUsersContent() {
   const router = useRouter();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -147,8 +148,8 @@ export default function AdminUsersPage() {
 
   return (
     <div className="min-h-screen bg-background pb-20 sm:pb-6">
-      {/* Header - Mobile Optimized */}
-      <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-white/10">
+      {/* Header - Mobile Optimized with Safe Area */}
+      <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-white/10 safe-area-top">
         <div className="px-3 sm:px-6 py-3 sm:py-4">
           <div className="flex items-center justify-between gap-2 mb-3 sm:mb-4">
             <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0">
@@ -211,7 +212,7 @@ export default function AdminUsersPage() {
         </div>
       </div>
 
-      {/* Stats - Horizontal Scroll on Mobile */}
+      {/* Stats - Horizontal Scroll on Mobile with Safe Area */}
       <div className="px-3 sm:px-6 py-3 sm:py-4 border-b border-white/10">
         <div className="flex gap-2 sm:gap-3 overflow-x-auto scrollbar-hide pb-1">
           <div className="flex-shrink-0 bg-secondary/40 backdrop-blur-sm rounded-lg sm:rounded-xl p-2.5 sm:p-3 border border-white/10 min-w-[110px] sm:min-w-[120px]">
@@ -255,7 +256,7 @@ export default function AdminUsersPage() {
         </div>
       </div>
 
-      {/* Filters Panel */}
+      {/* Filters Panel with Safe Area */}
       {showFilters && (
         <div className="bg-secondary/60 border-b border-white/10 px-3 sm:px-6 py-3 sm:py-4">
           <div className="space-y-3 sm:space-y-4">
@@ -300,7 +301,7 @@ export default function AdminUsersPage() {
         </div>
       )}
 
-      {/* Users List */}
+      {/* Users List with Safe Area */}
       <div className="px-3 sm:px-6 py-3 sm:py-4">
         <div className="flex items-center justify-between mb-3 sm:mb-4">
           <h2 className="text-sm sm:text-lg font-bold text-white">
@@ -505,5 +506,14 @@ export default function AdminUsersPage() {
         type={confirmationModalProps.type}
       />
     </div>
+  );
+}
+
+// Main Export with SafeAreaProvider
+export default function AdminUsersPage() {
+  return (
+    <SafeAreaProvider applySafeArea={false}>
+      <AdminUsersContent />
+    </SafeAreaProvider>
   );
 }
