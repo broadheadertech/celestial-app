@@ -538,12 +538,6 @@ function AdminOrdersContent() {
                         <span className="text-xs sm:text-sm text-white/80 truncate"><span className="hidden sm:inline">Pickup: </span>{item.guestInfo.pickupSchedule.date} at {item.guestInfo.pickupSchedule.time}</span>
                       </div>
                     )}
-                    {item.notes && (
-                      <div className="mt-2 p-2 sm:p-3 bg-white/5 border border-white/5 rounded-lg">
-                        <p className="text-xs text-white/60 mb-1">Notes:</p>
-                        <p className="text-xs sm:text-sm text-white/80 line-clamp-2">{item.notes}</p>
-                      </div>
-                    )}
                   </div>
                 </div>
               ))}
