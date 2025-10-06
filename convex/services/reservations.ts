@@ -1,5 +1,6 @@
 import { query, mutation } from "../_generated/server";
 import { v } from "convex/values";
+import { api } from "../_generated/api";
 import { 
   notifyLowStock, 
   notifyReservationCreated, 
@@ -541,7 +542,7 @@ export const markReservationReadyForPickup = mutation({
       totalQuantity = reservation.quantity || 1;
     }
 
-    // Create customer notification
+    // Create customer notification with push notification
     await notifyReservationReadyForPickup(ctx, {
       reservationId: reservation.reservationCode || reservation._id,
       customerName,
@@ -630,27 +631,33 @@ export const updateReservationStatus = mutation({
     // Create notification for status change
     if (oldStatus !== status) {
       let customerName = 'Unknown Customer';
+      let customerEmail: string | undefined = undefined;
       
       if (reservation.guestInfo) {
         // Guest reservation
         customerName = reservation.guestInfo.name;
+        customerEmail = reservation.guestInfo.email;
       } else if (reservation.userId) {
         // User reservation - fetch user details
         const user = await ctx.db.get(reservation.userId);
         if (user) {
           customerName = `${user.firstName} ${user.lastName}`;
+          customerEmail = user.email;
         }
       }
       
       let itemsText;
+      let totalQuantity = 1;
       if (reservation.items && reservation.items.length > 0) {
         // New multi-item format
+        totalQuantity = reservation.totalQuantity || reservation.items.reduce((sum, item) => sum + item.quantity, 0);
         itemsText = reservation.items.length === 1 
           ? `${reservation.items[0].quantity}x product`
-          : `${reservation.items.length} items (${reservation.totalQuantity || reservation.items.reduce((sum, item) => sum + item.quantity, 0)} total)`;
+          : `${reservation.items.length} items (${totalQuantity} total)`;
       } else {
         // Legacy single-item format
-        itemsText = `${reservation.quantity || 1}x product`;
+        totalQuantity = reservation.quantity || 1;
+        itemsText = `${totalQuantity}x product`;
       }
       
       await notifyReservationStatusChanged(ctx, {
@@ -660,6 +667,8 @@ export const updateReservationStatus = mutation({
         oldStatus,
         newStatus: status,
       });
+
+      // No additional notification needed - standard notifications handled above
     }
 
     return await ctx.db.get(reservationId);

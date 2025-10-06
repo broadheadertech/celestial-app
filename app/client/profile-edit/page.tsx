@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft,
@@ -47,21 +47,34 @@ export default function ProfileEditPage() {
     phone: user?.phone || '',
   });
 
-  // Redirect if not authenticated
-  if (!isAuthenticated) {
-    router.push('/auth/login');
-    return null;
-  }
+  // Handle redirects in useEffect (client-side only)
+  useEffect(() => {
+    if (!isAuthenticated) {
+      router.push('/auth/login');
+      return;
+    }
 
-  // Redirect admins and super_admins to their respective dashboards
-  if (user?.role === 'admin') {
-    router.push('/admin/dashboard');
-    return null;
-  }
+    if (user?.role === 'admin') {
+      router.push('/admin/dashboard');
+      return;
+    }
 
-  if (user?.role === 'super_admin') {
-    router.push('/control_panel');
-    return null;
+    if (user?.role === 'super_admin') {
+      router.push('/control_panel');
+      return;
+    }
+  }, [isAuthenticated, user?.role, router]);
+
+  // Show loading while checking auth
+  if (!isAuthenticated || user?.role === 'admin' || user?.role === 'super_admin') {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-white">Loading...</p>
+        </div>
+      </div>
+    );
   }
 
   // Password form state

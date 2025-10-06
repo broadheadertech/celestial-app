@@ -279,6 +279,7 @@ export const notifyReservationReadyForPickup = mutation({
     notes: v.optional(v.string()),
     pickupDate: v.optional(v.string()),
     pickupTime: v.optional(v.string()),
+    sendPushNotification: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const title = "🎉 Your Reservation is Ready for Pickup!";
@@ -288,6 +289,16 @@ export const notifyReservationReadyForPickup = mutation({
 
     const message = `Hello ${args.customerName}! Your reservation for ${args.quantity}x ${args.productName} is now ready for pickup${pickupInfo}. Please visit us to collect your items.${pickupDateTime}${additionalNotes}`;
 
+    // Calculate pickup time for push notification scheduling (immediate if sendPushNotification is true)
+    let scheduledPushTime: number | undefined;
+    if (args.sendPushNotification) {
+      // Send immediately
+      scheduledPushTime = Date.now() + 1000; // 1 second from now
+    } else if (args.pickupDate && args.pickupTime) {
+      const pickupDateTime = new Date(`${args.pickupDate}T${args.pickupTime}`);
+      scheduledPushTime = pickupDateTime.getTime() - (2 * 60 * 60 * 1000); // 2 hours before pickup
+    }
+
     await ctx.db.insert("notifications", {
       title,
       message,
@@ -296,11 +307,21 @@ export const notifyReservationReadyForPickup = mutation({
       priority: "high",
       relatedId: args.reservationId,
       relatedType: "reservation",
+      targetUserId: args.customerEmail, // For targeting specific users
+      targetUserEmail: args.customerEmail,
+      scheduledPushTime,
+      pushNotificationSent: false,
       metadata: {
         customerName: args.customerName,
         customerEmail: args.customerEmail,
         productName: args.productName,
         status: "ready_for_pickup",
+        pushAction: "view_reservation",
+        pushData: {
+          reservationId: args.reservationId,
+          pickupDate: args.pickupDate,
+          pickupTime: args.pickupTime,
+        },
       },
       createdAt: Date.now(),
       updatedAt: Date.now(),
@@ -546,10 +567,14 @@ export const notifyClientReservationConfirmed = mutation({
     productName: v.string(),
     quantity: v.number(),
     expiryDate: v.number(),
+    sendPushNotification: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const title = "✅ Reservation Confirmed";
     const message = `Your reservation for ${args.quantity} x ${args.productName} has been confirmed. Please pick up within 48 hours.`;
+
+    // Schedule immediate push notification if requested
+    const scheduledPushTime = args.sendPushNotification ? Date.now() + 1000 : undefined;
 
     await ctx.db.insert("notifications", {
       title,
@@ -559,11 +584,19 @@ export const notifyClientReservationConfirmed = mutation({
       priority: "high",
       relatedId: args.reservationId,
       relatedType: "reservation",
+      targetUserId: args.customerEmail,
+      targetUserEmail: args.customerEmail,
+      scheduledPushTime,
+      pushNotificationSent: false,
       metadata: {
         customerName: args.customerName,
         customerEmail: args.customerEmail,
         productName: args.productName,
         status: "confirmed",
+        pushAction: "view_reservation",
+        pushData: {
+          reservationId: args.reservationId,
+        },
       },
       createdAt: Date.now(),
       updatedAt: Date.now(),

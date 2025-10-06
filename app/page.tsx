@@ -1,17 +1,33 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 export default function HomePage() {
   const router = useRouter();
+  const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
-    // For static export with Capacitor, redirect directly to login
-    // The AuthInitializer will handle authentication state
-    router.replace("/auth/login");
+    // Give time for providers to initialize
+    const timer = setTimeout(() => {
+      setIsReady(true);
+      router.replace("/auth/login");
+    }, 500);
+
+    return () => clearTimeout(timer);
   }, [router]);
 
-  // Return null - no loading screen
+  // Show loading state while initializing
+  if (!isReady) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-white text-lg">Loading Celestial Drakon Aquatics...</p>
+        </div>
+      </div>
+    );
+  }
+
   return null;
 }

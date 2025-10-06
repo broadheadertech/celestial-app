@@ -36,7 +36,6 @@ import ProductCard from "@/components/ui/ProductCard";
 import ClientNotificationModal from "@/components/modal/ClientNotifModal";
 import ClientBottomNavbar from "@/components/client/ClientBottomNavbar";
 import { useToastHelpers } from "@/components/ui/ToastManager";
-import { localNotificationService } from "@/lib/notifications/localNotifications";
 import SafeAreaProvider from "@/components/provider/SafeAreaProvider";
 
 function ClientDashboardContent() {
@@ -66,7 +65,6 @@ function ClientDashboardContent() {
   // Handle hydration to prevent SSR mismatch
   useEffect(() => {
     setIsHydrated(true);
-    localNotificationService.initialize();
   }, []);
 
   // Fetch data from Convex
@@ -129,15 +127,6 @@ function ClientDashboardContent() {
         reservation.message + " - Check your reservations for pickup details.",
         { duration: 8000 },
       );
-
-      localNotificationService.showNotification({
-        title: reservation.title,
-        body: reservation.message,
-        data: {
-          type: "reservation",
-          notificationId: reservation._id,
-        },
-      });
     }
   }, [clientNotifications, hasShownReservationNotif, isHydrated, success]);
 

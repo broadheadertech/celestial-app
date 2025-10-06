@@ -27,10 +27,12 @@ import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
 import Input from '@/components/ui/Input';
 import ConfirmationModal from '@/components/ui/ConfirmationModal';
+import { SMSConfirmationModal } from '@/components/modal/SMSConfirmationModal';
 import SafeAreaProvider from '@/components/provider/SafeAreaProvider';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { Id } from '@/convex/_generated/dataModel';
+import { getSMSMessageForStatus, type SMSMessageData } from '@/lib/sms';
 
 // Status options for the modal
 const statusOptions = [
@@ -60,6 +62,8 @@ function ReservationDetailsContent() {
   const [isUpdating, setIsUpdating] = useState(false);
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [showPickupModal, setShowPickupModal] = useState(false);
+  const [showSMSModal, setShowSMSModal] = useState(false);
+  const [pendingAction, setPendingAction] = useState<'confirm' | 'ready_for_pickup' | null>(null);
   const [newStatus, setNewStatus] = useState('');
   const [statusNote, setStatusNote] = useState('');
   const [pickupDate, setPickupDate] = useState('');
@@ -124,6 +128,15 @@ function ReservationDetailsContent() {
   const handleStatusUpdate = async () => {
     if (!newStatus || !reservation) return;
 
+    // Check if status is confirmed or ready_for_pickup - show SMS modal
+    if (newStatus === 'confirmed' || newStatus === 'ready_for_pickup') {
+      setPendingAction(newStatus);
+      setShowStatusModal(false);
+      setShowSMSModal(true);
+      return;
+    }
+
+    // For other statuses, proceed directly
     setIsUpdating(true);
 
     try {
@@ -146,30 +159,58 @@ function ReservationDetailsContent() {
     }
   };
 
-  const handleMarkReadyForPickup = async () => {
-    if (!reservation) return;
+  // Handle SMS modal confirmation
+  const handleSMSConfirm = async (sendSMS: boolean) => {
+    if (!reservation || !pendingAction) return;
 
     setIsUpdating(true);
+    setShowSMSModal(false);
 
     try {
-      await markReservationReadyForPickup({
-        reservationId: reservation._id as Id<'reservations'>,
-        pickupLocation: 'Main Store',
-        notes: statusNote || undefined,
-        pickupDate: pickupDate || undefined,
-        pickupTime: pickupTime || undefined
-      });
+      if (pendingAction === 'ready_for_pickup') {
+        // Use the dedicated ready for pickup function
+        await markReservationReadyForPickup({
+          reservationId: reservation._id as Id<'reservations'>,
+          pickupLocation: 'Main Store',
+          notes: statusNote || undefined,
+          pickupDate: pickupDate || undefined,
+          pickupTime: pickupTime || undefined
+        });
+      } else {
+        // Use regular status update for confirmed
+        await updateReservationStatus({
+          reservationId: reservation._id as Id<'reservations'>,
+          status: pendingAction as 'confirmed',
+          adminNotes: statusNote || undefined
+        });
+      }
 
+      // Reset states
+      setNewStatus('');
       setStatusNote('');
-      setShowPickupModal(false);
-
-      showConfirmation('Success', 'Reservation marked as ready for pickup! Customer has been notified.', 'success');
+      setPendingAction(null);
+      
+      const actionText = pendingAction === 'ready_for_pickup' ? 'ready for pickup' : 'confirmed';
+      showConfirmation(
+        'Success', 
+        `Reservation ${actionText}! ${sendSMS ? 'SMS sent to customer.' : 'Customer notified via push notification.'}`, 
+        'success'
+      );
     } catch (error) {
-      console.error('Error marking ready for pickup:', error);
-      showConfirmation('Error', 'Error marking ready for pickup. Please try again.', 'error');
+      console.error('Error updating status:', error);
+      showConfirmation('Error', 'Error updating status. Please try again.', 'error');
     } finally {
       setIsUpdating(false);
     }
+  };
+
+  const handleMarkReadyForPickup = async () => {
+    if (!reservation) return;
+
+    // Show SMS modal instead of directly marking as ready
+    setPendingAction('ready_for_pickup');
+    setShowPickupModal(false);
+    setShowSMSModal(true);
   };
 
   const handlePrint = () => {
@@ -705,6 +746,36 @@ function ReservationDetailsContent() {
             </div>
           </Card>
         </div>
+      )}
+
+      {/* SMS Confirmation Modal */}
+      {reservation && pendingAction && (
+        <SMSConfirmationModal
+          isOpen={showSMSModal}
+          onClose={() => {
+            setShowSMSModal(false);
+            setPendingAction(null);
+            setNewStatus('');
+          }}
+          onConfirm={handleSMSConfirm}
+          customerName={reservation.guestInfo?.name || `${reservation.user?.firstName} ${reservation.user?.lastName}` || 'Customer'}
+          customerPhone={reservation.guestInfo?.phone || reservation.user?.phone}
+          smsMessage={getSMSMessageForStatus(
+            pendingAction,
+            {
+              customerName: reservation.guestInfo?.name || `${reservation.user?.firstName} ${reservation.user?.lastName}` || 'Customer',
+              reservationCode: reservation.reservationCode || reservation._id,
+              productName: reservation.items?.[0]?.product?.name || 'your items',
+              quantity: reservation.totalQuantity || reservation.quantity || 1,
+              pickupLocation: 'Main Store',
+              pickupDate: pickupDate,
+              pickupTime: pickupTime,
+              notes: statusNote
+            }
+          )}
+          actionLabel={pendingAction === 'ready_for_pickup' ? 'Mark as Ready' : 'Confirm Reservation'}
+          isLoading={isUpdating}
+        />
       )}
 
       {/* Confirmation Modal */}

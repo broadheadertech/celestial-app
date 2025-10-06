@@ -6,8 +6,8 @@ import { useAuthStore } from "@/store/auth";
 export function AuthInitializer() {
   const { initializeGuestSession, user } = useAuthStore();
 
+  // Initialize guest session if no user is logged in
   useEffect(() => {
-    // Initialize guest session if no user is logged in
     if (!user) {
       initializeGuestSession();
     }

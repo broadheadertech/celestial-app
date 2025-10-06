@@ -213,12 +213,6 @@ export default defineSchema({
     // Reference IDs for context
     relatedId: v.optional(v.string()), // Can be orderId, reservationId, userId, etc.
     relatedType: v.optional(v.string()), // Type of the related entity
-    // Push notification tracking
-    pushNotificationSent: v.optional(v.boolean()), // Track if push notification was sent
-    pushNotificationId: v.optional(v.number()), // Local notification ID for cancellation
-    scheduledPushTime: v.optional(v.number()), // When push notification is scheduled for
-    targetUserId: v.optional(v.string()), // Target user for push notifications
-    targetUserEmail: v.optional(v.string()), // Target email for push notifications
     // Metadata for additional context
     metadata: v.optional(v.object({
       customerName: v.optional(v.string()),
@@ -226,13 +220,6 @@ export default defineSchema({
       productName: v.optional(v.string()),
       amount: v.optional(v.number()),
       status: v.optional(v.string()),
-      // Push notification specific metadata
-      pushAction: v.optional(v.string()), // Deep link action (e.g., "view_reservation", "view_order")
-      pushData: v.optional(v.object({
-        reservationId: v.optional(v.string()),
-        orderId: v.optional(v.string()),
-        productId: v.optional(v.string()),
-      })),
     })),
     createdAt: v.number(),
     updatedAt: v.number(),
@@ -240,7 +227,5 @@ export default defineSchema({
     .index("by_read", ["isRead"])
     .index("by_type", ["type"])
     .index("by_priority", ["priority"])
-    .index("by_created", ["createdAt"])
-    .index("by_target_user", ["targetUserId"])
-    .index("by_push_scheduled", ["scheduledPushTime"]),
+    .index("by_created", ["createdAt"]),
 });
