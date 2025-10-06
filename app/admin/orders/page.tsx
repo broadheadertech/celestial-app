@@ -30,6 +30,8 @@ import SafeAreaProvider from '@/components/provider/SafeAreaProvider';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { Id } from '@/convex/_generated/dataModel';
+import { SMSConfirmationModal } from '@/components/modal/SMSConfirmationModal';
+import { getSMSMessageForStatus } from '@/lib/sms';
 
 const ITEMS_PER_PAGE = 15;
 
@@ -59,6 +61,15 @@ function AdminOrdersContent() {
   const [currentPage, setCurrentPage] = useState(1);
   const buttonRefs = useRef<{ [key: string]: HTMLButtonElement | null }>({});
   const [mounted, setMounted] = useState(false);
+  
+  // SMS Modal state
+  const [showSMSModal, setShowSMSModal] = useState(false);
+  const [pendingAction, setPendingAction] = useState<{
+    itemId: string;
+    status: string;
+    type: 'status' | 'ready_for_pickup';
+  } | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const ordersQuery = useQuery(api.services.orders.getAllOrdersAdmin, {});
   const reservationsQuery = useQuery(api.services.reservations.getAllReservationsAdmin, {});
@@ -154,6 +165,16 @@ function AdminOrdersContent() {
     try {
       const item = allItems.find(i => i._id === itemId);
       if (!item) return;
+      
+      // Show SMS modal for reservations when confirming
+      if (item.type === 'reservation' && newStatus === 'confirmed') {
+        setPendingAction({ itemId, status: newStatus, type: 'status' });
+        setShowSMSModal(true);
+        setSelectedItem(null);
+        return;
+      }
+      
+      // Direct status update for orders or other statuses
       if (item.type === 'order') {
         await updateOrderStatus({ orderId: itemId as Id<'orders'>, status: newStatus as any });
       } else {
@@ -162,17 +183,55 @@ function AdminOrdersContent() {
       setSelectedItem(null);
     } catch (error) {
       console.error('Failed to update status:', error);
+      alert('Failed to update status. Please try again.');
     }
   };
 
   const handleMarkReadyForPickup = async (itemId: string) => {
     try {
-      await markReservationReadyForPickup({ reservationId: itemId as Id<'reservations'>, pickupLocation: "Main Store", notes: "Your reservation is ready for pickup. Please visit us during business hours." });
+      const item = allItems.find(i => i._id === itemId);
+      if (!item || item.type !== 'reservation') return;
+      
+      // Show SMS modal for ready for pickup
+      setPendingAction({ itemId, status: 'ready_for_pickup', type: 'ready_for_pickup' });
+      setShowSMSModal(true);
       setSelectedItem(null);
-      alert("Reservation marked as ready for pickup! Customer has been notified.");
     } catch (error) {
-      console.error('Failed to mark ready for pickup:', error);
-      alert("Failed to mark reservation as ready for pickup. Please try again.");
+      console.error('Failed to prepare ready for pickup:', error);
+      alert('Failed to prepare status update. Please try again.');
+    }
+  };
+
+  const handleSMSConfirm = async (sendSMS: boolean) => {
+    if (!pendingAction) return;
+    
+    setIsProcessing(true);
+    try {
+      const item = allItems.find(i => i._id === pendingAction.itemId);
+      if (!item) return;
+
+      if (pendingAction.type === 'ready_for_pickup') {
+        // Mark ready for pickup
+        await markReservationReadyForPickup({
+          reservationId: pendingAction.itemId as Id<'reservations'>,
+          pickupLocation: "Main Store",
+          notes: "Your reservation is ready for pickup. Please visit us during business hours."
+        });
+      } else {
+        // Update status
+        await updateReservationStatus({
+          reservationId: pendingAction.itemId as Id<'reservations'>,
+          status: pendingAction.status as any
+        });
+      }
+
+      setShowSMSModal(false);
+      setPendingAction(null);
+    } catch (error) {
+      console.error('Failed to update status:', error);
+      alert('Failed to update status. Please try again.');
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -379,6 +438,62 @@ function AdminOrdersContent() {
 
       <BottomNavbar />
 
+      {/* SMS Confirmation Modal */}
+      {pendingAction && (() => {
+        const item = allItems.find(i => i._id === pendingAction.itemId);
+        if (!item) return null;
+
+        const customerName = item.customer?.name || 'Guest Customer';
+        const customerPhone = item.customer?.phone;
+        
+        // Generate SMS message based on action type
+        let smsMessage = '';
+        if (pendingAction.type === 'ready_for_pickup') {
+          const firstItem = item.items?.[0];
+          const productName = firstItem?.product?.name || 'items';
+          smsMessage = getSMSMessageForStatus('ready_for_pickup', {
+            customerName,
+            reservationCode: item.code,
+            productName,
+            quantity: item.itemCount,
+            pickupLocation: "Main Store",
+            pickupDate: new Date().toLocaleDateString(),
+            pickupTime: "business hours",
+            notes: "Please visit us during business hours."
+          });
+        } else {
+          // confirmed status
+          const firstItem = item.items?.[0];
+          const productName = firstItem?.product?.name || 'items';
+          smsMessage = getSMSMessageForStatus('confirmed', {
+            customerName,
+            reservationCode: item.code,
+            productName,
+            quantity: item.itemCount
+          });
+        }
+
+        const actionLabel = pendingAction.type === 'ready_for_pickup' 
+          ? 'Mark as Ready for Pickup' 
+          : 'Confirm Reservation';
+
+        return (
+          <SMSConfirmationModal
+            isOpen={showSMSModal}
+            onClose={() => {
+              setShowSMSModal(false);
+              setPendingAction(null);
+            }}
+            onConfirm={handleSMSConfirm}
+            customerName={customerName}
+            customerPhone={customerPhone}
+            smsMessage={smsMessage}
+            actionLabel={actionLabel}
+            isLoading={isProcessing}
+          />
+        );
+      })()}
+
       {mounted && selectedItem && dropdownPosition && (() => {
         const item = filteredItems.find(i => i._id === selectedItem);
         if (!item) return null;
@@ -386,9 +501,9 @@ function AdminOrdersContent() {
           <div className="dropdown-menu fixed w-48 sm:w-52 bg-secondary/95 backdrop-blur-md border border-white/20 rounded-xl shadow-2xl overflow-hidden" style={{ top: `${dropdownPosition.top}px`, right: `${dropdownPosition.right}px`, zIndex: 99999 }} onClick={(e) => e.stopPropagation()}>
             <div className="p-2 max-h-96 overflow-y-auto scrollbar-hide">
               <button onClick={() => { router.push(item.type === 'reservation' ? `/admin/reservation-detail?id=${item._id}` : `/admin/orders/${item._id}`); setSelectedItem(null); setDropdownPosition(null); }} className="w-full flex items-center gap-3 px-3 py-2.5 text-left text-white hover:bg-white/10 rounded-lg transition-colors text-sm"><Eye className="w-4 h-4 text-blue-400" /><span>View Details</span></button>
-              {item.status === 'pending' && <button onClick={() => { handleUpdateStatus(item._id, 'confirmed'); setSelectedItem(null); setDropdownPosition(null); }} className="w-full flex items-center gap-3 px-3 py-2.5 text-left text-white hover:bg-green-500/10 rounded-lg transition-colors text-sm"><CheckCircle className="w-4 h-4 text-green-400" /><span>Confirm {item.type}</span></button>}
+              {item.status === 'pending' && <button onClick={() => { handleUpdateStatus(item._id, 'confirmed'); }} className="w-full flex items-center gap-3 px-3 py-2.5 text-left text-white hover:bg-green-500/10 rounded-lg transition-colors text-sm"><CheckCircle className="w-4 h-4 text-green-400" /><span>Confirm {item.type}</span></button>}
               {item.status === 'confirmed' && item.type === 'order' && <button onClick={() => { handleUpdateStatus(item._id, 'processing'); setSelectedItem(null); setDropdownPosition(null); }} className="w-full flex items-center gap-3 px-3 py-2.5 text-left text-white hover:bg-blue-500/10 rounded-lg transition-colors text-sm"><Package className="w-4 h-4 text-blue-400" /><span>Start Processing</span></button>}
-              {item.status === 'confirmed' && item.type === 'reservation' && <button onClick={() => { handleMarkReadyForPickup(item._id); setSelectedItem(null); setDropdownPosition(null); }} className="w-full flex items-center gap-3 px-3 py-2.5 text-left text-white hover:bg-purple-500/10 rounded-lg transition-colors text-sm"><Package className="w-4 h-4 text-purple-400" /><span>Mark Ready for Pickup</span></button>}
+              {item.status === 'confirmed' && item.type === 'reservation' && <button onClick={() => { handleMarkReadyForPickup(item._id); }} className="w-full flex items-center gap-3 px-3 py-2.5 text-left text-white hover:bg-purple-500/10 rounded-lg transition-colors text-sm"><Package className="w-4 h-4 text-purple-400" /><span>Mark Ready for Pickup</span></button>}
               {item.status === 'ready_for_pickup' && item.type === 'reservation' && <button onClick={() => { handleUpdateStatus(item._id, 'completed'); setSelectedItem(null); setDropdownPosition(null); }} className="w-full flex items-center gap-3 px-3 py-2.5 text-left text-white hover:bg-green-500/10 rounded-lg transition-colors text-sm"><CheckCircle className="w-4 h-4 text-green-400" /><span>Mark Picked Up</span></button>}
               {item.status === 'processing' && <button onClick={() => { handleUpdateStatus(item._id, 'completed'); setSelectedItem(null); setDropdownPosition(null); }} className="w-full flex items-center gap-3 px-3 py-2.5 text-left text-white hover:bg-green-500/10 rounded-lg transition-colors text-sm"><Package className="w-4 h-4 text-green-400" /><span>Mark Delivered</span></button>}
               <div className="h-px bg-white/10 my-2" />
