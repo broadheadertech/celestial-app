@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useRef, useEffect } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import useWindowSize from '@/hooks/useWindowSize';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
@@ -16,13 +16,13 @@ import {
   Calendar,
   User,
   ChevronDown,
-  Download,
   RefreshCw,
   Mail,
   Phone,
   ChevronLeft,
   ChevronRight,
-  X
+  X,
+  MoreVertical
 } from 'lucide-react';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
 import BottomNavbar from '@/components/common/BottomNavbar';
@@ -50,19 +50,134 @@ type CombinedItem = {
   notes?: string;
 };
 
+interface ActionItem {
+  icon: React.ReactNode;
+  label: string;
+  onClick: () => void;
+  variant?: 'default' | 'success' | 'danger' | 'info' | 'warning';
+  show: boolean;
+}
+
+// Bottom Sheet Modal Component
+function BottomSheetModal({ 
+  isOpen, 
+  onClose, 
+  title, 
+  actions 
+}: { 
+  isOpen: boolean; 
+  onClose: () => void; 
+  title: string; 
+  actions: ActionItem[];
+}) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = '';
+      };
+    }
+  }, [isOpen]);
+
+  if (!mounted || !isOpen) return null;
+
+  const getVariantClasses = (variant: string = 'default') => {
+    const variants = {
+      default: 'text-white hover:bg-white/10',
+      success: 'text-green-400 hover:bg-green-500/10',
+      danger: 'text-red-400 hover:bg-red-500/10',
+      info: 'text-blue-400 hover:bg-blue-500/10',
+      warning: 'text-purple-400 hover:bg-purple-500/10',
+    };
+    return variants[variant as keyof typeof variants] || variants.default;
+  };
+
+  const visibleActions = actions.filter(action => action.show);
+
+  return createPortal(
+    <>
+      <div
+        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9998] animate-fadeIn"
+        onClick={onClose}
+      />
+      <div className="fixed inset-x-0 bottom-0 z-[9999] animate-slideUp">
+        <div className="bg-secondary/98 backdrop-blur-md border-t border-white/20 rounded-t-3xl shadow-2xl max-h-[85vh] flex flex-col">
+          <div className="flex justify-center pt-3 pb-2">
+            <div className="w-12 h-1.5 bg-white/20 rounded-full" />
+          </div>
+          <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
+            <h3 className="text-lg font-semibold text-white">{title}</h3>
+            <button
+              onClick={onClose}
+              className="p-2 rounded-full hover:bg-white/10 active:scale-95 transition-all touch-manipulation"
+            >
+              <X className="w-5 h-5 text-white/70" />
+            </button>
+          </div>
+          <div className="overflow-y-auto overscroll-contain">
+            <div className="p-4 space-y-2">
+              {visibleActions.map((action, index) => (
+                <button
+                  key={index}
+                  onClick={() => {
+                    action.onClick();
+                    onClose();
+                  }}
+                  className={`w-full flex items-center gap-4 px-4 py-4 rounded-xl transition-all active:scale-[0.98] ${getVariantClasses(action.variant)}`}
+                >
+                  <div className="flex-shrink-0">{action.icon}</div>
+                  <span className="text-base font-medium flex-1 text-left">
+                    {action.label}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="h-safe-bottom" />
+        </div>
+      </div>
+      <style jsx>{`
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes slideUp {
+          from { transform: translateY(100%); }
+          to { transform: translateY(0); }
+        }
+        .animate-fadeIn {
+          animation: fadeIn 0.2s ease-out;
+        }
+        .animate-slideUp {
+          animation: slideUp 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+        }
+        .h-safe-bottom {
+          height: env(safe-area-inset-bottom, 16px);
+        }
+      `}</style>
+    </>,
+    document.body
+  );
+}
+
 function AdminOrdersContent() {
   const router = useRouter();
+  const { width } = useWindowSize();
+  const isMobile = width < 640;
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [showFilters, setShowFilters] = useState(false);
-  const [selectedItem, setSelectedItem] = useState<string | null>(null);
+  const [selectedItem, setSelectedItem] = useState<CombinedItem | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [dropdownPosition, setDropdownPosition] = useState<{ top: number; right: number } | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const buttonRefs = useRef<{ [key: string]: HTMLButtonElement | null }>({});
   const [mounted, setMounted] = useState(false);
   
-  // SMS Modal state
   const [showSMSModal, setShowSMSModal] = useState(false);
   const [pendingAction, setPendingAction] = useState<{
     itemId: string;
@@ -80,41 +195,6 @@ function AdminOrdersContent() {
   const isLoading = ordersQuery === undefined || reservationsQuery === undefined;
 
   useEffect(() => { setMounted(true); }, []);
-
-  useEffect(() => {
-    const updateDropdownPosition = () => {
-      if (typeof window !== 'undefined' && selectedItem) {
-        const buttonElement = buttonRefs.current[selectedItem];
-        if (buttonElement) {
-          const rect = buttonElement.getBoundingClientRect();
-          setDropdownPosition({ top: rect.bottom + window.scrollY + 8, right: window.innerWidth - rect.right + 16 });
-        }
-      }
-    };
-    if (typeof window !== 'undefined' && selectedItem) {
-      updateDropdownPosition();
-      window.addEventListener('scroll', updateDropdownPosition);
-      window.addEventListener('resize', updateDropdownPosition);
-      return () => {
-        window.removeEventListener('scroll', updateDropdownPosition);
-        window.removeEventListener('resize', updateDropdownPosition);
-      };
-    }
-  }, [selectedItem]);
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as HTMLElement;
-      if (selectedItem && !target.closest('.dropdown-menu') && !target.closest('.dropdown-trigger')) {
-        setSelectedItem(null);
-        setDropdownPosition(null);
-      }
-    };
-    if (selectedItem) {
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
-    }
-  }, [selectedItem]);
 
   const allItems = useMemo((): CombinedItem[] => {
     if (!ordersQuery || !reservationsQuery) return [];
@@ -166,21 +246,17 @@ function AdminOrdersContent() {
       const item = allItems.find(i => i._id === itemId);
       if (!item) return;
       
-      // Show SMS modal for reservations when confirming
       if (item.type === 'reservation' && newStatus === 'confirmed') {
         setPendingAction({ itemId, status: newStatus, type: 'status' });
         setShowSMSModal(true);
-        setSelectedItem(null);
         return;
       }
       
-      // Direct status update for orders or other statuses
       if (item.type === 'order') {
         await updateOrderStatus({ orderId: itemId as Id<'orders'>, status: newStatus as any });
       } else {
         await updateReservationStatus({ reservationId: itemId as Id<'reservations'>, status: newStatus as any });
       }
-      setSelectedItem(null);
     } catch (error) {
       console.error('Failed to update status:', error);
       alert('Failed to update status. Please try again.');
@@ -192,10 +268,8 @@ function AdminOrdersContent() {
       const item = allItems.find(i => i._id === itemId);
       if (!item || item.type !== 'reservation') return;
       
-      // Show SMS modal for ready for pickup
       setPendingAction({ itemId, status: 'ready_for_pickup', type: 'ready_for_pickup' });
       setShowSMSModal(true);
-      setSelectedItem(null);
     } catch (error) {
       console.error('Failed to prepare ready for pickup:', error);
       alert('Failed to prepare status update. Please try again.');
@@ -211,14 +285,12 @@ function AdminOrdersContent() {
       if (!item) return;
 
       if (pendingAction.type === 'ready_for_pickup') {
-        // Mark ready for pickup
         await markReservationReadyForPickup({
           reservationId: pendingAction.itemId as Id<'reservations'>,
           pickupLocation: "Main Store",
           notes: "Your reservation is ready for pickup. Please visit us during business hours."
         });
       } else {
-        // Update status
         await updateReservationStatus({
           reservationId: pendingAction.itemId as Id<'reservations'>,
           status: pendingAction.status as any
@@ -235,17 +307,71 @@ function AdminOrdersContent() {
     }
   };
 
+  const getActionItems = (item: CombinedItem): ActionItem[] => {
+    return [
+      {
+        icon: <Eye className="w-5 h-5" />,
+        label: 'View Details',
+        onClick: () => router.push(item.type === 'reservation' ? `/admin/reservation-detail?id=${item._id}` : `/admin/orders/${item._id}`),
+        variant: 'info',
+        show: true,
+      },
+      {
+        icon: <CheckCircle className="w-5 h-5" />,
+        label: `Confirm ${item.type === 'order' ? 'Order' : 'Reservation'}`,
+        onClick: () => handleUpdateStatus(item._id, 'confirmed'),
+        variant: 'success',
+        show: item.status === 'pending',
+      },
+      {
+        icon: <Package className="w-5 h-5" />,
+        label: 'Start Processing',
+        onClick: () => handleUpdateStatus(item._id, 'processing'),
+        variant: 'default',
+        show: item.status === 'confirmed' && item.type === 'order',
+      },
+      {
+        icon: <Package className="w-5 h-5" />,
+        label: 'Ready for Pickup',
+        onClick: () => handleMarkReadyForPickup(item._id),
+        variant: 'warning',
+        show: item.status === 'confirmed' && item.type === 'reservation',
+      },
+      {
+        icon: <CheckCircle className="w-5 h-5" />,
+        label: 'Mark Picked Up',
+        onClick: () => handleUpdateStatus(item._id, 'completed'),
+        variant: 'success',
+        show: item.status === 'ready_for_pickup' && item.type === 'reservation',
+      },
+      {
+        icon: <Package className="w-5 h-5" />,
+        label: 'Mark Delivered',
+        onClick: () => handleUpdateStatus(item._id, 'completed'),
+        variant: 'success',
+        show: item.status === 'processing',
+      },
+      {
+        icon: <XCircle className="w-5 h-5" />,
+        label: `Cancel ${item.type === 'order' ? 'Order' : 'Reservation'}`,
+        onClick: () => handleUpdateStatus(item._id, 'cancelled'),
+        variant: 'danger',
+        show: ['pending', 'confirmed', 'ready_for_pickup'].includes(item.status),
+      },
+    ];
+  };
+
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'pending': return <Clock className="w-4 h-4" />;
-      case 'confirmed': return <CheckCircle className="w-4 h-4" />;
-      case 'ready_for_pickup': return <Package className="w-4 h-4" />;
-      case 'processing': return <Package className="w-4 h-4" />;
-      case 'delivered': return <CheckCircle className="w-4 h-4" />;
-      case 'completed': return <CheckCircle className="w-4 h-4" />;
-      case 'expired': return <XCircle className="w-4 h-4" />;
-      case 'cancelled': return <XCircle className="w-4 h-4" />;
-      default: return <Clock className="w-4 h-4" />;
+      case 'pending': return <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4" />;
+      case 'confirmed': return <CheckCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4" />;
+      case 'ready_for_pickup': return <Package className="w-3.5 h-3.5 sm:w-4 sm:h-4" />;
+      case 'processing': return <Package className="w-3.5 h-3.5 sm:w-4 sm:h-4" />;
+      case 'delivered': return <CheckCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4" />;
+      case 'completed': return <CheckCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4" />;
+      case 'expired': return <XCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4" />;
+      case 'cancelled': return <XCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4" />;
+      default: return <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4" />;
     }
   };
 
@@ -383,15 +509,16 @@ function AdminOrdersContent() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-                      <div className="text-right">
+                      <div className="text-right min-w-[70px] sm:min-w-[80px]">
                         <p className="font-bold text-white text-sm sm:text-base">{formatCurrency(item.totalAmount || 0)}</p>
                         <p className="text-xs text-white/60 hidden sm:block">Total</p>
                       </div>
-                      <div className="relative">
-                        <button ref={(el) => { buttonRefs.current[item._id] = el; }} onClick={() => { if (selectedItem === item._id) { setSelectedItem(null); setDropdownPosition(null); } else { setSelectedItem(item._id); } }} className="dropdown-trigger w-8 h-8 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 hover:border-primary/30 transition-all flex items-center justify-center shrink-0">
-                          <ChevronDown className={`w-4 h-4 text-white/70 transition-transform ${selectedItem === item._id ? 'rotate-180' : ''}`} />
-                        </button>
-                      </div>
+                      <button 
+                        onClick={() => setSelectedItem(item)} 
+                        className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 hover:border-primary/30 transition-all flex items-center justify-center shrink-0 touch-manipulation active:scale-95"
+                      >
+                        <MoreVertical className="w-4 h-4 sm:w-5 sm:h-5 text-white/70" />
+                      </button>
                     </div>
                   </div>
                   <div className="px-3 sm:px-4 pb-3 sm:pb-4">
@@ -438,6 +565,16 @@ function AdminOrdersContent() {
 
       <BottomNavbar />
 
+      {/* Bottom Sheet Modal */}
+      {selectedItem && (
+        <BottomSheetModal
+          isOpen={!!selectedItem}
+          onClose={() => setSelectedItem(null)}
+          title={`${selectedItem.type === 'order' ? 'Order' : 'Reservation'} Actions`}
+          actions={getActionItems(selectedItem)}
+        />
+      )}
+
       {/* SMS Confirmation Modal */}
       {pendingAction && (() => {
         const item = allItems.find(i => i._id === pendingAction.itemId);
@@ -446,7 +583,6 @@ function AdminOrdersContent() {
         const customerName = item.customer?.name || 'Guest Customer';
         const customerPhone = item.customer?.phone;
         
-        // Generate SMS message based on action type
         let smsMessage = '';
         if (pendingAction.type === 'ready_for_pickup') {
           const firstItem = item.items?.[0];
@@ -462,7 +598,6 @@ function AdminOrdersContent() {
             notes: "Please visit us during business hours."
           });
         } else {
-          // confirmed status
           const firstItem = item.items?.[0];
           const productName = firstItem?.product?.name || 'items';
           smsMessage = getSMSMessageForStatus('confirmed', {
@@ -494,26 +629,6 @@ function AdminOrdersContent() {
         );
       })()}
 
-      {mounted && selectedItem && dropdownPosition && (() => {
-        const item = filteredItems.find(i => i._id === selectedItem);
-        if (!item) return null;
-        return createPortal(
-          <div className="dropdown-menu fixed w-48 sm:w-52 bg-secondary/95 backdrop-blur-md border border-white/20 rounded-xl shadow-2xl overflow-hidden" style={{ top: `${dropdownPosition.top}px`, right: `${dropdownPosition.right}px`, zIndex: 99999 }} onClick={(e) => e.stopPropagation()}>
-            <div className="p-2 max-h-96 overflow-y-auto scrollbar-hide">
-              <button onClick={() => { router.push(item.type === 'reservation' ? `/admin/reservation-detail?id=${item._id}` : `/admin/orders/${item._id}`); setSelectedItem(null); setDropdownPosition(null); }} className="w-full flex items-center gap-3 px-3 py-2.5 text-left text-white hover:bg-white/10 rounded-lg transition-colors text-sm"><Eye className="w-4 h-4 text-blue-400" /><span>View Details</span></button>
-              {item.status === 'pending' && <button onClick={() => { handleUpdateStatus(item._id, 'confirmed'); }} className="w-full flex items-center gap-3 px-3 py-2.5 text-left text-white hover:bg-green-500/10 rounded-lg transition-colors text-sm"><CheckCircle className="w-4 h-4 text-green-400" /><span>Confirm {item.type}</span></button>}
-              {item.status === 'confirmed' && item.type === 'order' && <button onClick={() => { handleUpdateStatus(item._id, 'processing'); setSelectedItem(null); setDropdownPosition(null); }} className="w-full flex items-center gap-3 px-3 py-2.5 text-left text-white hover:bg-blue-500/10 rounded-lg transition-colors text-sm"><Package className="w-4 h-4 text-blue-400" /><span>Start Processing</span></button>}
-              {item.status === 'confirmed' && item.type === 'reservation' && <button onClick={() => { handleMarkReadyForPickup(item._id); }} className="w-full flex items-center gap-3 px-3 py-2.5 text-left text-white hover:bg-purple-500/10 rounded-lg transition-colors text-sm"><Package className="w-4 h-4 text-purple-400" /><span>Mark Ready for Pickup</span></button>}
-              {item.status === 'ready_for_pickup' && item.type === 'reservation' && <button onClick={() => { handleUpdateStatus(item._id, 'completed'); setSelectedItem(null); setDropdownPosition(null); }} className="w-full flex items-center gap-3 px-3 py-2.5 text-left text-white hover:bg-green-500/10 rounded-lg transition-colors text-sm"><CheckCircle className="w-4 h-4 text-green-400" /><span>Mark Picked Up</span></button>}
-              {item.status === 'processing' && <button onClick={() => { handleUpdateStatus(item._id, 'completed'); setSelectedItem(null); setDropdownPosition(null); }} className="w-full flex items-center gap-3 px-3 py-2.5 text-left text-white hover:bg-green-500/10 rounded-lg transition-colors text-sm"><Package className="w-4 h-4 text-green-400" /><span>Mark Delivered</span></button>}
-              <div className="h-px bg-white/10 my-2" />
-              {['pending', 'confirmed', 'ready_for_pickup'].includes(item.status) && <button onClick={() => { handleUpdateStatus(item._id, 'cancelled'); setSelectedItem(null); setDropdownPosition(null); }} className="w-full flex items-center gap-3 px-3 py-2.5 text-left text-red-400 hover:bg-red-500/10 rounded-lg transition-colors text-sm"><XCircle className="w-4 h-4" /><span>Cancel {item.type}</span></button>}
-            </div>
-          </div>,
-          document.body
-        );
-      })()}
-
       <style jsx global>{`
         .scrollbar-hide {
           -ms-overflow-style: none;
@@ -522,6 +637,7 @@ function AdminOrdersContent() {
         .scrollbar-hide::-webkit-scrollbar {
           display: none;
         }
+        
         @media (min-width: 480px) {
           .xs\\:inline {
             display: inline;

@@ -848,21 +848,6 @@ function ClientDashboardContent() {
               </div>
             </div>
           ))}
-
-        {/* Recently Viewed (placeholder) */}
-        {isAuthenticated && (
-          <div className="px-3 sm:px-4 mb-4 sm:mb-6">
-            <div className="max-w-7xl mx-auto">
-              <h3 className="font-bold text-white text-sm sm:text-base mb-2 sm:mb-3">Recently Viewed</h3>
-              <div className="bg-secondary/30 rounded-xl sm:rounded-2xl p-6 sm:p-8 text-center">
-                <Package className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 text-white/40 mx-auto mb-2 sm:mb-3" />
-                <p className="text-white/60 text-xs sm:text-sm leading-relaxed">
-                  Start browsing to see your recently viewed products
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Client Bottom Navigation */}
