@@ -431,6 +431,8 @@ export const cancelReservation = mutation({
     await notifyReservationStatusChanged(ctx, {
       reservationId: reservation.reservationCode || reservation._id.toString(),
       customerName,
+      customerEmail: reservation.guestInfo?.email,
+      userId: reservation.userId,
       productName: itemsText,
       oldStatus: reservation.status,
       newStatus: 'cancelled',
@@ -559,6 +561,8 @@ export const markReservationReadyForPickup = mutation({
     await notifyReservationStatusChanged(ctx, {
       reservationId: reservation.reservationCode || reservation._id,
       customerName,
+      customerEmail,
+      userId: reservation.userId,
       productName,
       oldStatus,
       newStatus: "ready_for_pickup",
@@ -660,9 +664,19 @@ export const updateReservationStatus = mutation({
         itemsText = `${totalQuantity}x product`;
       }
       
+      console.log(`🔔 Calling notifyReservationStatusChanged with:`);
+      console.log(`   reservationId: ${reservation.reservationCode || reservation._id.toString()}`);
+      console.log(`   customerName: ${customerName}`);
+      console.log(`   customerEmail: ${customerEmail}`);
+      console.log(`   userId: ${reservation.userId} (type: ${typeof reservation.userId})`);
+      console.log(`   productName: ${itemsText}`);
+      console.log(`   oldStatus: ${oldStatus} → newStatus: ${status}`);
+      
       await notifyReservationStatusChanged(ctx, {
         reservationId: reservation.reservationCode || reservation._id.toString(),
         customerName,
+        customerEmail,
+        userId: reservation.userId,
         productName: itemsText,
         oldStatus,
         newStatus: status,

@@ -162,6 +162,23 @@ export function SMSConfirmationModal({
                 : "Push notification will be sent to the customer's device."}
             </p>
           </div>
+
+          {/* Push Notification Info */}
+          <div className="p-3 bg-purple-500/10 border border-purple-500/20 rounded-lg">
+            <div className="flex items-start gap-2">
+              <MessageSquare className="w-4 h-4 text-purple-400 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="text-xs font-medium text-purple-400 mb-1">
+                  📱 Push Notification
+                </p>
+                <p className="text-xs text-purple-300/80">
+                  {actionLabel.includes("Confirm") 
+                    ? "A push notification will be automatically sent: \"✅ Your reservation has been confirmed!\""
+                    : "A push notification will be automatically sent: \"📦 Your reservation is ready for pickup!\""}
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Footer */}

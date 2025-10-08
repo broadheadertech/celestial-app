@@ -14,12 +14,16 @@ export default defineSchema({
     facebookId: v.optional(v.string()),
     profilePicture: v.optional(v.string()),
     loginMethod: v.optional(v.union(v.literal("email"), v.literal("facebook"))),
+    // Push notification fields
+    pushToken: v.optional(v.string()),
+    pushTokenUpdatedAt: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
     .index("by_email", ["email"])
     .index("by_role", ["role"])
-    .index("by_facebook_id", ["facebookId"]),
+    .index("by_facebook_id", ["facebookId"])
+    .index("by_push_token", ["pushToken"]),
 
   categories: defineTable({
     name: v.string(),
@@ -213,6 +217,13 @@ export default defineSchema({
     // Reference IDs for context
     relatedId: v.optional(v.string()), // Can be orderId, reservationId, userId, etc.
     relatedType: v.optional(v.string()), // Type of the related entity
+    // Push notification fields
+    targetUserId: v.optional(v.string()), // Target user ID (for client notifications)
+    targetUserEmail: v.optional(v.string()), // Target user email (for guest notifications)
+    targetUserRole: v.optional(v.string()), // Target role (admin/client)
+    pushNotificationSent: v.optional(v.boolean()), // Whether push was sent
+    pushNotificationId: v.optional(v.string()), // Pushy notification ID
+    scheduledPushTime: v.optional(v.number()), // When to send push
     // Metadata for additional context
     metadata: v.optional(v.object({
       customerName: v.optional(v.string()),
@@ -220,6 +231,12 @@ export default defineSchema({
       productName: v.optional(v.string()),
       amount: v.optional(v.number()),
       status: v.optional(v.string()),
+      pushAction: v.optional(v.string()), // Action to perform on notification click
+      pushData: v.optional(v.object({
+        reservationId: v.optional(v.string()),
+        orderId: v.optional(v.string()),
+        productId: v.optional(v.string()),
+      })),
     })),
     createdAt: v.number(),
     updatedAt: v.number(),
@@ -227,5 +244,8 @@ export default defineSchema({
     .index("by_read", ["isRead"])
     .index("by_type", ["type"])
     .index("by_priority", ["priority"])
-    .index("by_created", ["createdAt"]),
+    .index("by_created", ["createdAt"])
+    .index("by_target_user", ["targetUserId"])
+    .index("by_target_role", ["targetUserRole"])
+    .index("by_push_scheduled", ["scheduledPushTime"]),
 });

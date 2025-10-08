@@ -41,6 +41,8 @@
     "lucide-react": "^0.544.0",
     "next": "15.5.3",
     "next-auth": "^4.24.11",
+    "pushy-cordova": "^1.0.61",
+    "pushy-cordova-receiver": "file:node_modules/pushy-cordova/receiver",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "recharts": "^3.2.1",

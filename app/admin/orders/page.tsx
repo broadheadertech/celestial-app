@@ -285,12 +285,20 @@ function AdminOrdersContent() {
       if (!item) return;
 
       if (pendingAction.type === 'ready_for_pickup') {
+        // Mark as ready for pickup (this already sends push notification via Convex)
         await markReservationReadyForPickup({
           reservationId: pendingAction.itemId as Id<'reservations'>,
           pickupLocation: "Main Store",
           notes: "Your reservation is ready for pickup. Please visit us during business hours."
         });
+      } else if (pendingAction.status === 'confirmed') {
+        // Confirm reservation (this already sends push notification via Convex)
+        await updateReservationStatus({
+          reservationId: pendingAction.itemId as Id<'reservations'>,
+          status: 'confirmed' as any
+        });
       } else {
+        // Other status updates
         await updateReservationStatus({
           reservationId: pendingAction.itemId as Id<'reservations'>,
           status: pendingAction.status as any

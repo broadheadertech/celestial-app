@@ -1,5 +1,6 @@
 import { query, mutation } from "../_generated/server";
 import { v } from "convex/values";
+import { internal } from "../_generated/api";
 
 // Create a new notification
 export const createNotification = mutation({
@@ -200,7 +201,7 @@ export const clearReadNotifications = mutation({
   },
 });
 
-// Helper function to create reservation notifications
+// Helper function to create reservation notifications (for admins)
 export const notifyReservationCreated = mutation({
   args: {
     reservationId: v.string(),
@@ -211,10 +212,10 @@ export const notifyReservationCreated = mutation({
     isGuest: v.boolean(),
   },
   handler: async (ctx, args) => {
-    const title = args.isGuest ? "New Guest Reservation" : "New Reservation Created";
+    const title = args.isGuest ? "🔔 New Guest Reservation" : "🔔 New Reservation Created";
     const message = `${args.customerName} reserved ${args.quantity} x ${args.productName}${args.isGuest ? " (Guest booking)" : ""}`;
     
-    await ctx.db.insert("notifications", {
+    const notificationId = await ctx.db.insert("notifications", {
       title,
       message,
       type: "reservation",
@@ -222,48 +223,191 @@ export const notifyReservationCreated = mutation({
       priority: args.isGuest ? "high" : "medium",
       relatedId: args.reservationId,
       relatedType: "reservation",
+      targetUserRole: "admin", // Target all admins
+      scheduledPushTime: Date.now() + 1000, // Send immediately (1s delay)
+      pushNotificationSent: false,
       metadata: {
         customerName: args.customerName,
         customerEmail: args.customerEmail,
         productName: args.productName,
+        pushAction: "view_reservation",
+        pushData: {
+          reservationId: args.reservationId,
+        },
       },
       createdAt: Date.now(),
       updatedAt: Date.now(),
     });
+
+    // Schedule push notification to all admins
+    try {
+      await ctx.scheduler.runAfter(0, internal.services.pushNotifications.sendPushToAdmins, {
+        title,
+        message,
+        data: {
+          type: "reservation",
+          reservationId: args.reservationId,
+          action: "view_reservation",
+        },
+      });
+
+      await ctx.db.patch(notificationId, {
+        pushNotificationSent: true,
+        updatedAt: Date.now(),
+      });
+    } catch (error) {
+      console.error("❌ Error sending push notification:", error);
+    }
   },
 });
 
-// Helper function to create reservation status update notifications
+// Helper function to create reservation status update notifications (for both admin and client)
 export const notifyReservationStatusChanged = mutation({
   args: {
     reservationId: v.string(),
     customerName: v.string(),
+    customerEmail: v.optional(v.string()),
+    userId: v.optional(v.union(v.id("users"), v.string())),
     productName: v.string(),
     oldStatus: v.string(),
     newStatus: v.string(),
   },
   handler: async (ctx, args) => {
-    const title = "Reservation Status Updated";
-    const message = `Reservation by ${args.customerName} for ${args.productName} changed from ${args.oldStatus} to ${args.newStatus}`;
+    const now = Date.now();
     
+    // Admin notification - always create for status changes
+    const adminTitle = "📋 Reservation Status Updated";
+    const adminMessage = `Reservation by ${args.customerName} for ${args.productName} changed from ${args.oldStatus} to ${args.newStatus}`;
     const priority = args.newStatus === "cancelled" ? "high" : "medium";
     
-    await ctx.db.insert("notifications", {
-      title,
-      message,
+    const adminNotificationId = await ctx.db.insert("notifications", {
+      title: adminTitle,
+      message: adminMessage,
       type: "reservation",
       isRead: false,
       priority,
       relatedId: args.reservationId,
       relatedType: "reservation",
+      targetUserRole: "admin",
+      scheduledPushTime: now + 1000,
+      pushNotificationSent: false,
       metadata: {
         customerName: args.customerName,
         productName: args.productName,
         status: args.newStatus,
+        pushAction: "view_reservation",
+        pushData: {
+          reservationId: args.reservationId,
+        },
       },
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
+      createdAt: now,
+      updatedAt: now,
     });
+
+    // Send push to admins (for cancelled reservations)
+    if (args.newStatus === "cancelled") {
+      try {
+        await ctx.scheduler.runAfter(0, internal.services.pushNotifications.sendPushToAdmins, {
+          title: adminTitle,
+          message: adminMessage,
+          data: {
+            type: "reservation",
+            reservationId: args.reservationId,
+            action: "view_reservation",
+          },
+        });
+
+        await ctx.db.patch(adminNotificationId, {
+          pushNotificationSent: true,
+          updatedAt: now,
+        });
+      } catch (error) {
+        console.error("❌ Error sending push notification to admins:", error);
+      }
+    }
+
+    // Client notification - for specific status changes that matter to customers
+    const clientStatuses = ["confirmed", "ready_for_pickup", "completed", "cancelled"];
+    console.log(`🔔 Checking if client notification needed. New status: ${args.newStatus}, Is client status: ${clientStatuses.includes(args.newStatus)}`);
+    
+    if (clientStatuses.includes(args.newStatus)) {
+      console.log(`📱 Creating client notification for status: ${args.newStatus}`);
+      console.log(`   Customer: ${args.customerName}, Email: ${args.customerEmail}, UserId: ${args.userId}`);
+      
+      const statusEmojis: Record<string, string> = {
+        confirmed: "✅",
+        ready_for_pickup: "📦",
+        completed: "🎉",
+        cancelled: "❌",
+      };
+
+      const statusMessages: Record<string, string> = {
+        confirmed: "Your reservation has been confirmed!",
+        ready_for_pickup: "Your reservation is ready for pickup!",
+        completed: "Your reservation has been completed. Thank you!",
+        cancelled: "Your reservation has been cancelled.",
+      };
+
+      const clientTitle = `${statusEmojis[args.newStatus] || "📋"} Reservation ${args.newStatus.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase())}`;
+      const clientMessage = statusMessages[args.newStatus] || `Your reservation status has been updated to ${args.newStatus}.`;
+      
+      console.log(`   Push title: ${clientTitle}`);
+      console.log(`   Push message: ${clientMessage}`);
+
+      const clientNotificationId = await ctx.db.insert("notifications", {
+        title: clientTitle,
+        message: clientMessage,
+        type: "reservation",
+        isRead: false,
+        priority: args.newStatus === "ready_for_pickup" ? "high" : "medium",
+        relatedId: args.reservationId,
+        relatedType: "reservation",
+        targetUserId: args.userId as string,
+        targetUserEmail: args.customerEmail,
+        targetUserRole: "client",
+        scheduledPushTime: now + 1000,
+        pushNotificationSent: false,
+        metadata: {
+          customerName: args.customerName,
+          customerEmail: args.customerEmail,
+          productName: args.productName,
+          status: args.newStatus,
+          pushAction: "view_reservation",
+          pushData: {
+            reservationId: args.reservationId,
+          },
+        },
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      // Send push to client
+      try {
+        console.log(`📤 Scheduling push notification to client via scheduler.runAfter`);
+        await ctx.scheduler.runAfter(0, internal.services.pushNotifications.sendPushToUser, {
+          userId: args.userId,
+          userEmail: args.customerEmail,
+          title: clientTitle,
+          message: clientMessage,
+          data: {
+            type: "reservation",
+            reservationId: args.reservationId,
+            action: "view_reservation",
+          },
+        });
+
+        console.log(`✅ Push notification scheduled successfully`);
+        
+        await ctx.db.patch(clientNotificationId, {
+          pushNotificationSent: true,
+          updatedAt: now,
+        });
+      } catch (error) {
+        console.error("❌ Error sending push notification to client:", error);
+      }
+    } else {
+      console.log(`⏭️ Skipping client notification - status ${args.newStatus} not in client status list`);
+    }
   },
 });
 

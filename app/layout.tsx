@@ -31,6 +31,9 @@ export default function RootLayout({
     <html lang="en">
       <head>
         <link rel="icon" href="/favicon.ico" />
+        {/* Pushy SDK - Loads on native platforms via Cordova bridge */}
+        <script src="cordova.js" type="text/javascript"></script>
+        <script src="pushy-cordova/www/Pushy.js" type="text/javascript"></script>
       </head>
       <body className="antialiased">
         <ConvexProvider>
