@@ -319,7 +319,7 @@ function AdminDashboardContent() {
         </div>
 
         {/* Quick Actions - Mobile Optimized Grid */}
-        <div className="mt-4 sm:mt-8 bg-secondary/50 border border-primary/10 rounded-xl p-4 sm:p-6 backdrop-blur-sm">
+        {/* <div className="mt-4 sm:mt-8 bg-secondary/50 border border-primary/10 rounded-xl p-4 sm:p-6 backdrop-blur-sm">
           <h3 className="text-base sm:text-lg font-bold text-foreground mb-3 sm:mb-4">Quick Actions</h3>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
             <button
@@ -351,7 +351,7 @@ function AdminDashboardContent() {
               <span className="text-xs sm:text-sm font-medium text-success text-center">View Analytics</span>
             </button>
           </div>
-        </div>
+        </div> */}
       </div>
 
       {/* Notification Modal */}

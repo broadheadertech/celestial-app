@@ -5,7 +5,7 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import {
   ArrowLeft,
   Star,
-  Heart,
+  ShoppingCart,
   Plus,
   Minus,
   Calendar,
@@ -689,9 +689,9 @@ function ProductDetailContent() {
             className="flex-1 flex items-center justify-center py-3 sm:py-4 rounded-xl sm:rounded-2xl bg-white/10 border border-white/10 hover:bg-white/20 active:bg-white/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             disabled={product.stock === 0 || isAddingToCart}
           >
-            <Heart className="w-4 h-4 sm:w-5 sm:h-5 text-white mr-2 sm:mr-3 flex-shrink-0" />
+            <ShoppingCart className="w-4 h-4 sm:w-5 sm:h-5 text-white mr-2 sm:mr-3 flex-shrink-0" />
             <span className="text-white font-bold text-sm sm:text-base truncate">
-              {isAddingToCart ? 'Adding...' : 'Reserve List'}
+              {isAddingToCart ? 'Adding...' : 'Add to cart'}
             </span>
           </button>
 

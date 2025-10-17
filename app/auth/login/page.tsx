@@ -109,11 +109,11 @@ function LoginContent() {
     }
   };
 
-  const handleFacebookLogin = async () => {
-    setErrors({});
-    // Facebook OAuth doesn't work with static export
-    setErrors({ general: 'Facebook login is not available in mobile app. Please use email/password.' });
-  };
+  // const handleFacebookLogin = async () => {
+  //   setErrors({});
+  //   // Facebook OAuth doesn't work with static export
+  //   setErrors({ general: 'Facebook login is not available in mobile app. Please use email/password.' });
+  // };
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -217,7 +217,7 @@ function LoginContent() {
             </form>
 
             {/* Divider */}
-            <div className="relative my-6 sm:my-8">
+            {/* <div className="relative my-6 sm:my-8">
               <div className="absolute inset-0 flex items-center">
                 <div className="w-full border-t border-white/10"></div>
               </div>
@@ -226,10 +226,10 @@ function LoginContent() {
                   or continue with
                 </span>
               </div>
-            </div>
+            </div> */}
 
             {/* Facebook Login Button */}
-            <Button
+            {/* <Button
               onClick={handleFacebookLogin}
               loading={isLoading}
               disabled={isLoading}
@@ -251,7 +251,7 @@ function LoginContent() {
                   <span className="text-sm sm:text-base">Continue with Facebook</span>
                 </div>
               )}
-            </Button>
+            </Button> */}
           </Card>
 
           {/* Footer Links with safe area bottom padding */}
@@ -262,7 +262,7 @@ function LoginContent() {
                 onClick={() => router.push('/auth/register')}
                 className="text-primary hover:underline font-medium active:opacity-80 transition-opacity touch-manipulation"
               >
-                Sign Up
+                Sign Upa
               </button>
             </p>
           </div>
