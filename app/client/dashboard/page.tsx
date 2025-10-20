@@ -389,18 +389,6 @@ function ClientDashboardContent() {
                   </span>
                 )}
               </button>
-
-              <button
-                onClick={() => router.push("/client/cart")}
-                className="relative p-1.5 sm:p-2 rounded-lg sm:rounded-xl bg-secondary/60 border border-white/10 hover:bg-secondary/80 active:bg-secondary transition-colors"
-              >
-                <ShoppingCart className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
-                {isHydrated && cartItemCount > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 sm:-top-1 sm:-right-1 min-w-[16px] sm:min-w-[18px] h-4 sm:h-[18px] bg-primary text-white text-[10px] sm:text-xs rounded-full flex items-center justify-center font-bold shadow-lg">
-                    {cartItemCount > 9 ? "9+" : cartItemCount}
-                  </span>
-                )}
-              </button>
             </div>
           </div>
 
