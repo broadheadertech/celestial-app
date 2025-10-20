@@ -20,7 +20,7 @@ import {
   ChevronRight
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useQuery } from 'convex/react';
+import { useQuery, useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import BottomNavbar from '@/components/common/BottomNavbar';
 import SafeAreaProvider from '@/components/provider/SafeAreaProvider';
@@ -62,6 +62,9 @@ function AdminProductsContent() {
   // Convex queries
   const products = useQuery(api.services.admin.getAllProductsAdmin);
   const categories = useQuery(api.services.categories.getCategories);
+  
+  // Convex mutations
+  const toggleProductStatus = useMutation(api.services.admin.toggleProductStatus);
 
   // Create category mapping for better filtering
   const categoryMap = useMemo(() => {
@@ -199,13 +202,23 @@ function AdminProductsContent() {
     },
   ], [localStats]);
 
-  const handleProductAction = (productId: string, action: string) => {
+  const handleProductAction = async (productId: string, action: string) => {
     if (action === 'Edit') {
       router.push(`/admin/products/form?id=${productId}`);
     } else if (action === 'View') {
       router.push(`/admin/product-detail?id=${productId}`);
     } else if (action === 'Toggle') {
-      console.log('Toggle status for product:', productId);
+      try {
+        const product = products?.find(p => p._id === productId);
+        if (!product) return;
+        
+        await toggleProductStatus({
+          productId: productId as any,
+          isActive: !product.isActive,
+        });
+      } catch (error) {
+        console.error('Failed to toggle product status:', error);
+      }
     } else if (action === 'Delete') {
       console.log('Delete product:', productId);
     }
@@ -509,28 +522,13 @@ function AdminProductsContent() {
                           </div>
                           
                           {/* Actions Menu */}
-                          <div className="relative flex-shrink-0">
+                          <div className="flex-shrink-0">
                             <button
                               onClick={() => setSelectedProduct(selectedProduct === product._id ? null : product._id)}
-                              className="p-1.5 sm:p-1 rounded hover:bg-white/10 active:scale-95 transition-all touch-manipulation"
+                              className="p-1.5 sm:p-2 rounded-lg hover:bg-white/10 active:scale-95 transition-all touch-manipulation"
                             >
-                              <MoreVertical className="w-4 h-4 text-white/60" />
+                              <MoreVertical className="w-5 h-5 text-white/60" />
                             </button>
-
-                            {selectedProduct === product._id && (
-                              <div className="absolute right-0 top-8 w-44 sm:w-48 bg-secondary border border-white/10 rounded-lg shadow-xl z-10">
-                                <div className="py-1">
-                                  <button
-                                    onClick={() => handleProductAction(product._id, 'Toggle')}
-                                    className="w-full px-3 sm:px-4 py-2 text-left text-white hover:bg-white/10 active:bg-white/15 flex items-center gap-2 text-xs sm:text-sm transition-colors touch-manipulation"
-                                  >
-                                    {product.isActive ? <EyeOff className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> : <Eye className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
-                                    <span>{product.isActive ? 'Deactivate' : 'Activate'}</span>
-                                  </button>
-                                  <div className="border-t border-white/10 my-1"></div>
-                                </div>
-                              </div>
-                            )}
                           </div>
                         </div>
                         
@@ -641,12 +639,120 @@ function AdminProductsContent() {
       {/* Bottom Navigation */}
       <BottomNavbar />
 
-      {/* Click outside to close menu */}
+      {/* Mobile-Optimized Action Sheet */}
       {selectedProduct && (
-        <div
-          className="fixed inset-0 z-5"
-          onClick={() => setSelectedProduct(null)}
-        />
+        <>
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 animate-in fade-in duration-200"
+            onClick={() => setSelectedProduct(null)}
+          />
+          
+          {/* Bottom Sheet */}
+          <div className="fixed bottom-0 left-0 right-0 z-50 animate-in slide-in-from-bottom duration-300 safe-area-bottom">
+            <div className="bg-secondary/95 backdrop-blur-md border-t border-white/10 rounded-t-3xl shadow-2xl">
+              {/* Handle Bar */}
+              <div className="flex justify-center pt-3 pb-2">
+                <div className="w-12 h-1.5 bg-white/20 rounded-full" />
+              </div>
+              
+              {/* Product Info Header */}
+              {(() => {
+                const product = products?.find(p => p._id === selectedProduct);
+                if (!product) return null;
+                
+                return (
+                  <div className="px-4 pb-3 border-b border-white/10">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-lg overflow-hidden bg-secondary border border-white/10 flex-shrink-0">
+                        {product.image ? (
+                          <img
+                            src={product.image}
+                            alt={product.name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <img
+                            src="/img/logo-app.png"
+                            alt="Default"
+                            className="w-8 h-8 m-2 object-contain opacity-60"
+                          />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-bold text-white text-sm truncate">{product.name}</h3>
+                        <p className="text-xs text-white/60 truncate">{formatCurrency(product.price)}</p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+              
+              {/* Action Buttons */}
+              <div className="p-4 space-y-2">
+                {(() => {
+                  const product = products?.find(p => p._id === selectedProduct);
+                  if (!product) return null;
+                  
+                  return (
+                    <>
+                      <button
+                        onClick={() => handleProductAction(product._id, 'View')}
+                        className="w-full px-4 py-3.5 bg-secondary/60 hover:bg-white/10 active:bg-white/15 border border-white/10 rounded-xl text-white flex items-center gap-3 transition-all touch-manipulation"
+                      >
+                        <Eye className="w-5 h-5 text-info" />
+                        <span className="font-medium">View Details</span>
+                      </button>
+                      
+                      <button
+                        onClick={() => handleProductAction(product._id, 'Edit')}
+                        className="w-full px-4 py-3.5 bg-secondary/60 hover:bg-white/10 active:bg-white/15 border border-white/10 rounded-xl text-white flex items-center gap-3 transition-all touch-manipulation"
+                      >
+                        <Edit className="w-5 h-5 text-primary" />
+                        <span className="font-medium">Edit Product</span>
+                      </button>
+                      
+                      <button
+                        onClick={() => handleProductAction(product._id, 'Toggle')}
+                        className="w-full px-4 py-3.5 bg-secondary/60 hover:bg-white/10 active:bg-white/15 border border-white/10 rounded-xl text-white flex items-center gap-3 transition-all touch-manipulation"
+                      >
+                        {product.isActive ? (
+                          <>
+                            <EyeOff className="w-5 h-5 text-warning" />
+                            <span className="font-medium">Deactivate Product</span>
+                          </>
+                        ) : (
+                          <>
+                            <Eye className="w-5 h-5 text-success" />
+                            <span className="font-medium">Activate Product</span>
+                          </>
+                        )}
+                      </button>
+                      
+                      <button
+                        onClick={() => handleProductAction(product._id, 'Delete')}
+                        className="w-full px-4 py-3.5 bg-error/10 hover:bg-error/20 active:bg-error/30 border border-error/30 rounded-xl text-error flex items-center gap-3 transition-all touch-manipulation"
+                      >
+                        <Trash2 className="w-5 h-5" />
+                        <span className="font-medium">Delete Product</span>
+                      </button>
+                    </>
+                  );
+                })()}
+              </div>
+              
+              {/* Cancel Button */}
+              <div className="px-4 pb-6 pt-2">
+                <button
+                  onClick={() => setSelectedProduct(null)}
+                  className="w-full px-4 py-3 bg-white/5 hover:bg-white/10 active:bg-white/15 border border-white/10 rounded-xl text-white font-medium transition-all touch-manipulation"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
       )}
 
       <style jsx global>{`

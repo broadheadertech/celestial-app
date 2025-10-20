@@ -41,7 +41,7 @@ import {
 } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
-import ConfirmationModal from '@/components/ui/ConfirmationModal';
+import CustomerConfirmationModal from '@/components/ui/CustomerConfirmationModal';
 import ControlPanelNav from '@/components/ControlPanelNav';
 
 // Fix 1: Move these functions inside the component or ensure they're consistent between server and client
@@ -70,7 +70,7 @@ export default function CustomerManagement() {
   const [showBulkActions, setShowBulkActions] = useState(false);
   const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
-  const [confirmationAction, setConfirmationAction] = useState<() => void>(() => {});
+  const [confirmationAction, setConfirmationAction] = useState<() => void>(() => () => {});
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [confirmationModalProps, setConfirmationModalProps] = useState({
     title: '',
@@ -102,6 +102,8 @@ export default function CustomerManagement() {
     setConfirmationModalProps({ title, message, type });
     if (action) {
       setConfirmationAction(() => action);
+    } else {
+      setConfirmationAction(() => () => {});
     }
     setShowConfirmationModal(true);
   };
@@ -228,17 +230,30 @@ export default function CustomerManagement() {
 
   // Super Admin Actions
   const handleToggleUserStatus = async (userId: string, currentStatus: boolean) => {
-    try {
-      await toggleUserStatus({
-        userId: userId as Id<'users'>,
-        isActive: !currentStatus,
-      });
-      showConfirmation('Success', `User ${!currentStatus ? 'activated' : 'deactivated'} successfully!`, 'success');
-    } catch (error) {
-      console.error('Error toggling user status:', error);
-      showConfirmation('Error', 'Failed to update user status.', 'error');
-    }
-    setSelectedUser(null);
+    const action = currentStatus ? 'deactivate' : 'activate';
+    const actionTitle = currentStatus ? 'Deactivate Account' : 'Activate Account';
+    const actionMessage = currentStatus 
+      ? 'Are you sure you want to deactivate this user account? The user will not be able to log in until reactivated.'
+      : 'Are you sure you want to activate this user account? The user will regain access to the system.';
+    
+    showConfirmation(
+      actionTitle,
+      actionMessage,
+      currentStatus ? 'warning' : 'info',
+      async () => {
+        try {
+          await toggleUserStatus({
+            userId: userId as Id<'users'>,
+            isActive: !currentStatus,
+          });
+          showConfirmation('Success', `User ${action}d successfully!`, 'success');
+        } catch (error) {
+          console.error('Error toggling user status:', error);
+          showConfirmation('Error', 'Failed to update user status.', 'error');
+        }
+        setSelectedUser(null);
+      }
+    );
   };
 
   const handleChangeUserRole = async (userId: string, newRole: 'client' | 'admin' | 'super_admin') => {
@@ -932,8 +947,15 @@ export default function CustomerManagement() {
                                 </div>
                               )}
                               {!user.isActive && !user.isBanned && (
-                                <div className="px-2 py-0.5 rounded-full bg-[var(--color-warning)]/20 text-[var(--color-warning)] border border-[var(--color-warning)]/30 text-xs font-medium">
-                                  Inactive
+                                <div className="px-2 py-0.5 rounded-full bg-[var(--color-warning)]/20 text-[var(--color-warning)] border border-[var(--color-warning)]/30 text-xs font-medium flex items-center space-x-1">
+                                  <UserX className="w-3 h-3" />
+                                  <span>Inactive</span>
+                                </div>
+                              )}
+                              {user.isActive && !user.isBanned && (
+                                <div className="px-2 py-0.5 rounded-full bg-[var(--color-success)]/20 text-[var(--color-success)] border border-[var(--color-success)]/30 text-xs font-medium flex items-center space-x-1">
+                                  <UserCheck className="w-3 h-3" />
+                                  <span>Active</span>
                                 </div>
                               )}
                               {user.isVerified && (
@@ -970,88 +992,17 @@ export default function CustomerManagement() {
                           </div>
                         </div>
 
-                        {/* Super Admin Actions Menu */}
-                        <div className="relative">
-                          <button
-                            onClick={() => setSelectedUser(selectedUser === user._id ? null : user._id)}
-                            className="p-1.5 rounded-lg hover:bg-[var(--color-muted)]/10 transition-colors"
-                          >
-                            <MoreVertical className="w-4 h-4 text-[var(--color-muted)]/60" />
-                          </button>
-
-                          {selectedUser === user._id && (
-                            <div className="absolute right-0 top-8 w-56 bg-[var(--color-secondary)] border border-[var(--color-muted)]/10 rounded-lg shadow-xl z-10">
-                              <div className="py-1">
-                                <div className="border-t border-[var(--color-muted)]/10 my-1"></div>
-
-                                {/* Role Management */}
-                                {user.role !== 'super_admin' && (
-                                  <>
-                                    {user.role === 'admin' && (
-                                      <>
-                                        <button
-                                          onClick={() => handleChangeUserRole(user._id, 'super_admin')}
-                                          className="w-full px-4 py-2 text-left text-[var(--color-primary)] hover:bg-[var(--color-primary)]/10 flex items-center space-x-2"
-                                        >
-                                          <ShieldCheck className="w-4 h-4" />
-                                          <span>Promote to Super Admin</span>
-                                        </button>
-                                        <button
-                                          onClick={() => handleChangeUserRole(user._id, 'client')}
-                                          className="w-full px-4 py-2 text-left text-[var(--color-foreground)] hover:bg-[var(--color-muted)]/10 flex items-center space-x-2"
-                                        >
-                                          <User className="w-4 h-4" />
-                                          <span>Demote to Client</span>
-                                        </button>
-                                      </>
-                                    )}
-                                  </>
-                                )}
-
-                                <div className="border-t border-[var(--color-muted)]/10 my-1"></div>
-
-                                {/* Account Actions */}
-                                <button
-                                  onClick={() => handleToggleUserStatus(user._id, user.isActive ?? false)}
-                                  className="w-full px-4 py-2 text-left text-[var(--color-foreground)] hover:bg-[var(--color-muted)]/10 flex items-center space-x-2"
-                                >
-                                  {user.isActive ? <UserX className="w-4 h-4" /> : <UserPlus className="w-4 h-4" />}
-                                  <span>{user.isActive ? 'Deactivate Account' : 'Activate Account'}</span>
-                                </button>
-
-                                {/* Ban/Unban Actions */}
-                                {!user.isBanned ? (
-                                  <button
-                                    onClick={() => handleBanUser(user._id)}
-                                    className="w-full px-4 py-2 text-left text-[var(--color-error)] hover:bg-[var(--color-error)]/10 flex items-center space-x-2"
-                                  >
-                                    <Ban className="w-4 h-4" />
-                                    <span>Ban User</span>
-                                  </button>
-                                ) : (
-                                  <button
-                                    onClick={() => handleUnbanUser(user._id)}
-                                    className="w-full px-4 py-2 text-left text-[var(--color-success)] hover:bg-[var(--color-success)]/10 flex items-center space-x-2"
-                                  >
-                                    <Unlock className="w-4 h-4" />
-                                    <span>Unban User</span>
-                                  </button>
-                                )}
-
-
-                                <div className="border-t border-[var(--color-muted)]/10 my-1"></div>
-
-                                <button
-                                  onClick={() => handleDeleteUser(user._id)}
-                                  className="w-full px-4 py-2 text-left text-[var(--color-error)] hover:bg-[var(--color-error)]/10 flex items-center space-x-2"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                  <span>Delete Permanently</span>
-                                </button>
-                              </div>
-                            </div>
-                          )}
-                        </div>
+                        {/* Super Admin Actions Menu - Role-based options */}
+                        {user.role !== 'super_admin' && (
+                          <div className="flex-shrink-0">
+                            <button
+                              onClick={() => setSelectedUser(selectedUser === user._id ? null : user._id)}
+                              className="p-2 sm:p-2.5 rounded-lg hover:bg-[var(--color-muted)]/10 active:scale-95 transition-all touch-manipulation"
+                            >
+                              <MoreVertical className="w-5 h-5 text-[var(--color-muted)]/60" />
+                            </button>
+                          </div>
+                        )}
                       </div>
 
                       {/* User Metrics and Activity */}
@@ -1120,13 +1071,277 @@ export default function CustomerManagement() {
         {/* Bottom padding for navigation */}
         <div className="h-20" />
 
-        {/* Click outside to close menu */}
-        {selectedUser && (
-          <div
-            className="fixed inset-0 z-5"
-            onClick={() => setSelectedUser(null)}
-          />
-        )}
+        {/* Responsive User Actions Modal */}
+        {selectedUser && (() => {
+          const user = filteredUsers.find(u => u._id === selectedUser);
+          if (!user) return null;
+
+          return (
+            <>
+              {/* Backdrop */}
+              <div
+                className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 animate-in fade-in duration-200"
+                onClick={() => setSelectedUser(null)}
+              />
+
+              {/* Desktop: Dropdown Menu (hidden on mobile) */}
+              <div className="hidden md:block">
+                <div 
+                  className="fixed z-50"
+                  style={{
+                    top: '50%',
+                    left: '50%',
+                    transform: 'translate(-50%, -50%)'
+                  }}
+                >
+                  <div className="bg-[var(--color-secondary)]/95 backdrop-blur-md border border-[var(--color-muted)]/10 rounded-xl shadow-2xl overflow-hidden min-w-[320px]">
+                    {/* User Info Header */}
+                    <div className="px-4 py-3 border-b border-[var(--color-muted)]/10 bg-gradient-to-r from-[var(--color-primary)]/10 to-[var(--color-secondary)]/10">
+                      <div className="flex items-center gap-3">
+                        {user.profilePicture ? (
+                          <img 
+                            src={user.profilePicture} 
+                            alt={`${user.firstName} ${user.lastName}`}
+                            className="w-10 h-10 rounded-lg object-cover border border-[var(--color-muted)]/10"
+                          />
+                        ) : (
+                          <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-gradient-to-br from-[var(--color-primary)]/20 to-[var(--color-info)]/20 border border-[var(--color-muted)]/10">
+                            <span className="text-sm font-bold text-[var(--color-foreground)]">
+                              {user.firstName[0]}{user.lastName[0]}
+                            </span>
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-bold text-[var(--color-foreground)] text-sm truncate">
+                            {user.firstName} {user.lastName}
+                          </h4>
+                          <p className="text-xs text-[var(--color-muted)] truncate">{user.email}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="p-2">
+                      {user.role === 'client' && (
+                        <>
+                          <button
+                            onClick={() => handleToggleUserStatus(user._id, user.isActive ?? false)}
+                            className="w-full px-4 py-2.5 text-left hover:bg-[var(--color-muted)]/10 active:bg-[var(--color-muted)]/15 rounded-lg flex items-center gap-3 text-sm transition-colors text-[var(--color-foreground)]"
+                          >
+                            {user.isActive ? <UserX className="w-4 h-4 text-[var(--color-warning)]" /> : <UserPlus className="w-4 h-4 text-[var(--color-success)]" />}
+                            <span>{user.isActive ? 'Deactivate Account' : 'Activate Account'}</span>
+                          </button>
+
+                          {!user.isBanned ? (
+                            <button
+                              onClick={() => handleBanUser(user._id)}
+                              className="w-full px-4 py-2.5 text-left hover:bg-[var(--color-error)]/10 active:bg-[var(--color-error)]/15 rounded-lg flex items-center gap-3 text-sm transition-colors text-[var(--color-error)]"
+                            >
+                              <Ban className="w-4 h-4" />
+                              <span>Ban User</span>
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => handleUnbanUser(user._id)}
+                              className="w-full px-4 py-2.5 text-left hover:bg-[var(--color-success)]/10 active:bg-[var(--color-success)]/15 rounded-lg flex items-center gap-3 text-sm transition-colors text-[var(--color-success)]"
+                            >
+                              <Unlock className="w-4 h-4" />
+                              <span>Unban User</span>
+                            </button>
+                          )}
+
+                          <div className="border-t border-[var(--color-muted)]/10 my-2"></div>
+
+                          <button
+                            onClick={() => handleDeleteUser(user._id)}
+                            className="w-full px-4 py-2.5 text-left hover:bg-[var(--color-error)]/10 active:bg-[var(--color-error)]/15 rounded-lg flex items-center gap-3 text-sm transition-colors text-[var(--color-error)]"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                            <span>Delete Permanently</span>
+                          </button>
+                        </>
+                      )}
+
+                      {user.role === 'admin' && (
+                        <>
+                          <button
+                            onClick={() => handleToggleUserStatus(user._id, user.isActive ?? false)}
+                            className="w-full px-4 py-2.5 text-left hover:bg-[var(--color-muted)]/10 active:bg-[var(--color-muted)]/15 rounded-lg flex items-center gap-3 text-sm transition-colors text-[var(--color-foreground)]"
+                          >
+                            {user.isActive ? <UserX className="w-4 h-4 text-[var(--color-warning)]" /> : <UserPlus className="w-4 h-4 text-[var(--color-success)]" />}
+                            <span>{user.isActive ? 'Deactivate Account' : 'Activate Account'}</span>
+                          </button>
+
+                          <div className="border-t border-[var(--color-muted)]/10 my-2"></div>
+
+                          <button
+                            onClick={() => handleDeleteUser(user._id)}
+                            className="w-full px-4 py-2.5 text-left hover:bg-[var(--color-error)]/10 active:bg-[var(--color-error)]/15 rounded-lg flex items-center gap-3 text-sm transition-colors text-[var(--color-error)]"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                            <span>Delete Permanently</span>
+                          </button>
+                        </>
+                      )}
+                    </div>
+
+                    {/* Cancel Button */}
+                    <div className="px-2 pb-2">
+                      <button
+                        onClick={() => setSelectedUser(null)}
+                        className="w-full px-4 py-2 bg-[var(--color-muted)]/5 hover:bg-[var(--color-muted)]/10 active:bg-[var(--color-muted)]/15 border border-[var(--color-muted)]/10 rounded-lg text-[var(--color-foreground)] text-sm font-medium transition-all"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Mobile: Bottom Sheet */}
+              <div className="block md:hidden">
+                <div className="fixed bottom-0 left-0 right-0 z-50 animate-in slide-in-from-bottom duration-300">
+                  <div className="bg-[var(--color-secondary)]/95 backdrop-blur-md border-t border-[var(--color-muted)]/10 rounded-t-3xl shadow-2xl">
+                    {/* Handle Bar */}
+                    <div className="flex justify-center pt-3 pb-2">
+                      <div className="w-12 h-1.5 bg-[var(--color-muted)]/20 rounded-full" />
+                    </div>
+
+                    {/* User Info Header */}
+                    <div className="px-4 pb-3 border-b border-[var(--color-muted)]/10">
+                      <div className="flex items-center gap-3">
+                        {user.profilePicture ? (
+                          <img 
+                            src={user.profilePicture} 
+                            alt={`${user.firstName} ${user.lastName}`}
+                            className="w-12 h-12 rounded-lg object-cover border border-[var(--color-muted)]/10"
+                          />
+                        ) : (
+                          <div className="w-12 h-12 rounded-lg flex items-center justify-center bg-gradient-to-br from-[var(--color-primary)]/20 to-[var(--color-info)]/20 border border-[var(--color-muted)]/10">
+                            <span className="text-base font-bold text-[var(--color-foreground)]">
+                              {user.firstName[0]}{user.lastName[0]}
+                            </span>
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-bold text-[var(--color-foreground)] text-sm truncate">
+                            {user.firstName} {user.lastName}
+                          </h3>
+                          <p className="text-xs text-[var(--color-muted)] truncate">{user.email}</p>
+                          <div className="flex items-center gap-1 mt-1">
+                            {user.role === 'client' ? (
+                              <div className="px-2 py-0.5 rounded-full bg-[var(--color-info)]/20 text-[var(--color-info)] text-xs font-medium">
+                                Client
+                              </div>
+                            ) : (
+                              <div className="px-2 py-0.5 rounded-full bg-[var(--color-warning)]/20 text-[var(--color-warning)] text-xs font-medium">
+                                Admin
+                              </div>
+                            )}
+                            {user.isBanned && (
+                              <div className="px-2 py-0.5 rounded-full bg-[var(--color-error)]/20 text-[var(--color-error)] text-xs font-medium">
+                                Banned
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="p-4 space-y-2">
+                      {user.role === 'client' && (
+                        <>
+                          <button
+                            onClick={() => handleToggleUserStatus(user._id, user.isActive ?? false)}
+                            className="w-full px-4 py-3.5 bg-[var(--color-secondary)]/60 hover:bg-[var(--color-muted)]/10 active:bg-[var(--color-muted)]/15 border border-[var(--color-muted)]/10 rounded-xl text-[var(--color-foreground)] flex items-center gap-3 transition-all touch-manipulation"
+                          >
+                            {user.isActive ? (
+                              <>
+                                <UserX className="w-5 h-5 text-[var(--color-warning)]" />
+                                <span className="font-medium">Deactivate Account</span>
+                              </>
+                            ) : (
+                              <>
+                                <UserPlus className="w-5 h-5 text-[var(--color-success)]" />
+                                <span className="font-medium">Activate Account</span>
+                              </>
+                            )}
+                          </button>
+
+                          {!user.isBanned ? (
+                            <button
+                              onClick={() => handleBanUser(user._id)}
+                              className="w-full px-4 py-3.5 bg-[var(--color-error)]/10 hover:bg-[var(--color-error)]/20 active:bg-[var(--color-error)]/30 border border-[var(--color-error)]/30 rounded-xl text-[var(--color-error)] flex items-center gap-3 transition-all touch-manipulation"
+                            >
+                              <Ban className="w-5 h-5" />
+                              <span className="font-medium">Ban User</span>
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => handleUnbanUser(user._id)}
+                              className="w-full px-4 py-3.5 bg-[var(--color-success)]/10 hover:bg-[var(--color-success)]/20 active:bg-[var(--color-success)]/30 border border-[var(--color-success)]/30 rounded-xl text-[var(--color-success)] flex items-center gap-3 transition-all touch-manipulation"
+                            >
+                              <Unlock className="w-5 h-5" />
+                              <span className="font-medium">Unban User</span>
+                            </button>
+                          )}
+
+                          <button
+                            onClick={() => handleDeleteUser(user._id)}
+                            className="w-full px-4 py-3.5 bg-[var(--color-error)]/10 hover:bg-[var(--color-error)]/20 active:bg-[var(--color-error)]/30 border border-[var(--color-error)]/30 rounded-xl text-[var(--color-error)] flex items-center gap-3 transition-all touch-manipulation"
+                          >
+                            <Trash2 className="w-5 h-5" />
+                            <span className="font-medium">Delete Permanently</span>
+                          </button>
+                        </>
+                      )}
+
+                      {user.role === 'admin' && (
+                        <>
+                          <button
+                            onClick={() => handleToggleUserStatus(user._id, user.isActive ?? false)}
+                            className="w-full px-4 py-3.5 bg-[var(--color-secondary)]/60 hover:bg-[var(--color-muted)]/10 active:bg-[var(--color-muted)]/15 border border-[var(--color-muted)]/10 rounded-xl text-[var(--color-foreground)] flex items-center gap-3 transition-all touch-manipulation"
+                          >
+                            {user.isActive ? (
+                              <>
+                                <UserX className="w-5 h-5 text-[var(--color-warning)]" />
+                                <span className="font-medium">Deactivate Account</span>
+                              </>
+                            ) : (
+                              <>
+                                <UserPlus className="w-5 h-5 text-[var(--color-success)]" />
+                                <span className="font-medium">Activate Account</span>
+                              </>
+                            )}
+                          </button>
+
+                          <button
+                            onClick={() => handleDeleteUser(user._id)}
+                            className="w-full px-4 py-3.5 bg-[var(--color-error)]/10 hover:bg-[var(--color-error)]/20 active:bg-[var(--color-error)]/30 border border-[var(--color-error)]/30 rounded-xl text-[var(--color-error)] flex items-center gap-3 transition-all touch-manipulation"
+                          >
+                            <Trash2 className="w-5 h-5" />
+                            <span className="font-medium">Delete Permanently</span>
+                          </button>
+                        </>
+                      )}
+                    </div>
+
+                    {/* Cancel Button */}
+                    <div className="px-4 pb-6 pt-2">
+                      <button
+                        onClick={() => setSelectedUser(null)}
+                        className="w-full px-4 py-3 bg-[var(--color-muted)]/5 hover:bg-[var(--color-muted)]/10 active:bg-[var(--color-muted)]/15 border border-[var(--color-muted)]/10 rounded-xl text-[var(--color-foreground)] font-medium transition-all touch-manipulation"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </>
+          );
+        })()}
 
         <style jsx global>{`
           .scrollbar-hide {
@@ -1139,16 +1354,13 @@ export default function CustomerManagement() {
         `}</style>
 
         {/* Confirmation Modal */}
-        <ConfirmationModal
+        <CustomerConfirmationModal
           isOpen={showConfirmationModal}
           onClose={() => {
             setShowConfirmationModal(false);
-            setConfirmationAction(() => {});
+            setConfirmationAction(() => () => {});
           }}
-          onConfirm={() => {
-            confirmationAction();
-            setShowConfirmationModal(false);
-          }}
+          onConfirm={confirmationAction}
           title={confirmationModalProps.title}
           message={confirmationModalProps.message}
           type={confirmationModalProps.type}

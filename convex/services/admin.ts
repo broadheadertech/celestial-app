@@ -334,6 +334,26 @@ export const updateProduct = mutation({
   },
 });
 
+export const toggleProductStatus = mutation({
+  args: {
+    productId: v.id("products"),
+    isActive: v.boolean(),
+  },
+  handler: async (ctx, { productId, isActive }) => {
+    const product = await ctx.db.get(productId);
+    if (!product) {
+      throw new Error("Product not found");
+    }
+    
+    await ctx.db.patch(productId, { 
+      isActive,
+      updatedAt: Date.now(),
+    });
+    
+    return { success: true };
+  },
+});
+
 export const deleteProduct = mutation({
   args: { id: v.id("products") },
   handler: async (ctx, { id }) => {
@@ -487,6 +507,63 @@ export const toggleUserStatus = mutation({
     });
     
     return { success: true };
+  },
+});
+
+// Delete user (permanent)
+export const deleteUser = mutation({
+  args: {
+    userId: v.id("users"),
+  },
+  handler: async (ctx, { userId }) => {
+    const user = await ctx.db.get(userId);
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    // Check if user is super admin (prevent deletion)
+    if (user.role === "super_admin") {
+      throw new Error("Cannot delete super admin accounts");
+    }
+
+    // Delete the user
+    await ctx.db.delete(userId);
+    
+    return { success: true, message: "User deleted successfully" };
+  },
+});
+
+// Ban user (placeholder - UI exists but functionality not implemented per request)
+export const banUser = mutation({
+  args: {
+    userId: v.id("users"),
+  },
+  handler: async (ctx, { userId }) => {
+    const user = await ctx.db.get(userId);
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    // Placeholder - do nothing for now but return success
+    // TODO: Implement ban functionality in the future
+    return { success: true, message: "Ban functionality not yet implemented" };
+  },
+});
+
+// Unban user (placeholder - UI exists but functionality not implemented per request)
+export const unbanUser = mutation({
+  args: {
+    userId: v.id("users"),
+  },
+  handler: async (ctx, { userId }) => {
+    const user = await ctx.db.get(userId);
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    // Placeholder - do nothing for now but return success
+    // TODO: Implement unban functionality in the future
+    return { success: true, message: "Unban functionality not yet implemented" };
   },
 });
 

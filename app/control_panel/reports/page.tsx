@@ -54,7 +54,7 @@ interface ReportData {
 
 export default function ReportsPage() {
   const router = useRouter();
-  const [selectedYear, setSelectedYear] = useState("2024");
+  const [selectedYear, setSelectedYear] = useState("2025");
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<
     "overview" | "products" | "financial"
@@ -92,11 +92,25 @@ export default function ReportsPage() {
       };
     }
 
-    // Calculate total revenue from completed orders and reservations
-    const completedOrders = ordersQuery.filter(
+    // Filter data by selected year
+    const yearNum = parseInt(selectedYear);
+    const yearStart = new Date(yearNum, 0, 1).getTime();
+    const yearEnd = new Date(yearNum + 1, 0, 1).getTime();
+
+    const yearOrders = ordersQuery.filter(
+      (order) => order.createdAt >= yearStart && order.createdAt < yearEnd
+    );
+
+    const yearReservations = reservationsQuery.filter(
+      (reservation) =>
+        reservation.createdAt >= yearStart && reservation.createdAt < yearEnd
+    );
+
+    // Calculate total revenue from completed orders and reservations (filtered by year)
+    const completedOrders = yearOrders.filter(
       (order) => order.status === "delivered",
     );
-    const completedReservations = reservationsQuery.filter(
+    const completedReservations = yearReservations.filter(
       (reservation) => reservation.status === "completed",
     );
 
@@ -228,18 +242,17 @@ export default function ReportsPage() {
       })
       .filter((cat) => cat.productCount > 0);
 
-    // Generate monthly stats (simplified - using current year data)
-    const currentYear = new Date().getFullYear();
+    // Generate monthly stats for selected year
     const monthlyStats = Array.from({ length: 12 }, (_, i) => {
-      const month = new Date(currentYear, i, 1);
+      const month = new Date(yearNum, i, 1);
       const monthStart = month.getTime();
-      const monthEnd = new Date(currentYear, i + 1, 1).getTime();
+      const monthEnd = new Date(yearNum, i + 1, 1).getTime();
 
-      const monthOrders = ordersQuery.filter(
+      const monthOrders = yearOrders.filter(
         (order) => order.createdAt >= monthStart && order.createdAt < monthEnd,
       );
 
-      const monthReservations = reservationsQuery.filter(
+      const monthReservations = yearReservations.filter(
         (reservation) =>
           reservation.createdAt >= monthStart &&
           reservation.createdAt < monthEnd,
@@ -271,8 +284,8 @@ export default function ReportsPage() {
 
     return {
       totalRevenue,
-      totalOrders: ordersQuery.length,
-      totalReservations: reservationsQuery.length,
+      totalOrders: yearOrders.length,
+      totalReservations: yearReservations.length,
       totalCustomers: usersQuery.length,
       totalProducts: productsQuery.length,
       activeProducts: activeProducts.length,
@@ -286,12 +299,16 @@ export default function ReportsPage() {
     reservationsQuery,
     usersQuery,
     categoriesQuery,
+    selectedYear, // Add selectedYear as dependency
   ]);
 
   const handleRefresh = () => {
     setIsRefreshing(true);
     setTimeout(() => setIsRefreshing(false), 1000);
   };
+
+  // Check if there's any data for the selected year
+  const hasData = reportData.totalOrders > 0 || reportData.totalReservations > 0 || reportData.totalRevenue > 0;
 
   const formatCurrency = (amount: number) => {
     return `₱${amount.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -357,9 +374,12 @@ export default function ReportsPage() {
                   onChange={(e) => setSelectedYear(e.target.value)}
                   className="bg-secondary/60 border border-white/10 rounded-md px-3 py-1.5 text-white text-sm focus:border-primary/50 focus:outline-none"
                 >
-                  <option value="2024">2024</option>
-                  <option value="2023">2023</option>
-                  <option value="2022">2022</option>
+                  <option value="2025">2025</option>
+                  <option value="2026">2026</option>
+                  <option value="2027">2027</option>
+                  <option value="2028">2028</option>
+                  <option value="2029">2029</option>
+                  <option value="2030">2030</option>
                 </select>
 
                 <Button
@@ -422,8 +442,47 @@ export default function ReportsPage() {
             </button>
           </div>
 
+          {/* No Data Message */}
+          {!hasData && (
+            <div className="bg-secondary/40 backdrop-blur-sm rounded-xl border border-white/10 p-12 text-center">
+              <div className="flex flex-col items-center justify-center space-y-4">
+                <div className="w-20 h-20 bg-warning/10 rounded-full flex items-center justify-center">
+                  <FileText className="w-10 h-10 text-warning" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-white mb-2">
+                    No Data Available for {selectedYear}
+                  </h3>
+                  <p className="text-white/60 max-w-md">
+                    There are no orders, reservations, or revenue recorded for the year {selectedYear}.
+                    Try selecting a different year or check back later.
+                  </p>
+                </div>
+                <div className="flex items-center gap-3 mt-4">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleRefresh}
+                    className="border border-white/10"
+                  >
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Refresh Data
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => setSelectedYear(new Date().getFullYear().toString())}
+                    className="bg-primary/90 hover:bg-primary"
+                  >
+                    <Calendar className="w-4 h-4 mr-2" />
+                    View Current Year
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Overview Tab */}
-          {activeTab === "overview" && (
+          {hasData && activeTab === "overview" && (
             <div className="space-y-6">
               {/* Key Metrics */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -552,7 +611,7 @@ export default function ReportsPage() {
           )}
 
           {/* Products Tab */}
-          {activeTab === "products" && (
+          {hasData && activeTab === "products" && (
             <div className="space-y-6">
               {/* Fish Products */}
               <div className="bg-secondary/40 backdrop-blur-sm rounded-xl border border-white/10 p-6">
@@ -655,7 +714,7 @@ export default function ReportsPage() {
           )}
 
           {/* Financial Tab */}
-          {activeTab === "financial" && (
+          {hasData && activeTab === "financial" && (
             <div className="space-y-6">
               <div className="bg-secondary/40 backdrop-blur-sm rounded-xl border border-white/10 p-6">
                 <h3 className="text-lg font-bold text-white mb-4">

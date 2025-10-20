@@ -5,12 +5,11 @@ import {
   CheckCircle,
   AlertTriangle,
   Info,
-  XCircle,
-  X
+  XCircle
 } from 'lucide-react';
 import Button from '@/components/ui/Button';
 
-interface ConfirmationModalProps {
+interface CustomerConfirmationModalProps {
   isOpen: boolean;
   onClose: () => void;
   onConfirm?: () => void;
@@ -23,7 +22,7 @@ interface ConfirmationModalProps {
   children?: ReactNode;
 }
 
-export default function ConfirmationModal({
+export default function CustomerConfirmationModal({
   isOpen,
   onClose,
   onConfirm,
@@ -34,7 +33,7 @@ export default function ConfirmationModal({
   cancelText = 'Cancel',
   showCancel = false,
   children
-}: ConfirmationModalProps) {
+}: CustomerConfirmationModalProps) {
   if (!isOpen) return null;
 
   const getIcon = () => {
@@ -63,10 +62,17 @@ export default function ConfirmationModal({
     }
   };
 
+  const handleConfirm = () => {
+    if (onConfirm) {
+      onConfirm();
+    }
+    onClose();
+  };
+
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[10000] flex items-center justify-center p-4">
       <div className="bg-secondary border border-white/10 rounded-xl p-6 w-full max-w-md shadow-2xl">
-        {/* Header */}
+        {/* Header - No X icon */}
         <div className="flex items-center space-x-3 mb-4">
           {getIcon()}
           <h3 className="text-lg font-semibold text-white">{title}</h3>
@@ -93,10 +99,7 @@ export default function ConfirmationModal({
             </Button>
           )}
           <Button
-            onClick={() => {
-              onConfirm?.();
-              onClose();
-            }}
+            onClick={handleConfirm}
             className={`${showCancel ? 'flex-1' : 'w-full'} ${getButtonColor()} transition-colors`}
           >
             {confirmText}
