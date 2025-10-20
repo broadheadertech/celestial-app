@@ -50,14 +50,14 @@ const ClientBottomNavbar: React.FC<ClientBottomNavbarProps> = ({ className = '' 
       label: 'Cart',
       icon: ShoppingCart,
       href: '/client/cart',
-      matchPaths: ['/client/cart', '/client/reservations', '/client/reservation-success']
+      matchPaths: ['/client/cart']
     },
     {
       id: 'profile',
       label: 'Profile',
       icon: User,
       href: '/client/profile',
-      matchPaths: ['/client/profile', '/client/profile-edit']
+      matchPaths: ['/client/profile', '/client/profile-edit', '/client/reservations', '/client/reservation-success']
     }
   ];
 

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useQuery } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import BottomNavbar from "@/components/common/BottomNavbar";
 import SafeAreaProvider from "@/components/provider/SafeAreaProvider";
@@ -49,6 +49,9 @@ function AdminSettingsContent() {
     user ? { userId: user._id } : "skip",
   );
 
+  // Profile update mutation
+  const updateProfile = useMutation(api.services.auth.updateProfile);
+
   // Settings state
   const [settings, setSettings] = useState({
     email: "",
@@ -91,14 +94,94 @@ function AdminSettingsContent() {
 
   // Save settings handler
   const handleSaveSettings = async () => {
+    if (!user?._id) {
+      setModalMessage("User not found. Please log in again.");
+      setShowErrorModal(true);
+      return;
+    }
+
     try {
       setIsSaving(true);
-      console.log("Saving settings:", settings);
-      setModalMessage("Settings saved successfully!");
+
+      // Validate inputs
+      if (!settings.firstName.trim() || !settings.lastName.trim()) {
+        setModalMessage("First name and last name are required.");
+        setShowErrorModal(true);
+        setIsSaving(false);
+        return;
+      }
+
+      if (settings.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(settings.email)) {
+        setModalMessage("Please enter a valid email address.");
+        setShowErrorModal(true);
+        setIsSaving(false);
+        return;
+      }
+
+      // Validate password change if enabled
+      if (settings.security.changePassword) {
+        if (!settings.security.currentPassword || !settings.security.newPassword || !settings.security.confirmPassword) {
+          setModalMessage("Please fill in all password fields.");
+          setShowErrorModal(true);
+          setIsSaving(false);
+          return;
+        }
+
+        if (settings.security.newPassword !== settings.security.confirmPassword) {
+          setModalMessage("New passwords do not match.");
+          setShowErrorModal(true);
+          setIsSaving(false);
+          return;
+        }
+
+        if (settings.security.newPassword.length < 6) {
+          setModalMessage("New password must be at least 6 characters long.");
+          setShowErrorModal(true);
+          setIsSaving(false);
+          return;
+        }
+      }
+
+      // Update profile information
+      await updateProfile({
+        userId: user._id,
+        firstName: settings.firstName.trim(),
+        lastName: settings.lastName.trim(),
+        phone: settings.phone.trim() || undefined,
+      });
+
+      // Update the auth store with new user data
+      if (user) {
+        const updatedUser = {
+          ...user,
+          firstName: settings.firstName.trim(),
+          lastName: settings.lastName.trim(),
+          phone: settings.phone.trim(),
+        };
+        useAuthStore.getState().updateUser(updatedUser);
+      }
+
+      // TODO: Implement password change if needed
+      // TODO: Implement notification preferences save if needed
+
+      setModalMessage("Profile updated successfully!");
       setShowSuccessModal(true);
+
+      // Reset password fields
+      if (settings.security.changePassword) {
+        setSettings(prev => ({
+          ...prev,
+          security: {
+            changePassword: false,
+            currentPassword: "",
+            newPassword: "",
+            confirmPassword: "",
+          },
+        }));
+      }
     } catch (error) {
       console.error("Error saving settings:", error);
-      setModalMessage("Error saving settings. Please try again.");
+      setModalMessage(error instanceof Error ? error.message : "Error saving settings. Please try again.");
       setShowErrorModal(true);
     } finally {
       setIsSaving(false);

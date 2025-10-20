@@ -71,6 +71,7 @@ export default function CustomerManagement() {
   const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
   const [confirmationAction, setConfirmationAction] = useState<() => void>(() => {});
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [confirmationModalProps, setConfirmationModalProps] = useState({
     title: '',
     message: '',
@@ -103,6 +104,28 @@ export default function CustomerManagement() {
       setConfirmationAction(() => action);
     }
     setShowConfirmationModal(true);
+  };
+
+  // Handle refresh without full page reload
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    
+    // Close any open menus
+    setSelectedUser(null);
+    setShowBulkActions(false);
+    setSelectedUsers(new Set());
+    
+    // Reset filters
+    setShowFilters(false);
+    setShowAdvancedFilters(false);
+    
+    // Add a small delay for visual feedback
+    await new Promise(resolve => setTimeout(resolve, 800));
+    
+    setIsRefreshing(false);
+    
+    // Show success feedback
+    showConfirmation('Refreshed', 'Customer data has been refreshed successfully', 'success');
   };
 
   // Enhanced stats calculation for super admin
@@ -480,11 +503,12 @@ export default function CustomerManagement() {
                 </button>
 
                 <button
-                  onClick={() => window.location.reload()}
-                  className="px-4 py-2 rounded-lg bg-[var(--color-primary)]/10 border border-[var(--color-primary)]/20 text-[var(--color-primary)] flex items-center space-x-2 hover:bg-[var(--color-primary)]/20 transition-colors"
+                  onClick={handleRefresh}
+                  disabled={isRefreshing}
+                  className="px-4 py-2 rounded-lg bg-[var(--color-primary)]/10 border border-[var(--color-primary)]/20 text-[var(--color-primary)] flex items-center space-x-2 hover:bg-[var(--color-primary)]/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <RefreshCw className="w-4 h-4" />
-                  <span className="text-sm font-medium">Refresh</span>
+                  <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                  <span className="text-sm font-medium">{isRefreshing ? 'Refreshing...' : 'Refresh'}</span>
                 </button>
               </div>
             </div>

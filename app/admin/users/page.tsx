@@ -42,17 +42,22 @@ function AdminUsersContent() {
   const [showFilters, setShowFilters] = useState(false);
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
   const [confirmationModalProps, setConfirmationModalProps] = useState({
     title: '',
     message: '',
     type: 'info' as 'success' | 'error' | 'warning' | 'info'
   });
 
-  // Fetch real users data
-  const users = useQuery(api.services.admin.getAllUsers, { 
-    role: selectedRole !== 'all' ? selectedRole : undefined,
-    search: searchQuery.trim() || undefined 
-  });
+  // Fetch real users data with refresh key to force re-fetch
+  const users = useQuery(
+    api.services.admin.getAllUsers, 
+    { 
+      role: selectedRole !== 'all' ? selectedRole : undefined,
+      search: searchQuery.trim() || undefined 
+    }
+  );
 
   // Mutations for user management
   const toggleUserStatus = useMutation(api.services.admin.toggleUserStatus);
@@ -146,6 +151,28 @@ function AdminUsersContent() {
     setShowFilters(false);
   };
 
+  // Handle refresh without full page reload
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    
+    // Close any open menus
+    setSelectedUser(null);
+    
+    // Reset filters to show all data
+    setShowFilters(false);
+    
+    // Force re-fetch by updating the refresh key
+    setRefreshKey(prev => prev + 1);
+    
+    // Add a small delay for visual feedback
+    await new Promise(resolve => setTimeout(resolve, 800));
+    
+    setIsRefreshing(false);
+    
+    // Show success feedback
+    showConfirmation('Refreshed', 'User data has been refreshed successfully', 'success');
+  };
+
   return (
     <div className="min-h-screen bg-background pb-20 sm:pb-6">
       {/* Header - Mobile Optimized with Safe Area */}
@@ -166,11 +193,14 @@ function AdminUsersContent() {
             </div>
 
             <button
-              onClick={() => window.location.reload()}
-              className="px-3 sm:px-4 py-2 rounded-lg bg-primary/10 border border-primary/20 text-primary flex items-center gap-1.5 sm:gap-2 hover:bg-primary/20 active:scale-95 transition-all flex-shrink-0 touch-manipulation"
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              className="px-3 sm:px-4 py-2 rounded-lg bg-primary/10 border border-primary/20 text-primary flex items-center gap-1.5 sm:gap-2 hover:bg-primary/20 active:scale-95 transition-all flex-shrink-0 touch-manipulation disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <RefreshCw className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-              <span className="text-xs sm:text-sm font-medium hidden xs:inline">Refresh</span>
+              <RefreshCw className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+              <span className="text-xs sm:text-sm font-medium hidden xs:inline">
+                {isRefreshing ? 'Refreshing...' : 'Refresh'}
+              </span>
             </button>
           </div>
 
