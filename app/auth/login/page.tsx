@@ -180,28 +180,46 @@ function LoginContent() {
                   required
                 />
 
-                <div className="relative">
-                  <Input
-                    label="Password"
-                    type={showPassword ? 'text' : 'password'}
-                    placeholder="Enter your password"
-                    value={formData.password}
-                    onChange={(value) => handleInputChange('password', value)}
-                    error={errors.password}
-                    required
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 sm:right-4 top-9 sm:top-10 p-1 text-muted-dark hover:text-white active:scale-95 transition-all touch-manipulation"
-                    aria-label={showPassword ? 'Hide password' : 'Show password'}
-                  >
-                    {showPassword ? (
-                      <EyeOff className="w-5 h-5 sm:w-6 sm:h-6" />
-                    ) : (
-                      <Eye className="w-5 h-5 sm:w-6 sm:h-6" />
-                    )}
-                  </button>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-sm font-medium text-white">
+                      Password <span className="text-error ml-1">*</span>
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => router.push('/auth/forgot_password')}
+                      className="text-xs sm:text-sm text-primary hover:text-primary/80 font-medium transition-colors touch-manipulation active:opacity-80"
+                    >
+                      Forgot Password?
+                    </button>
+                  </div>
+                  <div className="relative">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      placeholder="Enter your password"
+                      value={formData.password}
+                      onChange={(e) => handleInputChange('password', e.target.value)}
+                      required
+                      className={`w-full px-4 py-3 rounded-xl bg-secondary border ${
+                        errors.password ? 'border-error ring-1 ring-error' : 'border-white/10'
+                      } text-white placeholder:text-muted-dark focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 sm:right-4 top-1/2 -translate-y-1/2 p-1 text-muted-dark hover:text-white active:scale-95 transition-all touch-manipulation"
+                      aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    >
+                      {showPassword ? (
+                        <EyeOff className="w-5 h-5 sm:w-6 sm:h-6" />
+                      ) : (
+                        <Eye className="w-5 h-5 sm:w-6 sm:h-6" />
+                      )}
+                    </button>
+                  </div>
+                  {errors.password && (
+                    <p className="text-sm text-error">{errors.password}</p>
+                  )}
                 </div>
               </div>
 
@@ -262,7 +280,7 @@ function LoginContent() {
                 onClick={() => router.push('/auth/register')}
                 className="text-primary hover:underline font-medium active:opacity-80 transition-opacity touch-manipulation"
               >
-                Sign Upa
+                Sign Up
               </button>
             </p>
           </div>
