@@ -1,6 +1,7 @@
-import { mutation, query } from "../_generated/server";
+import { mutation, query, internalMutation } from "../_generated/server";
 import { v } from "convex/values";
 import { notifyUserRegistered } from "./notifications";
+import { internal } from "../_generated/api";
 
 // Simple password hashing (for demo - in production use proper crypto)
 function hashPassword(password: string): string {
@@ -446,6 +447,142 @@ export const updateUserFacebookData = mutation({
       success: true,
       user: userWithoutPassword,
       message: "Facebook data updated successfully",
+    };
+  },
+});
+
+// Generate reset token helper function
+function generateResetToken(): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  let token = '';
+  for (let i = 0; i < 32; i++) {
+    token += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return token;
+}
+
+// Request password reset
+// This function verifies the email exists in Convex, then sends email via Resend
+export const requestPasswordReset = mutation({
+  args: {
+    email: v.string(),
+  },
+  handler: async (ctx, { email }) => {
+    // STEP 1: Verify email exists in database (Convex)
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_email", (q) => q.eq("email", email.toLowerCase()))
+      .first();
+
+    if (!user) {
+      throw new Error("No account found with this email address");
+    }
+
+    // Check if user has password (not Facebook-only user)
+    if (!user.passwordHash) {
+      throw new Error("This account uses Facebook login. Please log in with Facebook.");
+    }
+
+    // STEP 2: Generate reset token and save to database (Convex)
+    const resetToken = generateResetToken();
+    const resetTokenExpiry = Date.now() + 3600000; // 1 hour from now
+
+    await ctx.db.patch(user._id, {
+      resetToken,
+      resetTokenExpiry,
+      updatedAt: Date.now(),
+    });
+
+    // STEP 3: Send email using Resend (via Convex Action)
+    // Note: We use Convex Action because static export doesn't support API routes
+    // This action directly calls Resend SDK - see convex/services/email.ts
+    await ctx.scheduler.runAfter(0, internal.services.email.sendPasswordResetEmail, {
+      to: user.email,
+      userName: `${user.firstName} ${user.lastName}`,
+      resetToken,
+    });
+
+    return {
+      success: true,
+      message: "Password reset email has been sent",
+    };
+  },
+});
+
+// Verify reset token
+export const verifyResetToken = query({
+  args: {
+    token: v.string(),
+  },
+  handler: async (ctx, { token }) => {
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_reset_token", (q) => q.eq("resetToken", token))
+      .first();
+
+    if (!user) {
+      return { valid: false, message: "Invalid reset token" };
+    }
+
+    // Check if token is expired
+    if (!user.resetTokenExpiry || user.resetTokenExpiry < Date.now()) {
+      return { valid: false, message: "Reset token has expired" };
+    }
+
+    return {
+      valid: true,
+      userId: user._id,
+      email: user.email,
+      message: "Token is valid",
+    };
+  },
+});
+
+// Reset password with token
+export const resetPassword = mutation({
+  args: {
+    token: v.string(),
+    newPassword: v.string(),
+  },
+  handler: async (ctx, { token, newPassword }) => {
+    // Find user by reset token
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_reset_token", (q) => q.eq("resetToken", token))
+      .first();
+
+    if (!user) {
+      throw new Error("Invalid or expired reset token");
+    }
+
+    // Check if token is expired
+    if (!user.resetTokenExpiry || user.resetTokenExpiry < Date.now()) {
+      throw new Error("Reset token has expired. Please request a new password reset link.");
+    }
+
+    // Validate new password strength
+    if (newPassword.length < 8) {
+      throw new Error("Password must be at least 8 characters long");
+    }
+
+    if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(newPassword)) {
+      throw new Error("Password must contain at least one uppercase letter, one lowercase letter, and one number");
+    }
+
+    // Hash new password
+    const newPasswordHash = hashPassword(newPassword);
+
+    // Update user with new password and clear reset token
+    await ctx.db.patch(user._id, {
+      passwordHash: newPasswordHash,
+      resetToken: undefined,
+      resetTokenExpiry: undefined,
+      updatedAt: Date.now(),
+    });
+
+    return {
+      success: true,
+      message: "Password has been reset successfully",
     };
   },
 });

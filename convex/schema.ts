@@ -14,12 +14,16 @@ export default defineSchema({
     facebookId: v.optional(v.string()),
     profilePicture: v.optional(v.string()),
     loginMethod: v.optional(v.union(v.literal("email"), v.literal("facebook"))),
+    // Password reset fields
+    resetToken: v.optional(v.string()),
+    resetTokenExpiry: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
     .index("by_email", ["email"])
     .index("by_role", ["role"])
-    .index("by_facebook_id", ["facebookId"]),
+    .index("by_facebook_id", ["facebookId"])
+    .index("by_reset_token", ["resetToken"]),
 
   categories: defineTable({
     name: v.string(),

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Lock, Eye, EyeOff, CheckCircle, AlertCircle, ArrowLeft } from "lucide-react";
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useRouter, useSearchParams } from "next/navigation";
 import SafeAreaProvider, { useSafeArea } from '@/components/provider/SafeAreaProvider';
@@ -21,8 +21,27 @@ function ResetPasswordContent() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [error, setError] = useState("");
+  const [tokenValid, setTokenValid] = useState<boolean | null>(null);
+  const [userEmail, setUserEmail] = useState<string>("");
 
   const resetPassword = useMutation(api.services.auth.resetPassword);
+  
+  // Verify token on component mount
+  const tokenVerification = useQuery(
+    api.services.auth.verifyResetToken,
+    token ? { token } : "skip"
+  );
+
+  useEffect(() => {
+    if (tokenVerification) {
+      setTokenValid(tokenVerification.valid);
+      if (tokenVerification.valid && tokenVerification.email) {
+        setUserEmail(tokenVerification.email);
+      } else if (!tokenVerification.valid) {
+        setError(tokenVerification.message || "Invalid or expired reset token");
+      }
+    }
+  }, [tokenVerification]);
 
   const validatePassword = (pwd: string) => {
     if (pwd.length < 8) {
@@ -84,6 +103,71 @@ function ResetPasswordContent() {
   };
 
   const passwordStrength = getPasswordStrength();
+
+  // Loading state while verifying token
+  if (tokenValid === null) {
+    return (
+      <div className="min-h-screen flex flex-col bg-gradient-to-br from-background to-background-dark">
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-muted">Verifying reset token...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Invalid token state
+  if (tokenValid === false) {
+    return (
+      <div className="min-h-screen flex flex-col bg-gradient-to-br from-background to-background-dark">
+        <div className="sticky top-0 z-10 bg-gradient-to-br from-background to-background-dark/95 backdrop-blur-sm border-b border-white/5 safe-area-top">
+          <div className="flex items-center justify-between px-4 sm:px-6 py-4 safe-area-horizontal">
+            <button
+              onClick={() => router.push("/auth/forgot_password")}
+              className="flex items-center justify-center w-11 h-11 sm:w-12 sm:h-12"
+              aria-label="Back to Forgot Password"
+            >
+              <ArrowLeft className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+            </button>
+            <h1 className="text-lg sm:text-xl font-semibold text-white">Invalid Token</h1>
+            <div className="w-11 sm:w-12" />
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto safe-area-horizontal">
+          <div className="px-4 sm:px-6 py-6 sm:py-8 max-w-md mx-auto w-full min-h-full flex items-center">
+            <div className="w-full">
+              <div className="glass-morphism rounded-2xl shadow-2xl p-6 sm:p-8 border border-white/10">
+                <div className="flex justify-center mb-6">
+                  <div className="w-20 h-20 bg-error/20 rounded-full flex items-center justify-center">
+                    <AlertCircle className="w-12 h-12 text-error" />
+                  </div>
+                </div>
+
+                <h2 className="text-2xl sm:text-3xl font-bold text-foreground text-center mb-3">
+                  Invalid or Expired Link
+                </h2>
+                <p className="text-sm sm:text-base text-muted text-center mb-6">
+                  {error || "This password reset link is invalid or has expired. Please request a new one."}
+                </p>
+
+                <button
+                  onClick={() => router.push("/auth/forgot_password")}
+                  className="w-full bg-primary hover:bg-primary/90 text-white font-semibold py-3 rounded-lg transition-all duration-200 shadow-lg hover:shadow-primary/50 active:scale-98 touch-manipulation"
+                >
+                  Request New Reset Link
+                </button>
+              </div>
+
+              <div className="pb-6 safe-area-inset-bottom"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (isSuccess) {
     return (
@@ -165,9 +249,14 @@ function ResetPasswordContent() {
               <h2 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">
                 Reset Your Password
               </h2>
-              <p className="text-sm sm:text-base text-muted">
+              <p className="text-sm sm:text-base text-muted mb-2">
                 Enter your new password below
               </p>
+              {userEmail && (
+                <p className="text-xs sm:text-sm text-primary font-medium">
+                  {userEmail}
+                </p>
+              )}
             </div>
 
             <div className="space-y-5 sm:space-y-6">

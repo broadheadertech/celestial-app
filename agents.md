@@ -8,6 +8,7 @@
 - **Framework**: Next.js 15.5.3 (App Router, Static Export)
 - **Backend/Database**: Convex (real-time database)
 - **Authentication**: NextAuth.js + Facebook OAuth
+- **Email Service**: Resend (via Convex Actions)
 - **State Management**: Zustand
 - **Styling**: Tailwind CSS 4.0
 - **Mobile**: Capacitor 7.4.3 (Android)
@@ -74,7 +75,9 @@ celestial-app/
 │   │   └── settings/        # System settings
 │   ├── auth/                # Authentication pages
 │   │   ├── login/           # Login page
-│   │   └── register/        # Registration page
+│   │   ├── register/        # Registration page
+│   │   ├── forgot_password/ # Password reset request (NEW)
+│   │   └── reset_password/  # Password reset form (NEW)
 │   ├── landing/             # Landing page (public)
 │   ├── onboarding/          # Onboarding flow
 │   ├── layout.tsx           # Root layout with providers
@@ -107,9 +110,10 @@ celestial-app/
 │   ├── services/            # Business logic functions
 │   │   ├── admin.ts         # Admin operations (22KB)
 │   │   ├── analytics.ts     # Analytics queries (15KB)
-│   │   ├── auth.ts          # Authentication logic (12KB)
+│   │   ├── auth.ts          # Authentication + password reset (18KB)
 │   │   ├── cart.ts          # Shopping cart operations (7KB)
 │   │   ├── categories.ts    # Category management (2KB)
+│   │   ├── email.ts         # Email service via Resend (NEW)
 │   │   ├── notifications.ts # Notification system (28KB)
 │   │   ├── orders.ts        # Order processing (8KB)
 │   │   ├── products.ts      # Product CRUD (26KB)
@@ -182,10 +186,13 @@ celestial-app/
   facebookId?: string,
   profilePicture?: string,
   loginMethod?: "email" | "facebook",
+  // Password reset fields
+  resetToken?: string,      // Unique token for password reset
+  resetTokenExpiry?: number, // Expiry timestamp (1 hour)
   createdAt: number,
   updatedAt: number
 }
-// Indexes: by_email, by_role, by_facebook_id
+// Indexes: by_email, by_role, by_facebook_id, by_reset_token
 ```
 
 #### `products`
@@ -620,6 +627,23 @@ if (!isAuthenticated) navigate('/auth/login');
 - `loginWithFacebook(facebookId, profile)`: Facebook OAuth login
 - `getCurrentUser()`: Get current user session
 - `updateUserProfile(userId, data)`: Update user details
+- `requestPasswordReset(email)`: Generate reset token and send email
+- `verifyResetToken(token)`: Check if token is valid and not expired
+- `resetPassword(token, newPassword)`: Update password with token
+- `sendResetEmailInternal(email, userName, token)`: Internal email scheduler
+
+### Email Service (`convex/services/email.ts`) **NEW**
+**Key Functions**:
+- `sendPasswordResetEmail(to, userName, resetToken)`: Send password reset email via Resend
+- `sendWelcomeEmail(to, userName)`: Send welcome email to new users
+
+**Features**:
+- Professional HTML email templates
+- Branded with company colors
+- Mobile-responsive design
+- Secure token-based reset links
+- 1-hour link expiration
+- Uses Resend API for reliable delivery
 
 ### Products (`convex/services/products.ts`)
 **Key Functions**:
@@ -910,10 +934,23 @@ const cart = useQuery(api.services.cart.getCart, {
 ## Important Considerations for AI Agents
 
 ### 1. Static Export Constraints
-- No server-side API routes
+- **No server-side API routes** - Next.js API routes are excluded from static builds
+- **Use Convex Actions for external APIs** - Email, SMS, payment processing must use Convex Actions
 - No middleware protection (client-side guards only)
 - All dynamic routes must use catch-all patterns: `[[...id]]`
 - Images must be unoptimized (`unoptimized: true`)
+
+### 1b. Email Integration (Resend via Convex)
+- **Never use Next.js API routes** for email sending (they won't work in static export)
+- **Always use Convex Actions** for external API calls like Resend
+- Email sending is asynchronous and non-blocking
+- Password reset emails sent automatically when user requests reset
+- Email templates are HTML-based and mobile-responsive
+- Environment variables required:
+  - `RESEND_API_KEY`: Your Resend API key
+  - `RESEND_FROM_EMAIL`: Verified sender email
+  - `NEXT_PUBLIC_APP_URL`: App URL for email links
+- See `RESEND_EMAIL_SETUP.md` for detailed setup instructions
 
 ### 2. Guest User Handling
 - Always check for both `userId` and `guestId` in queries
@@ -968,8 +1005,9 @@ const cart = useQuery(api.services.cart.getCart, {
 ### Short Term
 - Payment gateway integration (Stripe/PayPal)
 - SMS notifications via Twilio
-- Email service integration
+- ✅ ~~Email service integration~~ (COMPLETED - using Resend)
 - Enhanced analytics dashboard
+- Email notifications for orders and reservations
 
 ### Long Term
 - iOS app deployment
@@ -977,6 +1015,7 @@ const cart = useQuery(api.services.cart.getCart, {
 - Wishlist feature
 - Product reviews & ratings
 - Loyalty program
+- Advanced email templates with React Email
 
 ---
 
@@ -994,7 +1033,14 @@ NEXTAUTH_SECRET=your-random-secret
 # Facebook OAuth
 FACEBOOK_CLIENT_ID=your-facebook-app-id
 FACEBOOK_CLIENT_SECRET=your-facebook-app-secret
+
+# Resend Email Service (for password reset, notifications)
+RESEND_API_KEY=re_your_resend_api_key_here
+RESEND_FROM_EMAIL=Celestial Drakon Aquatics <noreply@yourdomain.com>
+NEXT_PUBLIC_APP_URL=http://localhost:3000  # Your app URL for email links
 ```
+
+**Note**: For Convex environment variables (like `RESEND_API_KEY`), add them in the Convex dashboard under Settings → Environment Variables.
 
 ---
 
@@ -1038,8 +1084,42 @@ For questions or issues related to this codebase, refer to:
 
 ---
 
-**Last Updated**: February 2025
-**Codebase Version**: 0.1.0
+## Recent Updates
+
+### February 2025 - Email Integration (COMPLETED ✅)
+- ✅ Integrated Resend for email delivery
+- ✅ Implemented password reset via email
+- ✅ Added professional HTML email templates with branding
+- ✅ Used Convex Actions for email sending (static export compatible)
+- ✅ Created comprehensive setup documentation
+- ✅ Improved email service to use official Resend SDK
+- ✅ Configured environment variables in Convex
+- ✅ Created React email templates (PasswordReset, Welcome)
+- ✅ Added extensive testing and troubleshooting guides
+
+### Key Files Added/Modified
+- **NEW**: `components/emails/PasswordResetEmail.tsx` - Professional password reset template
+- **NEW**: `components/emails/WelcomeEmail.tsx` - Welcome email template
+- **NEW**: `EMAIL_IMPLEMENTATION_GUIDE.md` - Complete implementation guide
+- **NEW**: `IMPROVEMENTS_SUMMARY.md` - Summary of email improvements
+- **NEW**: `TESTING_GUIDE.md` - Step-by-step testing instructions
+- **NEW**: `EMAIL_README.md` - Quick reference guide
+- **IMPROVED**: `convex/services/email.ts` - Now uses Resend SDK properly
+- **DOCUMENTED**: `app/api/send/route.ts` - Explained static export limitation
+- **DOCUMENTED**: `components/email-template.tsx` - Marked as legacy
+- **EXISTING**: `app/auth/forgot_password/page.tsx` - Password reset request page
+- **EXISTING**: `app/auth/reset_password/page.tsx` - Password reset form
+- **EXISTING**: `convex/services/auth.ts` - Password reset functions
+- **EXISTING**: `convex/schema.ts` - Reset token fields in users table
+- **CONFIGURED**: Convex environment variables (RESEND_API_KEY, RESEND_FROM_EMAIL, NEXT_PUBLIC_APP_URL)
+
+---
+
+**Last Updated**: February 10, 2025
+**Codebase Version**: 0.2.1 (Email improvements completed)
 **Next.js Version**: 15.5.3
 **Convex Version**: 1.27.0
 **Capacitor Version**: 7.4.3
+**Resend SDK Version**: 6.2.2
+**Resend Integration**: ✅ Active & Production Ready
+**Email System Status**: ✅ Fully Operational

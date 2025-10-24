@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Mail, CheckCircle } from 'lucide-react';
+import { useMutation } from 'convex/react';
+import { api } from '@/convex/_generated/api';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Card from '@/components/ui/Card';
@@ -16,6 +18,8 @@ function ForgotPasswordContent() {
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
+
+  const requestPasswordReset = useMutation(api.services.auth.requestPasswordReset);
 
   const validateForm = () => {
     if (!email.trim()) {
@@ -37,13 +41,11 @@ function ForgotPasswordContent() {
     setIsSubmitting(true);
 
     try {
-      // TODO: Implement Convex function to send password reset email
-      // await sendPasswordResetEmail({ email });
+      const result = await requestPasswordReset({ email: email.toLowerCase() });
       
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      setEmailSent(true);
+      if (result.success) {
+        setEmailSent(true);
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to send reset email';
       setError(message);
@@ -81,46 +83,57 @@ function ForgotPasswordContent() {
             <div className="text-center mb-8 sm:mb-10">
               <div className="mb-6 flex justify-center">
                 <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center animate-float">
-                  <CheckCircle className="w-8 h-8 sm:w-10 sm:h-10 text-primary" />
+                  <Mail className="w-8 h-8 sm:w-10 sm:h-10 text-primary" />
                 </div>
               </div>
               <h2 className="text-2xl sm:text-3xl font-bold text-white mb-3">
-                Check Your Email
+                Check Your Email 📧
               </h2>
-              <p className="text-sm sm:text-base text-muted leading-relaxed mb-6">
+              <p className="text-sm sm:text-base text-muted leading-relaxed mb-4">
                 We&apos;ve sent a password reset link to:
               </p>
-              <p className="text-base sm:text-lg text-white font-medium mb-6">
+              <p className="text-base sm:text-lg text-white font-medium mb-6 break-all">
                 {email}
               </p>
+              <div className="bg-primary/10 border border-primary/20 rounded-lg p-4 mb-6">
+                <p className="text-xs sm:text-sm text-muted leading-relaxed">
+                  <strong className="text-white">Next steps:</strong><br />
+                  1. Open your email inbox<br />
+                  2. Look for an email from &quot;Celestial Drakon Aquatics&quot;<br />
+                  3. Click the &quot;Reset Your Password&quot; button<br />
+                  4. You&apos;ll be redirected to create a new password
+                </p>
+              </div>
               <p className="text-xs sm:text-sm text-muted-dark">
-                Please check your inbox and click the reset link to create a new password.
-                The link will expire in 1 hour.
+                <strong>Didn&apos;t receive the email?</strong> Check your spam folder or wait a few minutes.
               </p>
             </div>
 
             <Card className="mb-6">
               <div className="space-y-4">
-                <Button
-                  onClick={handleBackToLogin}
-                  className="w-full h-12 sm:h-14 text-base sm:text-lg font-medium active:scale-98 transition-transform"
-                  size="lg"
+                <button
+                  onClick={() => {
+                    setEmailSent(false);
+                    setEmail('');
+                    setError('');
+                  }}
+                  className="w-full h-12 sm:h-14 text-base sm:text-lg font-medium bg-primary hover:bg-primary/90 text-white rounded-lg transition-all active:scale-98 touch-manipulation"
                 >
-                  Back to Login
-                </Button>
+                  Send Another Email
+                </button>
                 
                 <button
-                  onClick={() => setEmailSent(false)}
+                  onClick={handleBackToLogin}
                   className="w-full text-sm sm:text-base text-primary hover:text-primary/80 font-medium transition-colors touch-manipulation active:opacity-80"
                 >
-                  Didn&apos;t receive the email? Resend
+                  Back to Login
                 </button>
               </div>
             </Card>
 
             <div className="text-center pb-6 sm:pb-8 safe-area-inset-bottom">
               <p className="text-xs sm:text-sm text-muted-dark">
-                If you don&apos;t see the email, check your spam folder or try again.
+                ⏰ The reset link will expire in 1 hour for security purposes.
               </p>
             </div>
           </div>
