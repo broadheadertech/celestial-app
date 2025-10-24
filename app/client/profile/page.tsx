@@ -509,6 +509,30 @@ function ProfileContent() {
           </div>
         </Card>
 
+        {/* Phone Number Prompt - Show when user has no phone */}
+        {!user?.phone && (
+          <Card className="p-4 sm:p-6 bg-[var(--warning-orange)]/10 border border-[var(--warning-orange)]/20 glass-morphism">
+            <div className="flex items-start sm:items-center space-x-3 mb-3 sm:mb-4">
+              <div className="flex-shrink-0 p-2 bg-[var(--warning-orange)]/10 rounded-lg">
+                <Phone className="w-5 h-5 text-[var(--warning-orange)]" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-base sm:text-lg font-semibold text-[var(--white)] mb-1">Add Your Phone Number</h3>
+                <p className="text-xs sm:text-sm text-[var(--light-gray)]">
+                  Enable SMS notifications for your orders and reservations. Stay updated with real-time alerts!
+                </p>
+              </div>
+            </div>
+            <Button
+              onClick={() => setIsEditing(true)}
+              className="w-full bg-[var(--warning-orange)] hover:bg-[var(--warning-orange)]/90 text-[var(--white)]"
+            >
+              <Phone className="w-4 h-4 mr-2" />
+              Add Phone Number Now
+            </Button>
+          </Card>
+        )}
+
         {/* Quick Actions */}
         <Card className="divide-y divide-white/10 glass-morphism">
           <button

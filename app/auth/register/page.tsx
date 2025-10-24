@@ -210,12 +210,13 @@ function RegisterContent() {
                 />
 
                 <Input
-                  label="Phone Number (Optional)"
+                  label="Phone Number "
                   type="tel"
-                  placeholder="+63 123 456 7890"
+                  placeholder="+63 or 09 followed by 9 digits"
                   value={formData.phone}
                   onChange={(value) => handleInputChange('phone', value)}
                   error={errors.phone}
+                  required
                 />
 
                 <Button
