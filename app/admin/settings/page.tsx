@@ -51,6 +51,7 @@ function AdminSettingsContent() {
 
   // Profile update mutation
   const updateProfile = useMutation(api.services.auth.updateProfile);
+  const changePassword = useMutation(api.services.auth.changePassword);
 
   // Settings state
   const [settings, setSettings] = useState({
@@ -134,8 +135,20 @@ function AdminSettingsContent() {
           return;
         }
 
-        if (settings.security.newPassword.length < 6) {
-          setModalMessage("New password must be at least 6 characters long.");
+        if (settings.security.newPassword.length < 8) {
+          setModalMessage("New password must be at least 8 characters long.");
+          setShowErrorModal(true);
+          setIsSaving(false);
+          return;
+        }
+
+        // Validate password strength
+        const hasUpperCase = /[A-Z]/.test(settings.security.newPassword);
+        const hasLowerCase = /[a-z]/.test(settings.security.newPassword);
+        const hasNumber = /\d/.test(settings.security.newPassword);
+
+        if (!hasUpperCase || !hasLowerCase || !hasNumber) {
+          setModalMessage("Password must contain uppercase, lowercase, and number.");
           setShowErrorModal(true);
           setIsSaving(false);
           return;
@@ -161,10 +174,20 @@ function AdminSettingsContent() {
         useAuthStore.getState().updateUser(updatedUser);
       }
 
-      // TODO: Implement password change if needed
+      // Handle password change if enabled
+      if (settings.security.changePassword) {
+        await changePassword({
+          userId: user._id,
+          currentPassword: settings.security.currentPassword,
+          newPassword: settings.security.newPassword,
+        });
+      }
+
       // TODO: Implement notification preferences save if needed
 
-      setModalMessage("Profile updated successfully!");
+      setModalMessage(settings.security.changePassword 
+        ? "Profile and password updated successfully!" 
+        : "Profile updated successfully!");
       setShowSuccessModal(true);
 
       // Reset password fields
@@ -577,6 +600,14 @@ function AdminSettingsContent() {
                         placeholder="Confirm new password"
                       />
                     </div>
+                  </div>
+                  <div className="p-3 bg-info/10 border border-info/20 rounded-lg">
+                    <p className="text-xs text-info font-medium mb-1">Password Requirements:</p>
+                    <ul className="text-xs text-white/60 space-y-0.5">
+                      <li>• At least 8 characters long</li>
+                      <li>• Contains uppercase and lowercase letters</li>
+                      <li>• Contains at least one number</li>
+                    </ul>
                   </div>
                 </div>
               )}
