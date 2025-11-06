@@ -10,6 +10,9 @@ const config: CapacitorConfig = {
     iosScheme: 'capacitor',
     hostname: 'localhost'
   },
+  android: {
+    icon: 'app-icons/icon.png'
+  },
   plugins: {
     SplashScreen: {
       launchShowDuration: 3000,

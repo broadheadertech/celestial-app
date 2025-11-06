@@ -6,13 +6,16 @@
 
 ### Key Technologies
 - **Framework**: Next.js 15.5.3 (App Router, Static Export)
-- **Backend/Database**: Convex (real-time database)
-- **Authentication**: NextAuth.js + Facebook OAuth
-- **Email Service**: Resend (via Convex Actions)
-- **State Management**: Zustand
+- **Backend/Database**: Convex 1.27.0 (real-time database)
+- **Authentication**: NextAuth.js 4.24.11 + Facebook OAuth
+- **Email Service**: Resend 6.2.2 (via Convex Actions)
+- **State Management**: Zustand 5.0.8
 - **Styling**: Tailwind CSS 4.0
 - **Mobile**: Capacitor 7.4.3 (Android)
-- **Language**: TypeScript (strict mode)
+- **Asset Generation**: @capacitor/assets 3.0.5
+- **UI Icons**: Lucide React 0.544.0
+- **Charts**: Recharts 3.2.1
+- **Language**: TypeScript 5 (strict mode)
 - **Build Tool**: Turbopack
 
 ---
@@ -153,6 +156,12 @@ celestial-app/
 │
 ├── android/                 # Capacitor Android project
 │   └── app/build/outputs/apk/ # APK build output
+│
+├── app-icons/               # Source app icons
+│   └── icon.png             # Main app icon (71KB)
+│
+├── resources/               # Capacitor assets directory
+│   └── icon.png             # Icon for asset generation
 │
 ├── scripts/                 # Build scripts
 │   └── capacitor-export.js  # Post-build export script
@@ -747,15 +756,25 @@ npm run android:release          # Complete release build
 **App ID**: `com.celestial.app`
 **App Name**: CelestialApp
 **Web Directory**: `out`
+**Icon Source**: `app-icons/icon.png`
 
-**Plugins**:
-- `@capacitor/app`: App lifecycle
-- `@capacitor/splash-screen`: Splash screen
-- `@capacitor/status-bar`: Status bar styling
-- `@capacitor/local-notifications`: Push notifications
-- `@capacitor/network`: Network status
-- `@capacitor/device`: Device info
-- `@capacitor/haptics`: Haptic feedback
+**Plugins** (9 total):
+- `@capacitor/app` 7.1.0: App lifecycle
+- `@capacitor/splash-screen` 7.0.3: Splash screen (3s auto-hide)
+- `@capacitor/status-bar` 7.0.3: Status bar styling (light content, dark background)
+- `@capacitor/network` 7.0.2: Network status monitoring
+- `@capacitor/device` 7.0.2: Device information
+- `@capacitor/haptics` 7.0.2: Haptic feedback
+- `@capacitor/dialog` 7.0.2: Native dialogs
+- `@capacitor/toast` 7.0.2: Toast notifications
+- `capacitor-plugin-safe-area` 4.0.0: Safe area insets for notch/punch-hole screens
+
+**Icon Configuration**:
+- Generates 74 Android assets (1.91 MB total)
+- Adaptive icons (foreground + background layers)
+- Round icons for supported launchers
+- Multiple densities (ldpi, mdpi, hdpi, xhdpi, xxhdpi, xxxhdpi)
+- Splash screens (portrait + landscape, light + dark modes)
 
 ### Mobile-Specific Features
 
@@ -764,9 +783,46 @@ npm run android:release          # Complete release build
 - Active state highlighting
 - Badge counts for cart and notifications
 
-**Safe Areas**: CSS utilities for notch/punch-hole screens
-**Splash Screen**: 3-second auto-hide
-**Status Bar**: Light content on dark background
+**Safe Areas**: CSS utilities for notch/punch-hole screens (`capacitor-plugin-safe-area`)
+**Splash Screen**: 3-second auto-hide with dark background (#121212)
+**Status Bar**: Light content on dark background (#121212)
+**App Icon**: Custom branded icon with adaptive support
+
+### App Icon Setup & Asset Generation
+
+**Source Icon Location**: `app-icons/icon.png` (71KB)
+**Generation Directory**: `resources/icon.png`
+
+**Setup Steps**:
+1. Place source icon in `app-icons/` directory (minimum 1024x1024 px recommended)
+2. Copy icon to `resources/` directory: `copy app-icons/icon.png resources/icon.png`
+3. Run asset generation: `npx @capacitor/assets generate --android`
+4. Configure in `capacitor.config.ts`:
+   ```typescript
+   android: {
+     icon: 'app-icons/icon.png'
+   }
+   ```
+5. Sync to Android: `npx cap sync android`
+
+**Generated Assets** (74 files, 1.91 MB total):
+- **App Icons**: 6 densities (ldpi, mdpi, hdpi, xhdpi, xxhdpi, xxxhdpi)
+- **Adaptive Icons**: Foreground + background layers for Android 8+
+- **Round Icons**: Alternative launcher icons (6 densities)
+- **Splash Screens**: Portrait + landscape variants
+- **Dark Mode**: Separate splash screens for dark theme
+
+**Asset Locations**:
+- Icons: `android/app/src/main/res/mipmap-*/ic_launcher*.png`
+- Adaptive: `android/app/src/main/res/mipmap-anydpi-v26/ic_launcher*.xml`
+- Splash: `android/app/src/main/res/drawable*/splash.png`
+
+**Best Practices**:
+- Use square icon (1:1 aspect ratio)
+- Minimum 512x512 px, recommended 1024x1024 px
+- PNG format with transparency
+- Avoid text near edges (safe zone: 80% of canvas)
+- Test on multiple devices for visual consistency
 
 ---
 
@@ -777,19 +833,31 @@ npm run android:release          # Complete release build
 ```bash
 # Development
 npm run dev                      # Start dev server (Turbopack)
-npm run build                    # Build static export
+npm run build                    # Build static export + capacitor export script
+npm run build:static             # Same as build (alias)
+npm run start                    # Start production server
 npm run lint                     # Run ESLint
 
 # Mobile Development
 npm run android:dev              # Full dev cycle (build + sync + run)
-npm run android:build            # Debug APK build
-npm run android:release          # Release APK build
+npm run android:build            # Debug APK build (clean + assemble)
+npm run android:release          # Release APK bundle
 npm run android:sync             # Sync static files to Android
 npm run android:open             # Open Android Studio
-npm run android:clean            # Clean build artifacts
+npm run android:clean            # Clean Android build artifacts
+npm run android:test             # Build and test on device/emulator
+
+# Capacitor Commands
+npm run cap:add                  # Add Android platform
+npm run cap:sync                 # Sync to Android
+npm run cap:run                  # Run on device/emulator
+npm run cap:open                 # Open Android Studio
+
+# Asset Generation
+npx @capacitor/assets generate --android  # Generate icons and splash screens
 
 # Utilities
-npm run clean                    # Clean all build artifacts
+npm run clean                    # Clean all build artifacts (.next, out, android/build)
 npm run clean:build              # Clean and rebuild
 ```
 
@@ -1086,9 +1154,25 @@ For questions or issues related to this codebase, refer to:
 
 ## Recent Updates
 
-### February 2025 - Email Integration (COMPLETED ✅)
-- ✅ Integrated Resend for email delivery
-- ✅ Implemented password reset via email
+### November 2025 - App Icon Integration (COMPLETED ✅)
+- ✅ Integrated app icon using @capacitor/assets
+- ✅ Created resources directory for Capacitor asset generation
+- ✅ Generated 74 Android assets (icons + splash screens)
+- ✅ Configured icon path in capacitor.config.ts
+- ✅ Generated adaptive icons with foreground/background layers
+- ✅ Created multiple density icons (ldpi through xxxhdpi)
+- ✅ Generated round icons for supported launchers
+- ✅ Created splash screens for portrait/landscape and light/dark modes
+
+### October 2025 - Recent Feature Updates (COMPLETED ✅)
+- ✅ **Admin Password Change**: Implemented password change functionality in admin settings with enhanced validation (8+ chars, uppercase, lowercase, number)
+- ✅ **SMS Phone Detection Fix**: Added phone number prompts in profile page for users without phone numbers
+- ✅ **Profile Updates**: Enhanced user profile editing with better phone number handling
+- ✅ **Registration Improvements**: Added SMS benefit hints to encourage phone number entry during registration
+
+### October 2025 - Email Integration (COMPLETED ✅)
+- ✅ Integrated Resend 6.2.2 for email delivery
+- ✅ Implemented password reset via email with secure tokens
 - ✅ Added professional HTML email templates with branding
 - ✅ Used Convex Actions for email sending (static export compatible)
 - ✅ Created comprehensive setup documentation
@@ -1097,29 +1181,48 @@ For questions or issues related to this codebase, refer to:
 - ✅ Created React email templates (PasswordReset, Welcome)
 - ✅ Added extensive testing and troubleshooting guides
 
-### Key Files Added/Modified
-- **NEW**: `components/emails/PasswordResetEmail.tsx` - Professional password reset template
-- **NEW**: `components/emails/WelcomeEmail.tsx` - Welcome email template
-- **NEW**: `EMAIL_IMPLEMENTATION_GUIDE.md` - Complete implementation guide
-- **NEW**: `IMPROVEMENTS_SUMMARY.md` - Summary of email improvements
-- **NEW**: `TESTING_GUIDE.md` - Step-by-step testing instructions
-- **NEW**: `EMAIL_README.md` - Quick reference guide
-- **IMPROVED**: `convex/services/email.ts` - Now uses Resend SDK properly
-- **DOCUMENTED**: `app/api/send/route.ts` - Explained static export limitation
-- **DOCUMENTED**: `components/email-template.tsx` - Marked as legacy
-- **EXISTING**: `app/auth/forgot_password/page.tsx` - Password reset request page
-- **EXISTING**: `app/auth/reset_password/page.tsx` - Password reset form
-- **EXISTING**: `convex/services/auth.ts` - Password reset functions
-- **EXISTING**: `convex/schema.ts` - Reset token fields in users table
-- **CONFIGURED**: Convex environment variables (RESEND_API_KEY, RESEND_FROM_EMAIL, NEXT_PUBLIC_APP_URL)
+### Key Files & Directories
+**New Directories**:
+- `app-icons/`: Source app icon files
+- `resources/`: Capacitor assets directory for icon generation
+
+**Key Configuration Files**:
+- `capacitor.config.ts`: App icon path configured, splash screen settings
+- `package.json`: Updated with latest dependencies and comprehensive scripts
+- `next.config.ts`: Static export configuration with image optimization disabled
+
+**Recent Documentation**:
+- `ADMIN_PASSWORD_CHANGE_FIX.md`: Admin password change implementation details
+- `SMS_FIX_COMPLETE.md`: Phone number detection and SMS notification fixes
+- `PROFILE_UPDATE_FIX.md`: User profile update improvements
+- `EMAIL_IMPLEMENTATION_GUIDE.md`: Complete email setup guide
+- `IMPROVEMENTS_SUMMARY.md`: Summary of email improvements
+- `TESTING_GUIDE.md`: Step-by-step testing instructions
+- `EMAIL_README.md`: Quick reference guide
+
+**Email System Files**:
+- `components/emails/PasswordResetEmail.tsx`: Professional password reset template
+- `components/emails/WelcomeEmail.tsx`: Welcome email template
+- `convex/services/email.ts`: Email service using Resend SDK
+- `app/auth/forgot_password/page.tsx`: Password reset request page
+- `app/auth/reset_password/page.tsx`: Password reset form
+- `convex/services/auth.ts`: Password reset functions with token generation
 
 ---
 
-**Last Updated**: February 10, 2025
-**Codebase Version**: 0.2.1 (Email improvements completed)
+**Last Updated**: November 6, 2025
+**Codebase Version**: 0.3.0 (App icon integration + recent fixes)
 **Next.js Version**: 15.5.3
 **Convex Version**: 1.27.0
 **Capacitor Version**: 7.4.3
 **Resend SDK Version**: 6.2.2
-**Resend Integration**: ✅ Active & Production Ready
-**Email System Status**: ✅ Fully Operational
+**TypeScript Version**: 5.x
+**React Version**: 19.1.0
+**Zustand Version**: 5.0.8
+**Status**: ✅ All Core Features Operational
+- Email System: ✅ Fully Operational
+- Password Reset: ✅ Working with Token Expiry
+- Admin Features: ✅ Password Change Implemented
+- SMS Notifications: ✅ Phone Detection Fixed
+- App Icon: ✅ 74 Assets Generated
+- Mobile Build: ✅ APK Generation Ready
