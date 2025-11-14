@@ -98,6 +98,9 @@ npm run android:studio     # Open Android Studio
 npx cap sync android       # Sync web assets with Android project
 npx cap open android       # Open project in Android Studio
 npx cap run android        # Run app on connected device/emulator
+
+cd android
+.\gradlew.bat assembleDebug for build apk
 ```
 
 ### Development Workflow

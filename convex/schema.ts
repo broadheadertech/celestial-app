@@ -50,6 +50,8 @@ export default defineSchema({
     badge: v.optional(v.string()),
     productStatus: v.optional(v.string()),
     lifespan: v.optional(v.string()),
+    tankNumber: v.optional(v.string()),
+    batchCode: v.optional(v.string()),
     isActive: v.boolean(),
     createdAt: v.number(),
     updatedAt: v.number(),
@@ -231,5 +233,102 @@ export default defineSchema({
     .index("by_read", ["isRead"])
     .index("by_type", ["type"])
     .index("by_priority", ["priority"])
+    .index("by_created", ["createdAt"]),
+
+  // Stock Records - Detailed inventory tracking per batch
+  stockRecords: defineTable({
+    productId: v.id("products"),
+    batchCode: v.string(), // Reference to product batch
+    
+    // Product category type
+    category: v.union(
+      v.literal("fish"),
+      v.literal("tank"),
+      v.literal("accessory")
+    ),
+    
+    // Quantity tracking
+    initialQty: v.number(), // Original quantity when stock received
+    currentQty: v.number(), // Current available quantity
+    reservedQty: v.number(), // Quantity reserved but not yet sold
+    soldQty: v.number(), // Quantity already sold
+    mortalityLossQty: v.number(), // Quantity lost due to mortality/damage
+    returnedQty: v.number(), // Quantity returned by customers
+    
+    // Location tracking
+    tankNumber: v.optional(v.string()), // Tank number if applicable
+    
+    // Dates
+    receivedDate: v.number(), // Date stock was received
+    manufactureDate: v.optional(v.number()), // Manufacturing/breeding date
+    expiryDate: v.optional(v.number()), // Expiry date (for fish: expected lifespan end)
+    
+    // Status and quality
+    status: v.union(
+      v.literal("active"), // Currently available
+      v.literal("depleted"), // Fully sold/used
+      v.literal("expired"), // Past expiry date
+      v.literal("quarantine"), // Under quarantine (for fish)
+      v.literal("reserved"), // Fully reserved
+      v.literal("damaged") // Marked as damaged
+    ),
+    qualityGrade: v.optional(v.union(
+      v.literal("premium"),
+      v.literal("standard"),
+      v.literal("budget")
+    )),
+    
+    // Additional tracking
+    notes: v.optional(v.string()), // General notes
+    lastModifiedBy: v.optional(v.id("users")), // User who last modified
+    isRestock: v.optional(v.boolean()), // Flag to identify restock entries
+    isMortalityLoss: v.optional(v.boolean()), // Flag to identify mortality loss records
+    sourceStockRecordId: v.optional(v.id("stockRecords")), // Reference to parent stock if this is a mortality loss record
+    
+    // Audit trail
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_product", ["productId"])
+    .index("by_batch_code", ["batchCode"])
+    .index("by_category", ["category"])
+    .index("by_status", ["status"])
+    .index("by_product_and_status", ["productId", "status"])
+    .index("by_category_and_status", ["category", "status"])
+    .index("by_expiry_date", ["expiryDate"])
+    .index("by_received_date", ["receivedDate"]),
+
+  // Stock Movements - Track all stock changes
+  stockMovements: defineTable({
+    stockRecordId: v.id("stockRecords"),
+    productId: v.id("products"),
+    batchCode: v.string(),
+    
+    // Movement details
+    movementType: v.union(
+      v.literal("initial"), // Initial product creation
+      v.literal("purchase"), // New stock received
+      v.literal("restock"), // Restock existing product
+      v.literal("sale"), // Stock sold
+      v.literal("reservation"), // Stock reserved
+      v.literal("return"), // Customer return
+      v.literal("damage"), // Marked as damaged
+      v.literal("adjustment"), // Manual adjustment
+      v.literal("transfer"), // Transfer between locations
+      v.literal("expiry") // Expired stock removal
+    ),
+    
+    // Quantity changes
+    quantityBefore: v.number(),
+    quantityChange: v.number(), // Positive for increase, negative for decrease
+    quantityAfter: v.number(),
+    
+    // Audit
+    createdAt: v.number(),
+  })
+    .index("by_stock_record", ["stockRecordId"])
+    .index("by_product", ["productId"])
+    .index("by_batch_code", ["batchCode"])
+    .index("by_movement_type", ["movementType"])
     .index("by_created", ["createdAt"]),
 });

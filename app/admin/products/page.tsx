@@ -17,7 +17,10 @@ import {
   AlertTriangle,
   X,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Warehouse,
+  TrendingUp,
+  AlertCircle
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useQuery, useMutation } from 'convex/react';
@@ -58,6 +61,16 @@ function AdminProductsContent() {
   const [showFilters, setShowFilters] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
+  
+  // Restock modal state
+  const [showRestockModal, setShowRestockModal] = useState(false);
+  const [restockProductId, setRestockProductId] = useState<string | null>(null);
+  const [restockQuantity, setRestockQuantity] = useState('');
+
+  // Mortality loss modal state
+  const [showMortalityModal, setShowMortalityModal] = useState(false);
+  const [mortalityProductId, setMortalityProductId] = useState<string | null>(null);
+  const [mortalityQuantity, setMortalityQuantity] = useState('');
 
   // Convex queries
   const products = useQuery(api.services.admin.getAllProductsAdmin);
@@ -65,6 +78,8 @@ function AdminProductsContent() {
   
   // Convex mutations
   const toggleProductStatus = useMutation(api.services.admin.toggleProductStatus);
+  const restockProduct = useMutation(api.services.stock.restockProduct);
+  const recordMortalityLoss = useMutation(api.services.stock.recordMortalityLossByProduct);
 
   // Create category mapping for better filtering
   const categoryMap = useMemo(() => {
@@ -219,6 +234,14 @@ function AdminProductsContent() {
       } catch (error) {
         console.error('Failed to toggle product status:', error);
       }
+    } else if (action === 'Restock') {
+      setRestockProductId(productId);
+      setRestockQuantity('');
+      setShowRestockModal(true);
+    } else if (action === 'MortalityLoss') {
+      setMortalityProductId(productId);
+      setMortalityQuantity('');
+      setShowMortalityModal(true);
     } else if (action === 'Delete') {
       console.log('Delete product:', productId);
     }
@@ -236,6 +259,98 @@ function AdminProductsContent() {
   const goToPage = (page: number) => {
     setCurrentPage(page);
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleRestock = async () => {
+    if (!restockProductId || !restockQuantity) return;
+    
+    const quantity = parseInt(restockQuantity);
+    if (isNaN(quantity) || quantity <= 0) {
+      alert('Please enter a valid quantity');
+      return;
+    }
+
+    try {
+      // Create a new stock record for this restock (1-to-many relationship)
+      const result = await restockProduct({
+        productId: restockProductId as any,
+        quantity: quantity,
+        notes: `Admin restock - Added ${quantity} units`,
+      });
+
+      // Close modal and reset
+      setShowRestockModal(false);
+      setRestockProductId(null);
+      setRestockQuantity('');
+      
+      alert(`${result.message}\nNew batch code: ${result.batchCode}\nTotal stock: ${result.newTotalStock} units`);
+    } catch (error) {
+      console.error('Error restocking product:', error);
+      alert('Failed to restock product. Please try again.');
+    }
+  };
+
+  const handleMortalityLoss = async () => {
+    if (!mortalityProductId || !mortalityQuantity) return;
+    
+    const quantity = parseInt(mortalityQuantity);
+    if (isNaN(quantity) || quantity <= 0) {
+      alert('Please enter a valid quantity');
+      return;
+    }
+
+    const product = products?.find(p => p._id === mortalityProductId);
+    if (!product) {
+      alert('Product not found');
+      return;
+    }
+
+    // Check if product has enough stock
+    if (product.stock < quantity) {
+      alert(`Insufficient stock. Available: ${product.stock}, Requested: ${quantity}`);
+      return;
+    }
+
+    try {
+      const result = await recordMortalityLoss({
+        productId: mortalityProductId as any,
+        quantity: quantity,
+        notes: `🪦 Mortality Loss - ${product.name}\nTank: ${product.tankNumber || 'N/A'}\nSKU: ${product.sku || 'N/A'}\nQuantity Lost: ${quantity} units\nRecorded: ${new Date().toLocaleString()}`,
+      });
+
+      // Close modal and reset
+      setShowMortalityModal(false);
+      setMortalityProductId(null);
+      setMortalityQuantity('');
+      
+      // Show detailed success message with batch information
+      const isFirstLoss = result.isFirstMortalityLoss;
+      
+      alert(
+        `✅ Mortality Loss Recorded Successfully\n\n` +
+        `Product: ${product.name}\n` +
+        `Tank: ${product.tankNumber || 'N/A'}\n` +
+        `SKU: ${product.sku || 'N/A'}\n\n` +
+        `📦 Batch Information:\n` +
+        `Batch Code: ${result.mortalityBatchCode}\n` +
+        `${isFirstLoss ? '(First mortality loss - using source batch)' : '(Using previous mortality batch)'}\n\n` +
+        `📊 Mortality Tracking:\n` +
+        `Previous Product Stock: ${result.previousProductStock} units\n` +
+        `Mortality Loss: ${quantity} units\n` +
+        `New Product Stock: ${result.productStock} units\n` +
+        `Formula: ${result.previousProductStock} - ${quantity} = ${result.productStock}\n\n` +
+        `💾 Mortality Record Saved:\n` +
+        `CurrentQty: ${result.newMortalityCurrentQty} units (= Product Stock)\n` +
+        `InitialQty: ${result.newMortalityInitialQty} units (= CurrentQty)\n\n` +
+        `✓ ${isFirstLoss ? 'First' : 'Continued'} mortality record created\n` +
+        `✓ CurrentQty now matches Product Stock (${result.productStock} units)\n` +
+        `✓ Stock movements logged for audit trail`
+      );
+    } catch (error) {
+      console.error('Error recording mortality loss:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      alert(`❌ Failed to Record Mortality Loss\n\n${errorMessage}\n\nPlease try again or contact support if the issue persists.`);
+    }
   };
 
   return (
@@ -257,13 +372,25 @@ function AdminProductsContent() {
               </div>
             </div>
 
-            <button
-              onClick={() => router.push('/admin/products/form')}
-              className="px-2.5 sm:px-4 py-2 rounded-lg bg-primary text-white flex items-center gap-1 sm:gap-2 hover:bg-primary/90 active:scale-95 transition-all flex-shrink-0 touch-manipulation"
-            >
-              <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-              <span className="text-xs sm:text-sm font-medium">Add</span>
-            </button>
+            <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+              {/* Inventory Button */}
+              <button
+                onClick={() => router.push('/admin/inventory')}
+                className="px-2 sm:px-3 py-2 rounded-lg bg-secondary border border-white/10 text-white flex items-center gap-1 sm:gap-1.5 hover:bg-white/10 active:scale-95 transition-all touch-manipulation"
+              >
+                <Warehouse className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                <span className="text-xs sm:text-sm font-medium hidden xs:inline">Inventory</span>
+              </button>
+
+              {/* Add Product Button */}
+              <button
+                onClick={() => router.push('/admin/products/form')}
+                className="px-2.5 sm:px-4 py-2 rounded-lg bg-primary text-white flex items-center gap-1 sm:gap-2 hover:bg-primary/90 active:scale-95 transition-all touch-manipulation"
+              >
+                <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                <span className="text-xs sm:text-sm font-medium">Add</span>
+              </button>
+            </div>
           </div>
 
           {/* Search and Filter */}
@@ -516,9 +643,16 @@ function AdminProductsContent() {
                               {product.name || 'Unnamed Product'}
                             </h3>
                             <p className="text-xs sm:text-sm text-white/60 mb-0.5 sm:mb-1 truncate">{categoryName}</p>
-                            <p className="text-[10px] sm:text-xs text-white/40">
-                              ID: {product._id.slice(-6).toUpperCase()}
-                            </p>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p className="text-[10px] sm:text-xs text-white/40">
+                                ID: {product._id.slice(-6).toUpperCase()}
+                              </p>
+                              {product.tankNumber && (
+                                <span className="px-1.5 py-0.5 rounded bg-info/10 text-info text-[10px] sm:text-xs font-medium border border-info/30">
+                                  Tank: {product.tankNumber}
+                                </span>
+                              )}
+                            </div>
                           </div>
                           
                           {/* Actions Menu */}
@@ -639,6 +773,328 @@ function AdminProductsContent() {
       {/* Bottom Navigation */}
       <BottomNavbar />
 
+      {/* Restock Modal */}
+      {showRestockModal && restockProductId && (
+        <>
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 animate-in fade-in duration-200"
+            onClick={() => {
+              setShowRestockModal(false);
+              setRestockProductId(null);
+              setRestockQuantity('');
+            }}
+          />
+          
+          {/* Modal */}
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+            <div 
+              className="bg-secondary/95 backdrop-blur-md border border-white/10 rounded-2xl shadow-2xl w-full max-w-md pointer-events-auto animate-in zoom-in-95 duration-200"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="px-6 py-4 border-b border-white/10">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                    <TrendingUp className="w-5 h-5 text-success" />
+                    Restock Product
+                  </h2>
+                  <button
+                    onClick={() => {
+                      setShowRestockModal(false);
+                      setRestockProductId(null);
+                      setRestockQuantity('');
+                    }}
+                    className="p-1.5 rounded-lg hover:bg-white/10 transition-colors"
+                  >
+                    <X className="w-5 h-5 text-white/60" />
+                  </button>
+                </div>
+              </div>
+              
+              {/* Content */}
+              <div className="px-6 py-5 space-y-4">
+                {(() => {
+                  const product = products?.find(p => p._id === restockProductId);
+                  if (!product) return null;
+                  
+                  return (
+                    <>
+                      {/* Product Info */}
+                      <div className="bg-secondary/60 rounded-xl p-4 border border-white/10">
+                        <div className="flex items-center gap-3 mb-3">
+                          <div className="w-16 h-16 rounded-lg overflow-hidden bg-secondary border border-white/10 flex-shrink-0">
+                            {product.image ? (
+                              <img
+                                src={product.image}
+                                alt={product.name}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <img
+                                src="/img/logo-app.png"
+                                alt="Default"
+                                className="w-12 h-12 m-2 object-contain opacity-60"
+                              />
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-bold text-white text-base truncate">{product.name}</h3>
+                            <p className="text-sm text-white/60 truncate">{formatCurrency(product.price)}</p>
+                          </div>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-3 pt-3 border-t border-white/10">
+                          <div>
+                            <p className="text-xs text-white/60 mb-1">SKU</p>
+                            <p className="text-sm font-medium text-white">
+                              {product.sku || 'N/A'}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-white/60 mb-1">Tank Number</p>
+                            <p className="text-sm font-medium text-white">
+                              {product.tankNumber || 'N/A'}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-white/60 mb-1">Current Stock</p>
+                            <p className="text-sm font-bold text-white">
+                              {product.stock} units
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-white/60 mb-1">Status</p>
+                            <div className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${
+                              product.stock === 0 ? 'bg-error/10 text-error' :
+                              product.stock < 10 ? 'bg-warning/10 text-warning' :
+                              'bg-success/10 text-success'
+                            }`}>
+                              {product.stock === 0 ? 'Out of Stock' :
+                               product.stock < 10 ? 'Low Stock' :
+                               'In Stock'}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Quantity Input */}
+                      <div>
+                        <label className="block text-sm font-medium text-white mb-2">
+                          Add Quantity <span className="text-primary">*</span>
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          value={restockQuantity}
+                          onChange={(e) => setRestockQuantity(e.target.value)}
+                          placeholder="Enter quantity to add"
+                          className="w-full px-4 py-3 bg-secondary border border-white/10 rounded-lg text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-primary"
+                          autoFocus
+                        />
+                        {restockQuantity && (
+                          <p className="mt-2 text-sm text-white/60">
+                            New stock will be: <span className="font-bold text-success">{product.stock + parseInt(restockQuantity || '0')} units</span>
+                          </p>
+                        )}
+                      </div>
+                    </>
+                  );
+                })()}
+              </div>
+              
+              {/* Actions */}
+              <div className="px-6 py-4 border-t border-white/10 flex gap-3">
+                <button
+                  onClick={() => {
+                    setShowRestockModal(false);
+                    setRestockProductId(null);
+                    setRestockQuantity('');
+                  }}
+                  className="flex-1 px-4 py-2.5 bg-secondary/60 hover:bg-white/10 border border-white/10 rounded-lg text-white font-medium transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleRestock}
+                  disabled={!restockQuantity || parseInt(restockQuantity) <= 0}
+                  className="flex-1 px-4 py-2.5 bg-success hover:bg-success/90 disabled:bg-success/50 disabled:cursor-not-allowed rounded-lg text-white font-medium transition-all"
+                >
+                  Add Stock
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Mortality Loss Modal */}
+      {showMortalityModal && mortalityProductId && (
+        <>
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 animate-in fade-in duration-200"
+            onClick={() => {
+              setShowMortalityModal(false);
+              setMortalityProductId(null);
+              setMortalityQuantity('');
+            }}
+          />
+          
+          {/* Modal */}
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+            <div 
+              className="bg-secondary/95 backdrop-blur-md border border-white/10 rounded-2xl shadow-2xl w-full max-w-md pointer-events-auto animate-in zoom-in-95 duration-200"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="px-6 py-4 border-b border-white/10">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                    <AlertCircle className="w-5 h-5 text-warning" />
+                    Record Mortality Loss
+                  </h2>
+                  <button
+                    onClick={() => {
+                      setShowMortalityModal(false);
+                      setMortalityProductId(null);
+                      setMortalityQuantity('');
+                    }}
+                    className="p-1.5 rounded-lg hover:bg-white/10 transition-colors"
+                  >
+                    <X className="w-5 h-5 text-white/60" />
+                  </button>
+                </div>
+              </div>
+              
+              {/* Content */}
+              <div className="px-6 py-5 space-y-4">
+                {(() => {
+                  const product = products?.find(p => p._id === mortalityProductId);
+                  if (!product) return null;
+                  
+                  const availableQty = product.stock;
+                  
+                  return (
+                    <>
+                      {/* Product Info */}
+                      <div className="bg-secondary/60 rounded-xl p-4 border border-white/10">
+                        <div className="flex items-center gap-3 mb-3">
+                          <div className="w-16 h-16 rounded-lg overflow-hidden bg-secondary border border-white/10 flex-shrink-0">
+                            {product.image ? (
+                              <img
+                                src={product.image}
+                                alt={product.name}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <img
+                                src="/img/logo-app.png"
+                                alt="Default"
+                                className="w-12 h-12 m-2 object-contain opacity-60"
+                              />
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-bold text-white text-base truncate">{product.name}</h3>
+                            <p className="text-sm text-white/60 truncate">{formatCurrency(product.price)}</p>
+                          </div>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-3 pt-3 border-t border-white/10">
+                          <div>
+                            <p className="text-xs text-white/60 mb-1">SKU</p>
+                            <p className="text-sm font-medium text-white">
+                              {product.sku || 'N/A'}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-white/60 mb-1">Tank Number</p>
+                            <p className="text-sm font-medium text-white">
+                              {product.tankNumber || 'N/A'}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-white/60 mb-1">Total Stock</p>
+                            <p className="text-sm font-bold text-white">
+                              {product.stock} units
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-white/60 mb-1">Available</p>
+                            <p className="text-sm font-bold text-success">
+                              {availableQty} units
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Warning Message */}
+                      <div className="bg-warning/10 border border-warning/30 rounded-xl p-3">
+                        <div className="flex gap-2">
+                          <AlertTriangle className="w-5 h-5 text-warning flex-shrink-0 mt-0.5" />
+                          <div>
+                            <p className="text-sm font-medium text-warning mb-1">
+                              Important Notice
+                            </p>
+                            <p className="text-xs text-white/70">
+                              This action will permanently reduce stock count and mark the specified quantity as damaged/lost. This cannot be undone.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Quantity Input */}
+                      <div>
+                        <label className="block text-sm font-medium text-white mb-2">
+                          Mortality Quantity <span className="text-error">*</span>
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          max={availableQty}
+                          value={mortalityQuantity}
+                          onChange={(e) => setMortalityQuantity(e.target.value)}
+                          placeholder="Enter quantity lost"
+                          className="w-full px-4 py-3 bg-secondary border border-white/10 rounded-lg text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-warning"
+                          autoFocus
+                        />
+                        {mortalityQuantity && (
+                          <p className="mt-2 text-sm text-white/60">
+                            Remaining stock will be: <span className="font-bold text-warning">{availableQty - parseInt(mortalityQuantity || '0')} units</span>
+                          </p>
+                        )}
+                      </div>
+                    </>
+                  );
+                })()}
+              </div>
+              
+              {/* Actions */}
+              <div className="px-6 py-4 border-t border-white/10 flex gap-3">
+                <button
+                  onClick={() => {
+                    setShowMortalityModal(false);
+                    setMortalityProductId(null);
+                    setMortalityQuantity('');
+                  }}
+                  className="flex-1 px-4 py-2.5 bg-secondary/60 hover:bg-white/10 border border-white/10 rounded-lg text-white font-medium transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleMortalityLoss}
+                  disabled={!mortalityQuantity || parseInt(mortalityQuantity) <= 0}
+                  className="flex-1 px-4 py-2.5 bg-warning hover:bg-warning/90 disabled:bg-warning/50 disabled:cursor-not-allowed rounded-lg text-white font-medium transition-all"
+                >
+                  Record Loss
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
       {/* Mobile-Optimized Action Sheet */}
       {selectedProduct && (
         <>
@@ -710,6 +1166,22 @@ function AdminProductsContent() {
                       >
                         <Edit className="w-5 h-5 text-primary" />
                         <span className="font-medium">Edit Product</span>
+                      </button>
+
+                      <button
+                        onClick={() => handleProductAction(product._id, 'Restock')}
+                        className="w-full px-4 py-3.5 bg-secondary/60 hover:bg-white/10 active:bg-white/15 border border-white/10 rounded-xl text-white flex items-center gap-3 transition-all touch-manipulation"
+                      >
+                        <TrendingUp className="w-5 h-5 text-success" />
+                        <span className="font-medium">Restock Product</span>
+                      </button>
+
+                      <button
+                        onClick={() => handleProductAction(product._id, 'MortalityLoss')}
+                        className="w-full px-4 py-3.5 bg-secondary/60 hover:bg-white/10 active:bg-white/15 border border-white/10 rounded-xl text-white flex items-center gap-3 transition-all touch-manipulation"
+                      >
+                        <AlertCircle className="w-5 h-5 text-warning" />
+                        <span className="font-medium">Record Mortality Loss</span>
                       </button>
                       
                       <button

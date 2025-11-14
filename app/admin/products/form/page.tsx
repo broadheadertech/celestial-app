@@ -32,6 +32,7 @@ interface ProductFormData {
   badge: string;
   isActive: boolean;
   sku: string;
+  tankNumber: string;
   status: string;
   featured: boolean;
   lifespan: string;
@@ -80,6 +81,7 @@ const initialFormData: ProductFormData = {
   badge: '',
   isActive: true,
   sku: '',
+  tankNumber: '',
   status: 'active',
   featured: false,
   lifespan: '',
@@ -207,6 +209,7 @@ function ProductFormContentInner() {
         badge: existingProduct.badge || '',
         isActive: existingProduct.isActive,
         sku: (existingProduct.sku || '').toString(),
+        tankNumber: existingProduct.tankNumber || '',
         status: existingProduct.productStatus || 'active',
         lifespan: existingProduct.lifespan || '',
       }));
@@ -412,6 +415,7 @@ function ProductFormContentInner() {
         badge: formData.badge.trim() || undefined,
         productStatus: formData.status,
         sku: skuString,
+        tankNumber: formData.tankNumber.trim() || undefined,
         lifespan: formData.lifespan || undefined,
         isActive: formData.status === 'active',
       };
@@ -693,6 +697,15 @@ function ProductFormContentInner() {
             </div>
           </div>
 
+          {/* Tank Number */}
+          {renderFormField('Tank Number')}
+          <input
+            className="w-full p-4 rounded-lg bg-secondary border border-primary/10 text-white placeholder:text-muted mb-4"
+            placeholder="e.g., TANK-001, A-12, etc."
+            value={formData.tankNumber}
+            onChange={(e) => handleInputChange('tankNumber', e.target.value)}
+          />
+
           {/* Badge */}
           {renderFormField('Badge (e.g., "New", "Sale", "Limited")')}
           <input
@@ -828,11 +841,12 @@ function ProductFormContentInner() {
             />
 
             {/* Size */}
-            {renderFormField('Size (cm)', true)}
+            {renderFormField('Size (inches)', true)}
             <input
               className="w-full p-4 rounded-lg bg-secondary border border-primary/10 text-white placeholder:text-muted mb-4"
-              placeholder="10"
+              placeholder="4"
               type="number"
+              step="0.1"
               value={formData.fishSize}
               onChange={(e) => handleInputChange('fishSize', e.target.value)}
             />
@@ -941,7 +955,7 @@ function ProductFormContentInner() {
             {/* Dimensions */}
             <div className="mb-2">
               <label className="block text-sm font-medium text-white mb-2">
-                Dimensions (cm) <span className="text-primary">*</span>
+                Dimensions (inches) <span className="text-primary">*</span>
               </label>
             </div>
             <div className="flex space-x-3 mb-4">
@@ -950,6 +964,7 @@ function ProductFormContentInner() {
                   className="w-full p-4 rounded-lg bg-secondary border border-primary/10 text-white placeholder:text-muted"
                   placeholder="Length"
                   type="number"
+                  step="0.1"
                   value={formData.length}
                   onChange={(e) => handleInputChange('length', e.target.value)}
                 />
@@ -959,6 +974,7 @@ function ProductFormContentInner() {
                   className="w-full p-4 rounded-lg bg-secondary border border-primary/10 text-white placeholder:text-muted"
                   placeholder="Width"
                   type="number"
+                  step="0.1"
                   value={formData.width}
                   onChange={(e) => handleInputChange('width', e.target.value)}
                 />
@@ -968,6 +984,7 @@ function ProductFormContentInner() {
                   className="w-full p-4 rounded-lg bg-secondary border border-primary/10 text-white placeholder:text-muted"
                   placeholder="Height"
                   type="number"
+                  step="0.1"
                   value={formData.height}
                   onChange={(e) => handleInputChange('height', e.target.value)}
                 />

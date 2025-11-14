@@ -281,8 +281,65 @@ export const createProduct = mutation({
     sku: v.optional(v.string()),
     productStatus: v.optional(v.string()),
     lifespan: v.optional(v.string()),
+    tankNumber: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const now = Date.now();
+    
+    // Generate batch code: BATCH-YYYYMMDD-RANDOM
+    const generateBatchCode = () => {
+      const date = new Date(now);
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const random = Math.random().toString(36).substring(2, 6).toUpperCase();
+      return `BATCH-${year}${month}${day}-${random}`;
+    };
+    
+    const batchCode = generateBatchCode();
+    
+    // Get category to determine stock category type
+    const category = await ctx.db.get(args.categoryId);
+    if (!category) {
+      throw new Error("Category not found");
+    }
+    
+    // Determine stock category based on category name
+    const determineStockCategory = (categoryName: string): "fish" | "tank" | "accessory" => {
+      const lower = categoryName.toLowerCase();
+      if (lower.includes("fish") || lower.includes("aquatic")) {
+        return "fish";
+      }
+      if (lower.includes("tank") || lower.includes("aquarium")) {
+        return "tank";
+      }
+      return "accessory";
+    };
+    
+    const stockCategory = determineStockCategory(category.name);
+    const isFishCategory = stockCategory === "fish";
+    
+    // Calculate expiry date for fish (if lifespan is provided)
+    let expiryDate: number | undefined;
+    if (isFishCategory && args.lifespan) {
+      const lifespanMatch = args.lifespan.match(/(\d+)\s*(year|month|day)/i);
+      if (lifespanMatch) {
+        const value = parseInt(lifespanMatch[1]);
+        const unit = lifespanMatch[2].toLowerCase();
+        
+        let lifespanMs = 0;
+        if (unit.startsWith('year')) {
+          lifespanMs = value * 365 * 24 * 60 * 60 * 1000;
+        } else if (unit.startsWith('month')) {
+          lifespanMs = value * 30 * 24 * 60 * 60 * 1000;
+        } else if (unit.startsWith('day')) {
+          lifespanMs = value * 24 * 60 * 60 * 1000;
+        }
+        expiryDate = now + lifespanMs;
+      }
+    }
+    
+    // Create product
     const productId = await ctx.db.insert("products", {
       ...args,
       rating: 0,
@@ -293,8 +350,54 @@ export const createProduct = mutation({
       sku: args.sku || `SKU-${Math.floor(Math.random() * 1000000)}`,
       lifespan: args.lifespan,
       productStatus: args.productStatus || "active",
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
+      tankNumber: args.tankNumber,
+      batchCode: batchCode,
+      createdAt: now,
+      updatedAt: now,
+    });
+    
+    // Create initial stock record
+    const stockRecordId = await ctx.db.insert("stockRecords", {
+      productId: productId,
+      batchCode: batchCode,
+      category: stockCategory,
+      
+      // Initial quantities
+      initialQty: args.stock,
+      currentQty: args.stock,
+      reservedQty: 0,
+      soldQty: 0,
+      mortalityLossQty: 0,
+      returnedQty: 0,
+      
+      // Location
+      tankNumber: args.tankNumber,
+      
+      // Dates
+      receivedDate: now,
+      manufactureDate: isFishCategory ? now : undefined,
+      expiryDate: expiryDate,
+      
+      // Status
+      status: "active",
+      qualityGrade: args.badge ? "premium" : "standard",
+      
+      // Audit
+      notes: `Initial stock from product creation - ${args.name}`,
+      createdAt: now,
+      updatedAt: now,
+    });
+    
+    // Log initial stock movement
+    await ctx.db.insert("stockMovements", {
+      stockRecordId: stockRecordId,
+      productId: productId,
+      batchCode: batchCode,
+      movementType: "initial",
+      quantityBefore: 0,
+      quantityChange: args.stock,
+      quantityAfter: args.stock,
+      createdAt: now,
     });
 
     return productId;

@@ -25,6 +25,7 @@ import type * as services_notifications from "../services/notifications.js";
 import type * as services_orders from "../services/orders.js";
 import type * as services_products from "../services/products.js";
 import type * as services_reservations from "../services/reservations.js";
+import type * as services_stock from "../services/stock.js";
 import type * as services_users from "../services/users.js";
 
 /**
@@ -48,6 +49,7 @@ declare const fullApi: ApiFromModules<{
   "services/orders": typeof services_orders;
   "services/products": typeof services_products;
   "services/reservations": typeof services_reservations;
+  "services/stock": typeof services_stock;
   "services/users": typeof services_users;
 }>;
 export declare const api: FilterApi<
