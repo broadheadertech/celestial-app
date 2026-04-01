@@ -1,6 +1,194 @@
 import { v } from "convex/values";
-import { mutation, query } from "../_generated/server";
+import { mutation, query, MutationCtx } from "../_generated/server";
 import { Id } from "../_generated/dataModel";
+
+// ==================== HELPER FUNCTIONS (callable from other mutations) ====================
+
+/**
+ * Reserve stock in stockRecords for a product (call from within a mutation handler).
+ * Updates reservedQty and logs a stockMovement.
+ * Silently skips if no active stock record exists (product may not have been batch-tracked yet).
+ */
+export async function reserveStockHelper(
+  ctx: MutationCtx,
+  args: { productId: Id<"products">; quantity: number }
+) {
+  const { productId, quantity } = args;
+  if (quantity <= 0) return null;
+
+  // Find the most recent active stock record for this product
+  const stockRecord = await ctx.db
+    .query("stockRecords")
+    .withIndex("by_product_and_status", (q) =>
+      q.eq("productId", productId).eq("status", "active")
+    )
+    .first();
+
+  if (!stockRecord) {
+    // No stock record exists — product hasn't been batch-tracked yet. Skip silently.
+    return null;
+  }
+
+  const now = Date.now();
+  const newReservedQty = stockRecord.reservedQty + quantity;
+
+  await ctx.db.patch(stockRecord._id, {
+    reservedQty: newReservedQty,
+    updatedAt: now,
+  });
+
+  await ctx.db.insert("stockMovements", {
+    stockRecordId: stockRecord._id,
+    productId,
+    batchCode: stockRecord.batchCode,
+    movementType: "reservation",
+    quantityBefore: stockRecord.reservedQty,
+    quantityChange: quantity,
+    quantityAfter: newReservedQty,
+    createdAt: now,
+  });
+
+  return { stockRecordId: stockRecord._id, batchCode: stockRecord.batchCode };
+}
+
+/**
+ * Release reserved stock in stockRecords (call from within a mutation handler).
+ * Finds the active stock record for the product and decreases reservedQty.
+ * Silently skips if no matching record exists.
+ */
+export async function releaseReservedStockHelper(
+  ctx: MutationCtx,
+  args: { productId: Id<"products">; quantity: number }
+) {
+  const { productId, quantity } = args;
+  if (quantity <= 0) return;
+
+  // Find stock records for this product that have reserved qty
+  const stockRecords = await ctx.db
+    .query("stockRecords")
+    .withIndex("by_product", (q) => q.eq("productId", productId))
+    .collect();
+
+  // Find one with reservedQty > 0 (prefer active, then any)
+  const record = stockRecords.find(r => r.reservedQty > 0 && r.status === "active")
+    || stockRecords.find(r => r.reservedQty > 0);
+
+  if (!record) return; // Nothing reserved in stockRecords, skip
+
+  const now = Date.now();
+  const releaseAmount = Math.min(quantity, record.reservedQty);
+  const newReservedQty = record.reservedQty - releaseAmount;
+
+  await ctx.db.patch(record._id, {
+    reservedQty: newReservedQty,
+    updatedAt: now,
+  });
+
+  await ctx.db.insert("stockMovements", {
+    stockRecordId: record._id,
+    productId,
+    batchCode: record.batchCode,
+    movementType: "adjustment",
+    quantityBefore: record.reservedQty,
+    quantityChange: -releaseAmount,
+    quantityAfter: newReservedQty,
+    createdAt: now,
+  });
+}
+
+/**
+ * Record a sale in stockRecords for a product (call from within a mutation handler).
+ * Decreases currentQty, increases soldQty, logs a "sale" movement.
+ * Silently skips if no active stock record exists.
+ */
+export async function recordSaleHelper(
+  ctx: MutationCtx,
+  args: { productId: Id<"products">; quantity: number }
+) {
+  const { productId, quantity } = args;
+  if (quantity <= 0) return;
+
+  const stockRecord = await ctx.db
+    .query("stockRecords")
+    .withIndex("by_product_and_status", (q) =>
+      q.eq("productId", productId).eq("status", "active")
+    )
+    .first();
+
+  if (!stockRecord) return;
+
+  const now = Date.now();
+  const newCurrentQty = Math.max(0, stockRecord.currentQty - quantity);
+  const newSoldQty = stockRecord.soldQty + quantity;
+  // If this was reserved stock being sold, also decrease reservedQty
+  const reservedDecrease = Math.min(stockRecord.reservedQty, quantity);
+  const newReservedQty = stockRecord.reservedQty - reservedDecrease;
+  const newStatus = newCurrentQty === 0 ? "depleted" as const : stockRecord.status;
+
+  await ctx.db.patch(stockRecord._id, {
+    currentQty: newCurrentQty,
+    soldQty: newSoldQty,
+    reservedQty: newReservedQty,
+    status: newStatus,
+    updatedAt: now,
+  });
+
+  await ctx.db.insert("stockMovements", {
+    stockRecordId: stockRecord._id,
+    productId,
+    batchCode: stockRecord.batchCode,
+    movementType: "sale",
+    quantityBefore: stockRecord.currentQty,
+    quantityChange: -quantity,
+    quantityAfter: newCurrentQty,
+    createdAt: now,
+  });
+}
+
+/**
+ * Restore stock in stockRecords when an order/reservation is cancelled.
+ * Increases currentQty back, logs a "return" movement.
+ * Silently skips if no matching stock record exists.
+ */
+export async function restoreStockHelper(
+  ctx: MutationCtx,
+  args: { productId: Id<"products">; quantity: number }
+) {
+  const { productId, quantity } = args;
+  if (quantity <= 0) return;
+
+  // Find the most recent stock record for this product (prefer active, then depleted)
+  const stockRecords = await ctx.db
+    .query("stockRecords")
+    .withIndex("by_product", (q) => q.eq("productId", productId))
+    .collect();
+
+  const record = stockRecords.find(r => r.status === "active" && !r.isMortalityLoss)
+    || stockRecords.find(r => r.status === "depleted" && !r.isMortalityLoss);
+
+  if (!record) return;
+
+  const now = Date.now();
+  const newCurrentQty = record.currentQty + quantity;
+  const newStatus = newCurrentQty > 0 && record.status === "depleted" ? "active" as const : record.status;
+
+  await ctx.db.patch(record._id, {
+    currentQty: newCurrentQty,
+    status: newStatus,
+    updatedAt: now,
+  });
+
+  await ctx.db.insert("stockMovements", {
+    stockRecordId: record._id,
+    productId,
+    batchCode: record.batchCode,
+    movementType: "return",
+    quantityBefore: record.currentQty,
+    quantityChange: quantity,
+    quantityAfter: newCurrentQty,
+    createdAt: now,
+  });
+}
 
 // ==================== STOCK RECORDS QUERIES ====================
 

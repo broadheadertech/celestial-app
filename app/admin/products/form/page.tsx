@@ -697,14 +697,18 @@ function ProductFormContentInner() {
             </div>
           </div>
 
-          {/* Tank Number */}
-          {renderFormField('Tank Number')}
-          <input
-            className="w-full p-4 rounded-lg bg-secondary border border-primary/10 text-white placeholder:text-muted mb-4"
-            placeholder="e.g., TANK-001, A-12, etc."
-            value={formData.tankNumber}
-            onChange={(e) => handleInputChange('tankNumber', e.target.value)}
-          />
+          {/* Tank Number - only for fish products */}
+          {isFishProduct && (
+            <>
+              {renderFormField('Tank Number')}
+              <input
+                className="w-full p-4 rounded-lg bg-secondary border border-primary/10 text-white placeholder:text-muted mb-4"
+                placeholder="e.g., TANK-001, A-12, etc."
+                value={formData.tankNumber}
+                onChange={(e) => handleInputChange('tankNumber', e.target.value)}
+              />
+            </>
+          )}
 
           {/* Badge */}
           {renderFormField('Badge (e.g., "New", "Sale", "Limited")')}

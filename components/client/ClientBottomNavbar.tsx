@@ -7,6 +7,7 @@ import {
   Home,
   Search,
   ShoppingCart,
+  Heart,
   User,
   Package
 } from 'lucide-react';
@@ -51,6 +52,13 @@ const ClientBottomNavbar: React.FC<ClientBottomNavbarProps> = ({ className = '' 
       icon: ShoppingCart,
       href: '/client/cart',
       matchPaths: ['/client/cart']
+    },
+    {
+      id: 'wishlist',
+      label: 'Wishlist',
+      icon: Heart,
+      href: '/client/wishlist',
+      matchPaths: ['/client/wishlist']
     },
     {
       id: 'profile',

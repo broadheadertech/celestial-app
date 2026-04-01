@@ -22,7 +22,8 @@ import {
   ChevronLeft,
   ChevronRight,
   X,
-  MoreVertical
+  MoreVertical,
+  Plus
 } from 'lucide-react';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
 import BottomNavbar from '@/components/common/BottomNavbar';
@@ -32,6 +33,7 @@ import { api } from '@/convex/_generated/api';
 import { Id } from '@/convex/_generated/dataModel';
 import { SMSConfirmationModal } from '@/components/modal/SMSConfirmationModal';
 import { getSMSMessageForStatus } from '@/lib/sms';
+import OrderReceipt from '@/components/admin/OrderReceipt';
 
 const ITEMS_PER_PAGE = 15;
 
@@ -191,6 +193,18 @@ function AdminOrdersContent() {
   const updateOrderStatus = useMutation(api.services.orders.updateOrderStatus);
   const updateReservationStatus = useMutation(api.services.reservations.updateReservationStatus);
   const markReservationReadyForPickup = useMutation(api.services.reservations.markReservationReadyForPickup);
+  const acknowledgeOrder = useMutation(api.services.orders.acknowledgeOrder);
+  const releaseOrder = useMutation(api.services.orders.releaseOrder);
+  const acknowledgeReservation = useMutation(api.services.reservations.acknowledgeReservation);
+  const releaseReservation = useMutation(api.services.reservations.releaseReservation);
+  const assignOrderSA = useMutation(api.services.admin.assignOrderSalesAssociate);
+  const assignReservationSA = useMutation(api.services.admin.assignReservationSalesAssociate);
+  const staffUsers = useQuery(api.services.admin.getStaffUsers, {});
+
+  const [receiptData, setReceiptData] = useState<any>(null);
+  const [showAssignSA, setShowAssignSA] = useState<CombinedItem | null>(null);
+  const [selectedSAId, setSelectedSAId] = useState('');
+  const [selectedSAName, setSelectedSAName] = useState('');
 
   const isLoading = ordersQuery === undefined || reservationsQuery === undefined;
 
@@ -307,6 +321,54 @@ function AdminOrdersContent() {
     }
   };
 
+  const handleAcknowledge = async (itemId: string, type: 'order' | 'reservation') => {
+    try {
+      const receipt = type === 'order'
+        ? await acknowledgeOrder({ orderId: itemId as Id<'orders'> })
+        : await acknowledgeReservation({ reservationId: itemId as Id<'reservations'> });
+      setReceiptData(receipt);
+    } catch (error) {
+      console.error('Acknowledge failed:', error);
+      alert(error instanceof Error ? error.message : 'Failed to acknowledge');
+    }
+  };
+
+  const handleRelease = async (itemId: string, type: 'order' | 'reservation') => {
+    try {
+      const receipt = type === 'order'
+        ? await releaseOrder({ orderId: itemId as Id<'orders'> })
+        : await releaseReservation({ reservationId: itemId as Id<'reservations'> });
+      setReceiptData(receipt);
+    } catch (error) {
+      console.error('Release failed:', error);
+      alert(error instanceof Error ? error.message : 'Failed to release');
+    }
+  };
+
+  const handleAssignSA = async () => {
+    if (!showAssignSA) return;
+    try {
+      if (showAssignSA.type === 'order') {
+        await assignOrderSA({
+          orderId: showAssignSA._id as Id<'orders'>,
+          salesAssociateId: selectedSAId ? selectedSAId as Id<'users'> : undefined,
+          salesAssociateName: selectedSAName || undefined,
+        });
+      } else {
+        await assignReservationSA({
+          reservationId: showAssignSA._id as Id<'reservations'>,
+          salesAssociateId: selectedSAId ? selectedSAId as Id<'users'> : undefined,
+          salesAssociateName: selectedSAName || undefined,
+        });
+      }
+      setShowAssignSA(null);
+      setSelectedSAId('');
+      setSelectedSAName('');
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Failed to assign');
+    }
+  };
+
   const getActionItems = (item: CombinedItem): ActionItem[] => {
     return [
       {
@@ -318,17 +380,17 @@ function AdminOrdersContent() {
       },
       {
         icon: <CheckCircle className="w-5 h-5" />,
-        label: `Confirm ${item.type === 'order' ? 'Order' : 'Reservation'}`,
-        onClick: () => handleUpdateStatus(item._id, 'confirmed'),
+        label: `Acknowledge ${item.type === 'order' ? 'Order' : 'Reservation'} (Receipt)`,
+        onClick: () => handleAcknowledge(item._id, item.type),
         variant: 'success',
         show: item.status === 'pending',
       },
       {
         icon: <Package className="w-5 h-5" />,
-        label: 'Start Processing',
-        onClick: () => handleUpdateStatus(item._id, 'processing'),
-        variant: 'default',
-        show: item.status === 'confirmed' && item.type === 'order',
+        label: `Release ${item.type === 'order' ? 'Order' : 'Reservation'} (Receipt)`,
+        onClick: () => handleRelease(item._id, item.type),
+        variant: 'success',
+        show: ['confirmed', 'processing', 'ready_for_pickup'].includes(item.status),
       },
       {
         icon: <Package className="w-5 h-5" />,
@@ -350,6 +412,13 @@ function AdminOrdersContent() {
         onClick: () => handleUpdateStatus(item._id, 'completed'),
         variant: 'success',
         show: item.status === 'processing',
+      },
+      {
+        icon: <User className="w-5 h-5" />,
+        label: 'Assign Sales Associate',
+        onClick: () => { setShowAssignSA(item); setSelectedSAId(''); setSelectedSAName(''); },
+        variant: 'info',
+        show: !['cancelled', 'expired'].includes(item.status),
       },
       {
         icon: <XCircle className="w-5 h-5" />,
@@ -404,6 +473,13 @@ function AdminOrdersContent() {
               </div>
             </div>
             <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+              <button
+                onClick={() => router.push('/admin/orders/create')}
+                className="px-3 py-2 rounded-lg bg-primary text-white text-xs sm:text-sm font-medium hover:bg-primary/90 active:scale-95 transition-all touch-manipulation flex items-center gap-1.5"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">New Order</span>
+              </button>
               <button onClick={() => { setIsRefreshing(true); setTimeout(() => setIsRefreshing(false), 1000); }} disabled={isRefreshing} className="p-2 sm:px-3 sm:py-2 rounded-lg bg-secondary/60 border border-white/10 hover:bg-secondary/80 active:scale-95 transition-all touch-manipulation">
                 <RefreshCw className={`w-3.5 h-3.5 sm:w-4 sm:h-4 text-white ${isRefreshing ? 'animate-spin' : ''}`} />
               </button>
@@ -623,6 +699,57 @@ function AdminOrdersContent() {
         );
       })()}
 
+      {/* Assign Sales Associate Modal */}
+      {showAssignSA && (
+        <>
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9998]" onClick={() => setShowAssignSA(null)} />
+          <div className="fixed bottom-0 left-0 right-0 sm:inset-0 sm:flex sm:items-center sm:justify-center z-[9999]">
+            <div className="bg-secondary/95 backdrop-blur-md border-t sm:border border-white/10 rounded-t-3xl sm:rounded-2xl shadow-2xl p-4 sm:p-6 sm:w-full sm:max-w-sm sm:mx-4">
+              <div className="flex justify-center pt-2 pb-3 sm:hidden">
+                <div className="w-12 h-1.5 bg-white/20 rounded-full" />
+              </div>
+              <h3 className="text-lg font-bold text-white mb-1">Assign Sales Associate</h3>
+              <p className="text-xs text-white/60 mb-4">{showAssignSA.code}</p>
+              <div className="relative mb-4">
+                <select
+                  value={selectedSAId}
+                  onChange={(e) => {
+                    setSelectedSAId(e.target.value);
+                    const staff = staffUsers?.find((s: any) => s._id === e.target.value);
+                    setSelectedSAName(staff ? `${staff.firstName} ${staff.lastName}` : '');
+                  }}
+                  className="w-full px-3 py-2.5 bg-background/60 border border-white/10 rounded-lg text-sm text-white appearance-none focus:outline-none focus:ring-2 focus:ring-primary"
+                >
+                  <option value="">None (remove associate)</option>
+                  {staffUsers?.map((s: any) => (
+                    <option key={s._id} value={s._id}>
+                      {s.firstName} {s.lastName} {s.isSalesAssociate ? '⭐' : ''} ({s.role})
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40 pointer-events-none" />
+              </div>
+              <div className="flex gap-3">
+                <button onClick={() => setShowAssignSA(null)} className="flex-1 px-4 py-2.5 bg-secondary border border-white/10 text-white rounded-xl font-medium hover:bg-white/10 active:scale-95 transition-all text-sm">
+                  Cancel
+                </button>
+                <button onClick={handleAssignSA} className="flex-1 px-4 py-2.5 bg-primary text-white rounded-xl font-medium hover:bg-primary/90 active:scale-95 transition-all text-sm">
+                  Assign
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Order Receipt Modal */}
+      {receiptData && (
+        <OrderReceipt
+          data={receiptData}
+          onClose={() => setReceiptData(null)}
+        />
+      )}
+
       <style jsx global>{`
         .scrollbar-hide {
           -ms-overflow-style: none;
@@ -631,7 +758,7 @@ function AdminOrdersContent() {
         .scrollbar-hide::-webkit-scrollbar {
           display: none;
         }
-        
+
         @media (min-width: 480px) {
           .xs\\:inline {
             display: inline;

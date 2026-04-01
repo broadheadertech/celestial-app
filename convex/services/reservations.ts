@@ -1,12 +1,13 @@
 import { query, mutation } from "../_generated/server";
 import { v } from "convex/values";
 import { api } from "../_generated/api";
-import { 
-  notifyLowStock, 
-  notifyReservationCreated, 
+import {
+  notifyLowStock,
+  notifyReservationCreated,
   notifyReservationStatusChanged,
   notifyReservationReadyForPickup
 } from './notifications';
+import { reserveStockHelper, releaseReservedStockHelper } from './stock';
 
 // Helper function to generate unique reservation codes
 function generateReservationCode(): string {
@@ -100,6 +101,12 @@ export const createReservationFromCart = mutation({
       await ctx.db.patch(cartItem.productId, {
         stock: product.stock - cartItem.quantity,
         updatedAt: now,
+      });
+
+      // Sync with stockRecords (update reservedQty + log movement)
+      await reserveStockHelper(ctx, {
+        productId: cartItem.productId,
+        quantity: cartItem.quantity,
       });
 
       // Check for low stock and create alert if needed
@@ -384,15 +391,25 @@ export const cancelReservation = mutation({
             stock: product.stock + item.quantity,
             updatedAt: Date.now(),
           });
+          // Release reserved stock in stockRecords
+          await releaseReservedStockHelper(ctx, {
+            productId: item.productId,
+            quantity: item.quantity,
+          });
         }
       }
     } else if (reservation.productId) {
       // Legacy single-item format
       const product = await ctx.db.get(reservation.productId);
       if (product) {
+        const qty = reservation.quantity || 1;
         await ctx.db.patch(reservation.productId, {
-          stock: product.stock + (reservation.quantity || 1),
+          stock: product.stock + qty,
           updatedAt: Date.now(),
+        });
+        await releaseReservedStockHelper(ctx, {
+          productId: reservation.productId,
+          quantity: qty,
         });
       }
     }
@@ -608,15 +625,24 @@ export const updateReservationStatus = mutation({
               stock: product.stock + item.quantity,
               updatedAt: now,
             });
+            await releaseReservedStockHelper(ctx, {
+              productId: item.productId,
+              quantity: item.quantity,
+            });
           }
         }
       } else if (reservation.productId) {
         // Legacy single-item format
         const product = await ctx.db.get(reservation.productId);
         if (product) {
+          const qty = reservation.quantity || 1;
           await ctx.db.patch(reservation.productId, {
-            stock: product.stock + (reservation.quantity || 1),
+            stock: product.stock + qty,
             updatedAt: now,
+          });
+          await releaseReservedStockHelper(ctx, {
+            productId: reservation.productId,
+            quantity: qty,
           });
         }
       }
@@ -914,6 +940,12 @@ export const createReservation = mutation({
         updatedAt: now,
       });
 
+      // Sync with stockRecords (update reservedQty + log movement)
+      await reserveStockHelper(ctx, {
+        productId: item.productId,
+        quantity: item.quantity,
+      });
+
       // Check for low stock and create alert if needed
       const newStock = product.stock - item.quantity;
       if (newStock <= 5 && newStock > 0) {
@@ -1020,15 +1052,24 @@ export const cleanupExpiredReservations = mutation({
               stock: product.stock + item.quantity,
               updatedAt: now,
             });
+            await releaseReservedStockHelper(ctx, {
+              productId: item.productId,
+              quantity: item.quantity,
+            });
           }
         }
       } else if (reservation.productId) {
         // Legacy single-item format
         const product = await ctx.db.get(reservation.productId);
         if (product) {
+          const qty = reservation.quantity || 1;
           await ctx.db.patch(reservation.productId, {
-            stock: product.stock + (reservation.quantity || 1),
+            stock: product.stock + qty,
             updatedAt: now,
+          });
+          await releaseReservedStockHelper(ctx, {
+            productId: reservation.productId,
+            quantity: qty,
           });
         }
       }
@@ -1043,6 +1084,147 @@ export const cleanupExpiredReservations = mutation({
     return {
       cleanedCount: expiredReservations.length,
       message: `Cleaned up ${expiredReservations.length} expired reservations`,
+    };
+  },
+});
+
+// Admin: Acknowledge reservation (confirm + return receipt data)
+export const acknowledgeReservation = mutation({
+  args: {
+    reservationId: v.id("reservations"),
+    adminNotes: v.optional(v.string()),
+  },
+  handler: async (ctx, { reservationId, adminNotes }) => {
+    const reservation = await ctx.db.get(reservationId);
+    if (!reservation) throw new Error("Reservation not found");
+    if (reservation.status !== "pending") throw new Error("Only pending reservations can be acknowledged");
+
+    const now = Date.now();
+    await ctx.db.patch(reservationId, {
+      status: "confirmed",
+      notes: adminNotes
+        ? `${reservation.notes || ''}\n[Acknowledged] ${adminNotes}`.trim()
+        : reservation.notes,
+      updatedAt: now,
+    });
+
+    // Get items with product details
+    const items = [];
+    if (reservation.items && reservation.items.length > 0) {
+      for (const item of reservation.items) {
+        const product = await ctx.db.get(item.productId);
+        items.push({
+          productId: item.productId as string,
+          quantity: item.quantity,
+          price: item.reservedPrice,
+          productName: product?.name || 'Unknown',
+          productImage: product?.image,
+        });
+      }
+    }
+
+    // Get customer info
+    let customer = null;
+    if (reservation.guestInfo) {
+      customer = {
+        name: reservation.guestInfo.name,
+        email: reservation.guestInfo.email,
+        phone: reservation.guestInfo.phone,
+      };
+    } else if (reservation.userId) {
+      try {
+        const user = await ctx.db.get(reservation.userId as any);
+        if (user) {
+          customer = {
+            name: `${user.firstName} ${user.lastName}`,
+            email: user.email,
+            phone: user.phone,
+          };
+        }
+      } catch { /* */ }
+    }
+
+    return {
+      receiptType: "acknowledgement" as const,
+      orderCode: reservation.reservationCode || `RES-${reservationId.slice(-6).toUpperCase()}`,
+      items,
+      totalAmount: reservation.totalAmount || items.reduce((s, i) => s + i.price * i.quantity, 0),
+      paymentMethod: "reservation",
+      customer,
+      acknowledgedAt: now,
+      createdAt: reservation.createdAt,
+      notes: reservation.notes,
+    };
+  },
+});
+
+// Admin: Release reservation (mark completed + return receipt data)
+export const releaseReservation = mutation({
+  args: {
+    reservationId: v.id("reservations"),
+    adminNotes: v.optional(v.string()),
+  },
+  handler: async (ctx, { reservationId, adminNotes }) => {
+    const reservation = await ctx.db.get(reservationId);
+    if (!reservation) throw new Error("Reservation not found");
+    if (reservation.status !== "confirmed" && reservation.status !== "ready_for_pickup") {
+      throw new Error("Only confirmed or ready-for-pickup reservations can be released");
+    }
+
+    const now = Date.now();
+    await ctx.db.patch(reservationId, {
+      status: "completed",
+      notes: adminNotes
+        ? `${reservation.notes || ''}\n[Released] ${adminNotes}`.trim()
+        : reservation.notes,
+      updatedAt: now,
+    });
+
+    const items = [];
+    if (reservation.items && reservation.items.length > 0) {
+      for (const item of reservation.items) {
+        const product = await ctx.db.get(item.productId);
+        items.push({
+          productId: item.productId as string,
+          quantity: item.quantity,
+          price: item.reservedPrice,
+          productName: product?.name || 'Unknown',
+          productImage: product?.image,
+        });
+      }
+    }
+
+    let customer = null;
+    if (reservation.guestInfo) {
+      customer = {
+        name: reservation.guestInfo.name,
+        email: reservation.guestInfo.email,
+        phone: reservation.guestInfo.phone,
+      };
+    } else if (reservation.userId) {
+      try {
+        const user = await ctx.db.get(reservation.userId as any);
+        if (user) {
+          customer = {
+            name: `${user.firstName} ${user.lastName}`,
+            email: user.email,
+            phone: user.phone,
+          };
+        }
+      } catch { /* */ }
+    }
+
+    return {
+      receiptType: "release" as const,
+      orderCode: reservation.reservationCode || `RES-${reservationId.slice(-6).toUpperCase()}`,
+      items,
+      totalAmount: reservation.totalAmount || items.reduce((s, i) => s + i.price * i.quantity, 0),
+      paymentMethod: "reservation",
+      customer,
+      releasedAt: now,
+      acknowledgedAt: reservation.updatedAt,
+      createdAt: reservation.createdAt,
+      notes: reservation.notes,
     };
   },
 });

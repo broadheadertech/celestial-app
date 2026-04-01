@@ -18,6 +18,7 @@ import {
   Filter,
   Fish,
   Globe,
+  Heart,
   Lightbulb,
   Ruler,
   Thermometer,
@@ -30,7 +31,7 @@ import {
 } from 'lucide-react';
 import { useAuthStore, useIsAuthenticated } from '@/store/auth';
 import { useCartStore } from '@/store/cart';
-import { useQuery } from 'convex/react';
+import { useQuery, useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { Id } from '@/convex/_generated/dataModel';
 import Button from '@/components/ui/Button';
@@ -100,9 +101,33 @@ function ProductDetailContent() {
   const isAuthenticated = useIsAuthenticated();
   const { addItem } = useCartStore();
 
+  // Wishlist
+  const isInWishlist = useQuery(
+    api.services.wishlist.isInWishlist,
+    isAuthenticated && user?._id && productId
+      ? { userId: user._id as Id<"users">, productId: productId as Id<"products"> }
+      : "skip"
+  );
+  const toggleWishlist = useMutation(api.services.wishlist.toggleWishlist);
+  const [wishlistLoading, setWishlistLoading] = useState(false);
+
+  const handleToggleWishlist = async () => {
+    if (!isAuthenticated || !user?._id || !productId) return;
+    setWishlistLoading(true);
+    try {
+      await toggleWishlist({
+        userId: user._id as Id<"users">,
+        productId: productId as Id<"products">,
+      });
+    } catch (error) {
+      console.error('Wishlist toggle failed:', error);
+    } finally {
+      setWishlistLoading(false);
+    }
+  };
+
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [quantity, setQuantity] = useState(1);
-  const [isFavorited, setIsFavorited] = useState(false);
   const [activeTab, setActiveTab] = useState<'details' | 'specs'>('details');
   const [showCertificateModal, setShowCertificateModal] = useState(false);
   const [isAddingToCart, setIsAddingToCart] = useState(false);
@@ -367,6 +392,19 @@ function ProductDetailContent() {
         >
           <ArrowLeft className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
         </button>
+        {isAuthenticated && (
+          <button
+            onClick={handleToggleWishlist}
+            disabled={wishlistLoading}
+            className="p-2 rounded-xl bg-black/60 backdrop-blur-md border border-white/10 hover:bg-black/80 transition-colors active:scale-95 disabled:opacity-50"
+          >
+            <Heart
+              className={`w-5 h-5 sm:w-6 sm:h-6 transition-colors ${
+                isInWishlist ? 'text-red-500 fill-red-500' : 'text-white'
+              }`}
+            />
+          </button>
+        )}
       </div>
 
       <div className="pb-24 sm:pb-28 pt-16 safe-area-horizontal">

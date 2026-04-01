@@ -10,6 +10,7 @@ export default defineSchema({
     passwordHash: v.optional(v.string()), // Optional for Facebook users
     role: v.union(v.literal("client"), v.literal("admin"), v.literal("super_admin")),
     isActive: v.optional(v.boolean()),
+    isSalesAssociate: v.optional(v.boolean()), // Tag staff as sales associate for incentive tracking
     // Facebook integration fields
     facebookId: v.optional(v.string()),
     profilePicture: v.optional(v.string()),
@@ -117,6 +118,9 @@ export default defineSchema({
     }),
     paymentMethod: v.string(),
     notes: v.optional(v.string()),
+    // Sales associate tracking (for incentive programs)
+    salesAssociateId: v.optional(v.id("users")),
+    salesAssociateName: v.optional(v.string()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
@@ -185,6 +189,9 @@ export default defineSchema({
       v.literal("cancelled")
     ),
     notes: v.optional(v.string()),
+    // Sales associate tracking
+    salesAssociateId: v.optional(v.id("users")),
+    salesAssociateName: v.optional(v.string()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })

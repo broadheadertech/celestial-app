@@ -15,6 +15,7 @@ import type {
 } from "convex/server";
 import type * as files from "../files.js";
 import type * as migrations_fix_login_method from "../migrations/fix_login_method.js";
+import type * as seed from "../seed.js";
 import type * as services_admin from "../services/admin.js";
 import type * as services_analytics from "../services/analytics.js";
 import type * as services_auth from "../services/auth.js";
@@ -27,6 +28,7 @@ import type * as services_products from "../services/products.js";
 import type * as services_reservations from "../services/reservations.js";
 import type * as services_stock from "../services/stock.js";
 import type * as services_users from "../services/users.js";
+import type * as services_wishlist from "../services/wishlist.js";
 
 /**
  * A utility for referencing Convex functions in your app's API.
@@ -39,6 +41,7 @@ import type * as services_users from "../services/users.js";
 declare const fullApi: ApiFromModules<{
   files: typeof files;
   "migrations/fix_login_method": typeof migrations_fix_login_method;
+  seed: typeof seed;
   "services/admin": typeof services_admin;
   "services/analytics": typeof services_analytics;
   "services/auth": typeof services_auth;
@@ -51,6 +54,7 @@ declare const fullApi: ApiFromModules<{
   "services/reservations": typeof services_reservations;
   "services/stock": typeof services_stock;
   "services/users": typeof services_users;
+  "services/wishlist": typeof services_wishlist;
 }>;
 export declare const api: FilterApi<
   typeof fullApi,

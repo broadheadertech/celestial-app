@@ -9,174 +9,64 @@ import {
   Package,
   AlertTriangle,
   CheckCircle,
-  TrendingUp,
-  TrendingDown,
-  BarChart3,
-  Download,
   RefreshCw,
   Plus,
-  Edit,
-  Eye,
   MoreVertical,
   Settings,
-  Zap,
   Clock,
-  DollarSign,
+  Activity,
+  ChevronDown,
+  X,
 } from 'lucide-react';
+import { useQuery, useMutation } from 'convex/react';
+import { api } from '@/convex/_generated/api';
+import { Id } from '@/convex/_generated/dataModel';
 import ControlPanelNav from '@/components/ControlPanelNav';
 import Button from '@/components/ui/Button';
-
-// Mock inventory data
-const mockInventoryData = [
-  {
-    _id: '1',
-    name: 'Premium Goldfish',
-    sku: 'GF-001',
-    category: 'Tropical Fish',
-    currentStock: 15,
-    minStock: 10,
-    maxStock: 50,
-    reorderPoint: 15,
-    unitCost: 150,
-    sellingPrice: 250,
-    margin: 40,
-    lastRestocked: Date.now() - 86400000,
-    nextRestock: Date.now() + 172800000,
-    supplier: 'AquaWorld Supplies',
-    status: 'in_stock',
-    salesVelocity: 2.3,
-    turnoverRate: 4.2,
-    totalValue: 3750,
-  },
-  {
-    _id: '2',
-    name: 'Betta Fish - Blue',
-    sku: 'BF-002',
-    category: 'Tropical Fish',
-    currentStock: 8,
-    minStock: 15,
-    maxStock: 30,
-    reorderPoint: 15,
-    unitCost: 120,
-    sellingPrice: 180,
-    margin: 33.3,
-    lastRestocked: Date.now() - 172800000,
-    nextRestock: Date.now() + 259200000,
-    supplier: 'Tropical Fish Co.',
-    status: 'low_stock',
-    salesVelocity: 1.8,
-    turnoverRate: 3.1,
-    totalValue: 1440,
-  },
-  {
-    _id: '3',
-    name: '75L Glass Aquarium Tank',
-    sku: 'TANK-75L',
-    category: 'Aquarium Tanks',
-    currentStock: 0,
-    minStock: 5,
-    maxStock: 20,
-    reorderPoint: 5,
-    unitCost: 800,
-    sellingPrice: 1200,
-    margin: 33.3,
-    lastRestocked: Date.now() - 345600000,
-    nextRestock: Date.now() + 432000000,
-    supplier: 'GlassWorks Inc.',
-    status: 'out_of_stock',
-    salesVelocity: 0.8,
-    turnoverRate: 2.1,
-    totalValue: 0,
-  },
-  {
-    _id: '4',
-    name: 'Aquarium Filter System Pro',
-    sku: 'FILTER-PRO',
-    category: 'Filters & Equipment',
-    currentStock: 25,
-    minStock: 10,
-    maxStock: 40,
-    reorderPoint: 10,
-    unitCost: 200,
-    sellingPrice: 350,
-    margin: 42.9,
-    lastRestocked: Date.now() - 432000000,
-    nextRestock: Date.now() + 518400000,
-    supplier: 'FilterTech Solutions',
-    status: 'in_stock',
-    salesVelocity: 1.2,
-    turnoverRate: 2.8,
-    totalValue: 8750,
-  },
-  {
-    _id: '5',
-    name: 'LED Lighting Kit',
-    sku: 'LED-KIT-001',
-    category: 'Lighting',
-    currentStock: 12,
-    minStock: 8,
-    maxStock: 25,
-    reorderPoint: 8,
-    unitCost: 150,
-    sellingPrice: 250,
-    margin: 40,
-    lastRestocked: Date.now() - 518400000,
-    nextRestock: Date.now() + 604800000,
-    supplier: 'LightTech Pro',
-    status: 'in_stock',
-    salesVelocity: 1.5,
-    turnoverRate: 3.5,
-    totalValue: 3000,
-  },
-  {
-    _id: '6',
-    name: 'Premium Fish Food',
-    sku: 'FOOD-PREMIUM',
-    category: 'Fish Food',
-    currentStock: 45,
-    minStock: 20,
-    maxStock: 100,
-    reorderPoint: 20,
-    unitCost: 25,
-    sellingPrice: 45,
-    margin: 44.4,
-    lastRestocked: Date.now() - 604800000,
-    nextRestock: Date.now() + 691200000,
-    supplier: 'NutriFish Corp',
-    status: 'in_stock',
-    salesVelocity: 3.2,
-    turnoverRate: 5.8,
-    totalValue: 2025,
-  },
-];
-
-const getStockStatus = (currentStock: number, minStock: number) => {
-  if (currentStock === 0) return { 
-    status: 'Out of Stock', 
-    color: 'bg-error/10', 
-    textColor: 'text-error',
-    icon: AlertTriangle
-  };
-  if (currentStock <= minStock) return { 
-    status: 'Low Stock', 
-    color: 'bg-warning/10', 
-    textColor: 'text-warning',
-    icon: AlertTriangle
-  };
-  return { 
-    status: 'In Stock', 
-    color: 'bg-success/10', 
-    textColor: 'text-success',
-    icon: CheckCircle
-  };
-};
 
 const formatCurrency = (amount: number) => {
   return `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`;
 };
 
 const formatDate = (timestamp: number) => {
-  return new Date(timestamp).toLocaleDateString();
+  return new Date(timestamp).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+};
+
+const getStockStatus = (currentQty: number, status: string) => {
+  if (currentQty === 0 || status === 'depleted') return {
+    label: 'Depleted',
+    color: 'bg-error/10',
+    textColor: 'text-error',
+    icon: AlertTriangle,
+  };
+  if (currentQty <= 10) return {
+    label: 'Low Stock',
+    color: 'bg-warning/10',
+    textColor: 'text-warning',
+    icon: AlertTriangle,
+  };
+  if (status === 'quarantine') return {
+    label: 'Quarantine',
+    color: 'bg-purple-500/10',
+    textColor: 'text-purple-400',
+    icon: AlertTriangle,
+  };
+  if (status === 'expired') return {
+    label: 'Expired',
+    color: 'bg-orange-500/10',
+    textColor: 'text-orange-400',
+    icon: AlertTriangle,
+  };
+  return {
+    label: 'In Stock',
+    color: 'bg-success/10',
+    textColor: 'text-success',
+    icon: CheckCircle,
+  };
 };
 
 export default function InventoryPage() {
@@ -188,76 +78,139 @@ export default function InventoryPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [selectedItem, setSelectedItem] = useState<string | null>(null);
 
-  // Get unique categories
+  // Restock modal state
+  const [showRestockModal, setShowRestockModal] = useState(false);
+  const [restockProductId, setRestockProductId] = useState('');
+  const [restockQuantity, setRestockQuantity] = useState('');
+  const [restockNotes, setRestockNotes] = useState('');
+  const [restockQuality, setRestockQuality] = useState<'premium' | 'standard' | 'budget'>('standard');
+  const [isRestocking, setIsRestocking] = useState(false);
+
+  // Adjust modal state
+  const [showAdjustModal, setShowAdjustModal] = useState(false);
+  const [adjustRecordId, setAdjustRecordId] = useState<string | null>(null);
+  const [adjustQuantity, setAdjustQuantity] = useState('');
+  const [adjustReason, setAdjustReason] = useState('');
+  const [isAdjusting, setIsAdjusting] = useState(false);
+
+  // Fetch real data from Convex
+  const stockRecords = useQuery(api.services.stock.getStockRecords, {});
+  const stockSummary = useQuery(api.services.stock.getStockSummary);
+  const lowStockAlerts = useQuery(api.services.stock.getLowStockAlerts, { threshold: 10 });
+  const products = useQuery(api.services.admin.getAllProductsAdmin, {});
+
+  // Mutations
+  const restockProduct = useMutation(api.services.stock.restockProduct);
+  const adjustStock = useMutation(api.services.stock.adjustStock);
+
+  // Filter out mortality loss records for main display
+  const nonMortalityRecords = useMemo(() => {
+    if (!stockRecords) return [];
+    return stockRecords.filter(r => !r.isMortalityLoss);
+  }, [stockRecords]);
+
+  // Get unique categories from stock records
   const categories = useMemo(() => {
-    const uniqueCategories = [...new Set(mockInventoryData.map(item => item.category))];
-    return ['All', ...uniqueCategories];
-  }, []);
+    const uniqueCategories = [...new Set(nonMortalityRecords.map(r => r.category))];
+    return ['All', ...uniqueCategories.map(c => c.charAt(0).toUpperCase() + c.slice(1))];
+  }, [nonMortalityRecords]);
 
   // Filter inventory data
   const filteredInventory = useMemo(() => {
-    let filtered = mockInventoryData;
+    let filtered = nonMortalityRecords;
 
-    // Apply search filter
+    // Search filter
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(item => 
-        item.name.toLowerCase().includes(query) ||
-        item.sku.toLowerCase().includes(query) ||
-        item.category.toLowerCase().includes(query) ||
-        item.supplier.toLowerCase().includes(query)
+      filtered = filtered.filter(item =>
+        item.productName?.toLowerCase().includes(query) ||
+        item.batchCode.toLowerCase().includes(query) ||
+        item.category.toLowerCase().includes(query)
       );
     }
 
-    // Apply category filter
+    // Category filter
     if (selectedCategory !== 'All') {
-      filtered = filtered.filter(item => item.category === selectedCategory);
+      filtered = filtered.filter(item =>
+        item.category.toLowerCase() === selectedCategory.toLowerCase()
+      );
     }
 
-    // Apply status filter
+    // Status filter
     if (selectedStatus !== 'all') {
       filtered = filtered.filter(item => {
-        const stockStatus = getStockStatus(item.currentStock, item.minStock);
-        return stockStatus.status.toLowerCase().replace(' ', '_') === selectedStatus;
+        const stockStatus = getStockStatus(item.currentQty, item.status);
+        return stockStatus.label.toLowerCase().replace(' ', '_') === selectedStatus;
       });
     }
 
     return filtered;
-  }, [searchQuery, selectedCategory, selectedStatus]);
+  }, [nonMortalityRecords, searchQuery, selectedCategory, selectedStatus]);
 
-  // Calculate inventory stats
+  // Calculate inventory stats from real data
   const inventoryStats = useMemo(() => {
-    const totalItems = mockInventoryData.length;
-    const inStock = mockInventoryData.filter(item => item.currentStock > item.minStock).length;
-    const lowStock = mockInventoryData.filter(item => item.currentStock > 0 && item.currentStock <= item.minStock).length;
-    const outOfStock = mockInventoryData.filter(item => item.currentStock === 0).length;
-    const totalValue = mockInventoryData.reduce((sum, item) => sum + item.totalValue, 0);
-    const avgTurnoverRate = mockInventoryData.reduce((sum, item) => sum + item.turnoverRate, 0) / mockInventoryData.length;
-    const itemsNeedingReorder = mockInventoryData.filter(item => item.currentStock <= item.reorderPoint).length;
+    const totalItems = nonMortalityRecords.length;
+    const inStock = nonMortalityRecords.filter(r => r.status === 'active' && r.currentQty > 10).length;
+    const lowStock = nonMortalityRecords.filter(r => r.status === 'active' && r.currentQty > 0 && r.currentQty <= 10).length;
+    const outOfStock = nonMortalityRecords.filter(r => r.currentQty === 0 || r.status === 'depleted').length;
+    const itemsNeedingReorder = lowStock + outOfStock;
 
-    return {
-      totalItems,
-      inStock,
-      lowStock,
-      outOfStock,
-      totalValue,
-      avgTurnoverRate,
-      itemsNeedingReorder,
-    };
-  }, []);
+    return { totalItems, inStock, lowStock, outOfStock, itemsNeedingReorder };
+  }, [nonMortalityRecords]);
 
-  const handleItemAction = (itemId: string, action: string) => {
-    if (action === 'Edit') {
-      router.push(`/control_panel/products/edit/${itemId}`);
-    } else if (action === 'View') {
-      router.push(`/control_panel/products/${itemId}`);
-    } else if (action === 'Restock') {
-      console.log('Restock item:', itemId);
-    } else if (action === 'Adjust') {
-      console.log('Adjust stock for item:', itemId);
+  // Handle restock
+  const handleRestock = async () => {
+    if (!restockProductId || !restockQuantity) return;
+    const quantity = parseInt(restockQuantity);
+    if (isNaN(quantity) || quantity <= 0) return;
+
+    setIsRestocking(true);
+    try {
+      await restockProduct({
+        productId: restockProductId as Id<"products">,
+        quantity,
+        notes: restockNotes || undefined,
+        qualityGrade: restockQuality,
+      });
+      setShowRestockModal(false);
+      setRestockProductId('');
+      setRestockQuantity('');
+      setRestockNotes('');
+      setRestockQuality('standard');
+    } catch (error) {
+      console.error('Restock failed:', error);
+      alert(error instanceof Error ? error.message : 'Failed to restock');
+    } finally {
+      setIsRestocking(false);
     }
-    setSelectedItem(null);
   };
+
+  // Handle adjust stock
+  const handleAdjustStock = async () => {
+    if (!adjustRecordId || !adjustQuantity || !adjustReason.trim()) return;
+    const quantityChange = parseInt(adjustQuantity);
+    if (isNaN(quantityChange) || quantityChange === 0) return;
+
+    setIsAdjusting(true);
+    try {
+      await adjustStock({
+        stockRecordId: adjustRecordId as Id<"stockRecords">,
+        quantityChange,
+        reason: adjustReason,
+      });
+      setShowAdjustModal(false);
+      setAdjustRecordId(null);
+      setAdjustQuantity('');
+      setAdjustReason('');
+    } catch (error) {
+      console.error('Adjust stock failed:', error);
+      alert(error instanceof Error ? error.message : 'Failed to adjust stock');
+    } finally {
+      setIsAdjusting(false);
+    }
+  };
+
+  const isLoading = stockRecords === undefined;
 
   return (
     <div className="min-h-screen bg-background">
@@ -289,20 +242,13 @@ export default function InventoryPage() {
                   size="sm"
                   className="border-white/10 text-white hover:bg-white/10"
                 >
-                  <Download className="w-4 h-4 mr-2" />
-                  Export
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="border-white/10 text-white hover:bg-white/10"
-                >
                   <RefreshCw className="w-4 h-4 mr-2" />
                   Refresh
                 </Button>
                 <Button
                   size="sm"
                   className="bg-primary hover:bg-primary/90"
+                  onClick={() => setShowRestockModal(true)}
                 >
                   <Plus className="w-4 h-4 mr-2" />
                   Add Stock
@@ -312,21 +258,29 @@ export default function InventoryPage() {
           </div>
         </div>
 
+        {/* Low Stock Alert */}
+        {lowStockAlerts && lowStockAlerts.length > 0 && (
+          <div className="mx-6 mt-4 px-4 py-3 rounded-lg bg-warning/10 border border-warning/30 flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-warning flex-shrink-0" />
+            <p className="text-sm text-warning font-medium">
+              {lowStockAlerts.length} item{lowStockAlerts.length > 1 ? 's' : ''} with low stock levels
+            </p>
+          </div>
+        )}
+
         {/* Stats */}
         <div className="px-6 py-4 border-b border-white/10">
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="bg-secondary/40 backdrop-blur-sm rounded-xl p-4 border border-white/10">
               <div className="flex items-center justify-between mb-2">
                 <Package className="w-5 h-5 text-primary" />
-                <span className="text-xs text-success">+2.1%</span>
               </div>
               <p className="text-2xl font-bold text-white">{inventoryStats.totalItems}</p>
-              <p className="text-xs text-white/60">Total Items</p>
+              <p className="text-xs text-white/60">Total Batches</p>
             </div>
             <div className="bg-secondary/40 backdrop-blur-sm rounded-xl p-4 border border-white/10">
               <div className="flex items-center justify-between mb-2">
                 <CheckCircle className="w-5 h-5 text-success" />
-                <span className="text-xs text-success">+1.8%</span>
               </div>
               <p className="text-2xl font-bold text-white">{inventoryStats.inStock}</p>
               <p className="text-xs text-white/60">In Stock</p>
@@ -334,7 +288,6 @@ export default function InventoryPage() {
             <div className="bg-secondary/40 backdrop-blur-sm rounded-xl p-4 border border-white/10">
               <div className="flex items-center justify-between mb-2">
                 <AlertTriangle className="w-5 h-5 text-warning" />
-                <span className="text-xs text-warning">+0.5%</span>
               </div>
               <p className="text-2xl font-bold text-white">{inventoryStats.lowStock}</p>
               <p className="text-xs text-white/60">Low Stock</p>
@@ -342,13 +295,29 @@ export default function InventoryPage() {
             <div className="bg-secondary/40 backdrop-blur-sm rounded-xl p-4 border border-white/10">
               <div className="flex items-center justify-between mb-2">
                 <AlertTriangle className="w-5 h-5 text-error" />
-                <span className="text-xs text-error">+0.2%</span>
               </div>
               <p className="text-2xl font-bold text-white">{inventoryStats.outOfStock}</p>
-              <p className="text-xs text-white/60">Out of Stock</p>
+              <p className="text-xs text-white/60">Depleted</p>
             </div>
-            
           </div>
+
+          {/* Value summary */}
+          {stockSummary && (
+            <div className="grid grid-cols-3 gap-4 mt-4">
+              <div className="bg-secondary/40 backdrop-blur-sm rounded-xl p-4 border border-white/10">
+                <p className="text-xs text-white/60 mb-1">Total Stock Value</p>
+                <p className="text-xl font-bold text-primary">{formatCurrency(stockSummary.totalValue)}</p>
+              </div>
+              <div className="bg-secondary/40 backdrop-blur-sm rounded-xl p-4 border border-white/10">
+                <p className="text-xs text-white/60 mb-1">Total Units in Stock</p>
+                <p className="text-xl font-bold text-white">{stockSummary.totalCurrentQty}</p>
+              </div>
+              <div className="bg-secondary/40 backdrop-blur-sm rounded-xl p-4 border border-white/10">
+                <p className="text-xs text-white/60 mb-1">Total Units Sold</p>
+                <p className="text-xl font-bold text-success">{stockSummary.totalSoldQty}</p>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Search and Filter */}
@@ -358,7 +327,7 @@ export default function InventoryPage() {
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-white/40" />
               <input
                 type="text"
-                placeholder="Search products, SKU, suppliers..."
+                placeholder="Search products, batch codes..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-10 pr-4 py-3 bg-secondary/60 border border-white/10 rounded-lg text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-primary"
@@ -398,15 +367,15 @@ export default function InventoryPage() {
                   ))}
                 </div>
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-white mb-2">Stock Status</label>
                 <div className="flex gap-2 overflow-x-auto pb-2">
                   {[
-                    { key: 'all', label: 'All Status', count: mockInventoryData.length },
+                    { key: 'all', label: 'All Status', count: inventoryStats.totalItems },
                     { key: 'in_stock', label: 'In Stock', count: inventoryStats.inStock },
                     { key: 'low_stock', label: 'Low Stock', count: inventoryStats.lowStock },
-                    { key: 'out_of_stock', label: 'Out of Stock', count: inventoryStats.outOfStock },
+                    { key: 'depleted', label: 'Depleted', count: inventoryStats.outOfStock },
                   ].map((filter) => (
                     <button
                       key={filter.key}
@@ -432,7 +401,7 @@ export default function InventoryPage() {
             </div>
           )}
         </div>
-        
+
         {/* Inventory List */}
         <div className="flex-1 px-6 py-4">
           <div className="flex items-center justify-between mb-4">
@@ -443,68 +412,83 @@ export default function InventoryPage() {
               <div className="flex items-center space-x-2 text-warning">
                 <AlertTriangle className="w-4 h-4" />
                 <span className="text-sm font-medium">
-                  {inventoryStats.itemsNeedingReorder} items need reorder
+                  {inventoryStats.itemsNeedingReorder} items need attention
                 </span>
               </div>
             )}
           </div>
-          
-          {filteredInventory.length === 0 ? (
+
+          {isLoading ? (
+            <div className="text-center py-12">
+              <div className="w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin mx-auto mb-4" />
+              <p className="text-white/60">Loading inventory data...</p>
+            </div>
+          ) : filteredInventory.length === 0 ? (
             <div className="text-center py-12">
               <Package className="w-16 h-16 text-white/20 mx-auto mb-4" />
               <h3 className="text-xl font-bold text-white mb-2">No inventory items found</h3>
               <p className="text-white/60 mb-6 text-center">
-                Try adjusting your search terms or filters.
+                {searchQuery || selectedCategory !== 'All' || selectedStatus !== 'all'
+                  ? 'Try adjusting your search terms or filters.'
+                  : 'Add stock to get started.'}
               </p>
             </div>
           ) : (
             <div className="space-y-4">
               {filteredInventory.map((item) => {
-                const stockStatus = getStockStatus(item.currentStock, item.minStock);
+                const stockStatus = getStockStatus(item.currentQty, item.status);
                 const StatusIcon = stockStatus.icon;
-                const stockPercentage = (item.currentStock / item.maxStock) * 100;
-                const needsReorder = item.currentStock <= item.reorderPoint;
-                
+                const stockPercentage = item.initialQty > 0 ? (item.currentQty / item.initialQty) * 100 : 0;
+                const needsAttention = item.currentQty <= 10 && item.currentQty > 0;
+                const stockValue = item.productPrice ? item.currentQty * item.productPrice : 0;
+
                 return (
                   <div
                     key={item._id}
                     className={`bg-secondary/40 backdrop-blur-sm border rounded-xl p-4 transition-all duration-200 ${
-                      needsReorder 
-                        ? 'border-warning/30 bg-warning/5' 
+                      needsAttention
+                        ? 'border-warning/30 bg-warning/5'
+                        : item.currentQty === 0
+                        ? 'border-error/30 bg-error/5'
                         : 'border-white/10 hover:border-primary/30'
                     }`}
                   >
                     <div className="flex space-x-4">
                       {/* Stock Level Indicator */}
                       <div className="flex-shrink-0">
-                        <div className="w-16 h-16 rounded-lg bg-secondary border border-white/10 flex items-center justify-center">
-                          <div className="text-center">
-                            <div className="text-lg font-bold text-white">{item.currentStock}</div>
-                            <div className="text-xs text-white/60">units</div>
-                          </div>
+                        <div className="w-16 h-16 rounded-lg bg-secondary border border-white/10 flex items-center justify-center overflow-hidden">
+                          {item.productImage ? (
+                            <img
+                              src={item.productImage}
+                              alt={item.productName || 'Product'}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="text-center">
+                              <div className="text-lg font-bold text-white">{item.currentQty}</div>
+                              <div className="text-xs text-white/60">units</div>
+                            </div>
+                          )}
                         </div>
-                        {needsReorder && (
-                          <div className="mt-1 text-center">
-                            <span className="text-xs text-warning font-medium">Reorder</span>
-                          </div>
-                        )}
                       </div>
-                      
+
                       {/* Item Info */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between mb-2">
                           <div className="flex-1">
                             <h3 className="font-bold text-white mb-1">
-                              {item.name}
+                              {item.productName || 'Unknown Product'}
                             </h3>
                             <p className="text-sm text-white/60 mb-1">
-                              {item.category} • SKU: {item.sku}
+                              {item.category.charAt(0).toUpperCase() + item.category.slice(1)} • Batch: {item.batchCode}
                             </p>
-                            <p className="text-xs text-white/40">
-                              Supplier: {item.supplier}
-                            </p>
+                            {item.qualityGrade && (
+                              <p className="text-xs text-white/40 capitalize">
+                                Quality: {item.qualityGrade}
+                              </p>
+                            )}
                           </div>
-                          
+
                           {/* Actions Menu */}
                           <div className="relative">
                             <button
@@ -518,28 +502,21 @@ export default function InventoryPage() {
                               <div className="absolute right-0 top-8 w-48 bg-secondary border border-white/10 rounded-lg shadow-xl z-10">
                                 <div className="py-1">
                                   <button
-                                    onClick={() => handleItemAction(item._id, 'View')}
+                                    onClick={() => {
+                                      router.push(`/admin/inventory/activity_log?productId=${item.productId}&productName=${encodeURIComponent(item.productName || '')}`);
+                                      setSelectedItem(null);
+                                    }}
                                     className="w-full px-4 py-2 text-left text-white hover:bg-white/10 flex items-center space-x-2"
                                   >
-                                    <Eye className="w-4 h-4" />
-                                    <span>View Details</span>
+                                    <Activity className="w-4 h-4" />
+                                    <span>Activity Log</span>
                                   </button>
                                   <button
-                                    onClick={() => handleItemAction(item._id, 'Edit')}
-                                    className="w-full px-4 py-2 text-left text-white hover:bg-white/10 flex items-center space-x-2"
-                                  >
-                                    <Edit className="w-4 h-4" />
-                                    <span>Edit Item</span>
-                                  </button>
-                                  <button
-                                    onClick={() => handleItemAction(item._id, 'Restock')}
-                                    className="w-full px-4 py-2 text-left text-white hover:bg-white/10 flex items-center space-x-2"
-                                  >
-                                    <Plus className="w-4 h-4" />
-                                    <span>Restock</span>
-                                  </button>
-                                  <button
-                                    onClick={() => handleItemAction(item._id, 'Adjust')}
+                                    onClick={() => {
+                                      setAdjustRecordId(item._id);
+                                      setShowAdjustModal(true);
+                                      setSelectedItem(null);
+                                    }}
                                     className="w-full px-4 py-2 text-left text-white hover:bg-white/10 flex items-center space-x-2"
                                   >
                                     <Settings className="w-4 h-4" />
@@ -550,30 +527,30 @@ export default function InventoryPage() {
                             )}
                           </div>
                         </div>
-                        
+
                         {/* Stock Status and Metrics */}
                         <div className="flex items-center justify-between mb-3">
                           <div className="flex items-center space-x-3">
                             <div className={`px-3 py-1 rounded-lg ${stockStatus.color} ${stockStatus.textColor} flex items-center space-x-1`}>
                               <StatusIcon className="w-3 h-3" />
-                              <span className="text-xs font-medium">{stockStatus.status}</span>
+                              <span className="text-xs font-medium">{stockStatus.label}</span>
                             </div>
-                            
+
                             <div className="text-xs text-white/60">
-                              Min: {item.minStock} | Max: {item.maxStock}
+                              {item.currentQty} / {item.initialQty} units
                             </div>
                           </div>
 
-                          <div className="text-right">
-                            <p className="text-sm font-medium text-white">
-                              {formatCurrency(item.sellingPrice)}
-                            </p>
-                            <p className="text-xs text-white/60">
-                              Margin: {item.margin}%
-                            </p>
-                          </div>
+                          {item.productPrice && (
+                            <div className="text-right">
+                              <p className="text-sm font-medium text-white">
+                                {formatCurrency(item.productPrice)}
+                              </p>
+                              <p className="text-xs text-white/60">per unit</p>
+                            </div>
+                          )}
                         </div>
-                        
+
                         {/* Stock Level Bar */}
                         <div className="mb-3">
                           <div className="flex items-center justify-between text-xs text-white/60 mb-1">
@@ -581,7 +558,7 @@ export default function InventoryPage() {
                             <span>{stockPercentage.toFixed(0)}%</span>
                           </div>
                           <div className="w-full bg-white/10 rounded-full h-2">
-                            <div 
+                            <div
                               className={`h-2 rounded-full transition-all duration-300 ${
                                 stockPercentage > 50 ? 'bg-success' :
                                 stockPercentage > 25 ? 'bg-warning' : 'bg-error'
@@ -590,30 +567,52 @@ export default function InventoryPage() {
                             />
                           </div>
                         </div>
-                        
+
+                        {/* Quantity breakdown */}
+                        <div className="grid grid-cols-4 gap-3 mb-3">
+                          <div>
+                            <p className="text-xs text-white/40">Reserved</p>
+                            <p className="text-sm font-medium text-white">{item.reservedQty}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-white/40">Sold</p>
+                            <p className="text-sm font-medium text-primary">{item.soldQty}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-white/40">Mortality</p>
+                            <p className={`text-sm font-medium ${item.mortalityLossQty > 0 ? 'text-error' : 'text-white'}`}>
+                              {item.mortalityLossQty}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-white/40">Returned</p>
+                            <p className="text-sm font-medium text-white">{item.returnedQty}</p>
+                          </div>
+                        </div>
+
                         {/* Performance Metrics */}
                         <div className="flex items-center justify-between pt-3 border-t border-white/10">
                           <div className="flex items-center space-x-4 text-xs text-white/60">
                             <div className="flex items-center space-x-1">
-                              <TrendingUp className="w-3 h-3" />
-                              <span>Velocity: {item.salesVelocity}/day</span>
-                            </div>
-                            <div className="flex items-center space-x-1">
-                              <BarChart3 className="w-3 h-3" />
-                              <span>Turnover: {item.turnoverRate}x</span>
-                            </div>
-                            <div className="flex items-center space-x-1">
                               <Clock className="w-3 h-3" />
-                              <span>Last: {formatDate(item.lastRestocked)}</span>
+                              <span>Received: {formatDate(item.receivedDate)}</span>
                             </div>
+                            {item.expiryDate && (
+                              <div className="flex items-center space-x-1">
+                                <AlertTriangle className="w-3 h-3" />
+                                <span>Expires: {formatDate(item.expiryDate)}</span>
+                              </div>
+                            )}
                           </div>
-                          
-                          <div className="text-right">
-                            <p className="text-xs text-white/60">Total Value</p>
-                            <p className="text-sm font-medium text-white">
-                              {formatCurrency(item.totalValue)}
-                            </p>
-                          </div>
+
+                          {stockValue > 0 && (
+                            <div className="text-right">
+                              <p className="text-xs text-white/60">Stock Value</p>
+                              <p className="text-sm font-medium text-white">
+                                {formatCurrency(stockValue)}
+                              </p>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -631,6 +630,183 @@ export default function InventoryPage() {
           className="fixed inset-0 z-5"
           onClick={() => setSelectedItem(null)}
         />
+      )}
+
+      {/* Restock Modal */}
+      {showRestockModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => setShowRestockModal(false)}
+          />
+          <div className="relative bg-secondary border border-white/10 rounded-2xl shadow-2xl p-6 w-full max-w-md mx-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-white">Add New Stock</h3>
+              <button
+                onClick={() => setShowRestockModal(false)}
+                className="p-1 rounded hover:bg-white/10 transition-colors"
+              >
+                <X className="w-5 h-5 text-white/60" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {/* Product Selector */}
+              <div>
+                <label className="block text-sm font-medium text-white mb-1.5">Product</label>
+                <div className="relative">
+                  <select
+                    value={restockProductId}
+                    onChange={(e) => setRestockProductId(e.target.value)}
+                    className="w-full px-3 py-3 bg-background/60 border border-white/10 rounded-lg text-sm text-white appearance-none focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    <option value="">Select a product...</option>
+                    {products?.filter(p => p.isActive).map((product) => (
+                      <option key={product._id} value={product._id}>
+                        {product.name} (Stock: {product.stock})
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40 pointer-events-none" />
+                </div>
+              </div>
+
+              {/* Quantity */}
+              <div>
+                <label className="block text-sm font-medium text-white mb-1.5">Quantity</label>
+                <input
+                  type="number"
+                  value={restockQuantity}
+                  onChange={(e) => setRestockQuantity(e.target.value)}
+                  placeholder="Enter quantity..."
+                  min="1"
+                  className="w-full px-3 py-3 bg-background/60 border border-white/10 rounded-lg text-sm text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+              </div>
+
+              {/* Quality Grade */}
+              <div>
+                <label className="block text-sm font-medium text-white mb-1.5">Quality Grade</label>
+                <div className="flex gap-2">
+                  {(['premium', 'standard', 'budget'] as const).map((grade) => (
+                    <button
+                      key={grade}
+                      onClick={() => setRestockQuality(grade)}
+                      className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium border transition-all capitalize ${
+                        restockQuality === grade
+                          ? 'bg-primary border-primary text-white'
+                          : 'bg-background/60 border-white/10 text-white/70 hover:border-primary/30'
+                      }`}
+                    >
+                      {grade}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Notes */}
+              <div>
+                <label className="block text-sm font-medium text-white mb-1.5">Notes (optional)</label>
+                <textarea
+                  value={restockNotes}
+                  onChange={(e) => setRestockNotes(e.target.value)}
+                  placeholder="Supplier name, batch details..."
+                  rows={2}
+                  className="w-full px-3 py-3 bg-background/60 border border-white/10 rounded-lg text-sm text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+                />
+              </div>
+
+              {/* Submit */}
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => setShowRestockModal(false)}
+                  className="flex-1 px-4 py-3 bg-background/60 border border-white/10 text-white rounded-xl font-medium hover:bg-white/10 transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleRestock}
+                  disabled={!restockProductId || !restockQuantity || isRestocking}
+                  className="flex-1 px-4 py-3 bg-primary text-white rounded-xl font-medium hover:bg-primary/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isRestocking ? 'Adding...' : 'Add Stock'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Adjust Stock Modal */}
+      {showAdjustModal && adjustRecordId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => { setShowAdjustModal(false); setAdjustRecordId(null); }}
+          />
+          <div className="relative bg-secondary border border-white/10 rounded-2xl shadow-2xl p-6 w-full max-w-md mx-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-white">Adjust Stock</h3>
+              <button
+                onClick={() => { setShowAdjustModal(false); setAdjustRecordId(null); }}
+                className="p-1 rounded hover:bg-white/10 transition-colors"
+              >
+                <X className="w-5 h-5 text-white/60" />
+              </button>
+            </div>
+
+            {(() => {
+              const record = stockRecords?.find(r => r._id === adjustRecordId);
+              if (!record) return null;
+              return (
+                <div className="mb-4 px-3 py-2 rounded-lg bg-background/40 border border-white/10">
+                  <p className="text-sm font-medium text-white">{record.productName}</p>
+                  <p className="text-xs text-white/60">Batch: {record.batchCode} | Current: {record.currentQty}</p>
+                </div>
+              );
+            })()}
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-white mb-1.5">Quantity Change</label>
+                <input
+                  type="number"
+                  value={adjustQuantity}
+                  onChange={(e) => setAdjustQuantity(e.target.value)}
+                  placeholder="e.g. -5 or +10"
+                  className="w-full px-3 py-3 bg-background/60 border border-white/10 rounded-lg text-sm text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-white mb-1.5">Reason</label>
+                <textarea
+                  value={adjustReason}
+                  onChange={(e) => setAdjustReason(e.target.value)}
+                  placeholder="Reason for adjustment..."
+                  rows={2}
+                  className="w-full px-3 py-3 bg-background/60 border border-white/10 rounded-lg text-sm text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => { setShowAdjustModal(false); setAdjustRecordId(null); }}
+                  className="flex-1 px-4 py-3 bg-background/60 border border-white/10 text-white rounded-xl font-medium hover:bg-white/10 transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleAdjustStock}
+                  disabled={!adjustQuantity || !adjustReason.trim() || isAdjusting}
+                  className="flex-1 px-4 py-3 bg-primary text-white rounded-xl font-medium hover:bg-primary/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isAdjusting ? 'Adjusting...' : 'Confirm'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

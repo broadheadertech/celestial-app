@@ -22,7 +22,8 @@ import {
   Calendar,
   Users,
   RefreshCw,
-  X
+  X,
+  Plus,
 } from 'lucide-react';
 import { formatDate, getRelativeTime } from '@/lib/utils';
 import Button from '@/components/ui/Button';
@@ -62,6 +63,52 @@ function AdminUsersContent() {
   // Mutations for user management
   const toggleUserStatus = useMutation(api.services.admin.toggleUserStatus);
   const updateUserRole = useMutation(api.services.admin.updateUserRole);
+  const adminCreateCustomer = useMutation(api.services.admin.adminCreateCustomer);
+  const toggleSalesAssociate = useMutation(api.services.admin.toggleSalesAssociate);
+
+  const handleToggleSA = async (userId: string) => {
+    try {
+      const result = await toggleSalesAssociate({ userId: userId as Id<"users"> });
+      showConfirmation(
+        result.isSalesAssociate ? 'Sales Associate Enabled' : 'Sales Associate Removed',
+        `${result.name} is ${result.isSalesAssociate ? 'now' : 'no longer'} a sales associate.`,
+        'success'
+      );
+    } catch (error) {
+      showConfirmation('Error', error instanceof Error ? error.message : 'Failed to update', 'error');
+    }
+  };
+
+  // Add customer modal
+  const [showAddCustomer, setShowAddCustomer] = useState(false);
+  const [newFirstName, setNewFirstName] = useState('');
+  const [newLastName, setNewLastName] = useState('');
+  const [newEmail, setNewEmail] = useState('');
+  const [newPhone, setNewPhone] = useState('');
+  const [isCreatingCustomer, setIsCreatingCustomer] = useState(false);
+
+  const handleCreateCustomer = async () => {
+    if (!newFirstName.trim() || !newLastName.trim() || !newEmail.trim()) return;
+    setIsCreatingCustomer(true);
+    try {
+      await adminCreateCustomer({
+        firstName: newFirstName,
+        lastName: newLastName,
+        email: newEmail,
+        phone: newPhone || undefined,
+      });
+      setShowAddCustomer(false);
+      setNewFirstName('');
+      setNewLastName('');
+      setNewEmail('');
+      setNewPhone('');
+      showConfirmation('Customer Created', `${newFirstName} ${newLastName} has been added.`, 'success');
+    } catch (error) {
+      showConfirmation('Error', error instanceof Error ? error.message : 'Failed to create customer', 'error');
+    } finally {
+      setIsCreatingCustomer(false);
+    }
+  };
 
   const showConfirmation = (title: string, message: string, type: 'success' | 'error' | 'warning' | 'info' = 'info') => {
     setConfirmationModalProps({ title, message, type });
@@ -192,16 +239,22 @@ function AdminUsersContent() {
               </div>
             </div>
 
-            <button
-              onClick={handleRefresh}
-              disabled={isRefreshing}
-              className="px-3 sm:px-4 py-2 rounded-lg bg-primary/10 border border-primary/20 text-primary flex items-center gap-1.5 sm:gap-2 hover:bg-primary/20 active:scale-95 transition-all flex-shrink-0 touch-manipulation disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-              <span className="text-xs sm:text-sm font-medium hidden xs:inline">
-                {isRefreshing ? 'Refreshing...' : 'Refresh'}
-              </span>
-            </button>
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <button
+                onClick={() => setShowAddCustomer(true)}
+                className="px-3 py-2 rounded-lg bg-primary text-white text-xs sm:text-sm font-medium hover:bg-primary/90 active:scale-95 transition-all flex-shrink-0 touch-manipulation flex items-center gap-1.5"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span className="hidden xs:inline">Add Customer</span>
+              </button>
+              <button
+                onClick={handleRefresh}
+                disabled={isRefreshing}
+                className="p-2 rounded-lg bg-secondary/60 border border-white/10 hover:bg-secondary/80 active:scale-95 transition-all flex-shrink-0 touch-manipulation disabled:opacity-50"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 sm:w-4 sm:h-4 text-white ${isRefreshing ? 'animate-spin' : ''}`} />
+              </button>
+            </div>
           </div>
 
           {/* Search and Filter */}
@@ -436,6 +489,15 @@ function AdminUsersContent() {
                                   {user.isActive ? <ShieldOff className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> : <Shield className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
                                   <span>{user.isActive ? 'Deactivate' : 'Activate'}</span>
                                 </button>
+                                {(['admin', 'super_admin'] as string[]).includes(user.role) && (
+                                  <button
+                                    onClick={() => handleToggleSA(user._id)}
+                                    className="w-full px-3 sm:px-4 py-2 text-left text-xs sm:text-sm text-white hover:bg-white/10 active:bg-white/15 flex items-center gap-2 transition-colors touch-manipulation"
+                                  >
+                                    <Shield className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-success" />
+                                    <span>{user.isSalesAssociate ? 'Remove Sales Associate' : 'Mark as Sales Associate'}</span>
+                                  </button>
+                                )}
                                 <div className="border-t border-white/10 my-1"></div>
                                 <button
                                   onClick={() => handleDeleteUser(user._id)}
@@ -453,9 +515,14 @@ function AdminUsersContent() {
                       {/* User Stats and Info */}
                       <div className="flex items-center justify-between gap-2 mb-2 sm:mb-3 flex-wrap">
                         <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
-                          <div className="px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-lg text-[10px] sm:text-xs font-medium bg-primary/10 text-primary border border-primary/30 whitespace-nowrap">
-                            Client User
+                          <div className="px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-lg text-[10px] sm:text-xs font-medium bg-primary/10 text-primary border border-primary/30 whitespace-nowrap capitalize">
+                            {(user.role as string) === 'super_admin' ? 'Super Admin' : user.role}
                           </div>
+                          {user.isSalesAssociate && (
+                            <div className="px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-lg text-[10px] sm:text-xs font-medium bg-success/10 text-success border border-success/30 whitespace-nowrap">
+                              Sales Associate
+                            </div>
+                          )}
                           
                           <div className="flex items-center gap-1 text-[10px] sm:text-xs text-white/60 whitespace-nowrap">
                             <Calendar className="w-3 h-3 flex-shrink-0" />
@@ -526,6 +593,73 @@ function AdminUsersContent() {
           display: none;
         }
       `}</style>
+
+      {/* Add Customer Modal */}
+      {showAddCustomer && (
+        <>
+          <div
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
+            onClick={() => setShowAddCustomer(false)}
+          />
+          <div className="fixed bottom-0 left-0 right-0 sm:inset-0 sm:flex sm:items-center sm:justify-center z-50">
+            <div className="bg-secondary/95 backdrop-blur-md border-t sm:border border-white/10 rounded-t-3xl sm:rounded-2xl shadow-2xl p-4 sm:p-6 sm:w-full sm:max-w-md sm:mx-4">
+              <div className="flex justify-center pt-2 pb-3 sm:hidden">
+                <div className="w-12 h-1.5 bg-white/20 rounded-full" />
+              </div>
+              <h3 className="text-lg font-bold text-white mb-1">Add Customer</h3>
+              <p className="text-sm text-white/60 mb-4">Register a walk-in customer</p>
+
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    type="text"
+                    value={newFirstName}
+                    onChange={(e) => setNewFirstName(e.target.value)}
+                    placeholder="First name *"
+                    className="px-3 py-2.5 bg-background/60 border border-white/10 rounded-lg text-sm text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                  <input
+                    type="text"
+                    value={newLastName}
+                    onChange={(e) => setNewLastName(e.target.value)}
+                    placeholder="Last name *"
+                    className="px-3 py-2.5 bg-background/60 border border-white/10 rounded-lg text-sm text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+                <input
+                  type="email"
+                  value={newEmail}
+                  onChange={(e) => setNewEmail(e.target.value)}
+                  placeholder="Email address *"
+                  className="w-full px-3 py-2.5 bg-background/60 border border-white/10 rounded-lg text-sm text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+                <input
+                  type="tel"
+                  value={newPhone}
+                  onChange={(e) => setNewPhone(e.target.value)}
+                  placeholder="Phone number (optional)"
+                  className="w-full px-3 py-2.5 bg-background/60 border border-white/10 rounded-lg text-sm text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+                <div className="flex gap-3 pt-2">
+                  <button
+                    onClick={() => setShowAddCustomer(false)}
+                    className="flex-1 px-4 py-3 bg-secondary border border-white/10 text-white rounded-xl font-medium hover:bg-white/10 active:scale-95 transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleCreateCustomer}
+                    disabled={!newFirstName.trim() || !newLastName.trim() || !newEmail.trim() || isCreatingCustomer}
+                    className="flex-1 px-4 py-3 bg-primary text-white rounded-xl font-medium hover:bg-primary/90 active:scale-95 transition-all disabled:opacity-50"
+                  >
+                    {isCreatingCustomer ? 'Creating...' : 'Add Customer'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* Confirmation Modal */}
       <ConfirmationModal

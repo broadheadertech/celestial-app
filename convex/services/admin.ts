@@ -573,6 +573,143 @@ export const getAllUsers = query({
   },
 });
 
+// Admin: Create customer manually (walk-in registration)
+export const adminCreateCustomer = mutation({
+  args: {
+    firstName: v.string(),
+    lastName: v.string(),
+    email: v.string(),
+    phone: v.optional(v.string()),
+  },
+  handler: async (ctx, { firstName, lastName, email, phone }) => {
+    // Check if email already exists
+    const existing = await ctx.db
+      .query("users")
+      .withIndex("by_email", (q) => q.eq("email", email.toLowerCase()))
+      .first();
+
+    if (existing) {
+      throw new Error("A customer with this email already exists");
+    }
+
+    const now = Date.now();
+    const userId = await ctx.db.insert("users", {
+      email: email.toLowerCase(),
+      firstName: firstName.trim(),
+      lastName: lastName.trim(),
+      phone: phone?.trim(),
+      role: "client",
+      isActive: true,
+      loginMethod: "email",
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    return {
+      userId,
+      name: `${firstName.trim()} ${lastName.trim()}`,
+      email: email.toLowerCase(),
+    };
+  },
+});
+
+// Get staff users (admin + super_admin) for sales associate selection
+export const getStaffUsers = query({
+  args: {
+    salesAssociatesOnly: v.optional(v.boolean()),
+  },
+  handler: async (ctx, { salesAssociatesOnly }) => {
+    const admins = await ctx.db
+      .query("users")
+      .withIndex("by_role", (q) => q.eq("role", "admin"))
+      .collect();
+
+    const superAdmins = await ctx.db
+      .query("users")
+      .withIndex("by_role", (q) => q.eq("role", "super_admin"))
+      .collect();
+
+    let staff = [...admins, ...superAdmins].filter(u => u.isActive !== false);
+
+    if (salesAssociatesOnly) {
+      staff = staff.filter(u => u.isSalesAssociate === true);
+    }
+
+    return staff.map(u => ({
+      _id: u._id,
+      firstName: u.firstName,
+      lastName: u.lastName,
+      email: u.email,
+      role: u.role,
+      isSalesAssociate: u.isSalesAssociate || false,
+    }));
+  },
+});
+
+// Toggle sales associate status for a user
+export const toggleSalesAssociate = mutation({
+  args: {
+    userId: v.id("users"),
+  },
+  handler: async (ctx, { userId }) => {
+    const user = await ctx.db.get(userId);
+    if (!user) throw new Error("User not found");
+
+    const newValue = !user.isSalesAssociate;
+    await ctx.db.patch(userId, {
+      isSalesAssociate: newValue,
+      updatedAt: Date.now(),
+    });
+
+    return {
+      isSalesAssociate: newValue,
+      name: `${user.firstName} ${user.lastName}`,
+    };
+  },
+});
+
+// Assign sales associate to an existing order
+export const assignOrderSalesAssociate = mutation({
+  args: {
+    orderId: v.id("orders"),
+    salesAssociateId: v.optional(v.id("users")),
+    salesAssociateName: v.optional(v.string()),
+  },
+  handler: async (ctx, { orderId, salesAssociateId, salesAssociateName }) => {
+    const order = await ctx.db.get(orderId);
+    if (!order) throw new Error("Order not found");
+
+    await ctx.db.patch(orderId, {
+      salesAssociateId,
+      salesAssociateName,
+      updatedAt: Date.now(),
+    });
+
+    return { success: true };
+  },
+});
+
+// Assign sales associate to an existing reservation
+export const assignReservationSalesAssociate = mutation({
+  args: {
+    reservationId: v.id("reservations"),
+    salesAssociateId: v.optional(v.id("users")),
+    salesAssociateName: v.optional(v.string()),
+  },
+  handler: async (ctx, { reservationId, salesAssociateId, salesAssociateName }) => {
+    const reservation = await ctx.db.get(reservationId);
+    if (!reservation) throw new Error("Reservation not found");
+
+    await ctx.db.patch(reservationId, {
+      salesAssociateId,
+      salesAssociateName,
+      updatedAt: Date.now(),
+    });
+
+    return { success: true };
+  },
+});
+
 export const updateUserRole = mutation({
   args: {
     userId: v.id("users"),

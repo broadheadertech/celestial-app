@@ -3,30 +3,23 @@
 import React, { useState, useMemo } from 'react';
 import {
   ArrowLeft,
-  Plus,
   Search,
   Filter,
   Package,
-  TrendingUp,
-  TrendingDown,
   Activity,
-  Calendar,
   AlertTriangle,
-  CheckCircle,
-  XCircle,
-  ShoppingCart,
-  PackagePlus,
-  Skull,
   X,
   MoreVertical,
-  Edit,
-  Trash2,
-  Eye,
-  BarChart3
+  PackagePlus,
+  ChevronDown,
+  Minus,
+  ArrowRightLeft,
+  Clock,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useQuery } from 'convex/react';
+import { useQuery, useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
+import { Id } from '@/convex/_generated/dataModel';
 import Card from '@/components/ui/Card';
 import BottomNavbar from '@/components/common/BottomNavbar';
 import SafeAreaProvider from '@/components/provider/SafeAreaProvider';
@@ -35,103 +28,157 @@ const formatCurrency = (amount: number) => {
   return `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`;
 };
 
-// Mock data structure for demonstration
-interface InventoryBatch {
-  _id: string;
-  productId: string;
-  productName: string;
-  productImage?: string;
-  batchNumber: string;
-  initialQuantity: number;
-  currentQuantity: number;
-  unitCost: number;
-  supplier?: string;
-  expiryDate?: number;
-  createdAt: number;
-  updatedAt: number;
-  status: 'active' | 'depleted' | 'expired';
-}
+const formatDate = (timestamp: number) => {
+  return new Date(timestamp).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+};
 
 function InventoryContent() {
   const router = useRouter();
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedFilter, setSelectedFilter] = useState<'all' | 'active' | 'depleted' | 'low_stock'>('all');
+  const [selectedFilter, setSelectedFilter] = useState<'all' | 'active' | 'depleted' | 'low_stock' | 'expired' | 'quarantine'>('all');
   const [showFilters, setShowFilters] = useState(false);
+
+  // Add Batch modal state
   const [showAddBatch, setShowAddBatch] = useState(false);
+  const [selectedProductId, setSelectedProductId] = useState('');
+  const [restockQuantity, setRestockQuantity] = useState('');
+  const [restockNotes, setRestockNotes] = useState('');
+  const [restockQuality, setRestockQuality] = useState<'premium' | 'standard' | 'budget'>('standard');
+  const [isRestocking, setIsRestocking] = useState(false);
 
-  // Fetch products for inventory
-  const products = useQuery(api.services.admin.getAllProductsAdmin);
+  // Adjust Stock modal state
+  const [showAdjustModal, setShowAdjustModal] = useState(false);
+  const [adjustRecordId, setAdjustRecordId] = useState<string | null>(null);
+  const [adjustQuantity, setAdjustQuantity] = useState('');
+  const [adjustReason, setAdjustReason] = useState('');
+  const [isAdjusting, setIsAdjusting] = useState(false);
 
-  // Mock data - Replace with actual Convex queries
-  const mockBatches: InventoryBatch[] = useMemo(() => {
-    if (!products) return [];
-    
-    return products.slice(0, 10).map((product, index) => ({
-      _id: `batch-${product._id}-${index}`,
-      productId: product._id,
-      productName: product.name,
-      productImage: product.image,
-      batchNumber: `BATCH-${Date.now().toString().slice(-6)}-${index + 1}`,
-      initialQuantity: Math.floor(Math.random() * 100) + 50,
-      currentQuantity: product.stock,
-      unitCost: product.price * 0.6, // Assuming 40% markup
-      supplier: ['AquaSupply Co.', 'Marine Traders', 'FishWorld Inc.'][Math.floor(Math.random() * 3)],
-      expiryDate: Date.now() + (Math.random() * 180) * 24 * 60 * 60 * 1000,
-      createdAt: Date.now() - (Math.random() * 60) * 24 * 60 * 60 * 1000,
-      updatedAt: Date.now(),
-      status: product.stock === 0 ? 'depleted' : product.stock < 10 ? 'active' : 'active'
-    }));
-  }, [products]);
+  // Action menu state
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
+  // Fetch real data from Convex
+  const stockRecords = useQuery(api.services.stock.getStockRecords, {});
+  const stockSummary = useQuery(api.services.stock.getStockSummary);
+  const lowStockAlerts = useQuery(api.services.stock.getLowStockAlerts, { threshold: 10 });
+  const products = useQuery(api.services.admin.getAllProductsAdmin, {});
 
+  // Mutations
+  const restockProduct = useMutation(api.services.stock.restockProduct);
+  const adjustStock = useMutation(api.services.stock.adjustStock);
 
-  // Filter batches
-  const filteredBatches = useMemo(() => {
-    let filtered = mockBatches;
+  // Filter stock records
+  const filteredRecords = useMemo(() => {
+    if (!stockRecords) return [];
+
+    let filtered = stockRecords.filter(r => !r.isMortalityLoss);
 
     // Search filter
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(batch =>
-        batch.productName.toLowerCase().includes(query) ||
-        batch.batchNumber.toLowerCase().includes(query) ||
-        batch.supplier?.toLowerCase().includes(query)
+      filtered = filtered.filter(record =>
+        record.productName?.toLowerCase().includes(query) ||
+        record.batchCode.toLowerCase().includes(query)
       );
     }
 
     // Status filter
     switch (selectedFilter) {
       case 'active':
-        filtered = filtered.filter(b => b.status === 'active' && b.currentQuantity > 10);
+        filtered = filtered.filter(r => r.status === 'active' && r.currentQty > 10);
         break;
       case 'depleted':
-        filtered = filtered.filter(b => b.status === 'depleted' || b.currentQuantity === 0);
+        filtered = filtered.filter(r => r.status === 'depleted' || r.currentQty === 0);
         break;
       case 'low_stock':
-        filtered = filtered.filter(b => b.currentQuantity > 0 && b.currentQuantity < 10);
+        filtered = filtered.filter(r => r.status === 'active' && r.currentQty > 0 && r.currentQty <= 10);
+        break;
+      case 'expired':
+        filtered = filtered.filter(r => r.status === 'expired');
+        break;
+      case 'quarantine':
+        filtered = filtered.filter(r => r.status === 'quarantine');
         break;
     }
 
     return filtered;
-  }, [mockBatches, searchQuery, selectedFilter]);
+  }, [stockRecords, searchQuery, selectedFilter]);
 
-  // Calculate stats
-  const stats = useMemo(() => {
-    const totalBatches = mockBatches.length;
-    const activeBatches = mockBatches.filter(b => b.status === 'active' && b.currentQuantity > 0).length;
-    const totalStock = mockBatches.reduce((sum, b) => sum + b.currentQuantity, 0);
-    const lowStock = mockBatches.filter(b => b.currentQuantity > 0 && b.currentQuantity < 10).length;
-    const totalValue = mockBatches.reduce((sum, b) => sum + (b.currentQuantity * b.unitCost), 0);
-
+  // Calculate filter counts
+  const filterCounts = useMemo(() => {
+    if (!stockRecords) return { all: 0, active: 0, depleted: 0, low_stock: 0, expired: 0, quarantine: 0 };
+    const nonMortality = stockRecords.filter(r => !r.isMortalityLoss);
     return {
-      totalBatches,
-      activeBatches,
-      totalStock,
-      lowStock,
-      totalValue
+      all: nonMortality.length,
+      active: nonMortality.filter(r => r.status === 'active' && r.currentQty > 10).length,
+      depleted: nonMortality.filter(r => r.status === 'depleted' || r.currentQty === 0).length,
+      low_stock: nonMortality.filter(r => r.status === 'active' && r.currentQty > 0 && r.currentQty <= 10).length,
+      expired: nonMortality.filter(r => r.status === 'expired').length,
+      quarantine: nonMortality.filter(r => r.status === 'quarantine').length,
     };
-  }, [mockBatches]);
+  }, [stockRecords]);
+
+  // Handle restock submit
+  const handleRestock = async () => {
+    if (!selectedProductId || !restockQuantity) return;
+
+    const quantity = parseInt(restockQuantity);
+    if (isNaN(quantity) || quantity <= 0) return;
+
+    setIsRestocking(true);
+    try {
+      await restockProduct({
+        productId: selectedProductId as Id<"products">,
+        quantity,
+        notes: restockNotes || undefined,
+        qualityGrade: restockQuality,
+      });
+
+      setShowAddBatch(false);
+      setSelectedProductId('');
+      setRestockQuantity('');
+      setRestockNotes('');
+      setRestockQuality('standard');
+    } catch (error) {
+      console.error('Restock failed:', error);
+      alert(error instanceof Error ? error.message : 'Failed to restock');
+    } finally {
+      setIsRestocking(false);
+    }
+  };
+
+  // Handle adjust stock submit
+  const handleAdjustStock = async () => {
+    if (!adjustRecordId || !adjustQuantity || !adjustReason.trim()) return;
+
+    const quantityChange = parseInt(adjustQuantity);
+    if (isNaN(quantityChange) || quantityChange === 0) return;
+
+    setIsAdjusting(true);
+    try {
+      await adjustStock({
+        stockRecordId: adjustRecordId as Id<"stockRecords">,
+        quantityChange,
+        reason: adjustReason,
+      });
+
+      setShowAdjustModal(false);
+      setAdjustRecordId(null);
+      setAdjustQuantity('');
+      setAdjustReason('');
+    } catch (error) {
+      console.error('Adjust stock failed:', error);
+      alert(error instanceof Error ? error.message : 'Failed to adjust stock');
+    } finally {
+      setIsAdjusting(false);
+    }
+  };
+
+  const isLoading = stockRecords === undefined || stockSummary === undefined;
 
   return (
     <div className="min-h-screen bg-background text-foreground pb-20 sm:pb-6">
@@ -151,8 +198,64 @@ function InventoryContent() {
                 <p className="text-xs sm:text-sm text-white/60 hidden xs:block truncate">Track batches and stock activities</p>
               </div>
             </div>
-
+            <button
+              onClick={() => setShowAddBatch(true)}
+              className="px-3 py-2 rounded-lg bg-primary text-white text-xs sm:text-sm font-medium hover:bg-primary/90 active:scale-95 transition-all touch-manipulation flex items-center gap-1.5"
+            >
+              <PackagePlus className="w-4 h-4" />
+              <span className="hidden sm:inline">Add Stock</span>
+            </button>
           </div>
+
+          {/* Quick Nav */}
+          <div className="flex gap-2 mb-3">
+            <button
+              onClick={() => router.push('/admin/inventory/movements')}
+              className="flex-1 px-3 py-2 rounded-lg bg-secondary/60 border border-white/10 text-white text-xs sm:text-sm font-medium hover:bg-white/10 active:scale-95 transition-all touch-manipulation flex items-center justify-center gap-1.5"
+            >
+              <ArrowRightLeft className="w-3.5 h-3.5" />
+              <span>Movements</span>
+            </button>
+            <button
+              onClick={() => router.push('/admin/inventory/expiring')}
+              className="flex-1 px-3 py-2 rounded-lg bg-secondary/60 border border-white/10 text-white text-xs sm:text-sm font-medium hover:bg-white/10 active:scale-95 transition-all touch-manipulation flex items-center justify-center gap-1.5"
+            >
+              <Clock className="w-3.5 h-3.5" />
+              <span>Alerts</span>
+            </button>
+          </div>
+
+          {/* Low Stock Alert Banner */}
+          {lowStockAlerts && lowStockAlerts.length > 0 && (
+            <div className="mb-3 px-3 py-2 rounded-lg bg-warning/10 border border-warning/30 flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-warning flex-shrink-0" />
+              <p className="text-xs sm:text-sm text-warning font-medium">
+                {lowStockAlerts.length} item{lowStockAlerts.length > 1 ? 's' : ''} with low stock
+              </p>
+            </div>
+          )}
+
+          {/* Summary Stats */}
+          {stockSummary && (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
+              <div className="bg-secondary/60 rounded-lg p-2 sm:p-3 border border-white/10">
+                <p className="text-[10px] sm:text-xs text-white/40">Total Batches</p>
+                <p className="text-sm sm:text-lg font-bold text-white">{stockSummary.totalRecords}</p>
+              </div>
+              <div className="bg-secondary/60 rounded-lg p-2 sm:p-3 border border-white/10">
+                <p className="text-[10px] sm:text-xs text-white/40">Active</p>
+                <p className="text-sm sm:text-lg font-bold text-success">{stockSummary.activeRecords}</p>
+              </div>
+              <div className="bg-secondary/60 rounded-lg p-2 sm:p-3 border border-white/10">
+                <p className="text-[10px] sm:text-xs text-white/40">Total Stock</p>
+                <p className="text-sm sm:text-lg font-bold text-white">{stockSummary.totalCurrentQty}</p>
+              </div>
+              <div className="bg-secondary/60 rounded-lg p-2 sm:p-3 border border-white/10">
+                <p className="text-[10px] sm:text-xs text-white/40">Total Value</p>
+                <p className="text-sm sm:text-lg font-bold text-primary">{formatCurrency(stockSummary.totalValue)}</p>
+              </div>
+            </div>
+          )}
 
           {/* Search and Filter */}
           <div className="flex gap-2 sm:gap-3">
@@ -160,7 +263,7 @@ function InventoryContent() {
               <Search className="absolute left-2.5 sm:left-3 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 sm:w-4 sm:h-4 text-white/40 pointer-events-none" />
               <input
                 type="text"
-                placeholder="Search batches..."
+                placeholder="Search batches, products..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-8 sm:pl-10 pr-8 sm:pr-10 py-2 sm:py-3 bg-secondary/60 border border-white/10 rounded-lg text-sm sm:text-base text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-primary"
@@ -208,14 +311,16 @@ function InventoryContent() {
 
             <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1">
               {[
-                { key: 'all', label: 'All Batches', count: mockBatches.length },
-                { key: 'active', label: 'Active', count: mockBatches.filter(b => b.status === 'active' && b.currentQuantity > 10).length },
-                { key: 'low_stock', label: 'Low Stock', count: stats.lowStock },
-                { key: 'depleted', label: 'Depleted', count: mockBatches.filter(b => b.currentQuantity === 0).length },
+                { key: 'all', label: 'All Batches', count: filterCounts.all },
+                { key: 'active', label: 'Active', count: filterCounts.active },
+                { key: 'low_stock', label: 'Low Stock', count: filterCounts.low_stock },
+                { key: 'depleted', label: 'Depleted', count: filterCounts.depleted },
+                { key: 'expired', label: 'Expired', count: filterCounts.expired },
+                { key: 'quarantine', label: 'Quarantine', count: filterCounts.quarantine },
               ].map((filter) => (
                 <button
                   key={filter.key}
-                  onClick={() => setSelectedFilter(filter.key as any)}
+                  onClick={() => setSelectedFilter(filter.key as typeof selectedFilter)}
                   className={`flex-shrink-0 px-3 py-2 rounded-lg text-xs sm:text-sm border flex items-center gap-2 transition-all active:scale-95 touch-manipulation whitespace-nowrap ${
                     selectedFilter === filter.key
                       ? 'bg-primary border-primary text-white'
@@ -241,11 +346,16 @@ function InventoryContent() {
       <div className="px-3 sm:px-6 py-3 sm:py-4">
         <div className="flex items-center justify-between mb-3 sm:mb-4">
           <h2 className="text-sm sm:text-lg font-bold text-white">
-            Inventory Batches <span className="text-white/60">({filteredBatches.length})</span>
+            Inventory Batches <span className="text-white/60">({filteredRecords.length})</span>
           </h2>
         </div>
 
-        {filteredBatches.length === 0 ? (
+        {isLoading ? (
+          <div className="text-center py-12">
+            <div className="w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin mx-auto mb-4" />
+            <p className="text-sm text-white/60">Loading inventory data...</p>
+          </div>
+        ) : filteredRecords.length === 0 ? (
           <Card variant="modern" padding="lg" className="text-center border border-white/10">
             <Package className="w-12 h-12 sm:w-16 sm:h-16 text-white/20 mx-auto mb-3 sm:mb-4" />
             <h3 className="text-base sm:text-xl font-bold text-white mb-2">No batches found</h3>
@@ -263,34 +373,33 @@ function InventoryContent() {
           </Card>
         ) : (
           <div className="space-y-3 sm:space-y-4">
-            {filteredBatches.map((batch) => {
-              const stockPercentage = (batch.currentQuantity / batch.initialQuantity) * 100;
+            {filteredRecords.map((record) => {
+              const stockPercentage = record.initialQty > 0 ? (record.currentQty / record.initialQty) * 100 : 0;
+              const isLowStock = record.currentQty > 0 && record.currentQty <= 10;
+              const isDepleted = record.currentQty === 0 || record.status === 'depleted';
 
               return (
                 <Card
-                  key={batch._id}
+                  key={record._id}
                   variant="modern"
                   padding="none"
-                  className="border border-white/10 overflow-hidden"
+                  className={`border overflow-hidden ${
+                    isLowStock ? 'border-warning/30' : isDepleted ? 'border-error/30' : 'border-white/10'
+                  }`}
                 >
-                  {/* Batch Header */}
                   <div className="p-3 sm:p-4">
                     <div className="flex gap-3 sm:gap-4">
                       {/* Product Image */}
                       <div className="flex-shrink-0">
                         <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-lg overflow-hidden bg-secondary border border-white/10 flex items-center justify-center">
-                          {batch.productImage ? (
+                          {record.productImage ? (
                             <img
-                              src={batch.productImage}
-                              alt={batch.productName}
+                              src={record.productImage}
+                              alt={record.productName || 'Product'}
                               className="w-full h-full object-cover"
                             />
                           ) : (
-                            <img
-                              src="/img/logo-app.png"
-                              alt="Default"
-                              className="w-10 h-10 object-contain opacity-60"
-                            />
+                            <Package className="w-6 h-6 text-white/30" />
                           )}
                         </div>
                       </div>
@@ -300,20 +409,60 @@ function InventoryContent() {
                         <div className="flex items-start justify-between gap-2 mb-2">
                           <div className="flex-1 min-w-0">
                             <h3 className="font-bold text-white text-sm sm:text-base truncate">
-                              {batch.productName}
+                              {record.productName || 'Unknown Product'}
                             </h3>
                             <p className="text-xs sm:text-sm text-white/60 truncate">
-                              Batch: {batch.batchNumber}
+                              Batch: {record.batchCode}
                             </p>
                           </div>
-                          <div className={`px-2 py-1 rounded-lg text-xs font-medium ${
-                            batch.currentQuantity === 0
-                              ? 'bg-error/10 text-error border border-error/30'
-                              : batch.currentQuantity < 10
-                              ? 'bg-warning/10 text-warning border border-warning/30'
-                              : 'bg-success/10 text-success border border-success/30'
-                          }`}>
-                            {batch.currentQuantity === 0 ? 'Depleted' : batch.currentQuantity < 10 ? 'Low Stock' : 'Active'}
+                          <div className="flex items-center gap-2">
+                            <div className={`px-2 py-1 rounded-lg text-xs font-medium ${
+                              isDepleted
+                                ? 'bg-error/10 text-error border border-error/30'
+                                : isLowStock
+                                ? 'bg-warning/10 text-warning border border-warning/30'
+                                : record.status === 'quarantine'
+                                ? 'bg-purple-500/10 text-purple-400 border border-purple-500/30'
+                                : record.status === 'expired'
+                                ? 'bg-orange-500/10 text-orange-400 border border-orange-500/30'
+                                : 'bg-success/10 text-success border border-success/30'
+                            }`}>
+                              {isDepleted ? 'Depleted' : isLowStock ? 'Low Stock' : record.status.charAt(0).toUpperCase() + record.status.slice(1)}
+                            </div>
+                            {/* Action Menu */}
+                            <div className="relative">
+                              <button
+                                onClick={() => setOpenMenuId(openMenuId === record._id ? null : record._id)}
+                                className="p-1.5 rounded-lg hover:bg-white/10 active:scale-95 transition-all touch-manipulation"
+                              >
+                                <MoreVertical className="w-4 h-4 text-white/60" />
+                              </button>
+                              {openMenuId === record._id && (
+                                <div className="absolute right-0 top-8 w-40 bg-secondary border border-white/10 rounded-lg shadow-xl z-20">
+                                  <button
+                                    onClick={() => {
+                                      setAdjustRecordId(record._id);
+                                      setShowAdjustModal(true);
+                                      setOpenMenuId(null);
+                                    }}
+                                    className="w-full px-3 py-2 text-left text-sm text-white hover:bg-white/10 flex items-center gap-2"
+                                  >
+                                    <Minus className="w-3.5 h-3.5" />
+                                    Adjust Stock
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      router.push(`/admin/inventory/activity_log?productId=${record.productId}&productName=${encodeURIComponent(record.productName || '')}`);
+                                      setOpenMenuId(null);
+                                    }}
+                                    className="w-full px-3 py-2 text-left text-sm text-white hover:bg-white/10 flex items-center gap-2"
+                                  >
+                                    <Activity className="w-3.5 h-3.5" />
+                                    Activity Log
+                                  </button>
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </div>
 
@@ -322,7 +471,7 @@ function InventoryContent() {
                           <div className="flex items-center justify-between mb-1">
                             <span className="text-xs text-white/60">Stock Level</span>
                             <span className="text-xs font-medium text-white">
-                              {batch.currentQuantity} / {batch.initialQuantity}
+                              {record.currentQty} / {record.initialQty}
                             </span>
                           </div>
                           <div className="h-2 bg-secondary rounded-full overflow-hidden">
@@ -334,7 +483,7 @@ function InventoryContent() {
                                   ? 'bg-warning'
                                   : 'bg-success'
                               }`}
-                              style={{ width: `${stockPercentage}%` }}
+                              style={{ width: `${Math.min(stockPercentage, 100)}%` }}
                             />
                           </div>
                         </div>
@@ -342,49 +491,92 @@ function InventoryContent() {
                         {/* Batch Details Grid */}
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
                           <div>
-                            <p className="text-[10px] sm:text-xs text-white/40">Unit Cost</p>
-                            <p className="text-xs sm:text-sm font-medium text-white">
-                              {formatCurrency(batch.unitCost)}
-                            </p>
+                            <p className="text-[10px] sm:text-xs text-white/40">Category</p>
+                            <p className="text-xs sm:text-sm font-medium text-white capitalize">{record.category}</p>
                           </div>
                           <div>
-                            <p className="text-[10px] sm:text-xs text-white/40">Total Value</p>
-                            <p className="text-xs sm:text-sm font-medium text-white">
-                              {formatCurrency(batch.currentQuantity * batch.unitCost)}
-                            </p>
+                            <p className="text-[10px] sm:text-xs text-white/40">Reserved</p>
+                            <p className="text-xs sm:text-sm font-medium text-white">{record.reservedQty}</p>
                           </div>
                           <div>
-                            <p className="text-[10px] sm:text-xs text-white/40">Supplier</p>
-                            <p className="text-xs sm:text-sm font-medium text-white truncate">
-                              {batch.supplier || 'N/A'}
-                            </p>
+                            <p className="text-[10px] sm:text-xs text-white/40">Sold</p>
+                            <p className="text-xs sm:text-sm font-medium text-primary">{record.soldQty}</p>
                           </div>
                           <div>
-                            <p className="text-[10px] sm:text-xs text-white/40">Added</p>
-                            <p className="text-xs sm:text-sm font-medium text-white">
-                              {new Date(batch.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                            <p className="text-[10px] sm:text-xs text-white/40">Mortality</p>
+                            <p className={`text-xs sm:text-sm font-medium ${record.mortalityLossQty > 0 ? 'text-error' : 'text-white'}`}>
+                              {record.mortalityLossQty}
                             </p>
                           </div>
                         </div>
 
+                        {/* Second row details */}
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
+                          {record.productPrice && (
+                            <div>
+                              <p className="text-[10px] sm:text-xs text-white/40">Unit Price</p>
+                              <p className="text-xs sm:text-sm font-medium text-white">
+                                {formatCurrency(record.productPrice)}
+                              </p>
+                            </div>
+                          )}
+                          {record.productPrice && (
+                            <div>
+                              <p className="text-[10px] sm:text-xs text-white/40">Stock Value</p>
+                              <p className="text-xs sm:text-sm font-medium text-white">
+                                {formatCurrency(record.currentQty * record.productPrice)}
+                              </p>
+                            </div>
+                          )}
+                          {record.qualityGrade && (
+                            <div>
+                              <p className="text-[10px] sm:text-xs text-white/40">Quality</p>
+                              <p className="text-xs sm:text-sm font-medium text-white capitalize">{record.qualityGrade}</p>
+                            </div>
+                          )}
+                          <div>
+                            <p className="text-[10px] sm:text-xs text-white/40">Received</p>
+                            <p className="text-xs sm:text-sm font-medium text-white">
+                              {formatDate(record.receivedDate)}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Expiry warning */}
+                        {record.expiryDate && record.expiryDate > Date.now() && (
+                          (() => {
+                            const daysLeft = Math.floor((record.expiryDate - Date.now()) / (24 * 60 * 60 * 1000));
+                            if (daysLeft <= 30) {
+                              return (
+                                <div className="mb-3 px-2 py-1.5 rounded-lg bg-orange-500/10 border border-orange-500/20 flex items-center gap-1.5">
+                                  <AlertTriangle className="w-3 h-3 text-orange-400 flex-shrink-0" />
+                                  <span className="text-xs text-orange-400">Expires in {daysLeft} day{daysLeft !== 1 ? 's' : ''}</span>
+                                </div>
+                              );
+                            }
+                            return null;
+                          })()
+                        )}
+
                         {/* Actions */}
                         <div className="flex items-center justify-between pt-2 border-t border-white/10">
                           <button
-                            onClick={() => router.push(`/admin/inventory/activity_log?productId=${batch.productId}&productName=${encodeURIComponent(batch.productName)}`)}
+                            onClick={() => router.push(`/admin/inventory/activity_log?productId=${record.productId}&productName=${encodeURIComponent(record.productName || '')}`)}
                             className="flex items-center gap-1.5 text-xs sm:text-sm text-primary hover:text-primary/80 transition-colors touch-manipulation"
                           >
                             <Activity className="w-4 h-4" />
                             <span>View Activity Log</span>
                           </button>
 
-                          <div className="flex items-center gap-2">
-                            <button className="px-2 sm:px-3 py-1 rounded-lg bg-primary/10 border border-primary/20 text-primary text-xs hover:bg-primary/20 active:scale-95 transition-all touch-manipulation">
-                              Adjust
-                            </button>
-                            <button className="p-1.5 rounded-lg hover:bg-white/10 active:scale-95 transition-all touch-manipulation">
-                              <MoreVertical className="w-4 h-4 text-white/60" />
-                            </button>
-                          </div>
+                          <button
+                            onClick={() => {
+                              setAdjustRecordId(record._id);
+                              setShowAdjustModal(true);
+                            }}
+                            className="px-2 sm:px-3 py-1 rounded-lg bg-primary/10 border border-primary/20 text-primary text-xs hover:bg-primary/20 active:scale-95 transition-all touch-manipulation"
+                          >
+                            Adjust
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -399,7 +591,12 @@ function InventoryContent() {
       {/* Bottom Navigation */}
       <BottomNavbar />
 
-      {/* Add Batch Modal */}
+      {/* Click outside to close menus */}
+      {openMenuId && (
+        <div className="fixed inset-0 z-10" onClick={() => setOpenMenuId(null)} />
+      )}
+
+      {/* Add Batch / Restock Modal */}
       {showAddBatch && (
         <>
           <div
@@ -407,20 +604,168 @@ function InventoryContent() {
             onClick={() => setShowAddBatch(false)}
           />
           <div className="fixed bottom-0 left-0 right-0 z-50 animate-in slide-in-from-bottom duration-300 safe-area-bottom">
+            <div className="bg-secondary/95 backdrop-blur-md border-t border-white/10 rounded-t-3xl shadow-2xl p-4 sm:p-6 max-h-[80vh] overflow-y-auto">
+              <div className="flex justify-center pt-2 pb-4">
+                <div className="w-12 h-1.5 bg-white/20 rounded-full" />
+              </div>
+              <h3 className="text-lg font-bold text-white mb-1">Add New Stock</h3>
+              <p className="text-sm text-white/60 mb-4">Restock an existing product with a new batch.</p>
+
+              <div className="space-y-4">
+                {/* Product Selector */}
+                <div>
+                  <label className="block text-sm font-medium text-white mb-1.5">Product</label>
+                  <div className="relative">
+                    <select
+                      value={selectedProductId}
+                      onChange={(e) => setSelectedProductId(e.target.value)}
+                      className="w-full px-3 py-3 bg-background/60 border border-white/10 rounded-lg text-sm text-white appearance-none focus:outline-none focus:ring-2 focus:ring-primary"
+                    >
+                      <option value="">Select a product...</option>
+                      {products?.filter(p => p.isActive).map((product) => (
+                        <option key={product._id} value={product._id}>
+                          {product.name} (Stock: {product.stock})
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40 pointer-events-none" />
+                  </div>
+                </div>
+
+                {/* Quantity */}
+                <div>
+                  <label className="block text-sm font-medium text-white mb-1.5">Quantity</label>
+                  <input
+                    type="number"
+                    value={restockQuantity}
+                    onChange={(e) => setRestockQuantity(e.target.value)}
+                    placeholder="Enter quantity..."
+                    min="1"
+                    className="w-full px-3 py-3 bg-background/60 border border-white/10 rounded-lg text-sm text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+
+                {/* Quality Grade */}
+                <div>
+                  <label className="block text-sm font-medium text-white mb-1.5">Quality Grade</label>
+                  <div className="flex gap-2">
+                    {(['premium', 'standard', 'budget'] as const).map((grade) => (
+                      <button
+                        key={grade}
+                        onClick={() => setRestockQuality(grade)}
+                        className={`flex-1 px-3 py-2 rounded-lg text-xs sm:text-sm font-medium border transition-all active:scale-95 capitalize ${
+                          restockQuality === grade
+                            ? 'bg-primary border-primary text-white'
+                            : 'bg-background/60 border-white/10 text-white/70 hover:border-primary/30'
+                        }`}
+                      >
+                        {grade}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Notes */}
+                <div>
+                  <label className="block text-sm font-medium text-white mb-1.5">Notes (optional)</label>
+                  <textarea
+                    value={restockNotes}
+                    onChange={(e) => setRestockNotes(e.target.value)}
+                    placeholder="Supplier name, batch details..."
+                    rows={2}
+                    className="w-full px-3 py-3 bg-background/60 border border-white/10 rounded-lg text-sm text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+                  />
+                </div>
+
+                {/* Submit */}
+                <div className="flex gap-3 pt-2">
+                  <button
+                    onClick={() => setShowAddBatch(false)}
+                    className="flex-1 px-4 py-3 bg-secondary border border-white/10 text-white rounded-xl font-medium hover:bg-white/10 active:scale-95 transition-all touch-manipulation"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleRestock}
+                    disabled={!selectedProductId || !restockQuantity || isRestocking}
+                    className="flex-1 px-4 py-3 bg-primary text-white rounded-xl font-medium hover:bg-primary/90 active:scale-95 transition-all touch-manipulation disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isRestocking ? 'Adding...' : 'Add Stock'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Adjust Stock Modal */}
+      {showAdjustModal && adjustRecordId && (
+        <>
+          <div
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 animate-in fade-in duration-200"
+            onClick={() => { setShowAdjustModal(false); setAdjustRecordId(null); }}
+          />
+          <div className="fixed bottom-0 left-0 right-0 z-50 animate-in slide-in-from-bottom duration-300 safe-area-bottom">
             <div className="bg-secondary/95 backdrop-blur-md border-t border-white/10 rounded-t-3xl shadow-2xl p-4 sm:p-6">
               <div className="flex justify-center pt-2 pb-4">
                 <div className="w-12 h-1.5 bg-white/20 rounded-full" />
               </div>
-              <h3 className="text-lg font-bold text-white mb-4">Add New Batch</h3>
-              <p className="text-sm text-white/60 mb-6">
-                This feature is coming soon. You'll be able to add new inventory batches here.
+              <h3 className="text-lg font-bold text-white mb-1">Adjust Stock</h3>
+              <p className="text-sm text-white/60 mb-4">
+                Use positive numbers to increase, negative to decrease.
               </p>
-              <button
-                onClick={() => setShowAddBatch(false)}
-                className="w-full px-4 py-3 bg-primary text-white rounded-xl font-medium hover:bg-primary/90 active:scale-95 transition-all touch-manipulation"
-              >
-                Close
-              </button>
+
+              {(() => {
+                const record = stockRecords?.find(r => r._id === adjustRecordId);
+                if (!record) return null;
+                return (
+                  <div className="mb-4 px-3 py-2 rounded-lg bg-background/40 border border-white/10">
+                    <p className="text-sm font-medium text-white">{record.productName}</p>
+                    <p className="text-xs text-white/60">Batch: {record.batchCode} | Current: {record.currentQty}</p>
+                  </div>
+                );
+              })()}
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-white mb-1.5">Quantity Change</label>
+                  <input
+                    type="number"
+                    value={adjustQuantity}
+                    onChange={(e) => setAdjustQuantity(e.target.value)}
+                    placeholder="e.g. -5 or +10"
+                    className="w-full px-3 py-3 bg-background/60 border border-white/10 rounded-lg text-sm text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-white mb-1.5">Reason</label>
+                  <textarea
+                    value={adjustReason}
+                    onChange={(e) => setAdjustReason(e.target.value)}
+                    placeholder="Reason for adjustment..."
+                    rows={2}
+                    className="w-full px-3 py-3 bg-background/60 border border-white/10 rounded-lg text-sm text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+                  />
+                </div>
+
+                <div className="flex gap-3 pt-2">
+                  <button
+                    onClick={() => { setShowAdjustModal(false); setAdjustRecordId(null); }}
+                    className="flex-1 px-4 py-3 bg-secondary border border-white/10 text-white rounded-xl font-medium hover:bg-white/10 active:scale-95 transition-all touch-manipulation"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleAdjustStock}
+                    disabled={!adjustQuantity || !adjustReason.trim() || isAdjusting}
+                    className="flex-1 px-4 py-3 bg-primary text-white rounded-xl font-medium hover:bg-primary/90 active:scale-95 transition-all touch-manipulation disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isAdjusting ? 'Adjusting...' : 'Confirm Adjustment'}
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </>
@@ -434,7 +779,7 @@ function InventoryContent() {
         .scrollbar-hide::-webkit-scrollbar {
           display: none;
         }
-        
+
         @media (min-width: 480px) {
           .xs\\:inline {
             display: inline;

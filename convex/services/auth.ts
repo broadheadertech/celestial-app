@@ -3,22 +3,56 @@ import { v } from "convex/values";
 import { notifyUserRegistered } from "./notifications";
 import { internal } from "../_generated/api";
 
-// Simple password hashing (for demo - in production use proper crypto)
-function hashPassword(password: string): string {
-  // This is a simple hash for demo purposes
-  // In production, you should use a proper password hashing library
-  // that works with Convex or implement server-side hashing
+// --- Secure password hashing using Web Crypto API (SHA-256 + random salt) ---
+
+function generateSalt(): string {
+  const array = new Uint8Array(16);
+  crypto.getRandomValues(array);
+  return Array.from(array, (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+async function sha256(data: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const hashBuffer = await crypto.subtle.digest("SHA-256", encoder.encode(data));
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+async function hashPassword(password: string): Promise<string> {
+  const salt = generateSalt();
+  const hash = await sha256(salt + password);
+  return `${salt}:${hash}`;
+}
+
+async function verifySecureHash(password: string, storedHash: string): Promise<boolean> {
+  const [salt, hash] = storedHash.split(":");
+  if (!salt || !hash) return false;
+  const computedHash = await sha256(salt + password);
+  return computedHash === hash;
+}
+
+// Legacy hash for migrating existing users (old simple hash)
+function legacyHashPassword(password: string): string {
   let hash = 0;
   for (let i = 0; i < password.length; i++) {
     const char = password.charCodeAt(i);
     hash = ((hash << 5) - hash) + char;
-    hash = hash & hash; // Convert to 32-bit integer
+    hash = hash & hash;
   }
   return hash.toString() + password.length.toString();
 }
 
-function verifyPassword(password: string, hashedPassword: string): boolean {
-  return hashPassword(password) === hashedPassword;
+function isLegacyHash(storedHash: string): boolean {
+  return !storedHash.includes(":");
+}
+
+async function verifyPassword(password: string, storedHash: string): Promise<boolean> {
+  if (isLegacyHash(storedHash)) {
+    // Old format: verify with legacy method
+    return legacyHashPassword(password) === storedHash;
+  }
+  // New format: verify with SHA-256 + salt
+  return verifySecureHash(password, storedHash);
 }
 
 // Login mutation
@@ -39,9 +73,21 @@ export const login = mutation({
     }
 
     // Verify password
-    const isValidPassword = verifyPassword(password, user.passwordHash);
+    if (!user.passwordHash) {
+      throw new Error("This account uses Facebook login. Please log in with Facebook.");
+    }
+    const isValidPassword = await verifyPassword(password, user.passwordHash);
     if (!isValidPassword) {
       throw new Error("Invalid email or password");
+    }
+
+    // Auto-migrate legacy hash to secure hash on successful login
+    if (isLegacyHash(user.passwordHash)) {
+      const secureHash = await hashPassword(password);
+      await ctx.db.patch(user._id, {
+        passwordHash: secureHash,
+        updatedAt: Date.now(),
+      });
     }
 
     // Check if user is active
@@ -107,7 +153,7 @@ export const register = mutation({
     }
 
     // Hash password
-    const passwordHash = hashPassword(password);
+    const passwordHash = await hashPassword(password);
 
     const now = Date.now();
 
@@ -248,8 +294,12 @@ export const changePassword = mutation({
       throw new Error("User not found");
     }
 
+    if (!user.passwordHash) {
+      throw new Error("This account does not use password authentication");
+    }
+
     // Verify current password
-    const isValidCurrentPassword = verifyPassword(currentPassword, user.passwordHash);
+    const isValidCurrentPassword = await verifyPassword(currentPassword, user.passwordHash);
     if (!isValidCurrentPassword) {
       throw new Error("Current password is incorrect");
     }
@@ -263,8 +313,8 @@ export const changePassword = mutation({
       throw new Error("New password must contain at least one uppercase letter, one lowercase letter, and one number");
     }
 
-    // Hash new password
-    const newPasswordHash = hashPassword(newPassword);
+    // Hash new password (always uses new secure format)
+    const newPasswordHash = await hashPassword(newPassword);
 
     await ctx.db.patch(userId, {
       passwordHash: newPasswordHash,
@@ -569,8 +619,8 @@ export const resetPassword = mutation({
       throw new Error("Password must contain at least one uppercase letter, one lowercase letter, and one number");
     }
 
-    // Hash new password
-    const newPasswordHash = hashPassword(newPassword);
+    // Hash new password (always uses new secure format)
+    const newPasswordHash = await hashPassword(newPassword);
 
     // Update user with new password and clear reset token
     await ctx.db.patch(user._id, {
