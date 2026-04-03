@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
   ArrowLeft,
   Plus,
@@ -12,7 +12,7 @@ import {
   Eye,
   EyeOff,
   Package,
-  Image as ImageIcon,
+
   RefreshCw,
   AlertTriangle,
   X,
@@ -20,7 +20,7 @@ import {
   ChevronRight,
   Warehouse,
   TrendingUp,
-  AlertCircle
+  AlertCircle,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useQuery, useMutation } from 'convex/react';
@@ -35,22 +35,107 @@ const formatCurrency = (amount: number) => {
 };
 
 const getStockStatus = (stock: number) => {
-  if (stock === 0) return { 
-    status: 'Out of Stock', 
-    color: 'bg-error/10', 
-    textColor: 'text-error' 
+  if (stock === 0) return {
+    status: 'Out of Stock',
+    color: 'bg-error/10',
+    textColor: 'text-error'
   };
-  if (stock < 10) return { 
-    status: 'Low Stock', 
-    color: 'bg-warning/10', 
-    textColor: 'text-warning' 
+  if (stock < 10) return {
+    status: 'Low Stock',
+    color: 'bg-warning/10',
+    textColor: 'text-warning'
   };
-  return { 
-    status: 'In Stock', 
-    color: 'bg-success/10', 
-    textColor: 'text-success' 
+  return {
+    status: 'In Stock',
+    color: 'bg-success/10',
+    textColor: 'text-success'
   };
 };
+
+// Desktop dropdown menu for actions
+function ActionsDropdown({
+  product,
+  onAction
+}: {
+  product: { _id: string; isActive: boolean; name: string };
+  onAction: (productId: string, action: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (ref.current && !ref.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    }
+    if (open) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [open]);
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        onClick={() => setOpen(!open)}
+        className="p-1.5 rounded-lg hover:bg-white/10 transition-all"
+      >
+        <MoreVertical className="w-4 h-4 text-white/60" />
+      </button>
+      {open && (
+        <div className="absolute right-0 top-full mt-1 w-48 bg-secondary border border-white/10 rounded-lg shadow-xl z-30 py-1 animate-in fade-in zoom-in-95 duration-150">
+          <button
+            onClick={() => { onAction(product._id, 'View'); setOpen(false); }}
+            className="w-full px-3 py-2 text-left text-sm text-white hover:bg-white/10 flex items-center gap-2"
+          >
+            <Eye className="w-4 h-4 text-info" />
+            View Details
+          </button>
+          <button
+            onClick={() => { onAction(product._id, 'Edit'); setOpen(false); }}
+            className="w-full px-3 py-2 text-left text-sm text-white hover:bg-white/10 flex items-center gap-2"
+          >
+            <Edit className="w-4 h-4 text-primary" />
+            Edit Product
+          </button>
+          <button
+            onClick={() => { onAction(product._id, 'Restock'); setOpen(false); }}
+            className="w-full px-3 py-2 text-left text-sm text-white hover:bg-white/10 flex items-center gap-2"
+          >
+            <TrendingUp className="w-4 h-4 text-success" />
+            Restock
+          </button>
+          <button
+            onClick={() => { onAction(product._id, 'MortalityLoss'); setOpen(false); }}
+            className="w-full px-3 py-2 text-left text-sm text-white hover:bg-white/10 flex items-center gap-2"
+          >
+            <AlertCircle className="w-4 h-4 text-warning" />
+            Mortality Loss
+          </button>
+          <div className="border-t border-white/10 my-1" />
+          <button
+            onClick={() => { onAction(product._id, 'Toggle'); setOpen(false); }}
+            className="w-full px-3 py-2 text-left text-sm text-white hover:bg-white/10 flex items-center gap-2"
+          >
+            {product.isActive ? (
+              <><EyeOff className="w-4 h-4 text-warning" />Deactivate</>
+            ) : (
+              <><Eye className="w-4 h-4 text-success" />Activate</>
+            )}
+          </button>
+          <button
+            onClick={() => { onAction(product._id, 'Delete'); setOpen(false); }}
+            className="w-full px-3 py-2 text-left text-sm text-error hover:bg-error/10 flex items-center gap-2"
+          >
+            <Trash2 className="w-4 h-4" />
+            Delete
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function AdminProductsContent() {
   const router = useRouter();
@@ -61,7 +146,7 @@ function AdminProductsContent() {
   const [showFilters, setShowFilters] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  
+
   // Restock modal state
   const [showRestockModal, setShowRestockModal] = useState(false);
   const [restockProductId, setRestockProductId] = useState<string | null>(null);
@@ -75,7 +160,7 @@ function AdminProductsContent() {
   // Convex queries
   const products = useQuery(api.services.admin.getAllProductsAdmin);
   const categories = useQuery(api.services.categories.getCategories);
-  
+
   // Convex mutations
   const toggleProductStatus = useMutation(api.services.admin.toggleProductStatus);
   const restockProduct = useMutation(api.services.stock.restockProduct);
@@ -100,7 +185,7 @@ function AdminProductsContent() {
     // Apply search filter
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(product => 
+      filtered = filtered.filter(product =>
         product.name.toLowerCase().includes(query) ||
         (product.description && product.description.toLowerCase().includes(query)) ||
         (categoryMap[product.categoryId] && categoryMap[product.categoryId].toLowerCase().includes(query))
@@ -226,7 +311,7 @@ function AdminProductsContent() {
       try {
         const product = products?.find(p => p._id === productId);
         if (!product) return;
-        
+
         await toggleProductStatus({
           productId: productId as any,
           isActive: !product.isActive,
@@ -263,7 +348,7 @@ function AdminProductsContent() {
 
   const handleRestock = async () => {
     if (!restockProductId || !restockQuantity) return;
-    
+
     const quantity = parseInt(restockQuantity);
     if (isNaN(quantity) || quantity <= 0) {
       alert('Please enter a valid quantity');
@@ -282,7 +367,7 @@ function AdminProductsContent() {
       setShowRestockModal(false);
       setRestockProductId(null);
       setRestockQuantity('');
-      
+
       alert(`${result.message}\nNew batch code: ${result.batchCode}\nTotal stock: ${result.newTotalStock} units`);
     } catch (error) {
       console.error('Error restocking product:', error);
@@ -292,7 +377,7 @@ function AdminProductsContent() {
 
   const handleMortalityLoss = async () => {
     if (!mortalityProductId || !mortalityQuantity) return;
-    
+
     const quantity = parseInt(mortalityQuantity);
     if (isNaN(quantity) || quantity <= 0) {
       alert('Please enter a valid quantity');
@@ -322,10 +407,10 @@ function AdminProductsContent() {
       setShowMortalityModal(false);
       setMortalityProductId(null);
       setMortalityQuantity('');
-      
+
       // Show detailed success message with batch information
       const isFirstLoss = result.isFirstMortalityLoss;
-      
+
       alert(
         `✅ Mortality Loss Recorded Successfully\n\n` +
         `Product: ${product.name}\n` +
@@ -353,11 +438,18 @@ function AdminProductsContent() {
     }
   };
 
+  // Helper to get item status
+  const getItemStatus = (prod: { isActive: boolean; stock: number }) => {
+    if (!prod.isActive) return 'inactive';
+    if (prod.stock === 0) return 'out_of_stock';
+    return 'active';
+  };
+
   return (
     <div className="min-h-screen bg-background text-foreground pb-20 sm:pb-6">
-      {/* Header - Mobile Optimized with Safe Area */}
+      {/* Header */}
       <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-white/10 safe-area-top">
-        <div className="px-3 sm:px-6 py-3 sm:py-4">
+        <div className="px-3 sm:px-6 py-3 sm:py-4 max-w-7xl mx-auto">
           <div className="flex items-center justify-between gap-2 mb-3 sm:mb-4">
             <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0">
               <button
@@ -431,40 +523,42 @@ function AdminProductsContent() {
         </div>
       </div>
 
-      {/* Stats - Horizontal Scroll on Mobile with Safe Area */}
+      {/* Stats Row */}
       <div className="px-3 sm:px-6 py-3 sm:py-4 border-b border-white/10">
-        <div className="grid grid-cols-3 gap-2 sm:gap-3">
-          {statsArray.map((stat) => {
-            const IconComponent = stat.icon;
-            return (
-              <div
-                key={stat.id}
-                className="bg-secondary/40 backdrop-blur-sm rounded-lg sm:rounded-xl p-2.5 sm:p-3 border border-white/10"
-              >
-                <div className="flex items-center justify-between mb-1.5 sm:mb-2">
-                  <div className="p-1 sm:p-1.5 rounded-lg bg-primary/10 flex-shrink-0">
-                    <IconComponent className="w-3 h-3 sm:w-4 sm:h-4 text-primary" />
+        <div className="max-w-7xl mx-auto">
+          <div className="grid grid-cols-3 gap-2 sm:gap-4">
+            {statsArray.map((stat) => {
+              const IconComponent = stat.icon;
+              return (
+                <div
+                  key={stat.id}
+                  className="bg-secondary/40 backdrop-blur-sm rounded-lg sm:rounded-xl p-2.5 sm:p-4 border border-white/10"
+                >
+                  <div className="flex items-center justify-between mb-1.5 sm:mb-2">
+                    <div className="p-1 sm:p-1.5 rounded-lg bg-primary/10 flex-shrink-0">
+                      <IconComponent className="w-3 h-3 sm:w-4 sm:h-4 text-primary" />
+                    </div>
+                    <span
+                      className={`text-[10px] sm:text-xs font-medium truncate ml-1 ${
+                        stat.change.includes('active') ? 'text-success' : 'text-info'
+                      }`}
+                    >
+                      {stat.change}
+                    </span>
                   </div>
-                  <span 
-                    className={`text-[10px] sm:text-xs font-medium truncate ml-1 ${
-                      stat.change.includes('active') ? 'text-success' : 'text-info'
-                    }`}
-                  >
-                    {stat.change}
-                  </span>
+                  <p className="text-base sm:text-lg font-bold text-white truncate">{stat.value}</p>
+                  <p className="text-[10px] sm:text-xs text-white/60 truncate">{stat.title}</p>
                 </div>
-                <p className="text-base sm:text-lg font-bold text-white truncate">{stat.value}</p>
-                <p className="text-[10px] sm:text-xs text-white/60 truncate">{stat.title}</p>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       </div>
 
-      {/* Filters Panel with Safe Area */}
+      {/* Filters Panel */}
       {showFilters && (
         <div className="bg-secondary/60 border-b border-white/10 px-3 sm:px-6 py-3 sm:py-4">
-          <div className="space-y-3 sm:space-y-4">
+          <div className="max-w-7xl mx-auto space-y-3 sm:space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-xs sm:text-sm font-medium text-white">Filters</h3>
               <div className="flex items-center gap-2">
@@ -484,11 +578,11 @@ function AdminProductsContent() {
                 </button>
               </div>
             </div>
-            
+
             <div className="space-y-3 sm:space-y-4">
               <div>
                 <label className="block text-xs sm:text-sm font-medium text-white mb-2">Categories</label>
-                <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1">
+                <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1 sm:flex-wrap">
                   {categoryNames.map((category) => (
                     <button
                       key={category}
@@ -504,10 +598,10 @@ function AdminProductsContent() {
                   ))}
                 </div>
               </div>
-              
+
               <div>
                 <label className="block text-xs sm:text-sm font-medium text-white mb-2">Status</label>
-                <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1">
+                <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1 sm:flex-wrap">
                   {statusFilters.map((filter) => (
                     <button
                       key={filter.key}
@@ -534,8 +628,8 @@ function AdminProductsContent() {
           </div>
         </div>
       )}
-      
-      {/* Products List with Safe Area */}
+
+      {/* Products List / Table */}
       <div className="px-3 sm:px-6 py-3 sm:py-4 max-w-7xl mx-auto">
         <div className="flex items-center justify-between mb-3 sm:mb-4">
           <h2 className="text-sm sm:text-lg font-bold text-white">
@@ -577,34 +671,128 @@ function AdminProductsContent() {
           </div>
         ) : (
           <>
-            <div className="space-y-2.5 sm:space-y-4">
+            {/* ========== DESKTOP TABLE (sm and up) ========== */}
+            <div className="hidden sm:block">
+              <div className="bg-secondary/40 border border-white/10 rounded-xl overflow-hidden">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-white/10 bg-secondary/60">
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-white/60 uppercase tracking-wider">Image</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-white/60 uppercase tracking-wider">Name</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-white/60 uppercase tracking-wider">Category</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-white/60 uppercase tracking-wider">SKU</th>
+                      <th className="text-right px-4 py-3 text-xs font-semibold text-white/60 uppercase tracking-wider">Price</th>
+                      <th className="text-center px-4 py-3 text-xs font-semibold text-white/60 uppercase tracking-wider">Stock</th>
+                      <th className="text-center px-4 py-3 text-xs font-semibold text-white/60 uppercase tracking-wider">Status</th>
+                      <th className="text-center px-4 py-3 text-xs font-semibold text-white/60 uppercase tracking-wider">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5">
+                    {paginatedProducts.map((product) => {
+                      const stockStatus = getStockStatus(product.stock);
+                      const itemStatus = getItemStatus(product);
+                      const categoryName = categoryMap[product.categoryId] || 'Unknown';
+
+                      return (
+                        <tr
+                          key={product._id}
+                          className={`hover:bg-white/5 transition-colors ${
+                            itemStatus === 'out_of_stock' ? 'bg-error/5' : ''
+                          }`}
+                        >
+                          {/* Image */}
+                          <td className="px-4 py-3">
+                            <div className="w-10 h-10 rounded-lg overflow-hidden bg-secondary border border-white/10 flex items-center justify-center flex-shrink-0">
+                              {product.image ? (
+                                <img
+                                  src={product.image}
+                                  alt={product.name}
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <img
+                                  src="/img/logo-app.png"
+                                  alt="Default Product"
+                                  className="w-7 h-7 object-contain opacity-60"
+                                />
+                              )}
+                            </div>
+                          </td>
+                          {/* Name */}
+                          <td className="px-4 py-3">
+                            <div className="min-w-0">
+                              <p className="text-sm font-semibold text-white truncate max-w-[200px]">{product.name || 'Unnamed Product'}</p>
+                              <p className="text-xs text-white/40">ID: {product._id.slice(-6).toUpperCase()}</p>
+                            </div>
+                          </td>
+                          {/* Category */}
+                          <td className="px-4 py-3">
+                            <span className="text-sm text-white/70">{categoryName}</span>
+                          </td>
+                          {/* SKU */}
+                          <td className="px-4 py-3">
+                            <span className="text-sm text-white/70 font-mono">{product.sku || 'N/A'}</span>
+                          </td>
+                          {/* Price */}
+                          <td className="px-4 py-3 text-right">
+                            <span className="text-sm font-semibold text-white">{formatCurrency(product.price)}</span>
+                            {product.originalPrice && product.originalPrice > product.price && (
+                              <p className="text-xs text-white/40 line-through">{formatCurrency(product.originalPrice)}</p>
+                            )}
+                          </td>
+                          {/* Stock */}
+                          <td className="px-4 py-3 text-center">
+                            <div className={`inline-flex items-center px-2 py-1 rounded-lg text-xs font-medium ${stockStatus.color} ${stockStatus.textColor}`}>
+                              {product.stock}
+                            </div>
+                          </td>
+                          {/* Status */}
+                          <td className="px-4 py-3 text-center">
+                            <span className={`inline-flex items-center px-2 py-1 rounded-lg text-xs font-medium ${
+                              itemStatus === 'active' ? 'bg-success/10 text-success' :
+                              itemStatus === 'inactive' ? 'bg-muted/10 text-muted' :
+                              'bg-error/10 text-error'
+                            }`}>
+                              {itemStatus === 'active' ? 'Active' : itemStatus === 'inactive' ? 'Inactive' : 'Out of Stock'}
+                            </span>
+                          </td>
+                          {/* Actions */}
+                          <td className="px-4 py-3 text-center">
+                            <ActionsDropdown
+                              product={product}
+                              onAction={handleProductAction}
+                            />
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* ========== MOBILE CARDS (below sm) ========== */}
+            <div className="sm:hidden space-y-2.5">
               {paginatedProducts.map((product) => {
                 const stockStatus = getStockStatus(product.stock);
-                const discount = (product.originalPrice && product.originalPrice > product.price) ? 
+                const discount = (product.originalPrice && product.originalPrice > product.price) ?
                   Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100) : 0;
-                
-                const getItemStatus = (prod: typeof product) => {
-                  if (!prod.isActive) return 'inactive';
-                  if (prod.stock === 0) return 'out_of_stock';
-                  return 'active';
-                };
-                
                 const itemStatus = getItemStatus(product);
                 const categoryName = categoryMap[product.categoryId] || 'Unknown Category';
-                
+
                 return (
                   <div
                     key={product._id}
-                    className={`bg-secondary/40 backdrop-blur-sm border rounded-lg sm:rounded-xl p-3 sm:p-4 transition-all duration-200 hover:border-primary/30 ${
-                      itemStatus === 'out_of_stock' 
-                        ? 'border-error/30 bg-error/5' 
+                    className={`bg-secondary/40 backdrop-blur-sm border rounded-lg p-3 transition-all duration-200 hover:border-primary/30 ${
+                      itemStatus === 'out_of_stock'
+                        ? 'border-error/30 bg-error/5'
                         : 'border-white/10'
                     }`}
                   >
-                    <div className="flex gap-2.5 sm:gap-4">
+                    <div className="flex gap-2.5">
                       {/* Product Image */}
                       <div className="relative flex-shrink-0">
-                        <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-lg overflow-hidden bg-secondary border border-white/10 flex items-center justify-center">
+                        <div className="w-12 h-12 rounded-lg overflow-hidden bg-secondary border border-white/10 flex items-center justify-center">
                           {product.image ? (
                             <img
                               src={product.image}
@@ -615,80 +803,80 @@ function AdminProductsContent() {
                             <img
                               src="/img/logo-app.png"
                               alt="Default Product"
-                              className="w-8 h-8 sm:w-12 sm:h-12 object-contain opacity-60"
+                              className="w-8 h-8 object-contain opacity-60"
                             />
                           )}
                         </div>
                         {product.badge && (
-                          <div className="absolute -top-1 -right-1 px-1 sm:px-1.5 py-0.5 rounded bg-primary">
-                            <span className="text-[10px] sm:text-xs font-bold text-foreground">
+                          <div className="absolute -top-1 -right-1 px-1 py-0.5 rounded bg-primary">
+                            <span className="text-[10px] font-bold text-foreground">
                               {product.badge === 'Bestseller' ? '★' : product.badge.charAt(0)}
                             </span>
                           </div>
                         )}
                         {discount > 0 && (
-                          <div className="absolute -bottom-1 -left-1 px-1 sm:px-1.5 py-0.5 rounded bg-error">
-                            <span className="text-[10px] sm:text-xs font-bold text-foreground">
+                          <div className="absolute -bottom-1 -left-1 px-1 py-0.5 rounded bg-error">
+                            <span className="text-[10px] font-bold text-foreground">
                               -{discount}%
                             </span>
                           </div>
                         )}
                       </div>
-                      
+
                       {/* Product Info */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-2 mb-2">
                           <div className="flex-1 min-w-0">
-                            <h3 className="font-bold text-white mb-1 text-sm sm:text-base truncate pr-2">
+                            <h3 className="font-bold text-white mb-1 text-sm truncate pr-2">
                               {product.name || 'Unnamed Product'}
                             </h3>
-                            <p className="text-xs sm:text-sm text-white/60 mb-0.5 sm:mb-1 truncate">{categoryName}</p>
+                            <p className="text-xs text-white/60 mb-0.5 truncate">{categoryName}</p>
                             <div className="flex items-center gap-2 flex-wrap">
-                              <p className="text-[10px] sm:text-xs text-white/40">
+                              <p className="text-[10px] text-white/40">
                                 ID: {product._id.slice(-6).toUpperCase()}
                               </p>
                               {product.tankNumber && (
-                                <span className="px-1.5 py-0.5 rounded bg-info/10 text-info text-[10px] sm:text-xs font-medium border border-info/30">
+                                <span className="px-1.5 py-0.5 rounded bg-info/10 text-info text-[10px] font-medium border border-info/30">
                                   Tank: {product.tankNumber}
                                 </span>
                               )}
                             </div>
                           </div>
-                          
+
                           {/* Actions Menu */}
                           <div className="flex-shrink-0">
                             <button
                               onClick={() => setSelectedProduct(selectedProduct === product._id ? null : product._id)}
-                              className="p-1.5 sm:p-2 rounded-lg hover:bg-white/10 active:scale-95 transition-all touch-manipulation"
+                              className="p-1.5 rounded-lg hover:bg-white/10 active:scale-95 transition-all touch-manipulation"
                             >
                               <MoreVertical className="w-5 h-5 text-white/60" />
                             </button>
                           </div>
                         </div>
-                        
+
                         {/* Price */}
                         <div className="flex items-center gap-2 mb-2 flex-wrap">
-                          <span className="text-sm sm:text-lg font-bold text-white">
+                          <span className="text-sm font-bold text-white">
                             {formatCurrency(product.price)}
                           </span>
                           {product.originalPrice && product.originalPrice > product.price && (
-                            <span className="text-xs sm:text-sm text-white/50 line-through">
+                            <span className="text-xs text-white/50 line-through">
                               {formatCurrency(product.originalPrice)}
                             </span>
                           )}
                         </div>
 
                         {/* Status Badges */}
-                        <div className="flex items-center gap-1.5 sm:gap-2 mb-2 flex-wrap">
-                          <div className={`px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-lg text-[10px] sm:text-xs font-medium ${
+                        <div className="flex items-center gap-1.5 mb-2 flex-wrap">
+                          <div className={`px-1.5 py-0.5 rounded-lg text-[10px] font-medium ${
                             itemStatus === 'active' ? 'bg-success/10 text-success border border-success/30' :
                             itemStatus === 'inactive' ? 'bg-muted/10 text-muted border border-muted/30' :
                             'bg-error/10 text-error border border-error/30'
                           }`}>
                             {itemStatus.replace('_', ' ')}
                           </div>
-                          
-                          <div className={`px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-lg text-[10px] sm:text-xs font-medium ${stockStatus.color} ${stockStatus.textColor} border ${
+
+                          <div className={`px-1.5 py-0.5 rounded-lg text-[10px] font-medium ${stockStatus.color} ${stockStatus.textColor} border ${
                             stockStatus.textColor === 'text-success' ? 'border-success/30' :
                             stockStatus.textColor === 'text-warning' ? 'border-warning/30' :
                             'border-error/30'
@@ -696,29 +884,29 @@ function AdminProductsContent() {
                             {product.stock} in stock
                           </div>
                         </div>
-                        
+
                         {/* Action Buttons and Date */}
-                        <div className="flex items-center justify-between pt-2 sm:pt-3 border-t border-white/10">
-                          <div className="flex items-center gap-1 text-[10px] sm:text-xs text-white/60">
+                        <div className="flex items-center justify-between pt-2 border-t border-white/10">
+                          <div className="flex items-center gap-1 text-[10px] text-white/60">
                             <span className="hidden xs:inline">Created:</span>
-                            <span>{new Date(product.createdAt).toLocaleDateString('en-US', { 
-                              month: 'short', 
+                            <span>{new Date(product.createdAt).toLocaleDateString('en-US', {
+                              month: 'short',
                               day: 'numeric',
                               year: '2-digit'
                             })}</span>
                           </div>
-                          
-                          <div className="flex items-center gap-1.5 sm:gap-2">
+
+                          <div className="flex items-center gap-1.5">
                             <button
                               onClick={() => router.push(`/admin/product-detail?id=${product._id}`)}
-                              className="px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg bg-primary/10 border border-primary/20 text-primary text-[10px] sm:text-xs hover:bg-primary/20 active:scale-95 transition-all touch-manipulation"
+                              className="px-2 py-1 rounded-lg bg-primary/10 border border-primary/20 text-primary text-[10px] hover:bg-primary/20 active:scale-95 transition-all touch-manipulation"
                             >
                               View
                             </button>
-                            
+
                             <button
                               onClick={() => router.push(`/admin/products/form?id=${product._id}`)}
-                              className="px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg bg-primary text-white text-[10px] sm:text-xs hover:bg-primary/90 active:scale-95 transition-all touch-manipulation"
+                              className="px-2 py-1 rounded-lg bg-primary text-white text-[10px] hover:bg-primary/90 active:scale-95 transition-all touch-manipulation"
                             >
                               Edit
                             </button>
@@ -746,7 +934,7 @@ function AdminProductsContent() {
                   <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
                 </button>
 
-                {/* Mobile & Desktop: Show current page info */}
+                {/* Page info */}
                 <div className="flex items-center">
                   <span className="text-xs sm:text-sm text-white/80 font-medium">
                     Page {currentPage} of {totalPages}
@@ -785,10 +973,10 @@ function AdminProductsContent() {
               setRestockQuantity('');
             }}
           />
-          
+
           {/* Modal */}
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
-            <div 
+            <div
               className="bg-secondary/95 backdrop-blur-md border border-white/10 rounded-2xl shadow-2xl w-full max-w-md pointer-events-auto animate-in zoom-in-95 duration-200"
               onClick={(e) => e.stopPropagation()}
             >
@@ -811,13 +999,13 @@ function AdminProductsContent() {
                   </button>
                 </div>
               </div>
-              
+
               {/* Content */}
               <div className="px-6 py-5 space-y-4">
                 {(() => {
                   const product = products?.find(p => p._id === restockProductId);
                   if (!product) return null;
-                  
+
                   return (
                     <>
                       {/* Product Info */}
@@ -843,7 +1031,7 @@ function AdminProductsContent() {
                             <p className="text-sm text-white/60 truncate">{formatCurrency(product.price)}</p>
                           </div>
                         </div>
-                        
+
                         <div className="grid grid-cols-2 gap-3 pt-3 border-t border-white/10">
                           <div>
                             <p className="text-xs text-white/60 mb-1">SKU</p>
@@ -877,7 +1065,7 @@ function AdminProductsContent() {
                           </div>
                         </div>
                       </div>
-                      
+
                       {/* Quantity Input */}
                       <div>
                         <label className="block text-sm font-medium text-white mb-2">
@@ -902,7 +1090,7 @@ function AdminProductsContent() {
                   );
                 })()}
               </div>
-              
+
               {/* Actions */}
               <div className="px-6 py-4 border-t border-white/10 flex gap-3">
                 <button
@@ -940,10 +1128,10 @@ function AdminProductsContent() {
               setMortalityQuantity('');
             }}
           />
-          
+
           {/* Modal */}
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
-            <div 
+            <div
               className="bg-secondary/95 backdrop-blur-md border border-white/10 rounded-2xl shadow-2xl w-full max-w-md pointer-events-auto animate-in zoom-in-95 duration-200"
               onClick={(e) => e.stopPropagation()}
             >
@@ -966,15 +1154,15 @@ function AdminProductsContent() {
                   </button>
                 </div>
               </div>
-              
+
               {/* Content */}
               <div className="px-6 py-5 space-y-4">
                 {(() => {
                   const product = products?.find(p => p._id === mortalityProductId);
                   if (!product) return null;
-                  
+
                   const availableQty = product.stock;
-                  
+
                   return (
                     <>
                       {/* Product Info */}
@@ -1000,7 +1188,7 @@ function AdminProductsContent() {
                             <p className="text-sm text-white/60 truncate">{formatCurrency(product.price)}</p>
                           </div>
                         </div>
-                        
+
                         <div className="grid grid-cols-2 gap-3 pt-3 border-t border-white/10">
                           <div>
                             <p className="text-xs text-white/60 mb-1">SKU</p>
@@ -1028,7 +1216,7 @@ function AdminProductsContent() {
                           </div>
                         </div>
                       </div>
-                      
+
                       {/* Warning Message */}
                       <div className="bg-warning/10 border border-warning/30 rounded-xl p-3">
                         <div className="flex gap-2">
@@ -1043,7 +1231,7 @@ function AdminProductsContent() {
                           </div>
                         </div>
                       </div>
-                      
+
                       {/* Quantity Input */}
                       <div>
                         <label className="block text-sm font-medium text-white mb-2">
@@ -1069,7 +1257,7 @@ function AdminProductsContent() {
                   );
                 })()}
               </div>
-              
+
               {/* Actions */}
               <div className="px-6 py-4 border-t border-white/10 flex gap-3">
                 <button
@@ -1103,7 +1291,7 @@ function AdminProductsContent() {
             className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 animate-in fade-in duration-200"
             onClick={() => setSelectedProduct(null)}
           />
-          
+
           {/* Bottom Sheet */}
           <div className="fixed bottom-0 left-0 right-0 z-50 animate-in slide-in-from-bottom duration-300 safe-area-bottom">
             <div className="bg-secondary/95 backdrop-blur-md border-t border-white/10 rounded-t-3xl shadow-2xl">
@@ -1111,12 +1299,12 @@ function AdminProductsContent() {
               <div className="flex justify-center pt-3 pb-2">
                 <div className="w-12 h-1.5 bg-white/20 rounded-full" />
               </div>
-              
+
               {/* Product Info Header */}
               {(() => {
                 const product = products?.find(p => p._id === selectedProduct);
                 if (!product) return null;
-                
+
                 return (
                   <div className="px-4 pb-3 border-b border-white/10">
                     <div className="flex items-center gap-3">
@@ -1143,13 +1331,13 @@ function AdminProductsContent() {
                   </div>
                 );
               })()}
-              
+
               {/* Action Buttons */}
               <div className="p-4 space-y-2">
                 {(() => {
                   const product = products?.find(p => p._id === selectedProduct);
                   if (!product) return null;
-                  
+
                   return (
                     <>
                       <button
@@ -1159,7 +1347,7 @@ function AdminProductsContent() {
                         <Eye className="w-5 h-5 text-info" />
                         <span className="font-medium">View Details</span>
                       </button>
-                      
+
                       <button
                         onClick={() => handleProductAction(product._id, 'Edit')}
                         className="w-full px-4 py-3.5 bg-secondary/60 hover:bg-white/10 active:bg-white/15 border border-white/10 rounded-xl text-white flex items-center gap-3 transition-all touch-manipulation"
@@ -1183,7 +1371,7 @@ function AdminProductsContent() {
                         <AlertCircle className="w-5 h-5 text-warning" />
                         <span className="font-medium">Record Mortality Loss</span>
                       </button>
-                      
+
                       <button
                         onClick={() => handleProductAction(product._id, 'Toggle')}
                         className="w-full px-4 py-3.5 bg-secondary/60 hover:bg-white/10 active:bg-white/15 border border-white/10 rounded-xl text-white flex items-center gap-3 transition-all touch-manipulation"
@@ -1200,7 +1388,7 @@ function AdminProductsContent() {
                           </>
                         )}
                       </button>
-                      
+
                       <button
                         onClick={() => handleProductAction(product._id, 'Delete')}
                         className="w-full px-4 py-3.5 bg-error/10 hover:bg-error/20 active:bg-error/30 border border-error/30 rounded-xl text-error flex items-center gap-3 transition-all touch-manipulation"
@@ -1212,7 +1400,7 @@ function AdminProductsContent() {
                   );
                 })()}
               </div>
-              
+
               {/* Cancel Button */}
               <div className="px-4 pb-6 pt-2">
                 <button
@@ -1235,7 +1423,7 @@ function AdminProductsContent() {
         .scrollbar-hide::-webkit-scrollbar {
           display: none;
         }
-        
+
         /* Custom responsive breakpoints */
         @media (min-width: 480px) {
           .xs\\:inline {

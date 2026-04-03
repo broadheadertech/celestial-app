@@ -128,8 +128,11 @@ export const getRecentOrders = query({
     // Transform orders to unified format
     const ordersWithUsers = await Promise.all(
       orders.map(async (order) => {
-        const user = await ctx.db.get(order.userId);
-        const customerName = user ? `${user.firstName} ${user.lastName}` : 'Unknown Customer';
+        let user = null;
+        if (order.userId) {
+          try { user = await ctx.db.get(order.userId); } catch { /* */ }
+        }
+        const customerName = user ? `${user.firstName} ${user.lastName}` : (order.customerName || 'Walk-in Customer');
 
         return {
           _id: order._id,
@@ -863,7 +866,10 @@ export const getAllOrdersAdmin = query({
     // Get user details and filter by search if provided
     const ordersWithUsers = await Promise.all(
       orders.map(async (order) => {
-        const user = await ctx.db.get(order.userId);
+        let user = null;
+        if (order.userId) {
+          try { user = await ctx.db.get(order.userId); } catch { /* */ }
+        }
         return {
           ...order,
           user: user ? {

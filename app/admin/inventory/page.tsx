@@ -180,11 +180,31 @@ function InventoryContent() {
 
   const isLoading = stockRecords === undefined || stockSummary === undefined;
 
+  // Helper to get status badge classes and label
+  const getStatusBadge = (record: { status: string; currentQty: number }) => {
+    const isLowStock = record.currentQty > 0 && record.currentQty <= 10;
+    const isDepleted = record.currentQty === 0 || record.status === 'depleted';
+
+    if (isDepleted) {
+      return { label: 'Depleted', className: 'bg-error/10 text-error border border-error/30' };
+    }
+    if (isLowStock) {
+      return { label: 'Low Stock', className: 'bg-warning/10 text-warning border border-warning/30' };
+    }
+    if (record.status === 'quarantine') {
+      return { label: 'Quarantine', className: 'bg-purple-500/10 text-purple-400 border border-purple-500/30' };
+    }
+    if (record.status === 'expired') {
+      return { label: 'Expired', className: 'bg-orange-500/10 text-orange-400 border border-orange-500/30' };
+    }
+    return { label: record.status.charAt(0).toUpperCase() + record.status.slice(1), className: 'bg-success/10 text-success border border-success/30' };
+  };
+
   return (
     <div className="min-h-screen bg-background text-foreground pb-20 sm:pb-6">
       {/* Header */}
       <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-white/10 safe-area-top">
-        <div className="px-3 sm:px-6 py-3 sm:py-4">
+        <div className="px-3 sm:px-6 py-3 sm:py-4 max-w-7xl mx-auto">
           <div className="flex items-center justify-between gap-2 mb-3 sm:mb-4">
             <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0">
               <button
@@ -211,14 +231,14 @@ function InventoryContent() {
           <div className="flex gap-2 mb-3">
             <button
               onClick={() => router.push('/admin/inventory/movements')}
-              className="flex-1 px-3 py-2 rounded-lg bg-secondary/60 border border-white/10 text-white text-xs sm:text-sm font-medium hover:bg-white/10 active:scale-95 transition-all touch-manipulation flex items-center justify-center gap-1.5"
+              className="flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-lg bg-secondary/60 border border-white/10 text-white text-xs sm:text-sm font-medium hover:bg-white/10 active:scale-95 transition-all touch-manipulation flex items-center justify-center gap-1.5"
             >
               <ArrowRightLeft className="w-3.5 h-3.5" />
               <span>Movements</span>
             </button>
             <button
               onClick={() => router.push('/admin/inventory/expiring')}
-              className="flex-1 px-3 py-2 rounded-lg bg-secondary/60 border border-white/10 text-white text-xs sm:text-sm font-medium hover:bg-white/10 active:scale-95 transition-all touch-manipulation flex items-center justify-center gap-1.5"
+              className="flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-lg bg-secondary/60 border border-white/10 text-white text-xs sm:text-sm font-medium hover:bg-white/10 active:scale-95 transition-all touch-manipulation flex items-center justify-center gap-1.5"
             >
               <Clock className="w-3.5 h-3.5" />
               <span>Alerts</span>
@@ -298,7 +318,7 @@ function InventoryContent() {
       {/* Filters Panel */}
       {showFilters && (
         <div className="bg-secondary/60 border-b border-white/10 px-3 sm:px-6 py-3 sm:py-4">
-          <div className="space-y-3">
+          <div className="max-w-7xl mx-auto space-y-3">
             <div className="flex items-center justify-between">
               <h3 className="text-xs sm:text-sm font-medium text-white">Filter by Status</h3>
               <button
@@ -372,219 +392,375 @@ function InventoryContent() {
             </button>
           </Card>
         ) : (
-          <div className="space-y-3 sm:space-y-4">
-            {filteredRecords.map((record) => {
-              const stockPercentage = record.initialQty > 0 ? (record.currentQty / record.initialQty) * 100 : 0;
-              const isLowStock = record.currentQty > 0 && record.currentQty <= 10;
-              const isDepleted = record.currentQty === 0 || record.status === 'depleted';
+          <>
+            {/* ============ DESKTOP TABLE (sm and up) ============ */}
+            <div className="hidden sm:block">
+              <div className="bg-secondary/40 border border-white/10 rounded-xl overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-white/10 bg-secondary/60">
+                        <th className="text-left px-4 py-3 text-xs font-semibold text-white/50 uppercase tracking-wider">Product</th>
+                        <th className="text-left px-4 py-3 text-xs font-semibold text-white/50 uppercase tracking-wider">Batch Code</th>
+                        <th className="text-left px-4 py-3 text-xs font-semibold text-white/50 uppercase tracking-wider">Category</th>
+                        <th className="text-left px-4 py-3 text-xs font-semibold text-white/50 uppercase tracking-wider min-w-[160px]">Stock Level</th>
+                        <th className="text-center px-4 py-3 text-xs font-semibold text-white/50 uppercase tracking-wider">Reserved</th>
+                        <th className="text-center px-4 py-3 text-xs font-semibold text-white/50 uppercase tracking-wider">Sold</th>
+                        <th className="text-center px-4 py-3 text-xs font-semibold text-white/50 uppercase tracking-wider">Mortality</th>
+                        <th className="text-right px-4 py-3 text-xs font-semibold text-white/50 uppercase tracking-wider">Value</th>
+                        <th className="text-center px-4 py-3 text-xs font-semibold text-white/50 uppercase tracking-wider">Status</th>
+                        <th className="text-center px-4 py-3 text-xs font-semibold text-white/50 uppercase tracking-wider">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/5">
+                      {filteredRecords.map((record) => {
+                        const stockPercentage = record.initialQty > 0 ? (record.currentQty / record.initialQty) * 100 : 0;
+                        const isLowStock = record.currentQty > 0 && record.currentQty <= 10;
+                        const isDepleted = record.currentQty === 0 || record.status === 'depleted';
+                        const badge = getStatusBadge(record);
+                        const stockValue = record.productPrice ? record.currentQty * record.productPrice : 0;
 
-              return (
-                <Card
-                  key={record._id}
-                  variant="modern"
-                  padding="none"
-                  className={`border overflow-hidden ${
-                    isLowStock ? 'border-warning/30' : isDepleted ? 'border-error/30' : 'border-white/10'
-                  }`}
-                >
-                  <div className="p-3 sm:p-4">
-                    <div className="flex gap-3 sm:gap-4">
-                      {/* Product Image */}
-                      <div className="flex-shrink-0">
-                        <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-lg overflow-hidden bg-secondary border border-white/10 flex items-center justify-center">
-                          {record.productImage ? (
-                            <img
-                              src={record.productImage}
-                              alt={record.productName || 'Product'}
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <Package className="w-6 h-6 text-white/30" />
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Batch Info */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-2 mb-2">
-                          <div className="flex-1 min-w-0">
-                            <h3 className="font-bold text-white text-sm sm:text-base truncate">
-                              {record.productName || 'Unknown Product'}
-                            </h3>
-                            <p className="text-xs sm:text-sm text-white/60 truncate">
-                              Batch: {record.batchCode}
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <div className={`px-2 py-1 rounded-lg text-xs font-medium ${
-                              isDepleted
-                                ? 'bg-error/10 text-error border border-error/30'
-                                : isLowStock
-                                ? 'bg-warning/10 text-warning border border-warning/30'
-                                : record.status === 'quarantine'
-                                ? 'bg-purple-500/10 text-purple-400 border border-purple-500/30'
-                                : record.status === 'expired'
-                                ? 'bg-orange-500/10 text-orange-400 border border-orange-500/30'
-                                : 'bg-success/10 text-success border border-success/30'
-                            }`}>
-                              {isDepleted ? 'Depleted' : isLowStock ? 'Low Stock' : record.status.charAt(0).toUpperCase() + record.status.slice(1)}
-                            </div>
-                            {/* Action Menu */}
-                            <div className="relative">
-                              <button
-                                onClick={() => setOpenMenuId(openMenuId === record._id ? null : record._id)}
-                                className="p-1.5 rounded-lg hover:bg-white/10 active:scale-95 transition-all touch-manipulation"
-                              >
-                                <MoreVertical className="w-4 h-4 text-white/60" />
-                              </button>
-                              {openMenuId === record._id && (
-                                <div className="absolute right-0 top-8 w-40 bg-secondary border border-white/10 rounded-lg shadow-xl z-20">
-                                  <button
-                                    onClick={() => {
-                                      setAdjustRecordId(record._id);
-                                      setShowAdjustModal(true);
-                                      setOpenMenuId(null);
-                                    }}
-                                    className="w-full px-3 py-2 text-left text-sm text-white hover:bg-white/10 flex items-center gap-2"
-                                  >
-                                    <Minus className="w-3.5 h-3.5" />
-                                    Adjust Stock
-                                  </button>
-                                  <button
-                                    onClick={() => {
-                                      router.push(`/admin/inventory/activity_log?productId=${record.productId}&productName=${encodeURIComponent(record.productName || '')}`);
-                                      setOpenMenuId(null);
-                                    }}
-                                    className="w-full px-3 py-2 text-left text-sm text-white hover:bg-white/10 flex items-center gap-2"
-                                  >
-                                    <Activity className="w-3.5 h-3.5" />
-                                    Activity Log
-                                  </button>
+                        return (
+                          <tr
+                            key={record._id}
+                            className={`hover:bg-white/5 transition-colors ${
+                              isLowStock ? 'bg-warning/5' : isDepleted ? 'bg-error/5' : ''
+                            }`}
+                          >
+                            {/* Product (Image + Name) */}
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-lg overflow-hidden bg-secondary border border-white/10 flex-shrink-0 flex items-center justify-center">
+                                  {record.productImage ? (
+                                    <img
+                                      src={record.productImage}
+                                      alt={record.productName || 'Product'}
+                                      className="w-full h-full object-cover"
+                                    />
+                                  ) : (
+                                    <Package className="w-4 h-4 text-white/30" />
+                                  )}
                                 </div>
-                              )}
-                            </div>
+                                <span className="font-medium text-white truncate max-w-[180px]">
+                                  {record.productName || 'Unknown Product'}
+                                </span>
+                              </div>
+                            </td>
+
+                            {/* Batch Code */}
+                            <td className="px-4 py-3">
+                              <span className="text-white/70 font-mono text-xs">{record.batchCode}</span>
+                            </td>
+
+                            {/* Category */}
+                            <td className="px-4 py-3">
+                              <span className="text-white/70 capitalize">{record.category}</span>
+                            </td>
+
+                            {/* Stock Level with progress bar */}
+                            <td className="px-4 py-3">
+                              <div className="space-y-1">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-white font-medium">{record.currentQty}</span>
+                                  <span className="text-white/40 text-xs">/ {record.initialQty}</span>
+                                </div>
+                                <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
+                                  <div
+                                    className={`h-full transition-all duration-300 ${
+                                      stockPercentage < 20
+                                        ? 'bg-error'
+                                        : stockPercentage < 50
+                                        ? 'bg-warning'
+                                        : 'bg-success'
+                                    }`}
+                                    style={{ width: `${Math.min(stockPercentage, 100)}%` }}
+                                  />
+                                </div>
+                              </div>
+                            </td>
+
+                            {/* Reserved */}
+                            <td className="px-4 py-3 text-center">
+                              <span className="text-white/70">{record.reservedQty}</span>
+                            </td>
+
+                            {/* Sold */}
+                            <td className="px-4 py-3 text-center">
+                              <span className="text-primary font-medium">{record.soldQty}</span>
+                            </td>
+
+                            {/* Mortality */}
+                            <td className="px-4 py-3 text-center">
+                              <span className={record.mortalityLossQty > 0 ? 'text-error font-medium' : 'text-white/70'}>
+                                {record.mortalityLossQty}
+                              </span>
+                            </td>
+
+                            {/* Value */}
+                            <td className="px-4 py-3 text-right">
+                              <span className="text-white font-medium">
+                                {record.productPrice ? formatCurrency(stockValue) : '--'}
+                              </span>
+                            </td>
+
+                            {/* Status */}
+                            <td className="px-4 py-3 text-center">
+                              <span className={`inline-block px-2 py-1 rounded-lg text-xs font-medium ${badge.className}`}>
+                                {badge.label}
+                              </span>
+                            </td>
+
+                            {/* Actions */}
+                            <td className="px-4 py-3 text-center">
+                              <div className="relative inline-block">
+                                <button
+                                  onClick={() => setOpenMenuId(openMenuId === record._id ? null : record._id)}
+                                  className="p-1.5 rounded-lg hover:bg-white/10 active:scale-95 transition-all"
+                                >
+                                  <MoreVertical className="w-4 h-4 text-white/60" />
+                                </button>
+                                {openMenuId === record._id && (
+                                  <div className="absolute right-0 top-8 w-44 bg-secondary border border-white/10 rounded-lg shadow-xl z-20">
+                                    <button
+                                      onClick={() => {
+                                        setAdjustRecordId(record._id);
+                                        setShowAdjustModal(true);
+                                        setOpenMenuId(null);
+                                      }}
+                                      className="w-full px-3 py-2.5 text-left text-sm text-white hover:bg-white/10 flex items-center gap-2 rounded-t-lg"
+                                    >
+                                      <Minus className="w-3.5 h-3.5" />
+                                      Adjust Stock
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        router.push(`/admin/inventory/activity_log?productId=${record.productId}&productName=${encodeURIComponent(record.productName || '')}`);
+                                        setOpenMenuId(null);
+                                      }}
+                                      className="w-full px-3 py-2.5 text-left text-sm text-white hover:bg-white/10 flex items-center gap-2 rounded-b-lg"
+                                    >
+                                      <Activity className="w-3.5 h-3.5" />
+                                      Activity Log
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            {/* ============ MOBILE CARDS (below sm) ============ */}
+            <div className="sm:hidden space-y-3">
+              {filteredRecords.map((record) => {
+                const stockPercentage = record.initialQty > 0 ? (record.currentQty / record.initialQty) * 100 : 0;
+                const isLowStock = record.currentQty > 0 && record.currentQty <= 10;
+                const isDepleted = record.currentQty === 0 || record.status === 'depleted';
+                const badge = getStatusBadge(record);
+
+                return (
+                  <Card
+                    key={record._id}
+                    variant="modern"
+                    padding="none"
+                    className={`border overflow-hidden ${
+                      isLowStock ? 'border-warning/30' : isDepleted ? 'border-error/30' : 'border-white/10'
+                    }`}
+                  >
+                    <div className="p-3">
+                      <div className="flex gap-3">
+                        {/* Product Image */}
+                        <div className="flex-shrink-0">
+                          <div className="w-14 h-14 rounded-lg overflow-hidden bg-secondary border border-white/10 flex items-center justify-center">
+                            {record.productImage ? (
+                              <img
+                                src={record.productImage}
+                                alt={record.productName || 'Product'}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <Package className="w-6 h-6 text-white/30" />
+                            )}
                           </div>
                         </div>
 
-                        {/* Stock Progress Bar */}
-                        <div className="mb-3">
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-xs text-white/60">Stock Level</span>
-                            <span className="text-xs font-medium text-white">
-                              {record.currentQty} / {record.initialQty}
-                            </span>
-                          </div>
-                          <div className="h-2 bg-secondary rounded-full overflow-hidden">
-                            <div
-                              className={`h-full transition-all duration-300 ${
-                                stockPercentage < 20
-                                  ? 'bg-error'
-                                  : stockPercentage < 50
-                                  ? 'bg-warning'
-                                  : 'bg-success'
-                              }`}
-                              style={{ width: `${Math.min(stockPercentage, 100)}%` }}
-                            />
-                          </div>
-                        </div>
-
-                        {/* Batch Details Grid */}
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
-                          <div>
-                            <p className="text-[10px] sm:text-xs text-white/40">Category</p>
-                            <p className="text-xs sm:text-sm font-medium text-white capitalize">{record.category}</p>
-                          </div>
-                          <div>
-                            <p className="text-[10px] sm:text-xs text-white/40">Reserved</p>
-                            <p className="text-xs sm:text-sm font-medium text-white">{record.reservedQty}</p>
-                          </div>
-                          <div>
-                            <p className="text-[10px] sm:text-xs text-white/40">Sold</p>
-                            <p className="text-xs sm:text-sm font-medium text-primary">{record.soldQty}</p>
-                          </div>
-                          <div>
-                            <p className="text-[10px] sm:text-xs text-white/40">Mortality</p>
-                            <p className={`text-xs sm:text-sm font-medium ${record.mortalityLossQty > 0 ? 'text-error' : 'text-white'}`}>
-                              {record.mortalityLossQty}
-                            </p>
-                          </div>
-                        </div>
-
-                        {/* Second row details */}
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
-                          {record.productPrice && (
-                            <div>
-                              <p className="text-[10px] sm:text-xs text-white/40">Unit Price</p>
-                              <p className="text-xs sm:text-sm font-medium text-white">
-                                {formatCurrency(record.productPrice)}
+                        {/* Batch Info */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between gap-2 mb-2">
+                            <div className="flex-1 min-w-0">
+                              <h3 className="font-bold text-white text-sm truncate">
+                                {record.productName || 'Unknown Product'}
+                              </h3>
+                              <p className="text-xs text-white/60 truncate">
+                                Batch: {record.batchCode}
                               </p>
                             </div>
-                          )}
-                          {record.productPrice && (
+                            <div className="flex items-center gap-2">
+                              <div className={`px-2 py-1 rounded-lg text-xs font-medium ${badge.className}`}>
+                                {badge.label}
+                              </div>
+                              {/* Action Menu */}
+                              <div className="relative">
+                                <button
+                                  onClick={() => setOpenMenuId(openMenuId === record._id ? null : record._id)}
+                                  className="p-1.5 rounded-lg hover:bg-white/10 active:scale-95 transition-all touch-manipulation"
+                                >
+                                  <MoreVertical className="w-4 h-4 text-white/60" />
+                                </button>
+                                {openMenuId === record._id && (
+                                  <div className="absolute right-0 top-8 w-40 bg-secondary border border-white/10 rounded-lg shadow-xl z-20">
+                                    <button
+                                      onClick={() => {
+                                        setAdjustRecordId(record._id);
+                                        setShowAdjustModal(true);
+                                        setOpenMenuId(null);
+                                      }}
+                                      className="w-full px-3 py-2 text-left text-sm text-white hover:bg-white/10 flex items-center gap-2"
+                                    >
+                                      <Minus className="w-3.5 h-3.5" />
+                                      Adjust Stock
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        router.push(`/admin/inventory/activity_log?productId=${record.productId}&productName=${encodeURIComponent(record.productName || '')}`);
+                                        setOpenMenuId(null);
+                                      }}
+                                      className="w-full px-3 py-2 text-left text-sm text-white hover:bg-white/10 flex items-center gap-2"
+                                    >
+                                      <Activity className="w-3.5 h-3.5" />
+                                      Activity Log
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Stock Progress Bar */}
+                          <div className="mb-3">
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-xs text-white/60">Stock Level</span>
+                              <span className="text-xs font-medium text-white">
+                                {record.currentQty} / {record.initialQty}
+                              </span>
+                            </div>
+                            <div className="h-2 bg-secondary rounded-full overflow-hidden">
+                              <div
+                                className={`h-full transition-all duration-300 ${
+                                  stockPercentage < 20
+                                    ? 'bg-error'
+                                    : stockPercentage < 50
+                                    ? 'bg-warning'
+                                    : 'bg-success'
+                                }`}
+                                style={{ width: `${Math.min(stockPercentage, 100)}%` }}
+                              />
+                            </div>
+                          </div>
+
+                          {/* Batch Details Grid */}
+                          <div className="grid grid-cols-2 gap-2 mb-3">
                             <div>
-                              <p className="text-[10px] sm:text-xs text-white/40">Stock Value</p>
-                              <p className="text-xs sm:text-sm font-medium text-white">
-                                {formatCurrency(record.currentQty * record.productPrice)}
+                              <p className="text-[10px] text-white/40">Category</p>
+                              <p className="text-xs font-medium text-white capitalize">{record.category}</p>
+                            </div>
+                            <div>
+                              <p className="text-[10px] text-white/40">Reserved</p>
+                              <p className="text-xs font-medium text-white">{record.reservedQty}</p>
+                            </div>
+                            <div>
+                              <p className="text-[10px] text-white/40">Sold</p>
+                              <p className="text-xs font-medium text-primary">{record.soldQty}</p>
+                            </div>
+                            <div>
+                              <p className="text-[10px] text-white/40">Mortality</p>
+                              <p className={`text-xs font-medium ${record.mortalityLossQty > 0 ? 'text-error' : 'text-white'}`}>
+                                {record.mortalityLossQty}
                               </p>
                             </div>
-                          )}
-                          {record.qualityGrade && (
-                            <div>
-                              <p className="text-[10px] sm:text-xs text-white/40">Quality</p>
-                              <p className="text-xs sm:text-sm font-medium text-white capitalize">{record.qualityGrade}</p>
-                            </div>
-                          )}
-                          <div>
-                            <p className="text-[10px] sm:text-xs text-white/40">Received</p>
-                            <p className="text-xs sm:text-sm font-medium text-white">
-                              {formatDate(record.receivedDate)}
-                            </p>
                           </div>
-                        </div>
 
-                        {/* Expiry warning */}
-                        {record.expiryDate && record.expiryDate > Date.now() && (
-                          (() => {
-                            const daysLeft = Math.floor((record.expiryDate - Date.now()) / (24 * 60 * 60 * 1000));
-                            if (daysLeft <= 30) {
-                              return (
-                                <div className="mb-3 px-2 py-1.5 rounded-lg bg-orange-500/10 border border-orange-500/20 flex items-center gap-1.5">
-                                  <AlertTriangle className="w-3 h-3 text-orange-400 flex-shrink-0" />
-                                  <span className="text-xs text-orange-400">Expires in {daysLeft} day{daysLeft !== 1 ? 's' : ''}</span>
-                                </div>
-                              );
-                            }
-                            return null;
-                          })()
-                        )}
+                          {/* Second row details */}
+                          <div className="grid grid-cols-2 gap-2 mb-3">
+                            {record.productPrice && (
+                              <div>
+                                <p className="text-[10px] text-white/40">Unit Price</p>
+                                <p className="text-xs font-medium text-white">
+                                  {formatCurrency(record.productPrice)}
+                                </p>
+                              </div>
+                            )}
+                            {record.productPrice && (
+                              <div>
+                                <p className="text-[10px] text-white/40">Stock Value</p>
+                                <p className="text-xs font-medium text-white">
+                                  {formatCurrency(record.currentQty * record.productPrice)}
+                                </p>
+                              </div>
+                            )}
+                            {record.qualityGrade && (
+                              <div>
+                                <p className="text-[10px] text-white/40">Quality</p>
+                                <p className="text-xs font-medium text-white capitalize">{record.qualityGrade}</p>
+                              </div>
+                            )}
+                            <div>
+                              <p className="text-[10px] text-white/40">Received</p>
+                              <p className="text-xs font-medium text-white">
+                                {formatDate(record.receivedDate)}
+                              </p>
+                            </div>
+                          </div>
 
-                        {/* Actions */}
-                        <div className="flex items-center justify-between pt-2 border-t border-white/10">
-                          <button
-                            onClick={() => router.push(`/admin/inventory/activity_log?productId=${record.productId}&productName=${encodeURIComponent(record.productName || '')}`)}
-                            className="flex items-center gap-1.5 text-xs sm:text-sm text-primary hover:text-primary/80 transition-colors touch-manipulation"
-                          >
-                            <Activity className="w-4 h-4" />
-                            <span>View Activity Log</span>
-                          </button>
+                          {/* Expiry warning */}
+                          {record.expiryDate && record.expiryDate > Date.now() && (
+                            (() => {
+                              const daysLeft = Math.floor((record.expiryDate - Date.now()) / (24 * 60 * 60 * 1000));
+                              if (daysLeft <= 30) {
+                                return (
+                                  <div className="mb-3 px-2 py-1.5 rounded-lg bg-orange-500/10 border border-orange-500/20 flex items-center gap-1.5">
+                                    <AlertTriangle className="w-3 h-3 text-orange-400 flex-shrink-0" />
+                                    <span className="text-xs text-orange-400">Expires in {daysLeft} day{daysLeft !== 1 ? 's' : ''}</span>
+                                  </div>
+                                );
+                              }
+                              return null;
+                            })()
+                          )}
 
-                          <button
-                            onClick={() => {
-                              setAdjustRecordId(record._id);
-                              setShowAdjustModal(true);
-                            }}
-                            className="px-2 sm:px-3 py-1 rounded-lg bg-primary/10 border border-primary/20 text-primary text-xs hover:bg-primary/20 active:scale-95 transition-all touch-manipulation"
-                          >
-                            Adjust
-                          </button>
+                          {/* Actions */}
+                          <div className="flex items-center justify-between pt-2 border-t border-white/10">
+                            <button
+                              onClick={() => router.push(`/admin/inventory/activity_log?productId=${record.productId}&productName=${encodeURIComponent(record.productName || '')}`)}
+                              className="flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 transition-colors touch-manipulation"
+                            >
+                              <Activity className="w-4 h-4" />
+                              <span>View Activity Log</span>
+                            </button>
+
+                            <button
+                              onClick={() => {
+                                setAdjustRecordId(record._id);
+                                setShowAdjustModal(true);
+                              }}
+                              className="px-2 py-1 rounded-lg bg-primary/10 border border-primary/20 text-primary text-xs hover:bg-primary/20 active:scale-95 transition-all touch-manipulation"
+                            >
+                              Adjust
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                </Card>
-              );
-            })}
-          </div>
+                  </Card>
+                );
+              })}
+            </div>
+          </>
         )}
       </div>
 

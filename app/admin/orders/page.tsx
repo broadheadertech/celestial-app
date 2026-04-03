@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import useWindowSize from '@/hooks/useWindowSize';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
@@ -60,16 +60,16 @@ interface ActionItem {
   show: boolean;
 }
 
-// Bottom Sheet Modal Component
-function BottomSheetModal({ 
-  isOpen, 
-  onClose, 
-  title, 
-  actions 
-}: { 
-  isOpen: boolean; 
-  onClose: () => void; 
-  title: string; 
+// Bottom Sheet Modal Component (mobile only)
+function BottomSheetModal({
+  isOpen,
+  onClose,
+  title,
+  actions
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  title: string;
   actions: ActionItem[];
 }) {
   const [mounted, setMounted] = useState(false);
@@ -168,6 +168,61 @@ function BottomSheetModal({
   );
 }
 
+// Desktop Dropdown Menu Component
+function DesktopDropdown({
+  actions,
+  onClose,
+}: {
+  actions: ActionItem[];
+  onClose: () => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        onClose();
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [onClose]);
+
+  const getVariantClasses = (variant: string = 'default') => {
+    const variants: Record<string, string> = {
+      default: 'text-white/80 hover:bg-white/10 hover:text-white',
+      success: 'text-green-400 hover:bg-green-500/10',
+      danger: 'text-red-400 hover:bg-red-500/10',
+      info: 'text-blue-400 hover:bg-blue-500/10',
+      warning: 'text-purple-400 hover:bg-purple-500/10',
+    };
+    return variants[variant] || variants.default;
+  };
+
+  const visibleActions = actions.filter(a => a.show);
+
+  return (
+    <div
+      ref={ref}
+      className="absolute right-0 top-full mt-1 z-50 w-56 bg-secondary border border-white/15 rounded-xl shadow-2xl py-1.5 animate-in fade-in slide-in-from-top-2 duration-150"
+    >
+      {visibleActions.map((action, index) => (
+        <button
+          key={index}
+          onClick={() => {
+            action.onClick();
+            onClose();
+          }}
+          className={`w-full flex items-center gap-3 px-3.5 py-2.5 text-sm transition-colors ${getVariantClasses(action.variant)}`}
+        >
+          <div className="flex-shrink-0 [&>svg]:w-4 [&>svg]:h-4">{action.icon}</div>
+          <span className="flex-1 text-left">{action.label}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function AdminOrdersContent() {
   const router = useRouter();
   const { width } = useWindowSize();
@@ -179,7 +234,7 @@ function AdminOrdersContent() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [mounted, setMounted] = useState(false);
-  
+
   const [showSMSModal, setShowSMSModal] = useState(false);
   const [pendingAction, setPendingAction] = useState<{
     itemId: string;
@@ -187,6 +242,9 @@ function AdminOrdersContent() {
     type: 'status' | 'ready_for_pickup';
   } | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+
+  // Desktop dropdown state - stores item _id
+  const [dropdownItemId, setDropdownItemId] = useState<string | null>(null);
 
   const ordersQuery = useQuery(api.services.orders.getAllOrdersAdmin, {});
   const reservationsQuery = useQuery(api.services.reservations.getAllReservationsAdmin, {});
@@ -261,13 +319,13 @@ function AdminOrdersContent() {
     try {
       const item = allItems.find(i => i._id === itemId);
       if (!item) return;
-      
+
       if (item.type === 'reservation' && newStatus === 'confirmed') {
         setPendingAction({ itemId, status: newStatus, type: 'status' });
         setShowSMSModal(true);
         return;
       }
-      
+
       if (item.type === 'order') {
         await updateOrderStatus({ orderId: itemId as Id<'orders'>, status: newStatus as any });
       } else {
@@ -283,7 +341,7 @@ function AdminOrdersContent() {
     try {
       const item = allItems.find(i => i._id === itemId);
       if (!item || item.type !== 'reservation') return;
-      
+
       setPendingAction({ itemId, status: 'ready_for_pickup', type: 'ready_for_pickup' });
       setShowSMSModal(true);
     } catch (error) {
@@ -294,7 +352,7 @@ function AdminOrdersContent() {
 
   const handleSMSConfirm = async (sendSMS: boolean) => {
     if (!pendingAction) return;
-    
+
     setIsProcessing(true);
     try {
       const item = allItems.find(i => i._id === pendingAction.itemId);
@@ -465,10 +523,16 @@ function AdminOrdersContent() {
     return colors[status as keyof typeof colors] || 'bg-muted/20 text-muted border-muted/30';
   };
 
+  const getTypeBadge = (type: 'order' | 'reservation') => {
+    if (type === 'order') return 'bg-blue-500/15 text-blue-400 border-blue-500/25';
+    return 'bg-purple-500/15 text-purple-400 border-purple-500/25';
+  };
+
   return (
     <div className="min-h-screen bg-background text-foreground pb-20 sm:pb-6">
+      {/* Header */}
       <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-white/10 safe-area-top">
-        <div className="px-3 sm:px-6 py-3 sm:py-4">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 py-3 sm:py-4">
           <div className="flex items-center justify-between gap-2 mb-3 sm:mb-4">
             <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0">
               <button onClick={() => router.back()} className="p-2 rounded-full bg-secondary border border-white/10 hover:bg-white/10 active:scale-95 transition-all flex-shrink-0 touch-manipulation">
@@ -507,8 +571,9 @@ function AdminOrdersContent() {
         </div>
       </div>
 
-      <div className="px-3 sm:px-6 py-3 sm:py-4 border-b border-white/10">
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
+      {/* Stats Cards */}
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 py-3 sm:py-4 border-b border-white/10">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
           {[
             { Icon: Clock, count: orderStats.pending, label: 'Pending Review', color: 'yellow' },
             { Icon: CheckCircle, count: orderStats.confirmed, label: 'Confirmed', color: 'green' },
@@ -530,29 +595,33 @@ function AdminOrdersContent() {
         </div>
       </div>
 
+      {/* Filters */}
       {showFilters && (
-        <div className="bg-secondary/60 border-b border-white/10 px-3 sm:px-6 py-3 sm:py-4">
-          <div className="space-y-3 sm:space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-xs sm:text-sm font-medium text-white">Filters</h3>
-              <div className="flex items-center gap-2">
-                {selectedStatus !== 'all' && <button onClick={() => { setSearchQuery(''); setSelectedStatus('all'); setShowFilters(false); setCurrentPage(1); }} className="text-xs text-primary hover:text-primary/80 transition-colors touch-manipulation">Clear All</button>}
-                <button onClick={() => setShowFilters(false)} className="p-1 rounded hover:bg-white/10 transition-colors sm:hidden touch-manipulation"><X className="w-4 h-4 text-white/60" /></button>
+        <div className="bg-secondary/60 border-b border-white/10">
+          <div className="max-w-7xl mx-auto px-3 sm:px-6 py-3 sm:py-4">
+            <div className="space-y-3 sm:space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs sm:text-sm font-medium text-white">Filters</h3>
+                <div className="flex items-center gap-2">
+                  {selectedStatus !== 'all' && <button onClick={() => { setSearchQuery(''); setSelectedStatus('all'); setShowFilters(false); setCurrentPage(1); }} className="text-xs text-primary hover:text-primary/80 transition-colors touch-manipulation">Clear All</button>}
+                  <button onClick={() => setShowFilters(false)} className="p-1 rounded hover:bg-white/10 transition-colors sm:hidden touch-manipulation"><X className="w-4 h-4 text-white/60" /></button>
+                </div>
               </div>
-            </div>
-            <div>
-              <label className="block text-xs sm:text-sm font-medium text-white mb-2">Status</label>
-              <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1">
-                {[{ value: 'all', label: 'All Status' }, { value: 'pending', label: 'Pending' }, { value: 'confirmed', label: 'Confirmed' }, { value: 'ready_for_pickup', label: 'Ready for Pickup' }, { value: 'processing', label: 'Processing' }, { value: 'completed', label: 'Completed' }, { value: 'cancelled', label: 'Cancelled' }].map((status) => (
-                  <button key={status.value} onClick={() => setSelectedStatus(status.value)} className={`flex-shrink-0 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm border transition-all active:scale-95 touch-manipulation whitespace-nowrap ${selectedStatus === status.value ? 'bg-primary border-primary text-white' : 'bg-secondary/60 border-white/10 text-white/70 hover:text-white hover:border-primary/20'}`}>{status.label}</button>
-                ))}
+              <div>
+                <label className="block text-xs sm:text-sm font-medium text-white mb-2">Status</label>
+                <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1">
+                  {[{ value: 'all', label: 'All Status' }, { value: 'pending', label: 'Pending' }, { value: 'confirmed', label: 'Confirmed' }, { value: 'ready_for_pickup', label: 'Ready for Pickup' }, { value: 'processing', label: 'Processing' }, { value: 'completed', label: 'Completed' }, { value: 'cancelled', label: 'Cancelled' }].map((status) => (
+                    <button key={status.value} onClick={() => setSelectedStatus(status.value)} className={`flex-shrink-0 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm border transition-all active:scale-95 touch-manipulation whitespace-nowrap ${selectedStatus === status.value ? 'bg-primary border-primary text-white' : 'bg-secondary/60 border-white/10 text-white/70 hover:text-white hover:border-primary/20'}`}>{status.label}</button>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
         </div>
       )}
 
-      <div className="px-3 sm:px-6 py-3 sm:py-4 max-w-7xl mx-auto">
+      {/* Main Content Area */}
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 py-3 sm:py-4">
         <div className="flex items-center justify-between mb-3 sm:mb-4">
           <h2 className="text-sm sm:text-lg font-bold text-white">Items <span className="text-white/60">({filteredItems.length})</span></h2>
           {filteredItems.length === 0 && allItems.length > 0 && <button onClick={() => { setSearchQuery(''); setSelectedStatus('all'); setShowFilters(false); setCurrentPage(1); }} className="px-2.5 sm:px-3 py-1 rounded-lg bg-primary/10 border border-primary text-primary text-[10px] sm:text-xs hover:bg-primary/20 active:scale-95 transition-all touch-manipulation">Clear Filters</button>}
@@ -568,17 +637,117 @@ function AdminOrdersContent() {
           </div>
         ) : (
           <>
-            <div className="space-y-2.5 sm:space-y-4">
+            {/* ============ DESKTOP TABLE (sm: and up) ============ */}
+            <div className="hidden sm:block">
+              <div className="bg-secondary/30 border border-white/10 rounded-xl overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-white/10 bg-secondary/50">
+                        <th className="text-left px-4 py-3 text-xs font-semibold text-white/50 uppercase tracking-wider">Code</th>
+                        <th className="text-left px-4 py-3 text-xs font-semibold text-white/50 uppercase tracking-wider">Type</th>
+                        <th className="text-left px-4 py-3 text-xs font-semibold text-white/50 uppercase tracking-wider">Status</th>
+                        <th className="text-left px-4 py-3 text-xs font-semibold text-white/50 uppercase tracking-wider">Customer</th>
+                        <th className="text-center px-4 py-3 text-xs font-semibold text-white/50 uppercase tracking-wider">Items</th>
+                        <th className="text-right px-4 py-3 text-xs font-semibold text-white/50 uppercase tracking-wider">Amount</th>
+                        <th className="text-left px-4 py-3 text-xs font-semibold text-white/50 uppercase tracking-wider">Date</th>
+                        <th className="text-right px-4 py-3 text-xs font-semibold text-white/50 uppercase tracking-wider">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/5">
+                      {paginatedItems.map((item) => (
+                        <tr
+                          key={item._id}
+                          className="hover:bg-white/[0.03] transition-colors group"
+                        >
+                          {/* Code */}
+                          <td className="px-4 py-3.5">
+                            <span className="font-semibold text-white">{item.code}</span>
+                          </td>
+
+                          {/* Type */}
+                          <td className="px-4 py-3.5">
+                            <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs border font-medium ${getTypeBadge(item.type)}`}>
+                              {item.type === 'order' ? <Package className="w-3 h-3" /> : <Calendar className="w-3 h-3" />}
+                              <span className="capitalize">{item.type}</span>
+                            </span>
+                          </td>
+
+                          {/* Status */}
+                          <td className="px-4 py-3.5">
+                            <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs border font-medium ${getStatusBadge(item.status)}`}>
+                              {getStatusIcon(item.status)}
+                              <span className="capitalize">{item.status.replace('_', ' ')}</span>
+                            </span>
+                          </td>
+
+                          {/* Customer */}
+                          <td className="px-4 py-3.5">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <div className="w-7 h-7 bg-primary/20 rounded-full flex items-center justify-center shrink-0">
+                                <User className="w-3.5 h-3.5 text-primary" />
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-white font-medium text-sm truncate max-w-[180px]">{item.customer?.name || 'Guest Customer'}</p>
+                                {item.customer?.phone && (
+                                  <p className="text-xs text-white/50 truncate max-w-[180px]">{item.customer.phone}</p>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+
+                          {/* Items */}
+                          <td className="px-4 py-3.5 text-center">
+                            <span className="text-white/80">{item.itemCount}</span>
+                          </td>
+
+                          {/* Amount */}
+                          <td className="px-4 py-3.5 text-right">
+                            <span className="font-semibold text-white">{formatCurrency(item.totalAmount || 0)}</span>
+                          </td>
+
+                          {/* Date */}
+                          <td className="px-4 py-3.5">
+                            <span className="text-white/60 text-xs whitespace-nowrap">{formatDateTime(item.createdAt)}</span>
+                          </td>
+
+                          {/* Actions Dropdown */}
+                          <td className="px-4 py-3.5 text-right">
+                            <div className="relative inline-block">
+                              <button
+                                onClick={() => setDropdownItemId(dropdownItemId === item._id ? null : item._id)}
+                                className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 hover:border-primary/30 transition-all flex items-center justify-center"
+                              >
+                                <MoreVertical className="w-4 h-4 text-white/70" />
+                              </button>
+                              {dropdownItemId === item._id && (
+                                <DesktopDropdown
+                                  actions={getActionItems(item)}
+                                  onClose={() => setDropdownItemId(null)}
+                                />
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            {/* ============ MOBILE CARDS (below sm:) ============ */}
+            <div className="sm:hidden space-y-2.5">
               {paginatedItems.map((item) => (
-                <div key={item._id} className="bg-secondary/40 backdrop-blur-sm border border-white/10 rounded-lg sm:rounded-xl transition-all duration-200 hover:border-primary/30">
-                  <div className="flex items-center justify-between p-3 sm:p-4">
-                    <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-                      <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center shrink-0 ${item.type === 'order' ? 'bg-gradient-to-br from-blue-500/20 to-blue-600/20 border border-blue-500/30' : 'bg-gradient-to-br from-purple-500/20 to-purple-600/20 border border-purple-500/30'}`}>
-                        {item.type === 'order' ? <Package className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" /> : <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-purple-400" />}
+                <div key={item._id} className="bg-secondary/40 backdrop-blur-sm border border-white/10 rounded-lg transition-all duration-200 hover:border-primary/30">
+                  <div className="flex items-center justify-between p-3">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${item.type === 'order' ? 'bg-gradient-to-br from-blue-500/20 to-blue-600/20 border border-blue-500/30' : 'bg-gradient-to-br from-purple-500/20 to-purple-600/20 border border-purple-500/30'}`}>
+                        {item.type === 'order' ? <Package className="w-4 h-4 text-blue-400" /> : <Calendar className="w-4 h-4 text-purple-400" />}
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 mb-1 flex-wrap">
-                          <h3 className="font-semibold text-white text-sm sm:text-base truncate">{item.code}</h3>
+                          <h3 className="font-semibold text-white text-sm truncate">{item.code}</h3>
                           <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs border font-medium ${getStatusBadge(item.status)} shrink-0`}>
                             {getStatusIcon(item.status)}
                             <span className="capitalize hidden xs:inline">{item.status.replace('_', ' ')}</span>
@@ -586,45 +755,46 @@ function AdminOrdersContent() {
                         </div>
                         <div className="flex items-center gap-2 text-xs text-white/60 flex-wrap">
                           <span className="whitespace-nowrap">{formatDateTime(item.createdAt)}</span>
-                          <span className="hidden xs:inline">•</span>
+                          <span className="hidden xs:inline">&bull;</span>
                           <span className="whitespace-nowrap">{item.itemCount} items</span>
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-                      <div className="text-right min-w-[70px] sm:min-w-[80px]">
-                        <p className="font-bold text-white text-sm sm:text-base">{formatCurrency(item.totalAmount || 0)}</p>
-                        <p className="text-xs text-white/60 hidden sm:block">Total</p>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <div className="text-right min-w-[70px]">
+                        <p className="font-bold text-white text-sm">{formatCurrency(item.totalAmount || 0)}</p>
                       </div>
-                      <button 
-                        onClick={() => setSelectedItem(item)} 
-                        className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 hover:border-primary/30 transition-all flex items-center justify-center shrink-0 touch-manipulation active:scale-95"
+                      <button
+                        onClick={() => setSelectedItem(item)}
+                        className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 hover:border-primary/30 transition-all flex items-center justify-center shrink-0 touch-manipulation active:scale-95"
                       >
-                        <MoreVertical className="w-4 h-4 sm:w-5 sm:h-5 text-white/70" />
+                        <MoreVertical className="w-4 h-4 text-white/70" />
                       </button>
                     </div>
                   </div>
-                  <div className="px-3 sm:px-4 pb-3 sm:pb-4">
-                    <div className="flex items-start gap-2 sm:gap-3 p-3 bg-white/5 rounded-lg border border-white/5">
-                      <div className="w-7 h-7 sm:w-8 sm:h-8 bg-primary/20 rounded-full flex items-center justify-center shrink-0"><User className="w-3 h-3 sm:w-4 sm:h-4 text-primary" /></div>
+                  <div className="px-3 pb-3">
+                    <div className="flex items-start gap-2 p-3 bg-white/5 rounded-lg border border-white/5">
+                      <div className="w-7 h-7 bg-primary/20 rounded-full flex items-center justify-center shrink-0"><User className="w-3 h-3 text-primary" /></div>
                       <div className="flex-1 min-w-0">
                         <p className="text-white font-medium text-sm truncate mb-1">{item.customer?.name || 'Guest Customer'}</p>
-                        <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-xs text-white/60">
+                        <div className="flex flex-col gap-1 text-xs text-white/60">
                           {item.customer?.email && <div className="flex items-center gap-1 min-w-0"><Mail className="w-3 h-3 shrink-0" /><span className="truncate">{item.customer.email}</span></div>}
                           {item.customer?.phone && <div className="flex items-center gap-1 shrink-0"><Phone className="w-3 h-3" /><span>{item.customer.phone}</span></div>}
                         </div>
                       </div>
                     </div>
                     {item.type === 'reservation' && item.guestInfo?.pickupSchedule && (
-                      <div className="flex items-center gap-2 sm:gap-3 mt-2 p-2 sm:p-3 bg-purple-500/10 border border-purple-500/20 rounded-lg">
-                        <Calendar className="w-3 h-3 sm:w-4 sm:h-4 text-purple-400 shrink-0" />
-                        <span className="text-xs sm:text-sm text-white/80 truncate"><span className="hidden sm:inline">Pickup: </span>{item.guestInfo.pickupSchedule.date} at {item.guestInfo.pickupSchedule.time}</span>
+                      <div className="flex items-center gap-2 mt-2 p-2 bg-purple-500/10 border border-purple-500/20 rounded-lg">
+                        <Calendar className="w-3 h-3 text-purple-400 shrink-0" />
+                        <span className="text-xs text-white/80 truncate">{item.guestInfo.pickupSchedule.date} at {item.guestInfo.pickupSchedule.time}</span>
                       </div>
                     )}
                   </div>
                 </div>
               ))}
             </div>
+
+            {/* Pagination */}
             {totalPages > 1 && (
               <div className="mt-6 sm:mt-8 flex items-center justify-center gap-3 sm:gap-4">
                 <button onClick={() => { setCurrentPage(p => p - 1); window.scrollTo({ top: 0, behavior: 'smooth' }); }} disabled={currentPage === 1} className={`p-2 sm:p-2.5 rounded-lg border transition-all touch-manipulation ${currentPage === 1 ? 'bg-secondary/40 border-white/10 text-white/40 cursor-not-allowed' : 'bg-secondary border-white/10 text-white hover:bg-white/10 active:scale-95'}`}>
@@ -642,7 +812,7 @@ function AdminOrdersContent() {
 
       <BottomNavbar />
 
-      {/* Bottom Sheet Modal */}
+      {/* Bottom Sheet Modal (mobile) */}
       {selectedItem && (
         <BottomSheetModal
           isOpen={!!selectedItem}
@@ -659,7 +829,7 @@ function AdminOrdersContent() {
 
         const customerName = item.customer?.name || 'Guest Customer';
         const customerPhone = item.customer?.phone;
-        
+
         let smsMessage = '';
         if (pendingAction.type === 'ready_for_pickup') {
           const firstItem = item.items?.[0];
@@ -685,8 +855,8 @@ function AdminOrdersContent() {
           });
         }
 
-        const actionLabel = pendingAction.type === 'ready_for_pickup' 
-          ? 'Mark as Ready for Pickup' 
+        const actionLabel = pendingAction.type === 'ready_for_pickup'
+          ? 'Mark as Ready for Pickup'
           : 'Confirm Reservation';
 
         return (
