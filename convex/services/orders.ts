@@ -475,7 +475,7 @@ export const acknowledgeOrder = mutation({
     );
 
     let user = null;
-    try { user = await ctx.db.get(order.userId); } catch { /* */ }
+    if (order.userId) { try { user = await ctx.db.get(order.userId); } catch { /* */ } }
 
     return {
       receiptType: "acknowledgement" as const,
@@ -532,7 +532,7 @@ export const releaseOrder = mutation({
     );
 
     let user = null;
-    try { user = await ctx.db.get(order.userId); } catch { /* */ }
+    if (order.userId) { try { user = await ctx.db.get(order.userId); } catch { /* */ } }
 
     return {
       receiptType: "release" as const,
@@ -577,7 +577,9 @@ export const getOrderReceipt = query({
     );
 
     let user = null;
-    try { user = await ctx.db.get(order.userId); } catch { /* */ }
+    if (order.userId) {
+      try { user = await ctx.db.get(order.userId); } catch { /* */ }
+    }
 
     return {
       orderCode: generateOrderCode(orderId),
@@ -595,6 +597,7 @@ export const getOrderReceipt = query({
         email: 'Walk-in',
         phone: undefined,
       } : null,
+      salesAssociateName: order.salesAssociateName,
       createdAt: order.createdAt,
       updatedAt: order.updatedAt,
       notes: order.notes,

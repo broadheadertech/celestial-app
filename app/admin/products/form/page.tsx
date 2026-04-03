@@ -602,7 +602,7 @@ function ProductFormContentInner() {
         </button>
       </div>
 
-      <div className="flex-1 px-6 py-6 overflow-y-auto">
+      <div className="flex-1 px-6 py-6 overflow-y-auto max-w-4xl mx-auto">
         {/* Basic Information */}
         <div className="mb-6">
           <h2 className="text-lg font-bold text-white mb-4">Basic Information</h2>

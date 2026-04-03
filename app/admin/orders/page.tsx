@@ -205,6 +205,8 @@ function AdminOrdersContent() {
   const [showAssignSA, setShowAssignSA] = useState<CombinedItem | null>(null);
   const [selectedSAId, setSelectedSAId] = useState('');
   const [selectedSAName, setSelectedSAName] = useState('');
+  const [confirmPrompt, setConfirmPrompt] = useState<{ message: string; action: () => Promise<void> } | null>(null);
+  const [isConfirmProcessing, setIsConfirmProcessing] = useState(false);
 
   const isLoading = ordersQuery === undefined || reservationsQuery === undefined;
 
@@ -321,28 +323,28 @@ function AdminOrdersContent() {
     }
   };
 
-  const handleAcknowledge = async (itemId: string, type: 'order' | 'reservation') => {
-    try {
-      const receipt = type === 'order'
-        ? await acknowledgeOrder({ orderId: itemId as Id<'orders'> })
-        : await acknowledgeReservation({ reservationId: itemId as Id<'reservations'> });
-      setReceiptData(receipt);
-    } catch (error) {
-      console.error('Acknowledge failed:', error);
-      alert(error instanceof Error ? error.message : 'Failed to acknowledge');
-    }
+  const handleAcknowledge = (itemId: string, type: 'order' | 'reservation') => {
+    setConfirmPrompt({
+      message: `Acknowledge this ${type}? This will confirm it and generate a receipt.`,
+      action: async () => {
+        const receipt = type === 'order'
+          ? await acknowledgeOrder({ orderId: itemId as Id<'orders'> })
+          : await acknowledgeReservation({ reservationId: itemId as Id<'reservations'> });
+        setReceiptData(receipt);
+      },
+    });
   };
 
-  const handleRelease = async (itemId: string, type: 'order' | 'reservation') => {
-    try {
-      const receipt = type === 'order'
-        ? await releaseOrder({ orderId: itemId as Id<'orders'> })
-        : await releaseReservation({ reservationId: itemId as Id<'reservations'> });
-      setReceiptData(receipt);
-    } catch (error) {
-      console.error('Release failed:', error);
-      alert(error instanceof Error ? error.message : 'Failed to release');
-    }
+  const handleRelease = (itemId: string, type: 'order' | 'reservation') => {
+    setConfirmPrompt({
+      message: `Release this ${type}? This will mark it as ${type === 'order' ? 'delivered' : 'completed'} and generate a receipt.`,
+      action: async () => {
+        const receipt = type === 'order'
+          ? await releaseOrder({ orderId: itemId as Id<'orders'> })
+          : await releaseReservation({ reservationId: itemId as Id<'reservations'> });
+        setReceiptData(receipt);
+      },
+    });
   };
 
   const handleAssignSA = async () => {
@@ -374,7 +376,7 @@ function AdminOrdersContent() {
       {
         icon: <Eye className="w-5 h-5" />,
         label: 'View Details',
-        onClick: () => router.push(item.type === 'reservation' ? `/admin/reservation-detail?id=${item._id}` : `/admin/orders/${item._id}`),
+        onClick: () => router.push(item.type === 'reservation' ? `/admin/reservation-detail?id=${item._id}` : `/admin/orders/detail?id=${item._id}`),
         variant: 'info',
         show: true,
       },
@@ -423,7 +425,12 @@ function AdminOrdersContent() {
       {
         icon: <XCircle className="w-5 h-5" />,
         label: `Cancel ${item.type === 'order' ? 'Order' : 'Reservation'}`,
-        onClick: () => handleUpdateStatus(item._id, 'cancelled'),
+        onClick: () => {
+          setConfirmPrompt({
+            message: `Cancel this ${item.type}? Stock will be restored. This cannot be undone.`,
+            action: async () => { await handleUpdateStatus(item._id, 'cancelled'); },
+          });
+        },
         variant: 'danger',
         show: ['pending', 'confirmed', 'ready_for_pickup'].includes(item.status),
       },
@@ -545,7 +552,7 @@ function AdminOrdersContent() {
         </div>
       )}
 
-      <div className="px-3 sm:px-6 py-3 sm:py-4">
+      <div className="px-3 sm:px-6 py-3 sm:py-4 max-w-7xl mx-auto">
         <div className="flex items-center justify-between mb-3 sm:mb-4">
           <h2 className="text-sm sm:text-lg font-bold text-white">Items <span className="text-white/60">({filteredItems.length})</span></h2>
           {filteredItems.length === 0 && allItems.length > 0 && <button onClick={() => { setSearchQuery(''); setSelectedStatus('all'); setShowFilters(false); setCurrentPage(1); }} className="px-2.5 sm:px-3 py-1 rounded-lg bg-primary/10 border border-primary text-primary text-[10px] sm:text-xs hover:bg-primary/20 active:scale-95 transition-all touch-manipulation">Clear Filters</button>}
@@ -698,6 +705,40 @@ function AdminOrdersContent() {
           />
         );
       })()}
+
+      {/* Confirmation Prompt */}
+      {confirmPrompt && (
+        <>
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9998]" onClick={() => !isConfirmProcessing && setConfirmPrompt(null)} />
+          <div className="fixed inset-0 flex items-center justify-center z-[9999] p-4">
+            <div className="bg-secondary border border-white/10 rounded-2xl shadow-2xl p-6 w-full max-w-sm">
+              <h3 className="text-lg font-bold text-white mb-2">Confirm Action</h3>
+              <p className="text-sm text-white/70 mb-6">{confirmPrompt.message}</p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setConfirmPrompt(null)}
+                  disabled={isConfirmProcessing}
+                  className="flex-1 px-4 py-3 bg-secondary border border-white/10 text-white rounded-xl font-medium hover:bg-white/10 active:scale-95 transition-all disabled:opacity-50"
+                >
+                  No
+                </button>
+                <button
+                  onClick={async () => {
+                    setIsConfirmProcessing(true);
+                    try { await confirmPrompt.action(); }
+                    catch (e) { alert(e instanceof Error ? e.message : 'Action failed'); }
+                    finally { setIsConfirmProcessing(false); setConfirmPrompt(null); }
+                  }}
+                  disabled={isConfirmProcessing}
+                  className="flex-1 px-4 py-3 bg-primary text-white rounded-xl font-medium hover:bg-primary/90 active:scale-95 transition-all disabled:opacity-50"
+                >
+                  {isConfirmProcessing ? 'Processing...' : 'Yes'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* Assign Sales Associate Modal */}
       {showAssignSA && (

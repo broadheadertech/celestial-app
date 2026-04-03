@@ -179,7 +179,7 @@ function AdminDashboardContent() {
       </div>
 
       {/* Main Content with Safe Area Horizontal */}
-      <div className="px-3 sm:px-6 py-3 sm:py-4">
+      <div className="px-3 sm:px-6 py-3 sm:py-4 max-w-7xl mx-auto">
         {/* Stats Cards - Mobile First Grid */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 mb-4 sm:mb-6">
           {statsCards.map((stat) => {

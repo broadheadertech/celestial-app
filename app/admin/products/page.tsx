@@ -536,7 +536,7 @@ function AdminProductsContent() {
       )}
       
       {/* Products List with Safe Area */}
-      <div className="px-3 sm:px-6 py-3 sm:py-4">
+      <div className="px-3 sm:px-6 py-3 sm:py-4 max-w-7xl mx-auto">
         <div className="flex items-center justify-between mb-3 sm:mb-4">
           <h2 className="text-sm sm:text-lg font-bold text-white">
             Products <span className="text-white/60">({filteredProducts.length})</span>
