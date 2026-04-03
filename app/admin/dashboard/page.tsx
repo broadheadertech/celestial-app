@@ -132,24 +132,6 @@ function AdminDashboardContent() {
         color: 'text-warning',
         bgColor: 'bg-warning/15'
       },
-      {
-        id: 'reservations',
-        title: 'Reservations',
-        value: dashboardStats.totalReservations?.toString() || '0',
-        change: `${dashboardStats.pendingReservations || 0} pending`,
-        icon: Activity,
-        color: 'text-purple-400',
-        bgColor: 'bg-purple-500/15'
-      },
-      {
-        id: 'users',
-        title: 'Total Users',
-        value: dashboardStats.totalUsers?.toString() || '0',
-        change: `+${newUsers} this month`,
-        icon: Users,
-        color: 'text-primary',
-        bgColor: 'bg-primary/15'
-      }
     ];
   }, [dashboardStats]);
 

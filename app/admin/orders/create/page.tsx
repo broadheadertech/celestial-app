@@ -130,13 +130,14 @@ function CreateOrderContent() {
   };
 
   const handleSubmit = async () => {
-    if (orderItems.length === 0 || !selectedUserId) return;
+    if (orderItems.length === 0) return;
+    if (!selectedUserId && !customerName.trim()) return;
 
     setIsSubmitting(true);
     try {
       // Create the order
       const result = await adminCreateOrder({
-        userId: selectedUserId as Id<"users">,
+        userId: selectedUserId ? selectedUserId as Id<"users"> : undefined,
         items: orderItems.map(i => ({
           productId: i.productId as Id<"products">,
           quantity: i.quantity,
@@ -479,10 +480,24 @@ function CreateOrderContent() {
             <span className="text-base font-bold text-white">Total</span>
             <span className="text-lg font-bold text-primary">{formatCurrency(totalAmount)}</span>
           </div>
+          {/* Validation message */}
+          {(orderItems.length === 0 || (!selectedUserId && !customerName.trim())) && (
+            <p className="text-xs text-error mb-2 text-center">
+              {orderItems.length === 0 && (!selectedUserId && !customerName.trim())
+                ? 'Add products and enter a customer name or select a customer'
+                : orderItems.length === 0
+                ? 'Add at least one product'
+                : 'Select a customer or enter a walk-in name'}
+            </p>
+          )}
           <button
             onClick={handleSubmit}
-            disabled={orderItems.length === 0 || !selectedUserId || isSubmitting}
-            className="w-full px-4 py-3 rounded-xl bg-primary text-white font-bold text-sm hover:bg-primary/90 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            disabled={orderItems.length === 0 || (!selectedUserId && !customerName.trim()) || isSubmitting}
+            className={`w-full px-4 py-3 rounded-xl font-bold text-sm active:scale-95 transition-all flex items-center justify-center gap-2 ${
+              orderItems.length === 0 || (!selectedUserId && !customerName.trim())
+                ? 'bg-white/10 text-white/30 cursor-not-allowed'
+                : 'bg-primary text-white hover:bg-primary/90'
+            }`}
           >
             {isSubmitting ? (
               <>

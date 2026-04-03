@@ -95,7 +95,7 @@ export default defineSchema({
     .index("by_product", ["productId"]),
 
   orders: defineTable({
-    userId: v.id("users"),
+    userId: v.optional(v.id("users")), // Optional for walk-in orders
     status: v.union(
       v.literal("pending"),
       v.literal("confirmed"),
@@ -118,6 +118,7 @@ export default defineSchema({
       country: v.string(),
     }),
     paymentMethod: v.string(),
+    customerName: v.optional(v.string()), // For walk-in customers without an account
     notes: v.optional(v.string()),
     // Sales associate tracking (for incentive programs)
     salesAssociateId: v.optional(v.id("users")),

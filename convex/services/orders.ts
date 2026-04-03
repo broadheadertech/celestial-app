@@ -249,7 +249,7 @@ export const cancelOrder = mutation({
       throw new Error("Order not found");
     }
 
-    if (order.userId !== userId) {
+    if (order.userId && order.userId !== userId) {
       throw new Error("You can only cancel your own orders");
     }
 
@@ -364,7 +364,7 @@ function generateOrderCode(id: string): string {
 // Admin: Create order on behalf of a customer (walk-in / in-store)
 export const adminCreateOrder = mutation({
   args: {
-    userId: v.id("users"),
+    userId: v.optional(v.id("users")),
     items: v.array(v.object({
       productId: v.id("products"),
       quantity: v.number(),
@@ -417,7 +417,7 @@ export const adminCreateOrder = mutation({
 
     // Use a placeholder address for in-store orders
     const orderId = await ctx.db.insert("orders", {
-      userId,
+      userId: userId || undefined,
       status: "pending",
       items: orderItems,
       totalAmount,
@@ -429,9 +429,8 @@ export const adminCreateOrder = mutation({
         country: "Philippines",
       },
       paymentMethod,
-      notes: customerName
-        ? `Walk-in Customer: ${customerName}\n${notes || ''}`
-        : notes,
+      customerName: customerName || undefined,
+      notes,
       salesAssociateId,
       salesAssociateName,
       createdAt: now,
@@ -490,6 +489,10 @@ export const acknowledgeOrder = mutation({
         name: `${user.firstName} ${user.lastName}`,
         email: user.email,
         phone: user.phone,
+      } : order.customerName ? {
+        name: order.customerName,
+        email: 'Walk-in',
+        phone: undefined,
       } : null,
       acknowledgedAt: now,
       createdAt: order.createdAt,
@@ -543,6 +546,10 @@ export const releaseOrder = mutation({
         name: `${user.firstName} ${user.lastName}`,
         email: user.email,
         phone: user.phone,
+      } : order.customerName ? {
+        name: order.customerName,
+        email: 'Walk-in',
+        phone: undefined,
       } : null,
       releasedAt: now,
       acknowledgedAt: order.updatedAt,
@@ -583,6 +590,10 @@ export const getOrderReceipt = query({
         name: `${user.firstName} ${user.lastName}`,
         email: user.email,
         phone: user.phone,
+      } : order.customerName ? {
+        name: order.customerName,
+        email: 'Walk-in',
+        phone: undefined,
       } : null,
       createdAt: order.createdAt,
       updatedAt: order.updatedAt,
