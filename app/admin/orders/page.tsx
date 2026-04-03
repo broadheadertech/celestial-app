@@ -34,6 +34,8 @@ import { Id } from '@/convex/_generated/dataModel';
 import { SMSConfirmationModal } from '@/components/modal/SMSConfirmationModal';
 import { getSMSMessageForStatus } from '@/lib/sms';
 import OrderReceipt from '@/components/admin/OrderReceipt';
+import DesktopDrawer from '@/components/admin/DesktopDrawer';
+import CreateOrderForm from '@/components/admin/CreateOrderForm';
 
 const ITEMS_PER_PAGE = 15;
 
@@ -260,6 +262,7 @@ function AdminOrdersContent() {
   const staffUsers = useQuery(api.services.admin.getStaffUsers, {});
 
   const [receiptData, setReceiptData] = useState<any>(null);
+  const [showCreateDrawer, setShowCreateDrawer] = useState(false);
   const [showAssignSA, setShowAssignSA] = useState<CombinedItem | null>(null);
   const [selectedSAId, setSelectedSAId] = useState('');
   const [selectedSAName, setSelectedSAName] = useState('');
@@ -544,12 +547,20 @@ function AdminOrdersContent() {
               </div>
             </div>
             <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+              {/* Mobile: navigate to page */}
               <button
                 onClick={() => router.push('/admin/orders/create')}
-                className="px-3 py-2 rounded-lg bg-primary text-white text-xs sm:text-sm font-medium hover:bg-primary/90 active:scale-95 transition-all touch-manipulation flex items-center gap-1.5"
+                className="sm:hidden px-3 py-2 rounded-lg bg-primary text-white text-xs font-medium hover:bg-primary/90 active:scale-95 transition-all touch-manipulation flex items-center gap-1.5"
               >
                 <Plus className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">New Order</span>
+              </button>
+              {/* Desktop: open drawer */}
+              <button
+                onClick={() => setShowCreateDrawer(true)}
+                className="hidden sm:flex px-3 py-2 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary/90 active:scale-95 transition-all items-center gap-1.5"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                New Order
               </button>
               <button onClick={() => { setIsRefreshing(true); setTimeout(() => setIsRefreshing(false), 1000); }} disabled={isRefreshing} className="p-2 sm:px-3 sm:py-2 rounded-lg bg-secondary/60 border border-white/10 hover:bg-secondary/80 active:scale-95 transition-all touch-manipulation">
                 <RefreshCw className={`w-3.5 h-3.5 sm:w-4 sm:h-4 text-white ${isRefreshing ? 'animate-spin' : ''}`} />
@@ -952,6 +963,17 @@ function AdminOrdersContent() {
           </div>
         </>
       )}
+
+      {/* Create Order Drawer (Desktop) */}
+      <DesktopDrawer
+        isOpen={showCreateDrawer}
+        onClose={() => setShowCreateDrawer(false)}
+        title="Create Order"
+        subtitle="Walk-in / In-store order"
+        width="max-w-xl"
+      >
+        <CreateOrderForm onSuccess={() => setShowCreateDrawer(false)} />
+      </DesktopDrawer>
 
       {/* Order Receipt Modal */}
       {receiptData && (
