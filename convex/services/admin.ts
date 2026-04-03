@@ -56,15 +56,53 @@ export const getDashboardStats = query({
     const products = await ctx.db.query("products").collect();
     const activeProducts = products.filter(product => product.isActive).length;
     
+    // Calculate Total Sales (revenue from all non-cancelled orders + completed reservations)
+    const nonCancelledOrders = orders.filter(o => o.status !== 'cancelled');
+    const totalSales = nonCancelledOrders.reduce((sum, order) => sum + order.totalAmount, 0)
+      + completedReservations.reduce((sum, r) => sum + (r.totalAmount || 0), 0);
+
+    // Calculate Gross Profit = Sales - Cost
+    // For each sold item, profit = (selling price - cost price) * quantity
+    let totalCost = 0;
+
+    // Cost from orders
+    for (const order of nonCancelledOrders) {
+      for (const item of order.items) {
+        const product = await ctx.db.get(item.productId);
+        if (product?.costPrice) {
+          totalCost += product.costPrice * item.quantity;
+        }
+      }
+    }
+
+    // Cost from completed reservations
+    for (const reservation of completedReservations) {
+      if (reservation.items && reservation.items.length > 0) {
+        for (const item of reservation.items) {
+          const product = await ctx.db.get(item.productId);
+          if (product?.costPrice) {
+            totalCost += product.costPrice * item.quantity;
+          }
+        }
+      }
+    }
+
+    const grossProfit = totalSales - totalCost;
+    const totalOrdersCount = orders.length; // Orders only (not reservations)
+
     return {
       totalRevenue,
+      totalSales,
+      totalCost,
+      grossProfit,
       totalUsers,
       newUsersThisMonth,
       // Primary reservation stats
       totalReservations,
       pendingReservations,
-      // Legacy combined stats
+      // Combined stats
       totalOrders,
+      totalOrdersCount, // Orders only
       pendingOrders,
       activeProducts,
       totalProducts: products.length,
@@ -270,6 +308,7 @@ export const createProduct = mutation({
     name: v.string(),
     description: v.optional(v.string()),
     price: v.number(),
+    costPrice: v.optional(v.number()),
     originalPrice: v.optional(v.number()),
     categoryId: v.id("categories"),
     image: v.string(),
@@ -410,6 +449,7 @@ export const updateProduct = mutation({
     name: v.optional(v.string()),
     description: v.optional(v.string()),
     price: v.optional(v.number()),
+    costPrice: v.optional(v.number()),
     originalPrice: v.optional(v.number()),
     categoryId: v.optional(v.id("categories")),
     image: v.optional(v.string()),

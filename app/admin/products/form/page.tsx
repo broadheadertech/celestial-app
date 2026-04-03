@@ -22,6 +22,7 @@ interface ProductFormData {
   name: string;
   description: string;
   price: string;
+  costPrice: string;
   originalPrice: string;
   categoryId: string;
   category: string;
@@ -71,6 +72,7 @@ const initialFormData: ProductFormData = {
   name: '',
   description: '',
   price: '',
+  costPrice: '',
   originalPrice: '',
   categoryId: '',
   category: '',
@@ -199,6 +201,7 @@ function ProductFormContentInner() {
         name: existingProduct.name,
         description: existingProduct.description || '',
         price: existingProduct.price.toString(),
+        costPrice: existingProduct.costPrice?.toString() || '',
         originalPrice: existingProduct.originalPrice?.toString() || existingProduct.price.toString(),
         categoryId: existingProduct.categoryId,
         category: category?.name || '',
@@ -406,6 +409,7 @@ function ProductFormContentInner() {
         name: formData.name.trim(),
         description: formData.description.trim() || undefined,
         price: parseFloat(formData.price),
+        costPrice: formData.costPrice ? parseFloat(formData.costPrice) : undefined,
         originalPrice: formData.originalPrice ? parseFloat(formData.originalPrice) : undefined,
         categoryId: categoryId as any,
         certificate: certificateString,
@@ -663,15 +667,27 @@ function ProductFormContentInner() {
               />
             </div>
             <div className="flex-1">
-              {renderFormField('Original Price (₱)')}
+              {renderFormField('Cost Price (₱)')}
               <input
                 className="w-full p-4 rounded-lg bg-secondary border border-primary/10 text-white placeholder:text-muted"
                 placeholder="0.00"
                 type="number"
-                value={formData.originalPrice}
-                onChange={(e) => handleInputChange('originalPrice', e.target.value)}
+                value={formData.costPrice}
+                onChange={(e) => handleInputChange('costPrice', e.target.value)}
               />
             </div>
+          </div>
+
+          {/* Original Price (for discount display) */}
+          <div className="mb-4">
+            {renderFormField('Original Price / Before Discount (₱)')}
+            <input
+              className="w-full p-4 rounded-lg bg-secondary border border-primary/10 text-white placeholder:text-muted"
+              placeholder="Leave blank if no discount"
+              type="number"
+              value={formData.originalPrice}
+              onChange={(e) => handleInputChange('originalPrice', e.target.value)}
+            />
           </div>
 
           {/* Stock and SKU */}

@@ -88,29 +88,40 @@ function AdminDashboardContent() {
   const statsCards = useMemo(() => {
     if (!dashboardStats) return [];
 
-    const revenueChange = dashboardStats.totalRevenue > 0 ? '+8.2%' : '0%';
     const pendingCount = dashboardStats.pendingOrders || 0;
     const totalProducts = dashboardStats.totalProducts || 0;
     const newUsers = dashboardStats.newUsersThisMonth || 0;
+    const profitMargin = dashboardStats.totalSales > 0
+      ? ((dashboardStats.grossProfit / dashboardStats.totalSales) * 100).toFixed(1)
+      : '0';
 
     return [
       {
-        id: 'revenue',
-        title: 'Total Revenue',
-        value: formatCurrency(dashboardStats.totalRevenue || 0),
-        change: revenueChange,
+        id: 'sales',
+        title: 'Total Sales',
+        value: formatCurrency(dashboardStats.totalSales || 0),
+        change: `${dashboardStats.totalOrdersCount || 0} orders`,
         icon: DollarSign,
         color: 'text-success',
         bgColor: 'bg-success/15'
       },
       {
         id: 'orders',
-        title: 'Orders & Reservations',
-        value: dashboardStats.totalOrders?.toString() || '0',
+        title: 'Total Orders',
+        value: dashboardStats.totalOrdersCount?.toString() || '0',
         change: `+${pendingCount} pending`,
         icon: ShoppingBag,
         color: 'text-info',
         bgColor: 'bg-info/15'
+      },
+      {
+        id: 'profit',
+        title: 'Gross Profit',
+        value: formatCurrency(dashboardStats.grossProfit || 0),
+        change: `${profitMargin}% margin`,
+        icon: BarChart3,
+        color: 'text-primary',
+        bgColor: 'bg-primary/15'
       },
       {
         id: 'products',
@@ -120,6 +131,15 @@ function AdminDashboardContent() {
         icon: Package,
         color: 'text-warning',
         bgColor: 'bg-warning/15'
+      },
+      {
+        id: 'reservations',
+        title: 'Reservations',
+        value: dashboardStats.totalReservations?.toString() || '0',
+        change: `${dashboardStats.pendingReservations || 0} pending`,
+        icon: Activity,
+        color: 'text-purple-400',
+        bgColor: 'bg-purple-500/15'
       },
       {
         id: 'users',

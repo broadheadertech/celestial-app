@@ -39,6 +39,7 @@ export default defineSchema({
     name: v.string(),
     description: v.optional(v.string()),
     price: v.number(),
+    costPrice: v.optional(v.number()), // Cost/acquisition price for gross profit calculation
     originalPrice: v.optional(v.number()),
     categoryId: v.id("categories"),
     image: v.string(),
