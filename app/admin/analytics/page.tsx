@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import React from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from 'convex/react';
 import { api } from '@/convex/_generated/api';
@@ -9,17 +9,15 @@ import SafeAreaProvider from '@/components/provider/SafeAreaProvider';
 import {
   ArrowLeft,
   BarChart3,
-  Filter,
   TrendingUp,
   DollarSign,
   Users,
   Package,
   ShoppingBag,
   Target,
-  Calendar,
   RefreshCw,
-  Eye,
-  MoreVertical,
+  Sparkles,
+  Brain,
 } from 'lucide-react';
 import {
   BarChart,
@@ -39,7 +37,6 @@ import Button from '@/components/ui/Button';
 
 function AdminAnalyticsContent() {
   const router = useRouter();
-  const [isLoading, setIsLoading] = useState(false);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(amount);
@@ -54,6 +51,9 @@ function AdminAnalyticsContent() {
   const stockSummary = useQuery(api.services.stock.getStockSummary);
 
   const dataReady = kpis && revenueData && topProducts;
+
+  // AI Insights — purely data-driven, no external API
+  const insightsData = useQuery(api.services.aiInsights.generateInsights, {});
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -86,13 +86,12 @@ function AdminAnalyticsContent() {
               </div>
             </div>
             <Button
-              onClick={() => { setIsLoading(true); setTimeout(() => setIsLoading(false), 1000); }}
+              onClick={() => window.location.reload()}
               variant="outline"
               size="sm"
-              disabled={isLoading}
               className="text-sm px-3 py-1.5"
             >
-              <RefreshCw className={`w-3 h-3 mr-1.5 ${isLoading ? 'animate-spin' : ''}`} />
+              <RefreshCw className="w-3 h-3 mr-1.5" />
               Refresh
             </Button>
           </div>
@@ -334,6 +333,96 @@ function AdminAnalyticsContent() {
           </div>
         </div>
       )}
+
+        {/* Business Insights Section — data-driven, real-time */}
+        {insightsData && (
+          <div className="px-4 sm:px-6 pb-6 space-y-4">
+            {/* Data Quality Alerts */}
+            {insightsData.insights.dataQuality.length > 0 && (
+              <div className="bg-warning/5 rounded-xl p-4 border border-warning/20">
+                <h3 className="text-sm font-bold text-warning mb-2 flex items-center gap-2">
+                  <Sparkles className="w-4 h-4" />
+                  Data Quality Issues
+                </h3>
+                <div className="space-y-1.5">
+                  {insightsData.insights.dataQuality.map((item: string, i: number) => (
+                    <p key={i} className="text-xs sm:text-sm text-warning/80 flex gap-2">
+                      <span className="text-warning flex-shrink-0">!</span>
+                      <span>{item}</span>
+                    </p>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Insights Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {/* Descriptive */}
+              <div className="bg-blue-500/5 rounded-xl p-4 border border-blue-500/20">
+                <h3 className="text-sm font-bold text-blue-400 mb-3 flex items-center gap-2 pb-2 border-b border-blue-500/20">
+                  <BarChart3 className="w-4 h-4" />
+                  Descriptive — What Happened?
+                </h3>
+                <div className="space-y-1.5">
+                  {insightsData.insights.descriptive.map((item: string, i: number) => (
+                    <p key={i} className="text-xs sm:text-sm text-white/80 flex gap-2">
+                      <span className="text-blue-400 flex-shrink-0">•</span>
+                      <span>{item}</span>
+                    </p>
+                  ))}
+                </div>
+              </div>
+
+              {/* Diagnostic */}
+              <div className="bg-yellow-500/5 rounded-xl p-4 border border-yellow-500/20">
+                <h3 className="text-sm font-bold text-yellow-400 mb-3 flex items-center gap-2 pb-2 border-b border-yellow-500/20">
+                  <Brain className="w-4 h-4" />
+                  Diagnostic — Why Did It Happen?
+                </h3>
+                <div className="space-y-1.5">
+                  {insightsData.insights.diagnostic.map((item: string, i: number) => (
+                    <p key={i} className="text-xs sm:text-sm text-white/80 flex gap-2">
+                      <span className="text-yellow-400 flex-shrink-0">•</span>
+                      <span>{item}</span>
+                    </p>
+                  ))}
+                </div>
+              </div>
+
+              {/* Predictive */}
+              <div className="bg-purple-500/5 rounded-xl p-4 border border-purple-500/20">
+                <h3 className="text-sm font-bold text-purple-400 mb-3 flex items-center gap-2 pb-2 border-b border-purple-500/20">
+                  <TrendingUp className="w-4 h-4" />
+                  Predictive — What Will Happen?
+                </h3>
+                <div className="space-y-1.5">
+                  {insightsData.insights.predictive.map((item: string, i: number) => (
+                    <p key={i} className="text-xs sm:text-sm text-white/80 flex gap-2">
+                      <span className="text-purple-400 flex-shrink-0">•</span>
+                      <span>{item}</span>
+                    </p>
+                  ))}
+                </div>
+              </div>
+
+              {/* Prescriptive */}
+              <div className="bg-green-500/5 rounded-xl p-4 border border-green-500/20">
+                <h3 className="text-sm font-bold text-green-400 mb-3 flex items-center gap-2 pb-2 border-b border-green-500/20">
+                  <Sparkles className="w-4 h-4" />
+                  Prescriptive — What Should We Do?
+                </h3>
+                <div className="space-y-1.5">
+                  {insightsData.insights.prescriptive.map((item: string, i: number) => (
+                    <p key={i} className="text-xs sm:text-sm text-white/80 flex gap-2">
+                      <span className="text-green-400 flex-shrink-0">•</span>
+                      <span>{item}</span>
+                    </p>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
       <BottomNavbar />
 
