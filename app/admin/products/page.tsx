@@ -1292,11 +1292,11 @@ function AdminProductsContent() {
             onClick={() => setSelectedProduct(null)}
           />
 
-          {/* Bottom Sheet */}
-          <div className="fixed bottom-0 left-0 right-0 z-50 animate-in slide-in-from-bottom duration-300 safe-area-bottom">
-            <div className="bg-secondary/95 backdrop-blur-md border-t border-white/10 rounded-t-3xl shadow-2xl">
-              {/* Handle Bar */}
-              <div className="flex justify-center pt-3 pb-2">
+          {/* Bottom Sheet / Desktop Dialog */}
+          <div className="fixed bottom-0 left-0 right-0 sm:inset-0 sm:flex sm:items-center sm:justify-center z-50 animate-in slide-in-from-bottom sm:animate-in sm:fade-in duration-300 safe-area-bottom">
+            <div className="bg-secondary/95 backdrop-blur-md border-t sm:border border-white/10 rounded-t-3xl sm:rounded-2xl shadow-2xl sm:w-full sm:max-w-md sm:mx-4 sm:max-h-[80vh] sm:overflow-y-auto">
+              {/* Handle Bar - mobile only */}
+              <div className="flex justify-center pt-3 pb-2 sm:hidden">
                 <div className="w-12 h-1.5 bg-white/20 rounded-full" />
               </div>
 

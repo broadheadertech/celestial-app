@@ -779,9 +779,9 @@ function InventoryContent() {
             className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 animate-in fade-in duration-200"
             onClick={() => setShowAddBatch(false)}
           />
-          <div className="fixed bottom-0 left-0 right-0 z-50 animate-in slide-in-from-bottom duration-300 safe-area-bottom">
-            <div className="bg-secondary/95 backdrop-blur-md border-t border-white/10 rounded-t-3xl shadow-2xl p-4 sm:p-6 max-h-[80vh] overflow-y-auto">
-              <div className="flex justify-center pt-2 pb-4">
+          <div className="fixed bottom-0 left-0 right-0 sm:inset-0 sm:flex sm:items-center sm:justify-center z-50 animate-in slide-in-from-bottom sm:animate-in sm:fade-in duration-300 safe-area-bottom">
+            <div className="bg-secondary/95 backdrop-blur-md border-t sm:border border-white/10 rounded-t-3xl sm:rounded-2xl shadow-2xl p-4 sm:p-6 max-h-[80vh] overflow-y-auto sm:w-full sm:max-w-md sm:mx-4">
+              <div className="flex justify-center pt-2 pb-4 sm:hidden">
                 <div className="w-12 h-1.5 bg-white/20 rounded-full" />
               </div>
               <h3 className="text-lg font-bold text-white mb-1">Add New Stock</h3>
@@ -882,9 +882,9 @@ function InventoryContent() {
             className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 animate-in fade-in duration-200"
             onClick={() => { setShowAdjustModal(false); setAdjustRecordId(null); }}
           />
-          <div className="fixed bottom-0 left-0 right-0 z-50 animate-in slide-in-from-bottom duration-300 safe-area-bottom">
-            <div className="bg-secondary/95 backdrop-blur-md border-t border-white/10 rounded-t-3xl shadow-2xl p-4 sm:p-6">
-              <div className="flex justify-center pt-2 pb-4">
+          <div className="fixed bottom-0 left-0 right-0 sm:inset-0 sm:flex sm:items-center sm:justify-center z-50 animate-in slide-in-from-bottom sm:animate-in sm:fade-in duration-300 safe-area-bottom">
+            <div className="bg-secondary/95 backdrop-blur-md border-t sm:border border-white/10 rounded-t-3xl sm:rounded-2xl shadow-2xl p-4 sm:p-6 sm:w-full sm:max-w-md sm:mx-4">
+              <div className="flex justify-center pt-2 pb-4 sm:hidden">
                 <div className="w-12 h-1.5 bg-white/20 rounded-full" />
               </div>
               <h3 className="text-lg font-bold text-white mb-1">Adjust Stock</h3>
