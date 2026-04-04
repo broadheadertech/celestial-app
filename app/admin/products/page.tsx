@@ -27,6 +27,8 @@ import { useQuery, useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import BottomNavbar from '@/components/common/BottomNavbar';
 import SafeAreaProvider from '@/components/provider/SafeAreaProvider';
+import DesktopDrawer from '@/components/admin/DesktopDrawer';
+import { Suspense } from 'react';
 
 const ITEMS_PER_PAGE = 15;
 
@@ -146,6 +148,9 @@ function AdminProductsContent() {
   const [showFilters, setShowFilters] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
+
+  // Add product drawer state (desktop)
+  const [showAddProductDrawer, setShowAddProductDrawer] = useState(false);
 
   // Restock modal state
   const [showRestockModal, setShowRestockModal] = useState(false);
@@ -474,13 +479,20 @@ function AdminProductsContent() {
                 <span className="text-xs sm:text-sm font-medium hidden xs:inline">Inventory</span>
               </button>
 
-              {/* Add Product Button */}
+              {/* Add Product - Mobile: navigate, Desktop: drawer */}
               <button
                 onClick={() => router.push('/admin/products/form')}
-                className="px-2.5 sm:px-4 py-2 rounded-lg bg-primary text-white flex items-center gap-1 sm:gap-2 hover:bg-primary/90 active:scale-95 transition-all touch-manipulation"
+                className="sm:hidden px-2.5 py-2 rounded-lg bg-primary text-white flex items-center gap-1 hover:bg-primary/90 active:scale-95 transition-all touch-manipulation"
               >
-                <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                <span className="text-xs sm:text-sm font-medium">Add</span>
+                <Plus className="w-3.5 h-3.5" />
+                <span className="text-xs font-medium">Add</span>
+              </button>
+              <button
+                onClick={() => setShowAddProductDrawer(true)}
+                className="hidden sm:flex px-4 py-2 rounded-lg bg-primary text-white items-center gap-2 hover:bg-primary/90 active:scale-95 transition-all"
+              >
+                <Plus className="w-4 h-4" />
+                <span className="text-sm font-medium">Add Product</span>
               </button>
             </div>
           </div>
@@ -1434,8 +1446,27 @@ function AdminProductsContent() {
           }
         }
       `}</style>
+
+      {/* Add Product Drawer (Desktop) */}
+      <DesktopDrawer
+        isOpen={showAddProductDrawer}
+        onClose={() => setShowAddProductDrawer(false)}
+        title="Add Product"
+        subtitle="Create a new product"
+        width="max-w-2xl"
+      >
+        <Suspense fallback={<div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin" /></div>}>
+          <ProductFormInDrawer onSuccess={() => setShowAddProductDrawer(false)} />
+        </Suspense>
+      </DesktopDrawer>
     </div>
   );
+}
+
+// Lazy wrapper for product form inside drawer
+function ProductFormInDrawer({ onSuccess }: { onSuccess: () => void }) {
+  const { ProductFormContentInner } = require('@/app/admin/products/form/page');
+  return <ProductFormContentInner isDrawer onSuccess={onSuccess} />;
 }
 
 // Main Export with SafeAreaProvider

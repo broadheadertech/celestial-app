@@ -110,10 +110,16 @@ const initialFormData: ProductFormData = {
   filtration: ''
 };
 
-function ProductFormContentInner() {
+interface ProductFormProps {
+  editProductId?: string | null;
+  onSuccess?: () => void;
+  isDrawer?: boolean;
+}
+
+export function ProductFormContentInner({ editProductId, onSuccess, isDrawer }: ProductFormProps = {}) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const productId = searchParams.get('id');
+  const productId = editProductId !== undefined ? editProductId : searchParams.get('id');
   const isEditing = !!productId;
 
   // State
@@ -509,7 +515,11 @@ function ProductFormContentInner() {
       }
 
       showConfirmation('Success', `Product ${isEditing ? 'updated' : 'created'} successfully!`, 'success');
-      router.push('/admin/products');
+      if (onSuccess) {
+        onSuccess();
+      } else {
+        router.push('/admin/products');
+      }
     } catch (error) {
       console.error('Error saving product:', error);
       showConfirmation('Error', `Failed to ${isEditing ? 'update' : 'create'} product. Please try again.`, 'error');
@@ -578,8 +588,9 @@ function ProductFormContentInner() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header with Safe Area */}
+    <div className={isDrawer ? '' : 'min-h-screen bg-background'}>
+      {/* Header with Safe Area - hidden in drawer mode */}
+      {!isDrawer && (
       <div className="mt-2 flex items-center justify-between px-6 py-4 border-b border-white/10 safe-area-top">
         <button
           onClick={() => router.back()}
@@ -601,8 +612,24 @@ function ProductFormContentInner() {
           </span>
         </button>
       </div>
+      )}
 
-      <div className="flex-1 px-4 sm:px-6 py-6 overflow-y-auto max-w-5xl mx-auto">
+      {/* Save button for drawer mode */}
+      {isDrawer && (
+        <div className="sticky top-0 z-10 flex items-center justify-between px-6 py-3 border-b border-white/10 bg-background">
+          <h3 className="text-sm font-bold text-white">{isEditing ? 'Edit Product' : 'New Product'}</h3>
+          <button
+            onClick={handleSaveProduct}
+            disabled={formLoading}
+            className="px-4 py-2 rounded-lg flex items-center gap-2 bg-primary hover:bg-primary/90 transition-colors disabled:opacity-50"
+          >
+            <Save className="w-4 h-4 text-white" />
+            <span className="text-sm font-medium text-white">{formLoading ? 'Saving...' : 'Save'}</span>
+          </button>
+        </div>
+      )}
+
+      <div className={`flex-1 ${isDrawer ? 'px-4 py-4' : 'px-4 sm:px-6 py-6'} overflow-y-auto max-w-5xl mx-auto`}>
         {/* Desktop: two-column layout */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
