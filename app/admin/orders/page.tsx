@@ -620,7 +620,7 @@ function AdminOrdersContent() {
               </div>
               <div>
                 <label className="block text-xs sm:text-sm font-medium text-white mb-2">Status</label>
-                <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1">
+                <div className="flex gap-2 overflow-x-auto sm:flex-wrap scrollbar-hide pb-1">
                   {[{ value: 'all', label: 'All Status' }, { value: 'pending', label: 'Pending' }, { value: 'confirmed', label: 'Confirmed' }, { value: 'ready_for_pickup', label: 'Ready for Pickup' }, { value: 'processing', label: 'Processing' }, { value: 'completed', label: 'Completed' }, { value: 'cancelled', label: 'Cancelled' }].map((status) => (
                     <button key={status.value} onClick={() => setSelectedStatus(status.value)} className={`flex-shrink-0 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm border transition-all active:scale-95 touch-manipulation whitespace-nowrap ${selectedStatus === status.value ? 'bg-primary border-primary text-white' : 'bg-secondary/60 border-white/10 text-white/70 hover:text-white hover:border-primary/20'}`}>{status.label}</button>
                   ))}

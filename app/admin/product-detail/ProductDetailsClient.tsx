@@ -183,151 +183,122 @@ function ProductDetailsContent() {
       </div>
 
       <div className="flex-1 overflow-y-auto pb-6">
-        {/* Product Images */}
-        <div className="px-4 sm:px-6 pt-4 sm:pt-6 mb-4 sm:mb-6">
-          <div className="rounded-xl sm:rounded-2xl overflow-hidden mb-3 sm:mb-4 relative bg-[#1A1A1A]">
-            <div className="relative w-full h-64 sm:h-80 md:h-96">
-              <Image
-                src={displayImages[activeImageIndex]}
-                alt={product.name}
-                fill
-                className="object-contain sm:object-cover"
-                unoptimized={true}
-                onError={(e) => {
-                  console.error('Image load error:', e);
-                  const target = e.target as HTMLImageElement;
-                  target.src = '/img/logo-app.png';
-                }}
-              />
-            </div>
-            
-            {discount > 0 && (
-              <div className="absolute top-3 sm:top-4 left-3 sm:left-4 px-2 py-1 rounded-lg bg-[#EF4444] shadow-lg">
-                <span className="font-bold text-xs text-white">-{discount}%</span>
-              </div>
-            )}
-            
-            {product.badge && (
-              <div className="absolute top-3 sm:top-4 right-3 sm:right-4 px-2 py-1 rounded-lg bg-[#FF6B00] shadow-lg">
-                <span className="font-bold text-xs text-white">{product.badge}</span>
-              </div>
-            )}
+        {/* Desktop: two-column layout | Mobile: stacked */}
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-4 sm:pt-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
 
-            {product.certificate && (
-              <button
-                onClick={handleViewCertificate}
-                className="absolute bottom-3 sm:bottom-4 right-3 sm:right-4 w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center bg-[#10B981]/80 hover:bg-[#10B981] active:scale-95 transition-all shadow-lg"
-                aria-label="View certificate"
-              >
-                <Award size={18} color="#FFFFFF" className="sm:w-5 sm:h-5" />
-              </button>
-            )}
-          </div>
-          
-          {/* Image Thumbnails */}
-          {displayImages.length > 1 && (
-            <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-2 -mx-4 px-4 sm:mx-0 sm:px-0">
-              {displayImages.map((imageUrl, index) => (
-                <button
-                  key={index}
-                  onClick={() => setActiveImageIndex(index)}
-                  className={`flex-shrink-0 w-14 h-14 sm:w-16 sm:h-16 rounded-lg overflow-hidden border-2 transition-all active:scale-95 ${
-                    activeImageIndex === index ? 'border-[#FF6B00] shadow-lg' : 'border-transparent opacity-60'
-                  }`}
-                >
-                  <div className="relative w-full h-full bg-[#1A1A1A]">
-                    <Image
-                      src={imageUrl}
-                      alt={`${product.name} ${index + 1}`}
-                      fill
-                      className="object-cover"
-                      unoptimized={true}
-                      onError={(e) => {
-                        console.error('Thumbnail image load error:', e);
-                        const target = e.target as HTMLImageElement;
-                        target.src = '/img/logo-app.png';
-                      }}
-                    />
+            {/* Left: Images */}
+            <div>
+              <div className="rounded-xl sm:rounded-2xl overflow-hidden mb-3 relative bg-[#1A1A1A]">
+                <div className="relative w-full h-64 sm:h-80 lg:h-[400px]">
+                  <Image
+                    src={displayImages[activeImageIndex]}
+                    alt={product.name}
+                    fill
+                    className="object-contain"
+                    unoptimized={true}
+                    onError={(e) => { const t = e.target as HTMLImageElement; t.src = '/img/logo-app.png'; }}
+                  />
+                </div>
+                {discount > 0 && (
+                  <div className="absolute top-3 left-3 px-2 py-1 rounded-lg bg-[#EF4444] shadow-lg">
+                    <span className="font-bold text-xs text-white">-{discount}%</span>
                   </div>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Product Info */}
-        <div className="px-4 sm:px-6 mb-4 sm:mb-6">
-          <div className="flex items-start justify-between gap-3 mb-3">
-            <h1 className="font-bold text-xl sm:text-2xl text-white flex-1 leading-tight">{product.name}</h1>
-            {product.certificate && (
-              <button
-                onClick={handleViewCertificate}
-                className="flex-shrink-0 px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-lg flex items-center gap-1.5 bg-[#10B981]/10 hover:bg-[#10B981]/20 active:scale-95 transition-all"
-              >
-                <Award size={14} color="#10B981" className="sm:w-4 sm:h-4" />
-                <span className="font-medium text-xs sm:text-sm text-[#10B981]">Certified</span>
-              </button>
-            )}
-          </div>
-          
-          <p className="text-sm sm:text-base mb-4 text-[#B3B3B3]">
-            {category?.name || 'Unknown Category'}
-          </p>
-          
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-4">
-            <div className="flex items-center gap-2">
-              <span className="font-bold text-2xl sm:text-3xl text-[#FF6B00]">
-                ₱{product.price.toFixed(2)}
-              </span>
-              {product.originalPrice && product.originalPrice > product.price && (
-                <span className="text-base sm:text-lg line-through text-[#666666]">
-                  ₱{product.originalPrice.toFixed(2)}
-                </span>
+                )}
+                {product.badge && (
+                  <div className="absolute top-3 right-3 px-2 py-1 rounded-lg bg-[#FF6B00] shadow-lg">
+                    <span className="font-bold text-xs text-white">{product.badge}</span>
+                  </div>
+                )}
+              </div>
+              {displayImages.length > 1 && (
+                <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-2">
+                  {displayImages.map((imageUrl, index) => (
+                    <button key={index} onClick={() => setActiveImageIndex(index)}
+                      className={`flex-shrink-0 w-14 h-14 sm:w-16 sm:h-16 rounded-lg overflow-hidden border-2 transition-all ${activeImageIndex === index ? 'border-[#FF6B00]' : 'border-transparent opacity-60'}`}>
+                      <div className="relative w-full h-full bg-[#1A1A1A]">
+                        <Image src={imageUrl} alt={`${product.name} ${index + 1}`} fill className="object-cover" unoptimized={true}
+                          onError={(e) => { const t = e.target as HTMLImageElement; t.src = '/img/logo-app.png'; }} />
+                      </div>
+                    </button>
+                  ))}
+                </div>
               )}
             </div>
-            <div className="px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-lg inline-flex items-center justify-center" style={{ backgroundColor: `${stockStatus.color}20` }}>
-              <span className="font-medium text-xs sm:text-sm whitespace-nowrap" style={{ color: stockStatus.color }}>
-                {stockStatus.text}
-              </span>
-            </div>
-          </div>
-          
-          <p className="text-sm sm:text-base text-[#CCCCCC] leading-relaxed">{product.description}</p>
-        </div>
 
-        {/* Certificate Section */}
-        {product.certificate && (
-          <div className="px-4 sm:px-6 mb-4 sm:mb-6">
-            <h2 className="font-bold text-base sm:text-lg mb-3 sm:mb-4 text-white">Certificate</h2>
-            
-            <button
-              onClick={handleViewCertificate}
-              className="w-full rounded-xl sm:rounded-2xl p-3 sm:p-4 flex items-center justify-between gap-3 bg-[#1A1A1A] hover:bg-[#222222] active:scale-[0.99] transition-all"
-            >
-              <div className="flex items-center gap-3 flex-1 min-w-0">
-                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center flex-shrink-0 bg-[#10B981]/10">
-                  <Award size={20} color="#10B981" className="sm:w-6 sm:h-6" />
+            {/* Right: Product Info */}
+            <div>
+              <div className="flex items-start justify-between gap-3 mb-2">
+                <h1 className="font-bold text-xl sm:text-2xl text-white flex-1 leading-tight">{product.name}</h1>
+                {product.certificate && (
+                  <button onClick={handleViewCertificate}
+                    className="flex-shrink-0 px-2.5 py-1.5 rounded-lg flex items-center gap-1.5 bg-[#10B981]/10 hover:bg-[#10B981]/20 active:scale-95 transition-all">
+                    <Award size={14} color="#10B981" />
+                    <span className="font-medium text-xs text-[#10B981]">Certified</span>
+                  </button>
+                )}
+              </div>
+
+              <p className="text-sm mb-4 text-[#B3B3B3]">{category?.name || 'Unknown Category'}</p>
+
+              <div className="flex items-center justify-between gap-4 mb-4">
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-2xl sm:text-3xl text-[#FF6B00]">₱{product.price.toFixed(2)}</span>
+                  {product.originalPrice && product.originalPrice > product.price && (
+                    <span className="text-base line-through text-[#666666]">₱{product.originalPrice.toFixed(2)}</span>
+                  )}
                 </div>
-                <div className="flex-1 text-left min-w-0">
-                  <div className="font-bold text-sm sm:text-base text-white truncate">Product Certificate</div>
-                  <div className="text-xs sm:text-sm text-[#B3B3B3]">Tap to view certificate</div>
+                <div className="px-2.5 py-1.5 rounded-lg" style={{ backgroundColor: `${stockStatus.color}20` }}>
+                  <span className="font-medium text-xs whitespace-nowrap" style={{ color: stockStatus.color }}>{stockStatus.text}</span>
                 </div>
               </div>
-              <Eye size={18} color="#FF6B00" className="flex-shrink-0 sm:w-5 sm:h-5" />
-            </button>
+
+              {product.description && (
+                <p className="text-sm text-[#CCCCCC] leading-relaxed mb-4">{product.description}</p>
+              )}
+
+              {/* Quick Details */}
+              <div className="rounded-xl p-4 bg-[#1A1A1A] mb-4">
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div><span className="text-[#B3B3B3] text-xs">SKU</span><p className="text-white font-medium">{product.sku || 'N/A'}</p></div>
+                  <div><span className="text-[#B3B3B3] text-xs">Stock</span><p className="text-white font-medium">{product.stock} units</p></div>
+                  {product.costPrice && <div><span className="text-[#B3B3B3] text-xs">Cost Price</span><p className="text-white font-medium">₱{product.costPrice.toFixed(2)}</p></div>}
+                  <div><span className="text-[#B3B3B3] text-xs">Status</span>
+                    <p className="font-medium" style={{ color: getStatusColor(product.isActive ? 'active' : 'inactive') }}>
+                      {product.isActive ? 'Active' : 'Inactive'}
+                    </p>
+                  </div>
+                  {product.lifespan && <div><span className="text-[#B3B3B3] text-xs">Lifespan</span><p className="text-white font-medium">{product.lifespan}</p></div>}
+                  {product.tankNumber && <div><span className="text-[#B3B3B3] text-xs">Tank #</span><p className="text-white font-medium">{product.tankNumber}</p></div>}
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-3">
+                <button onClick={handleEdit} className="flex-1 px-4 py-3 rounded-xl bg-primary text-white font-medium text-sm hover:bg-primary/90 active:scale-95 transition-all flex items-center justify-center gap-2">
+                  <Edit size={16} /> Edit Product
+                </button>
+                <button onClick={() => setShowDeleteConfirm(true)} className="px-4 py-3 rounded-xl bg-error/10 border border-error/20 text-error font-medium text-sm hover:bg-error/20 active:scale-95 transition-all flex items-center justify-center gap-2">
+                  <Trash2 size={16} /> Delete
+                </button>
+              </div>
+            </div>
           </div>
-        )}
+        </div>
+
+        {/* Full-width sections below the two-column grid */}
+        <div className="max-w-6xl mx-auto px-4 sm:px-6">
 
         {/* Fish Data Section */}
         {isFishProduct && fishData && (
-          <div className="px-4 sm:px-6 mb-4 sm:mb-6">
+          <div className="mb-4 sm:mb-6">
             <h2 className="font-bold text-base sm:text-lg mb-3 sm:mb-4 text-white flex items-center gap-2">
               <Fish size={18} color="#FF6B00" className="sm:w-5 sm:h-5" />
               Fish Information
             </h2>
             
             <div className="rounded-xl sm:rounded-2xl p-3 sm:p-4 bg-[#1A1A1A]">
-              <div className="grid grid-cols-1 gap-2 sm:gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
                 {fishData.scientificName && (
                   <div className="flex justify-between items-center gap-3 py-2 sm:py-2.5 border-b border-[#333333]">
                     <span className="font-medium text-xs sm:text-sm text-[#B3B3B3]">Scientific Name</span>
@@ -397,14 +368,14 @@ function ProductDetailsContent() {
 
         {/* Tank Data Section */}
         {isTankProduct && tankData && (
-          <div className="px-4 sm:px-6 mb-4 sm:mb-6">
+          <div className="mb-4 sm:mb-6">
             <h2 className="font-bold text-base sm:text-lg mb-3 sm:mb-4 text-white flex items-center gap-2">
               <Waves size={18} color="#FF6B00" className="sm:w-5 sm:h-5" />
               Tank Specifications
             </h2>
             
             <div className="rounded-xl sm:rounded-2xl p-3 sm:p-4 bg-[#1A1A1A]">
-              <div className="grid grid-cols-1 gap-2 sm:gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
                 {tankData.tankType && (
                   <div className="flex justify-between items-center gap-3 py-2 sm:py-2.5 border-b border-[#333333]">
                     <span className="font-medium text-xs sm:text-sm text-[#B3B3B3]">Tank Type</span>
@@ -467,37 +438,6 @@ function ProductDetailsContent() {
           </div>
         )}
 
-        {/* Product Details */}
-        <div className="px-4 sm:px-6 mb-4 sm:mb-6">
-          <h2 className="font-bold text-base sm:text-lg mb-3 sm:mb-4 text-white">Product Details</h2>
-          
-          <div className="rounded-xl sm:rounded-2xl p-3 sm:p-4 bg-[#1A1A1A]">
-            <div className="flex justify-between items-center gap-3 py-2.5 sm:py-3 border-b border-[#333333]">
-              <span className="font-medium text-xs sm:text-sm text-[#B3B3B3]">SKU</span>
-              <span className="text-xs sm:text-sm text-white">{product.sku || 'N/A'}</span>
-            </div>
-            
-            <div className="flex justify-between items-center gap-3 py-2.5 sm:py-3 border-b border-[#333333]">
-              <span className="font-medium text-xs sm:text-sm text-[#B3B3B3]">Stock</span>
-              <span className="text-xs sm:text-sm text-white">{product.stock} units</span>
-            </div>
-            
-            {product.lifespan && (
-              <div className="flex justify-between items-center gap-3 py-2.5 sm:py-3 border-b border-[#333333]">
-                <span className="font-medium text-xs sm:text-sm text-[#B3B3B3]">Lifespan</span>
-                <span className="text-xs sm:text-sm text-white">{product.lifespan}</span>
-              </div>
-            )}
-            
-            <div className="flex justify-between items-center gap-3 py-2.5 sm:py-3">
-              <span className="font-medium text-xs sm:text-sm text-[#B3B3B3]">Status</span>
-              <div className="px-2 py-1 rounded" style={{ backgroundColor: `${getStatusColor(product.isActive ? 'active' : 'inactive')}20` }}>
-                <span className="font-medium text-xs" style={{ color: getStatusColor(product.isActive ? 'active' : 'inactive') }}>
-                  {product.isActive ? 'Active' : 'Inactive'}
-                </span>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
 

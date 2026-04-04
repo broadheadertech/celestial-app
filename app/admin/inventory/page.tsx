@@ -329,7 +329,7 @@ function InventoryContent() {
               </button>
             </div>
 
-            <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1">
+            <div className="flex gap-2 overflow-x-auto sm:flex-wrap scrollbar-hide pb-1">
               {[
                 { key: 'all', label: 'All Batches', count: filterCounts.all },
                 { key: 'active', label: 'Active', count: filterCounts.active },
