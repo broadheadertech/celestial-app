@@ -602,8 +602,12 @@ function ProductFormContentInner() {
         </button>
       </div>
 
-      <div className="flex-1 px-6 py-6 overflow-y-auto max-w-4xl mx-auto">
-        {/* Basic Information */}
+      <div className="flex-1 px-4 sm:px-6 py-6 overflow-y-auto max-w-5xl mx-auto">
+        {/* Desktop: two-column layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+        {/* Left Column: Basic Information */}
+        <div>
         <div className="mb-6">
           <h2 className="text-lg font-bold text-white mb-4">Basic Information</h2>
 
@@ -748,7 +752,10 @@ function ProductFormContentInner() {
             </>
           )}
         </div>
+        </div>
 
+        {/* Right Column: Images & Certificates */}
+        <div>
         {/* Product Images */}
         <div className="mb-6">
           <h2 className="text-lg font-bold text-white mb-4">Product Images</h2>
@@ -845,35 +852,42 @@ function ProductFormContentInner() {
             </div>
           )}
         </div>
+        </div>
+        </div>
+        {/* End of two-column grid */}
 
         {/* Fish-specific fields */}
         {isFishProduct && (
-          <div className="mb-6">
+          <div className="mb-6 bg-secondary/20 border border-primary/10 rounded-xl p-4 sm:p-6">
             <h2 className="text-lg font-bold text-primary mb-4">Fish Specifications</h2>
 
-            {/* Scientific Name */}
-            {renderFormField('Scientific Name', true)}
-            <input
-              className="w-full p-4 rounded-lg bg-secondary border border-primary/10 text-white placeholder:text-muted mb-4"
-              placeholder="e.g., Pterophyllum scalare"
-              value={formData.scientificName}
-              onChange={(e) => handleInputChange('scientificName', e.target.value)}
-            />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Scientific Name - full width */}
+              <div className="sm:col-span-2">
+                {renderFormField('Scientific Name', true)}
+                <input
+                  className="w-full p-4 rounded-lg bg-secondary border border-primary/10 text-white placeholder:text-muted"
+                  placeholder="e.g., Pterophyllum scalare"
+                  value={formData.scientificName}
+                  onChange={(e) => handleInputChange('scientificName', e.target.value)}
+                />
+              </div>
 
-            {/* Size */}
-            {renderFormField('Size (inches)', true)}
-            <input
-              className="w-full p-4 rounded-lg bg-secondary border border-primary/10 text-white placeholder:text-muted mb-4"
-              placeholder="4"
-              type="number"
-              step="0.1"
-              value={formData.fishSize}
-              onChange={(e) => handleInputChange('fishSize', e.target.value)}
-            />
+              {/* Size */}
+              <div>
+                {renderFormField('Size (inches)', true)}
+                <input
+                  className="w-full p-4 rounded-lg bg-secondary border border-primary/10 text-white placeholder:text-muted"
+                  placeholder="4"
+                  type="number"
+                  step="0.1"
+                  value={formData.fishSize}
+                  onChange={(e) => handleInputChange('fishSize', e.target.value)}
+                />
+              </div>
 
-            {/* Temperature and Age */}
-            <div className="flex space-x-4 mb-4">
-              <div className="flex-1">
+              {/* Temperature */}
+              <div>
                 {renderFormField('Temperature (°C)', true)}
                 <input
                   className="w-full p-4 rounded-lg bg-secondary border border-primary/10 text-white placeholder:text-muted"
@@ -883,7 +897,9 @@ function ProductFormContentInner() {
                   onChange={(e) => handleInputChange('fishTemperature', e.target.value)}
                 />
               </div>
-              <div className="flex-1">
+
+              {/* Age */}
+              <div>
                 {renderFormField('Age (years)', true)}
                 <input
                   className="w-full p-4 rounded-lg bg-secondary border border-primary/10 text-white placeholder:text-muted"
@@ -893,51 +909,59 @@ function ProductFormContentInner() {
                   onChange={(e) => handleInputChange('fishAge', e.target.value)}
                 />
               </div>
+
+              {/* pH Level */}
+              <div>
+                {renderFormField('pH Level', true)}
+                <input
+                  className="w-full p-4 rounded-lg bg-secondary border border-primary/10 text-white placeholder:text-muted"
+                  placeholder="e.g., 6.5-7.5"
+                  value={formData.phLevel}
+                  onChange={(e) => handleInputChange('phLevel', e.target.value)}
+                />
+              </div>
+
+              {/* Fish Lifespan */}
+              <div>
+                {renderFormField('Lifespan', true)}
+                <input
+                  className="w-full p-4 rounded-lg bg-secondary border border-primary/10 text-white placeholder:text-muted"
+                  placeholder="e.g., 2-4 years"
+                  value={formData.fishLifespan}
+                  onChange={(e) => handleInputChange('fishLifespan', e.target.value)}
+                />
+              </div>
+
+              {/* Origin */}
+              <div>
+                {renderFormField('Origin', true)}
+                <input
+                  className="w-full p-4 rounded-lg bg-secondary border border-primary/10 text-white placeholder:text-muted"
+                  placeholder="e.g., Amazon Basin, South America"
+                  value={formData.origin}
+                  onChange={(e) => handleInputChange('origin', e.target.value)}
+                />
+              </div>
+
+              {/* Diet */}
+              <div className="sm:col-span-2">
+                {renderDropdownPicker(
+                  'Diet',
+                  formData.diet,
+                  dietOptions,
+                  showDietPicker,
+                  setShowDietPicker,
+                  (value) => handleInputChange('diet', value),
+                  true
+                )}
+              </div>
             </div>
-
-            {/* pH Level */}
-            {renderFormField('pH Level', true)}
-            <input
-              className="w-full p-4 rounded-lg bg-secondary border border-primary/10 text-white placeholder:text-muted mb-4"
-              placeholder="e.g., 6.5-7.5"
-              value={formData.phLevel}
-              onChange={(e) => handleInputChange('phLevel', e.target.value)}
-            />
-
-            {/* Fish Lifespan */}
-            {renderFormField('Lifespan', true)}
-            <input
-              className="w-full p-4 rounded-lg bg-secondary border border-primary/10 text-white placeholder:text-muted mb-4"
-              placeholder="e.g., 2-4 years"
-              value={formData.fishLifespan}
-              onChange={(e) => handleInputChange('fishLifespan', e.target.value)}
-            />
-
-            {/* Origin */}
-            {renderFormField('Origin', true)}
-            <input
-              className="w-full p-4 rounded-lg bg-secondary border border-primary/10 text-white placeholder:text-muted mb-4"
-              placeholder="e.g., Amazon Basin, South America"
-              value={formData.origin}
-              onChange={(e) => handleInputChange('origin', e.target.value)}
-            />
-
-            {/* Diet */}
-            {renderDropdownPicker(
-              'Diet',
-              formData.diet,
-              dietOptions,
-              showDietPicker,
-              setShowDietPicker,
-              (value) => handleInputChange('diet', value),
-              true
-            )}
           </div>
         )}
 
         {/* Tank-specific fields */}
         {isTankProduct && (
-          <div className="mb-6">
+          <div className="mb-6 bg-secondary/20 border border-info/10 rounded-xl p-4 sm:p-6">
             <h2 className="text-lg font-bold text-info mb-4">Tank Specifications</h2>
 
             {/* Tank Type */}
