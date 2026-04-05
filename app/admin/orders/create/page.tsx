@@ -157,7 +157,6 @@ function CreateOrderContent() {
 
       setReceiptData(receipt);
     } catch (error) {
-      console.error('Create order failed:', error);
       alert(error instanceof Error ? error.message : 'Failed to create order');
     } finally {
       setIsSubmitting(false);

@@ -80,7 +80,6 @@ function AdminDashboardContent() {
     try {
       await createTestNotificationMutation({ type });
     } catch (error) {
-      console.error('Failed to create test notification:', error);
     }
   };
 

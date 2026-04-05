@@ -291,7 +291,6 @@ export function ProductFormContentInner({ editProductId, onSuccess, isDrawer }: 
 
       return fileUrl;
     } catch (error) {
-      console.error('Upload error:', error);
       throw error;
     }
   };
@@ -521,7 +520,6 @@ export function ProductFormContentInner({ editProductId, onSuccess, isDrawer }: 
         router.push('/admin/products');
       }
     } catch (error) {
-      console.error('Error saving product:', error);
       showConfirmation('Error', `Failed to ${isEditing ? 'update' : 'create'} product. Please try again.`, 'error');
     } finally {
       setFormLoading(false);

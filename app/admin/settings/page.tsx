@@ -80,15 +80,20 @@ function AdminSettingsContent() {
     }
   }, [isAuthenticated, user, router]);
 
-  // Populate settings from user data
+  // Populate settings from user data + saved notification prefs
   useEffect(() => {
     if (currentUser) {
+      const savedNotifPrefs = typeof window !== 'undefined'
+        ? JSON.parse(localStorage.getItem('admin_notification_prefs') || 'null')
+        : null;
+
       setSettings((prev) => ({
         ...prev,
         email: currentUser.email || "",
         firstName: currentUser.firstName || "",
         lastName: currentUser.lastName || "",
         phone: currentUser.phone || "",
+        ...(savedNotifPrefs ? { notifications: savedNotifPrefs } : {}),
       }));
     }
   }, [currentUser]);
@@ -183,10 +188,13 @@ function AdminSettingsContent() {
         });
       }
 
-      // TODO: Implement notification preferences save if needed
+      // Save notification preferences to localStorage
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('admin_notification_prefs', JSON.stringify(settings.notifications));
+      }
 
-      setModalMessage(settings.security.changePassword 
-        ? "Profile and password updated successfully!" 
+      setModalMessage(settings.security.changePassword
+        ? "Profile and password updated successfully!"
         : "Profile updated successfully!");
       setShowSuccessModal(true);
 
@@ -203,7 +211,6 @@ function AdminSettingsContent() {
         }));
       }
     } catch (error) {
-      console.error("Error saving settings:", error);
       setModalMessage(error instanceof Error ? error.message : "Error saving settings. Please try again.");
       setShowErrorModal(true);
     } finally {
@@ -217,7 +224,6 @@ function AdminSettingsContent() {
       await logout();
       setShowLogoutConfirm(false);
     } catch (error) {
-      console.error('Logout error:', error);
       setModalMessage('Error during logout. Please try again.');
       setShowErrorModal(true);
     } finally {

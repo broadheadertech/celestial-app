@@ -112,7 +112,6 @@ function ProductDetailsContent() {
   const normalizeImageUrl = (url: string | undefined): string => {
     if (!url) return '/img/logo-app.png';
     if (url.startsWith('file://')) {
-      console.warn('File URL detected, using fallback image:', url);
       return '/img/logo-app.png';
     }
     if (url.startsWith('/')) return url;
@@ -140,7 +139,6 @@ function ProductDetailsContent() {
         router.push('/admin/products');
       }, 1500);
     } catch (error) {
-      console.error('Error deleting product:', error);
       setModalMessage('Error deleting product. Please try again.');
       setShowDeleteConfirm(false);
       setShowErrorModal(true);
@@ -511,7 +509,6 @@ function ProductDetailsContent() {
                     className="object-contain rounded-xl"
                     unoptimized={true}
                     onError={(e) => {
-                      console.error('Certificate image load error:', e);
                       const target = e.target as HTMLImageElement;
                       target.src = '/img/logo-app.png';
                     }}

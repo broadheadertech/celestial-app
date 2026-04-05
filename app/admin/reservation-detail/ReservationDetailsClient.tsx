@@ -152,7 +152,6 @@ function ReservationDetailsContent() {
 
       showConfirmation('Success', 'Reservation status updated successfully!', 'success');
     } catch (error) {
-      console.error('Error updating status:', error);
       showConfirmation('Error', 'Error updating status. Please try again.', 'error');
     } finally {
       setIsUpdating(false);
@@ -197,7 +196,6 @@ function ReservationDetailsContent() {
         'success'
       );
     } catch (error) {
-      console.error('Error updating status:', error);
       showConfirmation('Error', 'Error updating status. Please try again.', 'error');
     } finally {
       setIsUpdating(false);

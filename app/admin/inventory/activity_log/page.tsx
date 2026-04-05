@@ -26,7 +26,7 @@ const formatCurrency = (amount: number) => {
 };
 
 const formatDate = (timestamp: number) => {
-  return new Date(timestamp).toLocaleDateString('en-US', {
+  return new Date(timestamp).toLocaleDateString('en-PH', {
     month: 'short',
     day: 'numeric',
     year: 'numeric',

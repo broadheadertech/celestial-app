@@ -335,7 +335,6 @@ function AdminOrdersContent() {
         await updateReservationStatus({ reservationId: itemId as Id<'reservations'>, status: newStatus as any });
       }
     } catch (error) {
-      console.error('Failed to update status:', error);
       alert('Failed to update status. Please try again.');
     }
   };
@@ -348,7 +347,6 @@ function AdminOrdersContent() {
       setPendingAction({ itemId, status: 'ready_for_pickup', type: 'ready_for_pickup' });
       setShowSMSModal(true);
     } catch (error) {
-      console.error('Failed to prepare ready for pickup:', error);
       alert('Failed to prepare status update. Please try again.');
     }
   };
@@ -377,7 +375,6 @@ function AdminOrdersContent() {
       setShowSMSModal(false);
       setPendingAction(null);
     } catch (error) {
-      console.error('Failed to update status:', error);
       alert('Failed to update status. Please try again.');
     } finally {
       setIsProcessing(false);

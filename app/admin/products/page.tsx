@@ -170,6 +170,12 @@ function AdminProductsContent() {
   const toggleProductStatus = useMutation(api.services.admin.toggleProductStatus);
   const restockProduct = useMutation(api.services.stock.restockProduct);
   const recordMortalityLoss = useMutation(api.services.stock.recordMortalityLossByProduct);
+  const deleteProductMutation = useMutation(api.services.admin.deleteProduct);
+
+  // Delete confirmation state
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
 
   // Create category mapping for better filtering
   const categoryMap = useMemo(() => {
@@ -322,7 +328,6 @@ function AdminProductsContent() {
           isActive: !product.isActive,
         });
       } catch (error) {
-        console.error('Failed to toggle product status:', error);
       }
     } else if (action === 'Restock') {
       setRestockProductId(productId);
@@ -333,7 +338,8 @@ function AdminProductsContent() {
       setMortalityQuantity('');
       setShowMortalityModal(true);
     } else if (action === 'Delete') {
-      console.log('Delete product:', productId);
+      const product = products?.find(p => p._id === productId);
+      if (product) setDeleteConfirm({ id: productId, name: product.name });
     }
     setSelectedProduct(null);
   };
@@ -375,7 +381,6 @@ function AdminProductsContent() {
 
       alert(`${result.message}\nNew batch code: ${result.batchCode}\nTotal stock: ${result.newTotalStock} units`);
     } catch (error) {
-      console.error('Error restocking product:', error);
       alert('Failed to restock product. Please try again.');
     }
   };
@@ -437,7 +442,6 @@ function AdminProductsContent() {
         `✓ Stock movements logged for audit trail`
       );
     } catch (error) {
-      console.error('Error recording mortality loss:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
       alert(`❌ Failed to Record Mortality Loss\n\n${errorMessage}\n\nPlease try again or contact support if the issue persists.`);
     }
@@ -901,7 +905,7 @@ function AdminProductsContent() {
                         <div className="flex items-center justify-between pt-2 border-t border-white/10">
                           <div className="flex items-center gap-1 text-[10px] text-white/60">
                             <span className="hidden xs:inline">Created:</span>
-                            <span>{new Date(product.createdAt).toLocaleDateString('en-US', {
+                            <span>{new Date(product.createdAt).toLocaleDateString('en-PH', {
                               month: 'short',
                               day: 'numeric',
                               year: '2-digit'
@@ -1425,6 +1429,46 @@ function AdminProductsContent() {
             </div>
           </div>
         </>
+      )}
+
+      {/* Delete Product Confirmation */}
+      {deleteConfirm && (
+        <>
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9998]" onClick={() => !isDeleting && setDeleteConfirm(null)} />
+          <div className="fixed inset-0 flex items-center justify-center z-[9999] p-4">
+            <div className="bg-secondary border border-white/10 rounded-2xl shadow-2xl p-6 w-full max-w-sm">
+              <h3 className="text-lg font-bold text-white mb-2">Delete Product</h3>
+              <p className="text-sm text-white/70 mb-1">Are you sure you want to delete <strong>{deleteConfirm.name}</strong>?</p>
+              <p className="text-xs text-white/50 mb-6">If this product has order history, it will be deactivated instead.</p>
+              <div className="flex gap-3">
+                <button onClick={() => setDeleteConfirm(null)} disabled={isDeleting}
+                  className="flex-1 px-4 py-3 bg-secondary border border-white/10 text-white rounded-xl font-medium hover:bg-white/10 active:scale-95 transition-all disabled:opacity-50">No</button>
+                <button onClick={async () => {
+                  setIsDeleting(true);
+                  try {
+                    const result = await deleteProductMutation({ id: deleteConfirm.id as any });
+                    setSuccessMessage(result?.message || 'Product deleted successfully');
+                    setDeleteConfirm(null);
+                    setTimeout(() => setSuccessMessage(''), 3000);
+                  } catch (e) { alert(e instanceof Error ? e.message : 'Failed to delete'); }
+                  finally { setIsDeleting(false); }
+                }} disabled={isDeleting}
+                  className="flex-1 px-4 py-3 bg-error text-white rounded-xl font-medium hover:bg-error/90 active:scale-95 transition-all disabled:opacity-50">
+                  {isDeleting ? 'Deleting...' : 'Yes, Delete'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Success Toast */}
+      {successMessage && (
+        <div className="fixed top-4 right-4 sm:top-6 sm:right-6 z-[9999] animate-in slide-in-from-top duration-300">
+          <div className="bg-success/90 text-white px-4 py-3 rounded-xl shadow-lg flex items-center gap-2 text-sm font-medium">
+            <span>&#10003;</span> {successMessage}
+          </div>
+        </div>
       )}
 
       <style jsx global>{`

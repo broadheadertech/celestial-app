@@ -65,6 +65,7 @@ function AdminUsersContent() {
   const updateUserRole = useMutation(api.services.admin.updateUserRole);
   const adminCreateCustomer = useMutation(api.services.admin.adminCreateCustomer);
   const toggleSalesAssociate = useMutation(api.services.admin.toggleSalesAssociate);
+  const deleteUserMutation = useMutation(api.services.admin.deleteUser);
 
   const handleToggleSA = async (userId: string) => {
     try {
@@ -164,7 +165,6 @@ function AdminUsersContent() {
       });
       showConfirmation('Success', `User ${!currentStatus ? 'activated' : 'deactivated'} successfully!`, 'success');
     } catch (error) {
-      console.error('Error toggling user status:', error);
       showConfirmation('Error', 'Error updating user status. Please try again.', 'error');
     }
     setSelectedUser(null);
@@ -178,16 +178,26 @@ function AdminUsersContent() {
       });
       showConfirmation('Success', 'User promoted to admin successfully!', 'success');
     } catch (error) {
-      console.error('Error promoting user:', error);
       showConfirmation('Error', 'Error promoting user to admin. Please try again.', 'error');
     }
     setSelectedUser(null);
   };
 
-  const handleDeleteUser = (userId: string) => {
-    // TODO: Implement API call to delete user (if needed)
-    console.log('Delete user:', userId);
-    showConfirmation('Not Available', 'User deletion not implemented yet.', 'info');
+  const handleDeleteUser = async (userId: string) => {
+    const user = users?.find((u: any) => u._id === userId);
+    const userName = user ? `${(user as any).firstName} ${(user as any).lastName}` : 'this user';
+
+    if (!confirm(`Delete ${userName}? This cannot be undone.`)) {
+      setSelectedUser(null);
+      return;
+    }
+
+    try {
+      await deleteUserMutation({ userId: userId as Id<"users"> });
+      showConfirmation('Deleted', `${userName} has been removed.`, 'success');
+    } catch (error) {
+      showConfirmation('Error', error instanceof Error ? error.message : 'Failed to delete user', 'error');
+    }
     setSelectedUser(null);
   };
 

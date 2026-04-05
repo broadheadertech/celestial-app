@@ -29,7 +29,7 @@ const formatCurrency = (amount: number) => {
 };
 
 const formatDate = (timestamp: number) => {
-  return new Date(timestamp).toLocaleDateString('en-US', {
+  return new Date(timestamp).toLocaleDateString('en-PH', {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
@@ -42,6 +42,10 @@ function InventoryContent() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilter, setSelectedFilter] = useState<'all' | 'active' | 'depleted' | 'low_stock' | 'expired' | 'quarantine'>('all');
   const [showFilters, setShowFilters] = useState(false);
+
+  // Success feedback
+  const [successMessage, setSuccessMessage] = useState('');
+  const showSuccess = (msg: string) => { setSuccessMessage(msg); setTimeout(() => setSuccessMessage(''), 3000); };
 
   // Add Batch modal state
   const [showAddBatch, setShowAddBatch] = useState(false);
@@ -143,8 +147,8 @@ function InventoryContent() {
       setRestockQuantity('');
       setRestockNotes('');
       setRestockQuality('standard');
+      showSuccess(`Successfully restocked ${quantity} units`);
     } catch (error) {
-      console.error('Restock failed:', error);
       alert(error instanceof Error ? error.message : 'Failed to restock');
     } finally {
       setIsRestocking(false);
@@ -170,8 +174,8 @@ function InventoryContent() {
       setAdjustRecordId(null);
       setAdjustQuantity('');
       setAdjustReason('');
+      showSuccess('Stock adjusted successfully');
     } catch (error) {
-      console.error('Adjust stock failed:', error);
       alert(error instanceof Error ? error.message : 'Failed to adjust stock');
     } finally {
       setIsAdjusting(false);
@@ -945,6 +949,15 @@ function InventoryContent() {
             </div>
           </div>
         </>
+      )}
+
+      {/* Success Toast */}
+      {successMessage && (
+        <div className="fixed top-4 right-4 sm:top-6 sm:right-6 z-[9999] animate-in slide-in-from-top duration-300">
+          <div className="bg-success/90 text-white px-4 py-3 rounded-xl shadow-lg flex items-center gap-2 text-sm font-medium">
+            <span>&#10003;</span> {successMessage}
+          </div>
+        </div>
       )}
 
       <style jsx global>{`
