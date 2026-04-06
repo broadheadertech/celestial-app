@@ -11,7 +11,7 @@ export function WelcomeEmail({ userName, appUrl = 'http://localhost:3000' }: Wel
       <head>
         <meta charSet="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Welcome to Celestial Drakon Aquatics</title>
+        <title>Welcome to Dragon Cave Inventory</title>
       </head>
       <body style={{
         fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
@@ -41,7 +41,7 @@ export function WelcomeEmail({ userName, appUrl = 'http://localhost:3000' }: Wel
               fontSize: '32px',
               fontWeight: 600
             }}>
-              🐉 Welcome to Celestial Drakon Aquatics!
+              🐉 Welcome to Dragon Cave Inventory!
             </h1>
           </div>
           
@@ -60,7 +60,7 @@ export function WelcomeEmail({ userName, appUrl = 'http://localhost:3000' }: Wel
               marginBottom: '20px',
               fontSize: '16px'
             }}>
-              Thank you for joining Celestial Drakon Aquatics! We're thrilled to have you as part of our aquarium community.
+              Thank you for joining Dragon Cave Inventory! We're thrilled to have you as part of our aquarium community.
             </p>
             
             <p style={{
@@ -128,7 +128,7 @@ export function WelcomeEmail({ userName, appUrl = 'http://localhost:3000' }: Wel
               fontSize: '14px',
               margin: '5px 0'
             }}>
-              <strong>Celestial Drakon Aquatics</strong>
+              <strong>Dragon Cave Inventory</strong>
             </p>
             <p style={{
               color: '#999999',

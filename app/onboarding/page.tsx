@@ -12,7 +12,7 @@ const ONBOARDING_KEY = 'onboarding_completed';
 const onboardingSteps = [
   {
     id: 1,
-    title: 'Welcome to Celestial Drakon Aquatics',
+    title: 'Welcome to Dragon Cave Inventory',
     subtitle: 'Your Premium Aquatic Partner',
     description: 'Discover exceptional aquatic life, premium equipment, and expert guidance for your aquarium journey',
     image: '/img/slide1.png',

@@ -99,7 +99,7 @@ function ForgotPasswordContent() {
                 <p className="text-xs sm:text-sm text-muted leading-relaxed">
                   <strong className="text-white">Next steps:</strong><br />
                   1. Open your email inbox<br />
-                  2. Look for an email from &quot;Celestial Drakon Aquatics&quot;<br />
+                  2. Look for an email from &quot;Dragon Cave Inventory&quot;<br />
                   3. Click the &quot;Reset Your Password&quot; button<br />
                   4. You&apos;ll be redirected to create a new password
                 </p>

@@ -162,7 +162,7 @@ function RegisterContent() {
 
       {/* Welcome Section */}
       <div className="text-center mb-8">
-        <h2 className="text-3xl font-bold text-white mb-2">Join Celestial Drakon</h2>
+        <h2 className="text-3xl font-bold text-white mb-2">Join Dragon Cave</h2>
         <p className="text-muted">
           {currentStep === 1 ? 'Tell us about yourself' : 'Create your secure password'}
         </p>

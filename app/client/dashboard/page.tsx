@@ -756,7 +756,7 @@ function ClientDashboardContent() {
             <div className="max-w-7xl mx-auto bg-gradient-to-r from-primary/20 to-orange-600/20 rounded-xl sm:rounded-2xl p-3 sm:p-4 border border-primary/20">
               <div className="flex items-start sm:items-center justify-between gap-3 flex-col sm:flex-row">
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-bold text-white text-sm sm:text-base mb-0.5 sm:mb-1">Join Celestial Drakon!</h3>
+                  <h3 className="font-bold text-white text-sm sm:text-base mb-0.5 sm:mb-1">Join Dragon Cave!</h3>
                   <p className="text-xs sm:text-sm text-white/70 leading-relaxed">
                     Create an account to save favorites, track orders, and get exclusive deals!
                   </p>

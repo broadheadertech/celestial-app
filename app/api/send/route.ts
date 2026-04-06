@@ -30,9 +30,9 @@ export async function POST(request: Request) {
         );
       }
       emailData = {
-        from: process.env.RESEND_FROM_EMAIL || 'Celestial Drakon Aquatics <noreply@cda.broadheader.com>',
+        from: process.env.RESEND_FROM_EMAIL || 'Dragon Cave Inventory <noreply@cda.broadheader.com>',
         to: [to],
-        subject: 'Reset Your Password - Celestial Drakon Aquatics',
+        subject: 'Reset Your Password - Dragon Cave Inventory',
         react: PasswordResetEmail({ userName, resetUrl }),
       };
     } else {

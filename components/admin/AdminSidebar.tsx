@@ -137,7 +137,7 @@ export default function AdminSidebar() {
             <Fish className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h1 className="text-sm font-bold text-white leading-tight">Celestial Drakon</h1>
+            <h1 className="text-sm font-bold text-white leading-tight">Dragon Cave</h1>
             <p className="text-[10px] text-white/50">Admin Panel</p>
           </div>
         </div>
@@ -177,7 +177,7 @@ export default function AdminSidebar() {
 
       {/* Footer */}
       <div className="px-5 py-4 border-t border-white/10">
-        <p className="text-[10px] text-white/30 text-center">Celestial Drakon Aquatics</p>
+        <p className="text-[10px] text-white/30 text-center">Dragon Cave Inventory</p>
       </div>
     </aside>
   );

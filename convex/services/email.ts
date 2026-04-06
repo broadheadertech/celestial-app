@@ -50,9 +50,9 @@ export const sendPasswordResetEmail = internalAction({
     try {
       // Direct Resend SDK call (exactly as shown in Resend docs)
       const { data, error } = await resend.emails.send({
-        from: process.env.RESEND_FROM_EMAIL || "Celestial Drakon Aquatics <noreply@cda.broadheader.com>",
+        from: process.env.RESEND_FROM_EMAIL || "Dragon Cave Inventory <noreply@cda.broadheader.com>",
         to: [to], // Recipient email
-        subject: "Reset Your Password - Celestial Drakon Aquatics",
+        subject: "Reset Your Password - Dragon Cave Inventory",
         html: generatePasswordResetEmailHTML(userName, resetUrl), // HTML content
       });
 
@@ -176,13 +176,13 @@ function generatePasswordResetEmailHTML(userName: string, resetUrl: string): str
 <body>
   <div class="container">
     <div class="header">
-      <h1>🐉 Celestial Drakon Aquatics</h1>
+      <h1>🐉 Dragon Cave Inventory</h1>
     </div>
     
     <div class="content">
       <h2>Hello ${userName}!</h2>
       
-      <p>We received a request to reset your password for your Celestial Drakon Aquatics account.</p>
+      <p>We received a request to reset your password for your Dragon Cave Inventory account.</p>
       
       <p>Click the button below to create a new password:</p>
       
@@ -205,7 +205,7 @@ function generatePasswordResetEmailHTML(userName: string, resetUrl: string): str
     </div>
     
     <div class="footer">
-      <p><strong>Celestial Drakon Aquatics</strong></p>
+      <p><strong>Dragon Cave Inventory</strong></p>
       <p>Your trusted aquarium fish and accessories store</p>
       <p style="margin-top: 20px;">
         Need help? Contact us at support@celestialdrakon.com
@@ -236,9 +236,9 @@ export const sendWelcomeEmail = action({
 
     try {
       const { data, error } = await resend.emails.send({
-        from: process.env.RESEND_FROM_EMAIL || "Celestial Drakon Aquatics <noreply@cda.broadheader.com>",
+        from: process.env.RESEND_FROM_EMAIL || "Dragon Cave Inventory <noreply@cda.broadheader.com>",
         to: [to],
-        subject: "Welcome to Celestial Drakon Aquatics!",
+        subject: "Welcome to Dragon Cave Inventory!",
         html: generateWelcomeEmailHTML(userName),
       });
 
@@ -266,7 +266,7 @@ function generateWelcomeEmailHTML(userName: string): string {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Welcome to Celestial Drakon Aquatics</title>
+  <title>Welcome to Dragon Cave Inventory</title>
   <style>
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
@@ -324,13 +324,13 @@ function generateWelcomeEmailHTML(userName: string): string {
 <body>
   <div class="container">
     <div class="header">
-      <h1>🐉 Welcome to Celestial Drakon Aquatics!</h1>
+      <h1>🐉 Welcome to Dragon Cave Inventory!</h1>
     </div>
     
     <div class="content">
       <h2>Hello ${userName}!</h2>
       
-      <p>Thank you for joining Celestial Drakon Aquatics! We're thrilled to have you as part of our aquarium community.</p>
+      <p>Thank you for joining Dragon Cave Inventory! We're thrilled to have you as part of our aquarium community.</p>
       
       <p>🐠 Explore our wide selection of exotic fish, premium aquarium tanks, and high-quality accessories to create your dream aquatic paradise.</p>
       
@@ -346,7 +346,7 @@ function generateWelcomeEmailHTML(userName: string): string {
     </div>
     
     <div class="footer">
-      <p><strong>Celestial Drakon Aquatics</strong></p>
+      <p><strong>Dragon Cave Inventory</strong></p>
       <p>Your trusted aquarium fish and accessories store</p>
       <p style="margin-top: 20px;">
         Need help? Contact us at support@celestialdrakon.com

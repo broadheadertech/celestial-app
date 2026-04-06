@@ -129,7 +129,7 @@ export default function OrderReceipt({ data, onClose }: OrderReceiptProps) {
         <div ref={receiptRef} className="receipt p-6">
           {/* Header */}
           <div className="header text-center mb-6 pb-4 border-b-2 border-dashed border-gray-300">
-            <h1 className="text-lg font-bold text-gray-900">Celestial Drakon Aquatics</h1>
+            <h1 className="text-lg font-bold text-gray-900">Dragon Cave Inventory</h1>
             <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-widest mt-1">
               {isAcknowledgement ? 'Acknowledgement Receipt' : 'Release Receipt'}
             </h2>
@@ -233,7 +233,7 @@ export default function OrderReceipt({ data, onClose }: OrderReceiptProps) {
           {/* Footer */}
           <div className="footer text-center mt-6 pt-4 border-t-2 border-dashed border-gray-300">
             <p className="text-xs text-gray-400">Thank you for your purchase!</p>
-            <p className="text-xs text-gray-400 mt-1">Celestial Drakon Aquatics</p>
+            <p className="text-xs text-gray-400 mt-1">Dragon Cave Inventory</p>
             {isAcknowledgement && (
               <p className="text-xs text-gray-500 mt-2 font-medium">
                 Please present this receipt when picking up your order.

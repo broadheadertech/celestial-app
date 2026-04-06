@@ -40,7 +40,7 @@ export default function SettingsPage() {
   // Essential settings data - streamlined
   const [settings, setSettings] = useState({
     general: {
-      siteName: 'Celestial Drakon Aquatics',
+      siteName: 'Dragon Cave Inventory',
       siteDescription: 'Premium aquarium fish and accessories',
       timezone: 'Asia/Manila',
       currency: 'PHP',

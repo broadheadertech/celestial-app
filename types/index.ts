@@ -1,4 +1,4 @@
-// Celestial Drakon Aquatics - Type Definitions
+// Dragon Cave Inventory - Type Definitions
 // Migrated from React Native app to Next.js
 
 export interface User {

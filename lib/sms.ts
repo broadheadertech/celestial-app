@@ -20,7 +20,7 @@ export interface SMSMessageData {
 export function getConfirmationSMSMessage(data: SMSMessageData): string {
   const { customerName, reservationCode, productName, quantity } = data;
   
-  return `Hi ${customerName}! Your reservation ${reservationCode} for ${quantity}x ${productName} has been CONFIRMED. Thank you for choosing Celestial Drakon Aquatics!`;
+  return `Hi ${customerName}! Your reservation ${reservationCode} for ${quantity}x ${productName} has been CONFIRMED. Thank you for choosing Dragon Cave Inventory!`;
 }
 
 /**
@@ -52,7 +52,7 @@ export function getReadyForPickupSMSMessage(data: SMSMessageData): string {
     message += ` Note: ${notes}`;
   }
   
-  message += ` - Celestial Drakon Aquatics`;
+  message += ` - Dragon Cave Inventory`;
   
   return message;
 }

@@ -23,7 +23,7 @@ export default function HomePage() {
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-white text-lg">Loading Celestial Drakon Aquatics...</p>
+          <p className="text-white text-lg">Loading Dragon Cave Inventory...</p>
         </div>
       </div>
     );

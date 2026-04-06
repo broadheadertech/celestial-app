@@ -6,11 +6,11 @@ import { ReservationProvider } from "@/context/ReservationContext";
 import ClientReservationOverlay from "@/components/ui/ClientReservationOverlay";
 
 export const metadata: Metadata = {
-  title: "Celestial Drakon Aquatics",
+  title: "Dragon Cave Inventory",
   description:
     "Premium aquatic products and services - Your trusted partner for aquarium fish, tanks, and accessories.",
   keywords: ["aquarium", "fish", "tanks", "aquatic", "Philippines"],
-  authors: [{ name: "Celestial Drakon Aquatics" }],
+  authors: [{ name: "Dragon Cave Inventory" }],
 };
 
 export const viewport: Viewport = {

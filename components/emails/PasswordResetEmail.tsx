@@ -41,7 +41,7 @@ export function PasswordResetEmail({ userName, resetUrl }: PasswordResetEmailPro
               fontSize: '28px',
               fontWeight: 600
             }}>
-              🐉 Celestial Drakon Aquatics
+              🐉 Dragon Cave Inventory
             </h1>
           </div>
           
@@ -60,7 +60,7 @@ export function PasswordResetEmail({ userName, resetUrl }: PasswordResetEmailPro
               marginBottom: '20px',
               fontSize: '16px'
             }}>
-              We received a request to reset your password for your Celestial Drakon Aquatics account.
+              We received a request to reset your password for your Dragon Cave Inventory account.
             </p>
             
             <p style={{
@@ -149,7 +149,7 @@ export function PasswordResetEmail({ userName, resetUrl }: PasswordResetEmailPro
               fontSize: '14px',
               margin: '5px 0'
             }}>
-              <strong>Celestial Drakon Aquatics</strong>
+              <strong>Dragon Cave Inventory</strong>
             </p>
             <p style={{
               color: '#999999',

@@ -40,7 +40,7 @@ export default function LandingPage() {
               The command center for aquariums that deserve more than autopilot.
             </h1>
             <p className="text-lg text-muted max-w-xl">
-              Celestial Drakon keeps your installations vivid, balanced, and ready to awe. Monitor health, choreograph maintenance, and sync alerts across every device—all through a single immersive workspace.
+              Dragon Cave keeps your installations vivid, balanced, and ready to awe. Monitor health, choreograph maintenance, and sync alerts across every device—all through a single immersive workspace.
             </p>
             <div className="flex flex-col sm:flex-row gap-4">
               <Button
@@ -196,7 +196,7 @@ export default function LandingPage() {
               Showcase-worthy aquariums need orchestration, not guesswork.
             </h2>
             <p className="text-lg text-muted">
-              Build routines once, layer in intelligent triggers, and let Celestial Drakon orchestrate your environments. Whether running a boutique gallery or managing multi-site attractions, every detail is ready before the lights come on.
+              Build routines once, layer in intelligent triggers, and let Dragon Cave orchestrate your environments. Whether running a boutique gallery or managing multi-site attractions, every detail is ready before the lights come on.
             </p>
             <div className="space-y-4 text-sm text-muted">
               <div className="flex items-start gap-3">
@@ -221,7 +221,7 @@ export default function LandingPage() {
                   <div className="relative h-14 w-14 overflow-hidden rounded-2xl border border-white/10">
                     <Image
                       src="/img/logo-app.png"
-                      alt="Celestial Drakon emblem"
+                      alt="Dragon Cave emblem"
                       fill
                       className="object-contain p-2"
                     />
@@ -255,7 +255,7 @@ export default function LandingPage() {
 
       <footer className="py-8 px-6 border-t border-white/10 bg-black">
         <div className="max-w-6xl mx-auto text-center text-sm text-muted">
-          © 2024 Celestial Drakon Aquatics. Premium aquatic environments, handcrafted.
+          © 2024 Dragon Cave Inventory. Premium aquatic environments, handcrafted.
         </div>
       </footer>
     </div>
