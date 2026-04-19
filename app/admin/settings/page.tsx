@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useMutation } from "convex/react";
+import { Id } from "@/convex/_generated/dataModel";
 import { api } from "@/convex/_generated/api";
 import BottomNavbar from "@/components/common/BottomNavbar";
 import SafeAreaProvider from "@/components/provider/SafeAreaProvider";
@@ -23,6 +24,7 @@ import {
   Mail,
   Phone,
   Lock,
+  Wallet,
 } from "lucide-react";
 import { useAuthStore, useIsAuthenticated } from "@/store/auth";
 import { useAuth } from "@/hooks/useAuth";
@@ -52,6 +54,38 @@ function AdminSettingsContent() {
   // Profile update mutation
   const updateProfile = useMutation(api.services.auth.updateProfile);
   const changePassword = useMutation(api.services.auth.changePassword);
+
+  // Opening cash balance
+  const currentOpeningBalance = useQuery(api.services.finance.getOpeningBalance);
+  const setOpeningBalanceMutation = useMutation(api.services.finance.setOpeningBalance);
+  const [openingBalanceInput, setOpeningBalanceInput] = useState('');
+  const [isSavingBalance, setIsSavingBalance] = useState(false);
+  const [balanceSaved, setBalanceSaved] = useState(false);
+
+  // Populate opening balance input when query loads
+  useEffect(() => {
+    if (currentOpeningBalance !== undefined && openingBalanceInput === '') {
+      setOpeningBalanceInput(currentOpeningBalance.toString());
+    }
+  }, [currentOpeningBalance]);
+
+  const handleSaveOpeningBalance = async () => {
+    const amount = parseFloat(openingBalanceInput);
+    if (isNaN(amount) || amount < 0) return;
+    setIsSavingBalance(true);
+    try {
+      await setOpeningBalanceMutation({
+        amount,
+        userId: user?._id as Id<"users"> | undefined,
+      });
+      setBalanceSaved(true);
+      setTimeout(() => setBalanceSaved(false), 2000);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Failed to save');
+    } finally {
+      setIsSavingBalance(false);
+    }
+  };
 
   // Settings state
   const [settings, setSettings] = useState({
@@ -494,6 +528,62 @@ function AdminSettingsContent() {
                 label="System Alerts"
                 description="System health and performance alerts"
               />
+            </div>
+          </Card>
+
+          {/* Opening Cash Balance Card */}
+          <Card className="p-4 sm:p-5 lg:p-6">
+            <div className="flex items-center gap-3 mb-4 sm:mb-5">
+              <div className="p-2.5 bg-success/10 rounded-xl flex-shrink-0">
+                <Wallet className="w-4 h-4 sm:w-5 sm:h-5 text-success" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h2 className="text-base sm:text-lg font-bold text-white">
+                  Opening Cash Balance
+                </h2>
+                <p className="text-xs sm:text-sm text-white/60">
+                  Starting capital for cash flow tracking
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <div className="p-3 rounded-lg bg-info/5 border border-info/20">
+                <p className="text-xs text-info/80">
+                  💡 This is your starting cash balance. Cash on hand = Opening + cash sales − cash expenses.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs text-white/60 mb-1.5">Amount (₱)</label>
+                <div className="flex gap-2">
+                  <input
+                    type="number"
+                    value={openingBalanceInput}
+                    onChange={(e) => setOpeningBalanceInput(e.target.value)}
+                    placeholder="0.00"
+                    min="0"
+                    step="0.01"
+                    className="flex-1 px-3 py-2.5 bg-background/60 border border-white/10 rounded-lg text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                  <button
+                    onClick={handleSaveOpeningBalance}
+                    disabled={isSavingBalance || openingBalanceInput === '' || parseFloat(openingBalanceInput) < 0}
+                    className={`px-5 py-2.5 rounded-lg text-sm font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 ${
+                      balanceSaved
+                        ? 'bg-success text-white'
+                        : 'bg-primary text-white hover:bg-primary/90 active:scale-95'
+                    }`}
+                  >
+                    {isSavingBalance ? 'Saving...' : balanceSaved ? <><CheckCircle className="w-4 h-4" /> Saved</> : 'Update'}
+                  </button>
+                </div>
+                {currentOpeningBalance !== undefined && currentOpeningBalance > 0 && (
+                  <p className="text-[10px] text-white/40 mt-1.5">
+                    Current value: ₱{currentOpeningBalance.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+                  </p>
+                )}
+              </div>
             </div>
           </Card>
 

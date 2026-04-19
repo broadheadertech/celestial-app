@@ -33,7 +33,6 @@ interface ProductFormData {
   badge: string;
   isActive: boolean;
   sku: string;
-  tankNumber: string;
   status: string;
   featured: boolean;
   lifespan: string;
@@ -83,7 +82,6 @@ const initialFormData: ProductFormData = {
   badge: '',
   isActive: true,
   sku: '',
-  tankNumber: '',
   status: 'active',
   featured: false,
   lifespan: '',
@@ -218,7 +216,6 @@ export function ProductFormContentInner({ editProductId, onSuccess, isDrawer }: 
         badge: existingProduct.badge || '',
         isActive: existingProduct.isActive,
         sku: (existingProduct.sku || '').toString(),
-        tankNumber: existingProduct.tankNumber || '',
         status: existingProduct.productStatus || 'active',
         lifespan: existingProduct.lifespan || '',
       }));
@@ -424,7 +421,6 @@ export function ProductFormContentInner({ editProductId, onSuccess, isDrawer }: 
         badge: formData.badge.trim() || undefined,
         productStatus: formData.status,
         sku: skuString,
-        tankNumber: formData.tankNumber.trim() || undefined,
         lifespan: formData.lifespan || undefined,
         isActive: formData.status === 'active',
       };
@@ -742,18 +738,6 @@ export function ProductFormContentInner({ editProductId, onSuccess, isDrawer }: 
             </div>
           </div>
 
-          {/* Tank Number - only for fish products */}
-          {isFishProduct && (
-            <>
-              {renderFormField('Tank Number')}
-              <input
-                className="w-full p-4 rounded-lg bg-secondary border border-primary/10 text-white placeholder:text-muted mb-4"
-                placeholder="e.g., TANK-001, A-12, etc."
-                value={formData.tankNumber}
-                onChange={(e) => handleInputChange('tankNumber', e.target.value)}
-              />
-            </>
-          )}
 
           {/* Badge */}
           {renderFormField('Badge (e.g., "New", "Sale", "Limited")')}

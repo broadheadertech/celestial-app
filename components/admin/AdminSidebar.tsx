@@ -13,6 +13,7 @@ import {
   Megaphone,
   Boxes,
   Fish,
+  Wallet,
 } from 'lucide-react';
 
 interface NavItem {
@@ -84,6 +85,17 @@ export default function AdminSidebar() {
           label: 'Customers',
           icon: Users,
           href: '/admin/users',
+        },
+      ],
+    },
+    {
+      title: 'Finance',
+      items: [
+        {
+          id: 'finance',
+          label: 'P&L & Expenses',
+          icon: Wallet,
+          href: '/admin/finance',
         },
       ],
     },

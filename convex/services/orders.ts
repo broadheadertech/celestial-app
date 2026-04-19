@@ -431,6 +431,9 @@ export const adminCreateOrder = mutation({
       paymentMethod,
       customerName: customerName || undefined,
       notes,
+      // Walk-in orders: assume paid immediately (cash on the spot)
+      paymentStatus: "paid",
+      amountPaid: totalAmount,
       salesAssociateId,
       salesAssociateName,
       createdAt: now,

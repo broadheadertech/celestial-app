@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
@@ -34,6 +35,92 @@ const formatCurrency = (amount: number) => {
   return `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`;
 };
 
+// Portal-based dropdown that escapes overflow containers
+interface UserMenuAction {
+  icon: React.ReactNode;
+  label: string;
+  onClick: () => void;
+  variant?: 'default' | 'danger' | 'success';
+}
+
+function UserActionDropdown({
+  anchorEl,
+  actions,
+  onClose,
+}: {
+  anchorEl: HTMLElement | null;
+  actions: UserMenuAction[];
+  onClose: () => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [position, setPosition] = useState<{ top: number; left: number; openUp: boolean } | null>(null);
+
+  useEffect(() => {
+    if (!anchorEl) return;
+    const rect = anchorEl.getBoundingClientRect();
+    const dropdownHeight = 220;
+    const dropdownWidth = 208; // w-52
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const openUp = spaceBelow < dropdownHeight && rect.top > dropdownHeight;
+    const top = openUp ? rect.top - 4 : rect.bottom + 4;
+    const left = Math.min(rect.right - dropdownWidth, window.innerWidth - dropdownWidth - 8);
+    setPosition({ top, left: Math.max(8, left), openUp });
+  }, [anchorEl]);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node) && anchorEl && !anchorEl.contains(e.target as Node)) {
+        onClose();
+      }
+    };
+    const scrollHandler = () => onClose();
+    document.addEventListener('mousedown', handler);
+    window.addEventListener('scroll', scrollHandler, true);
+    window.addEventListener('resize', scrollHandler);
+    return () => {
+      document.removeEventListener('mousedown', handler);
+      window.removeEventListener('scroll', scrollHandler, true);
+      window.removeEventListener('resize', scrollHandler);
+    };
+  }, [onClose, anchorEl]);
+
+  if (!position || typeof window === 'undefined') return null;
+
+  const getVariantClasses = (variant: string = 'default') => {
+    const v: Record<string, string> = {
+      default: 'text-white hover:bg-white/10',
+      danger: 'text-error hover:bg-error/10',
+      success: 'text-success hover:bg-success/10',
+    };
+    return v[variant] || v.default;
+  };
+
+  return createPortal(
+    <div
+      ref={ref}
+      style={{
+        position: 'fixed',
+        top: position.openUp ? 'auto' : position.top,
+        bottom: position.openUp ? window.innerHeight - position.top : 'auto',
+        left: position.left,
+      }}
+      className="z-[9999] w-52 bg-secondary border border-white/15 rounded-lg shadow-2xl py-1 animate-in fade-in slide-in-from-top-2 duration-150"
+    >
+      {actions.map((action, i) => (
+        <button
+          key={i}
+          onClick={() => { action.onClick(); onClose(); }}
+          className={`w-full px-4 py-2 text-left text-sm flex items-center gap-2 transition-colors ${getVariantClasses(action.variant)}`}
+        >
+          {action.icon}
+          <span>{action.label}</span>
+        </button>
+      ))}
+    </div>,
+    document.body
+  );
+}
+
 function AdminUsersContent() {
   const router = useRouter();
 
@@ -42,6 +129,7 @@ function AdminUsersContent() {
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [showFilters, setShowFilters] = useState(false);
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
+  const [dropdownAnchor, setDropdownAnchor] = useState<HTMLElement | null>(null);
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -565,45 +653,20 @@ function AdminUsersContent() {
                             </td>
                             {/* Actions */}
                             <td className="px-4 py-3 text-right">
-                              <div className="relative inline-block">
-                                <button
-                                  onClick={() => setSelectedUser(selectedUser === user._id ? null : user._id)}
-                                  className="p-1.5 rounded-lg hover:bg-white/10 active:scale-95 transition-all"
-                                >
-                                  <MoreVertical className="w-4 h-4 text-white/60" />
-                                </button>
-
-                                {selectedUser === user._id && (
-                                  <div className="absolute right-0 top-8 w-48 bg-secondary border border-white/10 rounded-lg shadow-xl z-10">
-                                    <div className="py-1">
-                                      <button
-                                        onClick={() => handleToggleUserStatus(user._id, user.isActive ?? false)}
-                                        className="w-full px-4 py-2 text-left text-sm text-white hover:bg-white/10 active:bg-white/15 flex items-center gap-2 transition-colors"
-                                      >
-                                        {user.isActive ? <ShieldOff className="w-4 h-4" /> : <Shield className="w-4 h-4" />}
-                                        <span>{user.isActive ? 'Deactivate' : 'Activate'}</span>
-                                      </button>
-                                      {(['admin', 'super_admin'] as string[]).includes(user.role) && (
-                                        <button
-                                          onClick={() => handleToggleSA(user._id)}
-                                          className="w-full px-4 py-2 text-left text-sm text-white hover:bg-white/10 active:bg-white/15 flex items-center gap-2 transition-colors"
-                                        >
-                                          <Shield className="w-4 h-4 text-success" />
-                                          <span>{user.isSalesAssociate ? 'Remove Sales Associate' : 'Mark as Sales Associate'}</span>
-                                        </button>
-                                      )}
-                                      <div className="border-t border-white/10 my-1"></div>
-                                      <button
-                                        onClick={() => handleDeleteUser(user._id)}
-                                        className="w-full px-4 py-2 text-left text-sm text-error hover:bg-error/10 active:bg-error/15 flex items-center gap-2 transition-colors"
-                                      >
-                                        <Trash2 className="w-4 h-4" />
-                                        <span>Delete User</span>
-                                      </button>
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
+                              <button
+                                onClick={(e) => {
+                                  if (selectedUser === user._id) {
+                                    setSelectedUser(null);
+                                    setDropdownAnchor(null);
+                                  } else {
+                                    setSelectedUser(user._id);
+                                    setDropdownAnchor(e.currentTarget);
+                                  }
+                                }}
+                                className="p-1.5 rounded-lg hover:bg-white/10 active:scale-95 transition-all inline-flex items-center justify-center"
+                              >
+                                <MoreVertical className="w-4 h-4 text-white/60" />
+                              </button>
                             </td>
                           </tr>
                         );
@@ -857,6 +920,44 @@ function AdminUsersContent() {
           </div>
         </>
       )}
+
+      {/* User Actions Dropdown (portal-based) */}
+      {selectedUser && dropdownAnchor && (() => {
+        const user = filteredUsers.find((u: any) => u._id === selectedUser);
+        if (!user) return null;
+
+        const actions: UserMenuAction[] = [
+          {
+            icon: user.isActive ? <ShieldOff className="w-4 h-4" /> : <Shield className="w-4 h-4" />,
+            label: user.isActive ? 'Deactivate' : 'Activate',
+            onClick: () => handleToggleUserStatus(user._id, user.isActive ?? false),
+          },
+        ];
+
+        if ((['admin', 'super_admin'] as string[]).includes(user.role)) {
+          actions.push({
+            icon: <Shield className="w-4 h-4 text-success" />,
+            label: user.isSalesAssociate ? 'Remove Sales Associate' : 'Mark as Sales Associate',
+            onClick: () => handleToggleSA(user._id),
+            variant: 'success',
+          });
+        }
+
+        actions.push({
+          icon: <Trash2 className="w-4 h-4" />,
+          label: 'Delete User',
+          onClick: () => handleDeleteUser(user._id),
+          variant: 'danger',
+        });
+
+        return (
+          <UserActionDropdown
+            anchorEl={dropdownAnchor}
+            actions={actions}
+            onClose={() => { setSelectedUser(null); setDropdownAnchor(null); }}
+          />
+        );
+      })()}
 
       {/* Confirmation Modal */}
       <ConfirmationModal

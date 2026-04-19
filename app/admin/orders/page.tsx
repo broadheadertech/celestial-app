@@ -52,6 +52,8 @@ type CombinedItem = {
   guestInfo?: { name: string; email: string; phone: string; pickupSchedule?: { date: string; time: string; }; };
   items?: Array<{ productId: string; quantity: number; product?: { _id: string; name: string; } | null; }>;
   notes?: string;
+  paymentStatus?: 'unpaid' | 'partial' | 'paid' | 'refunded';
+  amountPaid?: number;
 };
 
 interface ActionItem {
@@ -170,25 +172,51 @@ function BottomSheetModal({
   );
 }
 
-// Desktop Dropdown Menu Component
+// Desktop Dropdown Menu Component - Portal-based to avoid overflow clipping
 function DesktopDropdown({
+  anchorEl,
   actions,
   onClose,
 }: {
+  anchorEl: HTMLElement | null;
   actions: ActionItem[];
   onClose: () => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  const [position, setPosition] = useState<{ top: number; left: number; openUp: boolean } | null>(null);
+
+  useEffect(() => {
+    if (!anchorEl) return;
+    const rect = anchorEl.getBoundingClientRect();
+    const dropdownHeight = 280; // approx max height
+    const dropdownWidth = 224; // w-56
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const openUp = spaceBelow < dropdownHeight && rect.top > dropdownHeight;
+
+    const top = openUp ? rect.top - 4 : rect.bottom + 4;
+    const left = Math.min(
+      rect.right - dropdownWidth,
+      window.innerWidth - dropdownWidth - 8
+    );
+    setPosition({ top, left: Math.max(8, left), openUp });
+  }, [anchorEl]);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
+      if (ref.current && !ref.current.contains(e.target as Node) && anchorEl && !anchorEl.contains(e.target as Node)) {
         onClose();
       }
     };
+    const scrollHandler = () => onClose();
     document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [onClose]);
+    window.addEventListener('scroll', scrollHandler, true);
+    window.addEventListener('resize', scrollHandler);
+    return () => {
+      document.removeEventListener('mousedown', handler);
+      window.removeEventListener('scroll', scrollHandler, true);
+      window.removeEventListener('resize', scrollHandler);
+    };
+  }, [onClose, anchorEl]);
 
   const getVariantClasses = (variant: string = 'default') => {
     const variants: Record<string, string> = {
@@ -203,10 +231,18 @@ function DesktopDropdown({
 
   const visibleActions = actions.filter(a => a.show);
 
-  return (
+  if (!position || typeof window === 'undefined') return null;
+
+  return createPortal(
     <div
       ref={ref}
-      className="absolute right-0 top-full mt-1 z-50 w-56 bg-secondary border border-white/15 rounded-xl shadow-2xl py-1.5 animate-in fade-in slide-in-from-top-2 duration-150"
+      style={{
+        position: 'fixed',
+        top: position.openUp ? 'auto' : position.top,
+        bottom: position.openUp ? window.innerHeight - position.top : 'auto',
+        left: position.left,
+      }}
+      className="z-[9999] w-56 bg-secondary border border-white/15 rounded-xl shadow-2xl py-1.5 animate-in fade-in slide-in-from-top-2 duration-150"
     >
       {visibleActions.map((action, index) => (
         <button
@@ -221,7 +257,8 @@ function DesktopDropdown({
           <span className="flex-1 text-left">{action.label}</span>
         </button>
       ))}
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -245,8 +282,14 @@ function AdminOrdersContent() {
   } | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // Desktop dropdown state - stores item _id
+  // Desktop dropdown state - stores item _id + anchor element
   const [dropdownItemId, setDropdownItemId] = useState<string | null>(null);
+  const [dropdownAnchor, setDropdownAnchor] = useState<HTMLElement | null>(null);
+
+  // Partial payment modal
+  const [partialPaymentItem, setPartialPaymentItem] = useState<CombinedItem | null>(null);
+  const [partialAmount, setPartialAmount] = useState('');
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
 
   const ordersQuery = useQuery(api.services.orders.getAllOrdersAdmin, {});
   const reservationsQuery = useQuery(api.services.reservations.getAllReservationsAdmin, {});
@@ -257,6 +300,8 @@ function AdminOrdersContent() {
   const releaseOrder = useMutation(api.services.orders.releaseOrder);
   const acknowledgeReservation = useMutation(api.services.reservations.acknowledgeReservation);
   const releaseReservation = useMutation(api.services.reservations.releaseReservation);
+  const updateOrderPayment = useMutation(api.services.payments.updateOrderPayment);
+  const updateReservationPayment = useMutation(api.services.payments.updateReservationPayment);
   const assignOrderSA = useMutation(api.services.admin.assignOrderSalesAssociate);
   const assignReservationSA = useMutation(api.services.admin.assignReservationSalesAssociate);
   const staffUsers = useQuery(api.services.admin.getStaffUsers, {});
@@ -405,6 +450,32 @@ function AdminOrdersContent() {
     });
   };
 
+  const handlePaymentUpdate = async (item: CombinedItem, paymentStatus: 'unpaid' | 'partial' | 'paid' | 'refunded', amountPaid?: number) => {
+    try {
+      if (item.type === 'order') {
+        await updateOrderPayment({ orderId: item._id as Id<'orders'>, paymentStatus, amountPaid });
+      } else {
+        await updateReservationPayment({ reservationId: item._id as Id<'reservations'>, paymentStatus, amountPaid });
+      }
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Failed to update payment');
+    }
+  };
+
+  const handlePartialPayment = async () => {
+    if (!partialPaymentItem) return;
+    const amount = parseFloat(partialAmount);
+    if (isNaN(amount) || amount <= 0) return;
+    setIsProcessingPayment(true);
+    try {
+      await handlePaymentUpdate(partialPaymentItem, 'partial', amount);
+      setPartialPaymentItem(null);
+      setPartialAmount('');
+    } finally {
+      setIsProcessingPayment(false);
+    }
+  };
+
   const handleAssignSA = async () => {
     if (!showAssignSA) return;
     try {
@@ -473,6 +544,50 @@ function AdminOrdersContent() {
         variant: 'success',
         show: item.status === 'processing',
       },
+      // Payment actions
+      {
+        icon: <CheckCircle className="w-5 h-5" />,
+        label: 'Mark as Paid',
+        onClick: () => {
+          setConfirmPrompt({
+            message: `Mark this ${item.type} as fully paid (${formatCurrency(item.totalAmount || 0)})?`,
+            action: async () => { await handlePaymentUpdate(item, 'paid'); },
+          });
+        },
+        variant: 'success',
+        show: item.paymentStatus !== 'paid' && item.paymentStatus !== 'refunded' && item.status !== 'cancelled',
+      },
+      {
+        icon: <Clock className="w-5 h-5" />,
+        label: 'Record Partial Payment',
+        onClick: () => { setPartialPaymentItem(item); setPartialAmount(''); },
+        variant: 'warning',
+        show: item.paymentStatus !== 'paid' && item.paymentStatus !== 'refunded' && item.status !== 'cancelled',
+      },
+      {
+        icon: <XCircle className="w-5 h-5" />,
+        label: 'Mark as Unpaid',
+        onClick: () => {
+          setConfirmPrompt({
+            message: `Reset this ${item.type} to unpaid?`,
+            action: async () => { await handlePaymentUpdate(item, 'unpaid'); },
+          });
+        },
+        variant: 'danger',
+        show: item.paymentStatus === 'paid' || item.paymentStatus === 'partial',
+      },
+      {
+        icon: <XCircle className="w-5 h-5" />,
+        label: 'Mark as Refunded',
+        onClick: () => {
+          setConfirmPrompt({
+            message: `Mark this ${item.type} as refunded?`,
+            action: async () => { await handlePaymentUpdate(item, 'refunded'); },
+          });
+        },
+        variant: 'danger',
+        show: item.paymentStatus === 'paid' || item.paymentStatus === 'partial',
+      },
       {
         icon: <User className="w-5 h-5" />,
         label: 'Assign Sales Associate',
@@ -521,6 +636,17 @@ function AdminOrdersContent() {
       cancelled: 'bg-error/20 text-error border-error/30',
     };
     return colors[status as keyof typeof colors] || 'bg-muted/20 text-muted border-muted/30';
+  };
+
+  const getPaymentBadge = (status?: string) => {
+    const s = status || 'unpaid';
+    const config: Record<string, { label: string; className: string }> = {
+      paid: { label: 'Paid', className: 'bg-success/15 text-success border-success/30' },
+      partial: { label: 'Partial', className: 'bg-warning/15 text-warning border-warning/30' },
+      unpaid: { label: 'Unpaid', className: 'bg-error/15 text-error border-error/30' },
+      refunded: { label: 'Refunded', className: 'bg-white/10 text-white/50 border-white/20' },
+    };
+    return config[s] || config.unpaid;
   };
 
   const getTypeBadge = (type: 'order' | 'reservation') => {
@@ -655,6 +781,7 @@ function AdminOrdersContent() {
                         <th className="text-left px-4 py-3 text-xs font-semibold text-white/50 uppercase tracking-wider">Code</th>
                         <th className="text-left px-4 py-3 text-xs font-semibold text-white/50 uppercase tracking-wider">Type</th>
                         <th className="text-left px-4 py-3 text-xs font-semibold text-white/50 uppercase tracking-wider">Status</th>
+                        <th className="text-left px-4 py-3 text-xs font-semibold text-white/50 uppercase tracking-wider">Payment</th>
                         <th className="text-left px-4 py-3 text-xs font-semibold text-white/50 uppercase tracking-wider">Customer</th>
                         <th className="text-center px-4 py-3 text-xs font-semibold text-white/50 uppercase tracking-wider">Items</th>
                         <th className="text-right px-4 py-3 text-xs font-semibold text-white/50 uppercase tracking-wider">Amount</th>
@@ -689,6 +816,30 @@ function AdminOrdersContent() {
                             </span>
                           </td>
 
+                          {/* Payment */}
+                          <td className="px-4 py-3.5">
+                            {(() => {
+                              const pb = getPaymentBadge(item.paymentStatus);
+                              return (
+                                <div className="flex flex-col gap-0.5">
+                                  <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-semibold border w-fit ${pb.className}`}>
+                                    <span className={`w-1.5 h-1.5 rounded-full ${
+                                      (item.paymentStatus || 'unpaid') === 'paid' ? 'bg-success' :
+                                      item.paymentStatus === 'partial' ? 'bg-warning' :
+                                      item.paymentStatus === 'refunded' ? 'bg-white/40' : 'bg-error'
+                                    }`} />
+                                    {pb.label}
+                                  </span>
+                                  {item.paymentStatus === 'partial' && item.amountPaid !== undefined && item.totalAmount && (
+                                    <span className="text-[10px] text-white/50">
+                                      {formatCurrency(item.amountPaid)} / {formatCurrency(item.totalAmount)}
+                                    </span>
+                                  )}
+                                </div>
+                              );
+                            })()}
+                          </td>
+
                           {/* Customer */}
                           <td className="px-4 py-3.5">
                             <div className="flex items-center gap-2 min-w-0">
@@ -721,20 +872,20 @@ function AdminOrdersContent() {
 
                           {/* Actions Dropdown */}
                           <td className="px-4 py-3.5 text-right">
-                            <div className="relative inline-block">
-                              <button
-                                onClick={() => setDropdownItemId(dropdownItemId === item._id ? null : item._id)}
-                                className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 hover:border-primary/30 transition-all flex items-center justify-center"
-                              >
-                                <MoreVertical className="w-4 h-4 text-white/70" />
-                              </button>
-                              {dropdownItemId === item._id && (
-                                <DesktopDropdown
-                                  actions={getActionItems(item)}
-                                  onClose={() => setDropdownItemId(null)}
-                                />
-                              )}
-                            </div>
+                            <button
+                              onClick={(e) => {
+                                if (dropdownItemId === item._id) {
+                                  setDropdownItemId(null);
+                                  setDropdownAnchor(null);
+                                } else {
+                                  setDropdownItemId(item._id);
+                                  setDropdownAnchor(e.currentTarget);
+                                }
+                              }}
+                              className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 hover:border-primary/30 transition-all inline-flex items-center justify-center"
+                            >
+                              <MoreVertical className="w-4 h-4 text-white/70" />
+                            </button>
                           </td>
                         </tr>
                       ))}
@@ -754,12 +905,25 @@ function AdminOrdersContent() {
                         {item.type === 'order' ? <Package className="w-4 h-4 text-blue-400" /> : <Calendar className="w-4 h-4 text-purple-400" />}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                        <div className="flex items-center gap-1.5 mb-1 flex-wrap">
                           <h3 className="font-semibold text-white text-sm truncate">{item.code}</h3>
-                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs border font-medium ${getStatusBadge(item.status)} shrink-0`}>
+                          <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] border font-medium ${getStatusBadge(item.status)} shrink-0`}>
                             {getStatusIcon(item.status)}
                             <span className="capitalize hidden xs:inline">{item.status.replace('_', ' ')}</span>
                           </span>
+                          {(() => {
+                            const pb = getPaymentBadge(item.paymentStatus);
+                            return (
+                              <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] border font-semibold ${pb.className} shrink-0`}>
+                                <span className={`w-1 h-1 rounded-full ${
+                                  (item.paymentStatus || 'unpaid') === 'paid' ? 'bg-success' :
+                                  item.paymentStatus === 'partial' ? 'bg-warning' :
+                                  item.paymentStatus === 'refunded' ? 'bg-white/40' : 'bg-error'
+                                }`} />
+                                {pb.label}
+                              </span>
+                            );
+                          })()}
                         </div>
                         <div className="flex items-center gap-2 text-xs text-white/60 flex-wrap">
                           <span className="whitespace-nowrap">{formatDateTime(item.createdAt)}</span>
@@ -884,6 +1048,19 @@ function AdminOrdersContent() {
         );
       })()}
 
+      {/* Desktop Dropdown (portal-based, positioned at the clicked button) */}
+      {dropdownItemId && dropdownAnchor && (() => {
+        const item = allItems.find(i => i._id === dropdownItemId);
+        if (!item) return null;
+        return (
+          <DesktopDropdown
+            anchorEl={dropdownAnchor}
+            actions={getActionItems(item)}
+            onClose={() => { setDropdownItemId(null); setDropdownAnchor(null); }}
+          />
+        );
+      })()}
+
       {/* Confirmation Prompt */}
       {confirmPrompt && (
         <>
@@ -911,6 +1088,53 @@ function AdminOrdersContent() {
                   className="flex-1 px-4 py-3 bg-primary text-white rounded-xl font-medium hover:bg-primary/90 active:scale-95 transition-all disabled:opacity-50"
                 >
                   {isConfirmProcessing ? 'Processing...' : 'Yes'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Partial Payment Modal */}
+      {partialPaymentItem && (
+        <>
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9998]" onClick={() => !isProcessingPayment && setPartialPaymentItem(null)} />
+          <div className="fixed inset-0 flex items-center justify-center z-[9999] p-4">
+            <div className="bg-secondary border border-white/10 rounded-2xl shadow-2xl p-6 w-full max-w-sm">
+              <h3 className="text-lg font-bold text-white mb-1">Record Partial Payment</h3>
+              <p className="text-xs text-white/50 mb-4">{partialPaymentItem.code}</p>
+              <div className="bg-white/5 rounded-lg p-3 mb-4 border border-white/10">
+                <div className="flex justify-between text-xs mb-1">
+                  <span className="text-white/60">Total Amount</span>
+                  <span className="text-white font-semibold">{formatCurrency(partialPaymentItem.totalAmount || 0)}</span>
+                </div>
+                {partialPaymentItem.amountPaid !== undefined && partialPaymentItem.amountPaid > 0 && (
+                  <div className="flex justify-between text-xs">
+                    <span className="text-white/60">Already Paid</span>
+                    <span className="text-success font-semibold">{formatCurrency(partialPaymentItem.amountPaid)}</span>
+                  </div>
+                )}
+              </div>
+              <label className="block text-xs text-white/60 mb-1.5">Total Amount Paid (₱)</label>
+              <input
+                type="number"
+                value={partialAmount}
+                onChange={(e) => setPartialAmount(e.target.value)}
+                placeholder="e.g. 500"
+                min="0"
+                step="0.01"
+                max={partialPaymentItem.totalAmount || undefined}
+                className="w-full px-3 py-2.5 bg-background/60 border border-white/10 rounded-lg text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-primary mb-2"
+              />
+              <p className="text-[10px] text-white/40 mb-4">
+                Enter the cumulative amount paid so far. Must be less than {formatCurrency(partialPaymentItem.totalAmount || 0)}.
+              </p>
+              <div className="flex gap-3">
+                <button onClick={() => setPartialPaymentItem(null)} disabled={isProcessingPayment} className="flex-1 px-4 py-3 bg-secondary border border-white/10 text-white rounded-xl font-medium hover:bg-white/10 disabled:opacity-50">
+                  Cancel
+                </button>
+                <button onClick={handlePartialPayment} disabled={!partialAmount || isProcessingPayment} className="flex-1 px-4 py-3 bg-primary text-white rounded-xl font-medium hover:bg-primary/90 disabled:opacity-50">
+                  {isProcessingPayment ? 'Saving...' : 'Record'}
                 </button>
               </div>
             </div>

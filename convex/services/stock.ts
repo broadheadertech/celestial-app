@@ -1,13 +1,31 @@
 import { v } from "convex/values";
 import { mutation, query, MutationCtx } from "../_generated/server";
 import { Id } from "../_generated/dataModel";
+import { createRestockExpenseHelper } from "./finance";
 
 // ==================== HELPER FUNCTIONS (callable from other mutations) ====================
 
 /**
- * Reserve stock in stockRecords for a product (call from within a mutation handler).
- * Updates reservedQty and logs a stockMovement.
- * Silently skips if no active stock record exists (product may not have been batch-tracked yet).
+ * Get active batches for a product, sorted FIFO (oldest first).
+ * Excludes mortality records and depleted batches.
+ */
+async function getActiveBatchesFIFO(ctx: MutationCtx, productId: Id<"products">) {
+  const batches = await ctx.db
+    .query("stockRecords")
+    .withIndex("by_product_and_status", (q) =>
+      q.eq("productId", productId).eq("status", "active")
+    )
+    .collect();
+
+  // FIFO: oldest first, exclude mortality records
+  return batches
+    .filter(b => !b.isMortalityLoss)
+    .sort((a, b) => a.createdAt - b.createdAt);
+}
+
+/**
+ * Reserve stock using FIFO — reserves from oldest batch first, spanning
+ * multiple batches if needed. Logs a stockMovement per batch affected.
  */
 export async function reserveStockHelper(
   ctx: MutationCtx,
@@ -16,45 +34,47 @@ export async function reserveStockHelper(
   const { productId, quantity } = args;
   if (quantity <= 0) return null;
 
-  // Find the most recent active stock record for this product
-  const stockRecord = await ctx.db
-    .query("stockRecords")
-    .withIndex("by_product_and_status", (q) =>
-      q.eq("productId", productId).eq("status", "active")
-    )
-    .first();
-
-  if (!stockRecord) {
-    // No stock record exists — product hasn't been batch-tracked yet. Skip silently.
-    return null;
-  }
+  const batches = await getActiveBatchesFIFO(ctx, productId);
+  if (batches.length === 0) return null;
 
   const now = Date.now();
-  const newReservedQty = stockRecord.reservedQty + quantity;
+  let remaining = quantity;
+  const affected: { stockRecordId: Id<"stockRecords">; batchCode: string; qty: number }[] = [];
 
-  await ctx.db.patch(stockRecord._id, {
-    reservedQty: newReservedQty,
-    updatedAt: now,
-  });
+  for (const batch of batches) {
+    if (remaining <= 0) break;
+    const available = batch.currentQty - batch.reservedQty;
+    if (available <= 0) continue;
 
-  await ctx.db.insert("stockMovements", {
-    stockRecordId: stockRecord._id,
-    productId,
-    batchCode: stockRecord.batchCode,
-    movementType: "reservation",
-    quantityBefore: stockRecord.reservedQty,
-    quantityChange: quantity,
-    quantityAfter: newReservedQty,
-    createdAt: now,
-  });
+    const takeFromBatch = Math.min(remaining, available);
+    const newReservedQty = batch.reservedQty + takeFromBatch;
 
-  return { stockRecordId: stockRecord._id, batchCode: stockRecord.batchCode };
+    await ctx.db.patch(batch._id, {
+      reservedQty: newReservedQty,
+      updatedAt: now,
+    });
+
+    await ctx.db.insert("stockMovements", {
+      stockRecordId: batch._id,
+      productId,
+      batchCode: batch.batchCode,
+      movementType: "reservation",
+      quantityBefore: batch.reservedQty,
+      quantityChange: takeFromBatch,
+      quantityAfter: newReservedQty,
+      createdAt: now,
+    });
+
+    affected.push({ stockRecordId: batch._id, batchCode: batch.batchCode, qty: takeFromBatch });
+    remaining -= takeFromBatch;
+  }
+
+  return affected.length > 0 ? affected : null;
 }
 
 /**
- * Release reserved stock in stockRecords (call from within a mutation handler).
- * Finds the active stock record for the product and decreases reservedQty.
- * Silently skips if no matching record exists.
+ * Release reserved stock — releases from batches with reservedQty > 0,
+ * newest first (LIFO on reserved), spanning multiple batches if needed.
  */
 export async function releaseReservedStockHelper(
   ctx: MutationCtx,
@@ -63,43 +83,49 @@ export async function releaseReservedStockHelper(
   const { productId, quantity } = args;
   if (quantity <= 0) return;
 
-  // Find stock records for this product that have reserved qty
-  const stockRecords = await ctx.db
+  const batches = await ctx.db
     .query("stockRecords")
     .withIndex("by_product", (q) => q.eq("productId", productId))
     .collect();
 
-  // Find one with reservedQty > 0 (prefer active, then any)
-  const record = stockRecords.find(r => r.reservedQty > 0 && r.status === "active")
-    || stockRecords.find(r => r.reservedQty > 0);
+  // Release from batches with reserved qty, newest first
+  const reservedBatches = batches
+    .filter(b => b.reservedQty > 0 && !b.isMortalityLoss)
+    .sort((a, b) => b.createdAt - a.createdAt);
 
-  if (!record) return; // Nothing reserved in stockRecords, skip
+  if (reservedBatches.length === 0) return;
 
   const now = Date.now();
-  const releaseAmount = Math.min(quantity, record.reservedQty);
-  const newReservedQty = record.reservedQty - releaseAmount;
+  let remaining = quantity;
 
-  await ctx.db.patch(record._id, {
-    reservedQty: newReservedQty,
-    updatedAt: now,
-  });
+  for (const batch of reservedBatches) {
+    if (remaining <= 0) break;
+    const releaseAmount = Math.min(remaining, batch.reservedQty);
+    const newReservedQty = batch.reservedQty - releaseAmount;
 
-  await ctx.db.insert("stockMovements", {
-    stockRecordId: record._id,
-    productId,
-    batchCode: record.batchCode,
-    movementType: "adjustment",
-    quantityBefore: record.reservedQty,
-    quantityChange: -releaseAmount,
-    quantityAfter: newReservedQty,
-    createdAt: now,
-  });
+    await ctx.db.patch(batch._id, {
+      reservedQty: newReservedQty,
+      updatedAt: now,
+    });
+
+    await ctx.db.insert("stockMovements", {
+      stockRecordId: batch._id,
+      productId,
+      batchCode: batch.batchCode,
+      movementType: "adjustment",
+      quantityBefore: batch.reservedQty,
+      quantityChange: -releaseAmount,
+      quantityAfter: newReservedQty,
+      createdAt: now,
+    });
+
+    remaining -= releaseAmount;
+  }
 }
 
 /**
- * Record a sale in stockRecords for a product (call from within a mutation handler).
- * Decreases currentQty, increases soldQty, logs a "sale" movement.
- * Silently skips if no active stock record exists.
+ * Record a sale using FIFO — deducts from oldest batch first, spanning
+ * multiple batches if needed. Increments soldQty per batch.
  */
 export async function recordSaleHelper(
   ctx: MutationCtx,
@@ -108,47 +134,51 @@ export async function recordSaleHelper(
   const { productId, quantity } = args;
   if (quantity <= 0) return;
 
-  const stockRecord = await ctx.db
-    .query("stockRecords")
-    .withIndex("by_product_and_status", (q) =>
-      q.eq("productId", productId).eq("status", "active")
-    )
-    .first();
-
-  if (!stockRecord) return;
+  const batches = await getActiveBatchesFIFO(ctx, productId);
+  if (batches.length === 0) return;
 
   const now = Date.now();
-  const newCurrentQty = Math.max(0, stockRecord.currentQty - quantity);
-  const newSoldQty = stockRecord.soldQty + quantity;
-  // If this was reserved stock being sold, also decrease reservedQty
-  const reservedDecrease = Math.min(stockRecord.reservedQty, quantity);
-  const newReservedQty = stockRecord.reservedQty - reservedDecrease;
-  const newStatus = newCurrentQty === 0 ? "depleted" as const : stockRecord.status;
+  let remaining = quantity;
 
-  await ctx.db.patch(stockRecord._id, {
-    currentQty: newCurrentQty,
-    soldQty: newSoldQty,
-    reservedQty: newReservedQty,
-    status: newStatus,
-    updatedAt: now,
-  });
+  for (const batch of batches) {
+    if (remaining <= 0) break;
+    if (batch.currentQty <= 0) continue;
 
-  await ctx.db.insert("stockMovements", {
-    stockRecordId: stockRecord._id,
-    productId,
-    batchCode: stockRecord.batchCode,
-    movementType: "sale",
-    quantityBefore: stockRecord.currentQty,
-    quantityChange: -quantity,
-    quantityAfter: newCurrentQty,
-    createdAt: now,
-  });
+    const takeFromBatch = Math.min(remaining, batch.currentQty);
+    const newCurrentQty = batch.currentQty - takeFromBatch;
+    const newSoldQty = batch.soldQty + takeFromBatch;
+    // Decrease reservedQty if applicable
+    const reservedDecrease = Math.min(batch.reservedQty, takeFromBatch);
+    const newReservedQty = batch.reservedQty - reservedDecrease;
+    const newStatus = newCurrentQty === 0 ? "depleted" as const : batch.status;
+
+    await ctx.db.patch(batch._id, {
+      currentQty: newCurrentQty,
+      soldQty: newSoldQty,
+      reservedQty: newReservedQty,
+      status: newStatus,
+      updatedAt: now,
+    });
+
+    await ctx.db.insert("stockMovements", {
+      stockRecordId: batch._id,
+      productId,
+      batchCode: batch.batchCode,
+      movementType: "sale",
+      quantityBefore: batch.currentQty,
+      quantityChange: -takeFromBatch,
+      quantityAfter: newCurrentQty,
+      createdAt: now,
+    });
+
+    remaining -= takeFromBatch;
+  }
 }
 
 /**
- * Restore stock in stockRecords when an order/reservation is cancelled.
- * Increases currentQty back, logs a "return" movement.
- * Silently skips if no matching stock record exists.
+ * Restore stock when an order/reservation is cancelled — adds back to the
+ * newest batch (so cancellations flow to the most recent inventory).
+ * Reactivates depleted batches if needed.
  */
 export async function restoreStockHelper(
   ctx: MutationCtx,
@@ -157,33 +187,36 @@ export async function restoreStockHelper(
   const { productId, quantity } = args;
   if (quantity <= 0) return;
 
-  // Find the most recent stock record for this product (prefer active, then depleted)
-  const stockRecords = await ctx.db
+  const batches = await ctx.db
     .query("stockRecords")
     .withIndex("by_product", (q) => q.eq("productId", productId))
     .collect();
 
-  const record = stockRecords.find(r => r.status === "active" && !r.isMortalityLoss)
-    || stockRecords.find(r => r.status === "depleted" && !r.isMortalityLoss);
+  // Prefer newest active batch; if none, reactivate newest depleted batch
+  const activeBatches = batches.filter(b => b.status === "active" && !b.isMortalityLoss);
+  const depletedBatches = batches.filter(b => b.status === "depleted" && !b.isMortalityLoss);
 
-  if (!record) return;
+  const batch = activeBatches.sort((a, b) => b.createdAt - a.createdAt)[0]
+    || depletedBatches.sort((a, b) => b.createdAt - a.createdAt)[0];
+
+  if (!batch) return;
 
   const now = Date.now();
-  const newCurrentQty = record.currentQty + quantity;
-  const newStatus = newCurrentQty > 0 && record.status === "depleted" ? "active" as const : record.status;
+  const newCurrentQty = batch.currentQty + quantity;
+  const newStatus = batch.status === "depleted" ? "active" as const : batch.status;
 
-  await ctx.db.patch(record._id, {
+  await ctx.db.patch(batch._id, {
     currentQty: newCurrentQty,
     status: newStatus,
     updatedAt: now,
   });
 
   await ctx.db.insert("stockMovements", {
-    stockRecordId: record._id,
+    stockRecordId: batch._id,
     productId,
-    batchCode: record.batchCode,
+    batchCode: batch.batchCode,
     movementType: "return",
-    quantityBefore: record.currentQty,
+    quantityBefore: batch.currentQty,
     quantityChange: quantity,
     quantityAfter: newCurrentQty,
     createdAt: now,
@@ -703,30 +736,19 @@ export const restockProduct = mutation({
       }
     }
 
-    // Get the most recent active stock record to accumulate currentQty
-    const previousStockRecords = await ctx.db
-      .query("stockRecords")
-      .withIndex("by_product_and_status", (q) => 
-        q.eq("productId", productId).eq("status", "active")
-      )
-      .collect();
+    // FIFO batch tracking: new batch is independent, currentQty = initialQty
+    // No accumulation with previous batches. Each batch tracks its own remaining stock.
+    const newTotalStock = product.stock + quantity;
 
-    // Sort by creation date (most recent first) and get the latest
-    const previousBatch = previousStockRecords.sort((a, b) => b.createdAt - a.createdAt)[0];
-    const previousCurrentQty = previousBatch?.currentQty || 0;
-
-    // Formula: new batch currentQty = new batch initialQty + previous batch currentQty
-    const newCurrentQty = quantity + previousCurrentQty;
-
-    // Create NEW stock record for this restock
+    // Create NEW independent stock record for this restock
     const stockRecordId = await ctx.db.insert("stockRecords", {
       productId: productId,
       batchCode: batchCode,
       category: stockCategory,
 
-      // Initial quantities - currentQty includes previous batch's remaining stock
+      // Independent batch quantities
       initialQty: quantity,
-      currentQty: newCurrentQty, // Accumulated quantity
+      currentQty: quantity, // Independent — this batch's own remaining stock
       reservedQty: 0,
       soldQty: 0,
       mortalityLossQty: 0,
@@ -745,30 +767,39 @@ export const restockProduct = mutation({
       qualityGrade: qualityGrade || (product.badge ? "premium" : "standard"),
 
       // Audit
-      notes: notes || `📦 RESTOCK - Added ${quantity} units to inventory\nProduct: ${product.name}\nSKU: ${product.sku || 'N/A'}\nOriginal Batch: ${product.batchCode || 'N/A'}\nNew Batch: ${batchCode}\nPrevious Batch Remaining: ${previousCurrentQty}\nAccumulated Total: ${newCurrentQty}`,
+      notes: notes || `Restock batch: +${quantity} units received. Product: ${product.name}.`,
       lastModifiedBy: userId,
-      isRestock: true, // Mark as restock entry
+      isRestock: true,
 
       createdAt: now,
       updatedAt: now,
     });
 
-    // Log initial stock movement for this restock
+    // Log stock movement for this restock
     await ctx.db.insert("stockMovements", {
       stockRecordId: stockRecordId,
       productId: productId,
       batchCode: batchCode,
       movementType: "restock",
-      quantityBefore: previousCurrentQty,
+      quantityBefore: product.stock,
       quantityChange: quantity,
-      quantityAfter: newCurrentQty, // Shows accumulated total
+      quantityAfter: newTotalStock,
       createdAt: now,
     });
 
     // Update product total stock
     await ctx.db.patch(productId, {
-      stock: product.stock + quantity,
+      stock: newTotalStock,
       updatedAt: now,
+    });
+
+    // Auto-create restocking expense (costPrice × quantity)
+    await createRestockExpenseHelper(ctx, {
+      productId,
+      stockRecordId,
+      quantity,
+      batchCode,
+      userId,
     });
 
     return {
@@ -776,10 +807,9 @@ export const restockProduct = mutation({
       stockRecordId,
       batchCode,
       quantityAdded: quantity,
-      previousBatchQty: previousCurrentQty,
-      accumulatedQty: newCurrentQty,
-      message: `Successfully restocked ${quantity} units (Total: ${newCurrentQty} units including ${previousCurrentQty} from previous batch)`,
-      newTotalStock: product.stock + quantity,
+      batchQty: quantity,
+      message: `Successfully restocked ${quantity} units. New batch created: ${batchCode}`,
+      newTotalStock,
     };
   },
 });
@@ -1313,7 +1343,8 @@ export const getStockSummary = query({
   },
 });
 
-// Record mortality loss by product ID - Creates a separate mortality loss record
+// Record mortality loss — FIFO deducts from oldest batch(es),
+// creates ONE mortality record per event for reporting/traceability.
 export const recordMortalityLossByProduct = mutation({
   args: {
     productId: v.id("products"),
@@ -1326,163 +1357,187 @@ export const recordMortalityLossByProduct = mutation({
       throw new Error("Quantity must be greater than 0");
     }
 
-    // Get product
     const product = await ctx.db.get(productId);
-    if (!product) {
-      throw new Error("Product not found");
-    }
-
-    // Get category to determine stock category
-    const category = await ctx.db.get(product.categoryId);
-    if (!category) {
-      throw new Error("Category not found");
-    }
-
-    // Find ALL stock records for this product
-    const allStockRecords = await ctx.db
-      .query("stockRecords")
-      .withIndex("by_product", (q) => q.eq("productId", productId))
-      .collect();
-    
-    // Filter to get mortality records and non-mortality records
-    const mortalityRecords = allStockRecords
-      .filter(record => record.isMortalityLoss === true)
-      .sort((a, b) => b.createdAt - a.createdAt);
-    
-    const nonMortalityRecords = allStockRecords
-      .filter(record => !record.isMortalityLoss && record.status === "active")
-      .sort((a, b) => b.createdAt - a.createdAt);
-    
-    const previousMortalityRecord = mortalityRecords[0];
-    
-    // Get the most recent NON-MORTALITY stock record to copy from
-    const recentDataSource = nonMortalityRecords[0];
-    
-    if (!recentDataSource) {
-      throw new Error("No active stock record found for this product");
-    }
-
-    // Check available quantity from product stock
+    if (!product) throw new Error("Product not found");
     if (product.stock < quantity) {
       throw new Error(`Insufficient stock. Available: ${product.stock}, Requested: ${quantity}`);
     }
 
+    const category = await ctx.db.get(product.categoryId);
+    if (!category) throw new Error("Category not found");
+
+    // Get active batches FIFO (oldest first)
+    const batches = await ctx.db
+      .query("stockRecords")
+      .withIndex("by_product_and_status", (q) =>
+        q.eq("productId", productId).eq("status", "active")
+      )
+      .collect();
+
+    const activeBatches = batches
+      .filter(b => !b.isMortalityLoss && b.currentQty > 0)
+      .sort((a, b) => a.createdAt - b.createdAt);
+
+    if (activeBatches.length === 0) {
+      throw new Error("No active stock batches found for this product");
+    }
+
     const now = Date.now();
-    
-    // STEP 1: Copy batchCode and currentQty from most recent NON-MORTALITY record
-    const copiedBatchCode = recentDataSource.batchCode;
-    const copiedCurrentQty = recentDataSource.currentQty;
-    
-    // STEP 2: Calculate new product stock (this will be saved to product table and mortality currentQty)
+    let remaining = quantity;
+    const affectedBatches: { batchCode: string; qty: number }[] = [];
+
+    // FIFO deduction — remove from oldest batches first
+    for (const batch of activeBatches) {
+      if (remaining <= 0) break;
+      const takeFromBatch = Math.min(remaining, batch.currentQty);
+      const newCurrentQty = batch.currentQty - takeFromBatch;
+      const newMortalityQty = batch.mortalityLossQty + takeFromBatch;
+      const newStatus = newCurrentQty === 0 ? "depleted" as const : batch.status;
+
+      await ctx.db.patch(batch._id, {
+        currentQty: newCurrentQty,
+        mortalityLossQty: newMortalityQty,
+        status: newStatus,
+        updatedAt: now,
+      });
+
+      // Log per-batch movement
+      await ctx.db.insert("stockMovements", {
+        stockRecordId: batch._id,
+        productId: productId,
+        batchCode: batch.batchCode,
+        movementType: "damage",
+        quantityBefore: batch.currentQty,
+        quantityChange: -takeFromBatch,
+        quantityAfter: newCurrentQty,
+        createdAt: now,
+      });
+
+      affectedBatches.push({ batchCode: batch.batchCode, qty: takeFromBatch });
+      remaining -= takeFromBatch;
+    }
+
     const newProductStock = Math.max(0, product.stock - quantity);
-    
-    // STEP 2.1: For mortality records: currentQty = product's new stock (after deducting loss)
-    // This ensures the mortality record reflects the actual remaining stock
-    const newMortalityCurrentQty = newProductStock;
-    
-    // For mortality records: initialQty = currentQty (they are equal)
-    const newMortalityInitialQty = newMortalityCurrentQty;
-    
-    // Track the previous mortality currentQty for logging purposes
-    const previousMortalityCurrentQty = previousMortalityRecord 
-      ? previousMortalityRecord.currentQty 
-      : copiedCurrentQty;
-    
-    // Determine stock category
+
+    // Determine stock category for the mortality record
     const determineStockCategory = (categoryName: string): "fish" | "tank" | "accessory" => {
       const lower = categoryName.toLowerCase();
-      if (lower.includes("fish") || lower.includes("aquatic")) {
-        return "fish";
-      }
-      if (lower.includes("tank") || lower.includes("aquarium")) {
-        return "tank";
-      }
+      if (lower.includes("fish") || lower.includes("aquatic")) return "fish";
+      if (lower.includes("tank") || lower.includes("aquarium")) return "tank";
       return "accessory";
     };
-
     const stockCategory = determineStockCategory(category.name);
 
-    // STEP 4: Create NEW mortality loss record
-    const mortalityStockRecordId = await ctx.db.insert("stockRecords", {
-      productId: productId,
-      batchCode: copiedBatchCode, // Copied from recent data source
-      category: stockCategory,
+    // Create ONE mortality reporting record (marked isMortalityLoss, status: damaged)
+    // This is separate from the batches above — it exists purely for mortality history/reporting
+    const affectedBatchCodes = affectedBatches.map(b => `${b.batchCode} (-${b.qty})`).join(", ");
+    const firstBatch = activeBatches[0];
 
-      // initialQty = currentQty for mortality records
-      initialQty: newMortalityInitialQty,
-      currentQty: newMortalityCurrentQty, // Previous mortality currentQty - new loss
+    const mortalityRecordId = await ctx.db.insert("stockRecords", {
+      productId: productId,
+      batchCode: affectedBatches.map(b => b.batchCode).join("+"),
+      category: stockCategory,
+      initialQty: quantity,
+      currentQty: 0,
       reservedQty: 0,
       soldQty: 0,
-      mortalityLossQty: quantity, // Track the loss amount
+      mortalityLossQty: quantity,
       returnedQty: 0,
-
-      // Location
       tankNumber: product.tankNumber,
-
-      // Dates
       receivedDate: now,
-      manufactureDate: undefined,
-      expiryDate: undefined,
-
-      // Status
-      status: "damaged", // Mark as damaged status
-      qualityGrade: recentDataSource.qualityGrade,
-
-      // Audit
-      notes: notes || `🪦 MORTALITY LOSS RECORD\n` +
-        `Product: ${product.name}\n` +
-        `SKU: ${product.sku || 'N/A'}\n` +
-        `Batch Code: ${copiedBatchCode} (copied from recent stock)\n` +
-        `Tank: ${product.tankNumber || 'N/A'}\n` +
-        `Previous Product Stock: ${product.stock} units\n` +
-        `Mortality Loss Quantity: ${quantity} units\n` +
-        `New Product Stock: ${newProductStock} units\n` +
-        `New CurrentQty (= Product Stock): ${newMortalityCurrentQty} units\n` +
-        `New InitialQty (= CurrentQty): ${newMortalityInitialQty} units\n` +
-        `Formula: Product.stock (${product.stock}) - Loss (${quantity}) = ${newProductStock}\n` +
-        `${previousMortalityRecord ? 'Continuing mortality tracking' : 'First mortality loss - copied from recent stock record'}`,
+      status: "damaged",
+      qualityGrade: firstBatch.qualityGrade,
+      notes: notes || `Mortality loss: ${quantity} units. Deducted FIFO from: ${affectedBatchCodes}`,
       lastModifiedBy: userId,
-      isMortalityLoss: true, // Flag as mortality loss record
-      sourceStockRecordId: recentDataSource._id, // Reference to source stock
-
+      isMortalityLoss: true,
+      sourceStockRecordId: firstBatch._id,
       createdAt: now,
       updatedAt: now,
     });
 
-    // STEP 5: DO NOT update source stock record - stockRecords are immutable audit logs
-    // Each record is a historical snapshot of an action, not live inventory
-    // Only the product.stock field tracks current inventory
-
-    // STEP 6: Log stock movement for the mortality loss record only
-    // This movement represents the mortality loss action itself
-    await ctx.db.insert("stockMovements", {
-      stockRecordId: mortalityStockRecordId,
-      productId: productId,
-      batchCode: copiedBatchCode,
-      movementType: "damage",
-      quantityBefore: product.stock, // Product stock before loss
-      quantityChange: -quantity,
-      quantityAfter: newProductStock, // Product stock after loss
-      createdAt: now,
-    });
-
-    // STEP 7: Update product stock
+    // Update product total stock
     await ctx.db.patch(productId, {
-      stock: Math.max(0, product.stock - quantity),
+      stock: newProductStock,
       updatedAt: now,
     });
 
     return {
       success: true,
-      mortalityBatchCode: copiedBatchCode, // Batch code used for mortality record
-      mortalityStockRecordId, // ID of the new mortality record created
-      previousMortalityRecordId: previousMortalityRecord?._id,
+      mortalityStockRecordId: mortalityRecordId,
       mortalityLossQty: quantity,
-      newMortalityCurrentQty: newMortalityCurrentQty, // Product stock in mortality record
-      newMortalityInitialQty: newMortalityInitialQty, // Same as currentQty
-      previousProductStock: product.stock, // Product stock before loss
-      productStock: newProductStock, // Product stock after loss
-      isFirstMortalityLoss: !previousMortalityRecord,
+      affectedBatches,
+      previousProductStock: product.stock,
+      productStock: newProductStock,
+    };
+  },
+});
+
+// Migration: normalize existing batches to independent currentQty
+// Run once via: npx convex run services/stock:migrateToIndependentBatches
+export const migrateToIndependentBatches = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const allProducts = await ctx.db.query("products").collect();
+    const results: { product: string; before: number; after: number; batches: number }[] = [];
+
+    for (const product of allProducts) {
+      const batches = await ctx.db
+        .query("stockRecords")
+        .withIndex("by_product", (q) => q.eq("productId", product._id))
+        .collect();
+
+      const nonMortalityBatches = batches
+        .filter(b => !b.isMortalityLoss)
+        .sort((a, b) => a.createdAt - b.createdAt); // FIFO order
+
+      if (nonMortalityBatches.length === 0) continue;
+
+      // Distribute product.stock FIFO: fill oldest batches up to their initialQty first
+      let remaining = product.stock;
+      let totalAfter = 0;
+
+      for (const batch of nonMortalityBatches) {
+        // Amount already sold/mortality from this batch
+        const consumed = batch.soldQty + batch.mortalityLossQty;
+        // Max this batch can hold = initialQty - consumed
+        const batchCapacity = Math.max(0, batch.initialQty - consumed);
+        const allocate = Math.min(remaining, batchCapacity);
+        const newStatus = allocate === 0 && batch.status === "active" ? "depleted" as const : batch.status;
+
+        await ctx.db.patch(batch._id, {
+          currentQty: allocate,
+          status: newStatus,
+          updatedAt: Date.now(),
+        });
+
+        totalAfter += allocate;
+        remaining -= allocate;
+      }
+
+      // If stock exceeds all batch capacities, put excess in newest batch
+      if (remaining > 0) {
+        const newest = nonMortalityBatches[nonMortalityBatches.length - 1];
+        await ctx.db.patch(newest._id, {
+          currentQty: (newest.currentQty ?? 0) + remaining,
+          status: "active",
+          updatedAt: Date.now(),
+        });
+        totalAfter += remaining;
+      }
+
+      results.push({
+        product: product.name,
+        before: product.stock,
+        after: totalAfter,
+        batches: nonMortalityBatches.length,
+      });
+    }
+
+    return {
+      success: true,
+      productsProcessed: results.length,
+      results,
+      message: `Normalized ${results.length} products to independent batch tracking`,
     };
   },
 });

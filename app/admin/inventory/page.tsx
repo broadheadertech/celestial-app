@@ -8,6 +8,8 @@ import {
   Package,
   Activity,
   AlertTriangle,
+  CheckCircle,
+  DollarSign,
   X,
   MoreVertical,
   PackagePlus,
@@ -206,172 +208,218 @@ function InventoryContent() {
 
   return (
     <div className="min-h-screen bg-background text-foreground pb-20 sm:pb-6">
-      {/* Header */}
+      {/* Compact sticky header */}
       <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-white/10 safe-area-top">
-        <div className="px-3 sm:px-6 py-3 sm:py-4 max-w-7xl mx-auto">
-          <div className="flex items-center justify-between gap-2 mb-3 sm:mb-4">
-            <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0">
+        <div className="px-4 sm:px-6 py-3 sm:py-4 max-w-7xl mx-auto">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 flex-1 min-w-0">
               <button
                 onClick={() => router.back()}
-                className="p-2 rounded-full bg-secondary border border-white/10 hover:bg-white/10 active:scale-95 transition-all flex-shrink-0 touch-manipulation"
+                className="p-2 rounded-lg bg-secondary/60 border border-white/10 hover:bg-white/10 active:scale-95 transition-all flex-shrink-0"
               >
                 <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
               </button>
               <div className="min-w-0 flex-1">
-                <h1 className="text-lg sm:text-2xl font-bold text-white truncate">Inventory Management</h1>
-                <p className="text-xs sm:text-sm text-white/60 hidden xs:block truncate">Track batches and stock activities</p>
+                <h1 className="text-lg sm:text-2xl font-bold text-white truncate">Inventory</h1>
+                <p className="text-xs text-white/50 hidden sm:block">Batch-level stock tracking (FIFO)</p>
               </div>
             </div>
-            <button
-              onClick={() => setShowAddBatch(true)}
-              className="px-3 py-2 rounded-lg bg-primary text-white text-xs sm:text-sm font-medium hover:bg-primary/90 active:scale-95 transition-all touch-manipulation flex items-center gap-1.5"
-            >
-              <PackagePlus className="w-4 h-4" />
-              <span className="hidden sm:inline">Add Stock</span>
-            </button>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <button
+                onClick={() => router.push('/admin/inventory/movements')}
+                className="hidden sm:flex px-3 py-2 rounded-lg bg-secondary/60 border border-white/10 text-white/80 text-sm font-medium hover:bg-white/10 transition-all items-center gap-2"
+              >
+                <ArrowRightLeft className="w-4 h-4" />
+                Movements
+              </button>
+              <button
+                onClick={() => router.push('/admin/inventory/expiring')}
+                className="hidden sm:flex px-3 py-2 rounded-lg bg-secondary/60 border border-white/10 text-white/80 text-sm font-medium hover:bg-white/10 transition-all items-center gap-2"
+              >
+                <Clock className="w-4 h-4" />
+                Alerts
+              </button>
+              <button
+                onClick={() => setShowAddBatch(true)}
+                className="px-3 sm:px-4 py-2 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary/90 active:scale-95 transition-all flex items-center gap-2 shadow-lg shadow-primary/20"
+              >
+                <PackagePlus className="w-4 h-4" />
+                <span className="hidden xs:inline">Add Stock</span>
+              </button>
+            </div>
           </div>
 
-          {/* Quick Nav */}
-          <div className="flex gap-2 mb-3">
+          {/* Mobile Quick Nav */}
+          <div className="sm:hidden flex gap-2 mt-3">
             <button
               onClick={() => router.push('/admin/inventory/movements')}
-              className="flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-lg bg-secondary/60 border border-white/10 text-white text-xs sm:text-sm font-medium hover:bg-white/10 active:scale-95 transition-all touch-manipulation flex items-center justify-center gap-1.5"
+              className="flex-1 px-3 py-2 rounded-lg bg-secondary/60 border border-white/10 text-white text-xs font-medium flex items-center justify-center gap-1.5"
             >
               <ArrowRightLeft className="w-3.5 h-3.5" />
-              <span>Movements</span>
+              Movements
             </button>
             <button
               onClick={() => router.push('/admin/inventory/expiring')}
-              className="flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-lg bg-secondary/60 border border-white/10 text-white text-xs sm:text-sm font-medium hover:bg-white/10 active:scale-95 transition-all touch-manipulation flex items-center justify-center gap-1.5"
+              className="flex-1 px-3 py-2 rounded-lg bg-secondary/60 border border-white/10 text-white text-xs font-medium flex items-center justify-center gap-1.5"
             >
               <Clock className="w-3.5 h-3.5" />
-              <span>Alerts</span>
-            </button>
-          </div>
-
-          {/* Low Stock Alert Banner */}
-          {lowStockAlerts && lowStockAlerts.length > 0 && (
-            <div className="mb-3 px-3 py-2 rounded-lg bg-warning/10 border border-warning/30 flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-warning flex-shrink-0" />
-              <p className="text-xs sm:text-sm text-warning font-medium">
-                {lowStockAlerts.length} item{lowStockAlerts.length > 1 ? 's' : ''} with low stock
-              </p>
-            </div>
-          )}
-
-          {/* Summary Stats */}
-          {stockSummary && (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
-              <div className="bg-secondary/60 rounded-lg p-2 sm:p-3 border border-white/10">
-                <p className="text-[10px] sm:text-xs text-white/40">Total Batches</p>
-                <p className="text-sm sm:text-lg font-bold text-white">{stockSummary.totalRecords}</p>
-              </div>
-              <div className="bg-secondary/60 rounded-lg p-2 sm:p-3 border border-white/10">
-                <p className="text-[10px] sm:text-xs text-white/40">Active</p>
-                <p className="text-sm sm:text-lg font-bold text-success">{stockSummary.activeRecords}</p>
-              </div>
-              <div className="bg-secondary/60 rounded-lg p-2 sm:p-3 border border-white/10">
-                <p className="text-[10px] sm:text-xs text-white/40">Total Stock</p>
-                <p className="text-sm sm:text-lg font-bold text-white">{stockSummary.totalCurrentQty}</p>
-              </div>
-              <div className="bg-secondary/60 rounded-lg p-2 sm:p-3 border border-white/10">
-                <p className="text-[10px] sm:text-xs text-white/40">Total Value</p>
-                <p className="text-sm sm:text-lg font-bold text-primary">{formatCurrency(stockSummary.totalValue)}</p>
-              </div>
-            </div>
-          )}
-
-          {/* Search and Filter */}
-          <div className="flex gap-2 sm:gap-3">
-            <div className="flex-1 relative">
-              <Search className="absolute left-2.5 sm:left-3 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 sm:w-4 sm:h-4 text-white/40 pointer-events-none" />
-              <input
-                type="text"
-                placeholder="Search batches, products..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-8 sm:pl-10 pr-8 sm:pr-10 py-2 sm:py-3 bg-secondary/60 border border-white/10 rounded-lg text-sm sm:text-base text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-primary"
-              />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-2.5 sm:right-3 top-1/2 transform -translate-y-1/2 p-1 rounded hover:bg-white/10 active:scale-95 transition-all touch-manipulation"
-                >
-                  <X className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white/60" />
-                </button>
-              )}
-            </div>
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              className={`px-3 sm:px-4 py-2 sm:py-3 rounded-lg border transition-all flex items-center gap-1.5 sm:gap-2 flex-shrink-0 active:scale-95 touch-manipulation ${
-                showFilters || selectedFilter !== 'all'
-                  ? 'bg-primary border-primary text-white'
-                  : 'bg-secondary/60 border-white/10 text-white hover:bg-secondary/80'
-              }`}
-            >
-              <Filter className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-              <span className="text-xs sm:text-sm font-medium hidden xs:inline">Filters</span>
-              {selectedFilter !== 'all' && (
-                <span className="w-2 h-2 rounded-full bg-white flex-shrink-0" />
-              )}
+              Alerts
             </button>
           </div>
         </div>
       </div>
 
-      {/* Filters Panel */}
-      {showFilters && (
-        <div className="bg-secondary/60 border-b border-white/10 px-3 sm:px-6 py-3 sm:py-4">
-          <div className="max-w-7xl mx-auto space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-xs sm:text-sm font-medium text-white">Filter by Status</h3>
-              <button
-                onClick={() => setShowFilters(false)}
-                className="p-1 rounded hover:bg-white/10 transition-colors sm:hidden touch-manipulation"
-              >
-                <X className="w-4 h-4 text-white/60" />
-              </button>
+      {/* Main content area */}
+      <div className="px-4 sm:px-6 py-4 sm:py-6 max-w-7xl mx-auto space-y-4 sm:space-y-6">
+
+        {/* Low Stock Alert Banner */}
+        {lowStockAlerts && lowStockAlerts.length > 0 && (
+          <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-gradient-to-r from-warning/10 to-warning/5 border border-warning/30">
+            <div className="w-9 h-9 rounded-lg bg-warning/20 flex items-center justify-center flex-shrink-0">
+              <AlertTriangle className="w-4 h-4 text-warning" />
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-warning">
+                {lowStockAlerts.length} batch{lowStockAlerts.length > 1 ? 'es' : ''} running low
+              </p>
+              <p className="text-xs text-warning/70">Review the Alerts page for details</p>
+            </div>
+            <button
+              onClick={() => router.push('/admin/inventory/expiring')}
+              className="px-3 py-1.5 rounded-lg bg-warning/20 hover:bg-warning/30 text-warning text-xs font-semibold transition-colors"
+            >
+              View
+            </button>
+          </div>
+        )}
+
+        {/* Summary Stats - redesigned */}
+        {stockSummary && (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            <div className="bg-gradient-to-br from-secondary/60 to-secondary/30 rounded-xl p-4 border border-white/10 hover:border-white/20 transition-colors">
+              <div className="flex items-center justify-between mb-2">
+                <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <Package className="w-4 h-4 text-primary" />
+                </div>
+                <span className="text-[10px] font-medium text-white/40 uppercase tracking-wider">Batches</span>
+              </div>
+              <p className="text-2xl font-bold text-white">{stockSummary.totalRecords}</p>
+              <p className="text-xs text-white/50 mt-0.5">{stockSummary.activeRecords} active</p>
             </div>
 
-            <div className="flex gap-2 overflow-x-auto sm:flex-wrap scrollbar-hide pb-1">
-              {[
-                { key: 'all', label: 'All Batches', count: filterCounts.all },
-                { key: 'active', label: 'Active', count: filterCounts.active },
-                { key: 'low_stock', label: 'Low Stock', count: filterCounts.low_stock },
-                { key: 'depleted', label: 'Depleted', count: filterCounts.depleted },
-                { key: 'expired', label: 'Expired', count: filterCounts.expired },
-                { key: 'quarantine', label: 'Quarantine', count: filterCounts.quarantine },
-              ].map((filter) => (
+            <div className="bg-gradient-to-br from-secondary/60 to-secondary/30 rounded-xl p-4 border border-white/10 hover:border-white/20 transition-colors">
+              <div className="flex items-center justify-between mb-2">
+                <div className="w-8 h-8 rounded-lg bg-success/10 flex items-center justify-center">
+                  <CheckCircle className="w-4 h-4 text-success" />
+                </div>
+                <span className="text-[10px] font-medium text-white/40 uppercase tracking-wider">Units</span>
+              </div>
+              <p className="text-2xl font-bold text-white">{stockSummary.totalCurrentQty}</p>
+              <p className="text-xs text-white/50 mt-0.5">In stock across all batches</p>
+            </div>
+
+            <div className="bg-gradient-to-br from-secondary/60 to-secondary/30 rounded-xl p-4 border border-white/10 hover:border-white/20 transition-colors">
+              <div className="flex items-center justify-between mb-2">
+                <div className="w-8 h-8 rounded-lg bg-info/10 flex items-center justify-center">
+                  <DollarSign className="w-4 h-4 text-info" />
+                </div>
+                <span className="text-[10px] font-medium text-white/40 uppercase tracking-wider">Value</span>
+              </div>
+              <p className="text-2xl font-bold text-primary">{formatCurrency(stockSummary.totalValue)}</p>
+              <p className="text-xs text-white/50 mt-0.5">Total stock value</p>
+            </div>
+
+            <div className="bg-gradient-to-br from-secondary/60 to-secondary/30 rounded-xl p-4 border border-white/10 hover:border-white/20 transition-colors">
+              <div className="flex items-center justify-between mb-2">
+                <div className="w-8 h-8 rounded-lg bg-error/10 flex items-center justify-center">
+                  <AlertTriangle className="w-4 h-4 text-error" />
+                </div>
+                <span className="text-[10px] font-medium text-white/40 uppercase tracking-wider">Losses</span>
+              </div>
+              <p className="text-2xl font-bold text-white">{stockSummary.totalDamagedQty || 0}</p>
+              <p className="text-xs text-white/50 mt-0.5">Mortality / damaged</p>
+            </div>
+          </div>
+        )}
+
+        {/* Search and Filter bar */}
+        <div className="flex gap-2 sm:gap-3">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-white/40 pointer-events-none" />
+            <input
+              type="text"
+              placeholder="Search batches, products..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-10 py-2.5 bg-secondary/40 border border-white/10 rounded-xl text-sm text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-all"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 p-1 rounded hover:bg-white/10 transition-colors"
+              >
+                <X className="w-3.5 h-3.5 text-white/60" />
+              </button>
+            )}
+          </div>
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className={`px-4 py-2.5 rounded-xl border transition-all flex items-center gap-2 flex-shrink-0 ${
+              showFilters || selectedFilter !== 'all'
+                ? 'bg-primary border-primary text-white shadow-lg shadow-primary/20'
+                : 'bg-secondary/40 border-white/10 text-white hover:bg-white/5'
+            }`}
+          >
+            <Filter className="w-4 h-4" />
+            <span className="text-sm font-medium hidden xs:inline">Filters</span>
+            {selectedFilter !== 'all' && (
+              <span className="w-1.5 h-1.5 rounded-full bg-white" />
+            )}
+          </button>
+        </div>
+
+        {/* Filter chips (shown when expanded) */}
+        {showFilters && (
+          <div className="flex gap-2 overflow-x-auto sm:flex-wrap scrollbar-hide pb-1 animate-in slide-in-from-top duration-200">
+            {[
+              { key: 'all', label: 'All' },
+              { key: 'active', label: 'Active' },
+              { key: 'low_stock', label: 'Low Stock' },
+              { key: 'depleted', label: 'Depleted' },
+              { key: 'expired', label: 'Expired' },
+              { key: 'quarantine', label: 'Quarantine' },
+            ].map((filter) => {
+              const count = filterCounts[filter.key as keyof typeof filterCounts];
+              const isActive = selectedFilter === filter.key;
+              return (
                 <button
                   key={filter.key}
                   onClick={() => setSelectedFilter(filter.key as typeof selectedFilter)}
-                  className={`flex-shrink-0 px-3 py-2 rounded-lg text-xs sm:text-sm border flex items-center gap-2 transition-all active:scale-95 touch-manipulation whitespace-nowrap ${
-                    selectedFilter === filter.key
-                      ? 'bg-primary border-primary text-white'
-                      : 'bg-secondary/60 border-white/10 text-white/70 hover:text-white hover:border-primary/20'
+                  className={`flex-shrink-0 px-3 py-2 rounded-lg text-xs sm:text-sm font-medium border flex items-center gap-2 transition-all whitespace-nowrap ${
+                    isActive
+                      ? 'bg-primary border-primary text-white shadow-md shadow-primary/20'
+                      : 'bg-secondary/40 border-white/10 text-white/70 hover:text-white hover:border-white/20'
                   }`}
                 >
                   <span>{filter.label}</span>
-                  <div className={`px-1.5 py-0.5 rounded text-xs font-medium ${
-                    selectedFilter === filter.key
-                      ? 'bg-white/20 text-white'
-                      : 'bg-primary/10 text-primary'
+                  <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${
+                    isActive ? 'bg-white/20 text-white' : 'bg-white/10 text-white/60'
                   }`}>
-                    {filter.count}
-                  </div>
+                    {count}
+                  </span>
                 </button>
-              ))}
-            </div>
+              );
+            })}
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Batch List */}
-      <div className="px-3 sm:px-6 py-3 sm:py-4 max-w-7xl mx-auto">
+        {/* Batch List section */}
+        <div>
         <div className="flex items-center justify-between mb-3 sm:mb-4">
-          <h2 className="text-sm sm:text-lg font-bold text-white">
-            Inventory Batches <span className="text-white/60">({filteredRecords.length})</span>
-          </h2>
+          <div>
+            <h2 className="text-base sm:text-lg font-bold text-white">Batches</h2>
+            <p className="text-xs text-white/50 mt-0.5">{filteredRecords.length} {filteredRecords.length === 1 ? 'batch' : 'batches'} shown{selectedFilter !== 'all' ? ` · filtered by ${selectedFilter.replace('_', ' ')}` : ''}</p>
+          </div>
         </div>
 
         {isLoading ? (
@@ -399,21 +447,21 @@ function InventoryContent() {
           <>
             {/* ============ DESKTOP TABLE (sm and up) ============ */}
             <div className="hidden sm:block">
-              <div className="bg-secondary/40 border border-white/10 rounded-xl overflow-hidden">
+              <div className="bg-secondary/30 border border-white/10 rounded-xl overflow-hidden shadow-xl">
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-white/10 bg-secondary/60">
-                        <th className="text-left px-4 py-3 text-xs font-semibold text-white/50 uppercase tracking-wider">Product</th>
-                        <th className="text-left px-4 py-3 text-xs font-semibold text-white/50 uppercase tracking-wider">Batch Code</th>
-                        <th className="text-left px-4 py-3 text-xs font-semibold text-white/50 uppercase tracking-wider">Category</th>
-                        <th className="text-left px-4 py-3 text-xs font-semibold text-white/50 uppercase tracking-wider min-w-[160px]">Stock Level</th>
-                        <th className="text-center px-4 py-3 text-xs font-semibold text-white/50 uppercase tracking-wider">Reserved</th>
-                        <th className="text-center px-4 py-3 text-xs font-semibold text-white/50 uppercase tracking-wider">Sold</th>
-                        <th className="text-center px-4 py-3 text-xs font-semibold text-white/50 uppercase tracking-wider">Mortality</th>
-                        <th className="text-right px-4 py-3 text-xs font-semibold text-white/50 uppercase tracking-wider">Value</th>
-                        <th className="text-center px-4 py-3 text-xs font-semibold text-white/50 uppercase tracking-wider">Status</th>
-                        <th className="text-center px-4 py-3 text-xs font-semibold text-white/50 uppercase tracking-wider">Actions</th>
+                        <th className="text-left px-5 py-3.5 text-[10px] font-semibold text-white/40 uppercase tracking-wider">Product</th>
+                        <th className="text-left px-3 py-3.5 text-[10px] font-semibold text-white/40 uppercase tracking-wider">Batch</th>
+                        <th className="text-left px-3 py-3.5 text-[10px] font-semibold text-white/40 uppercase tracking-wider">Category</th>
+                        <th className="text-left px-3 py-3.5 text-[10px] font-semibold text-white/40 uppercase tracking-wider min-w-[180px]">Stock</th>
+                        <th className="text-center px-3 py-3.5 text-[10px] font-semibold text-white/40 uppercase tracking-wider">Reserved</th>
+                        <th className="text-center px-3 py-3.5 text-[10px] font-semibold text-white/40 uppercase tracking-wider">Sold</th>
+                        <th className="text-center px-3 py-3.5 text-[10px] font-semibold text-white/40 uppercase tracking-wider">Loss</th>
+                        <th className="text-right px-3 py-3.5 text-[10px] font-semibold text-white/40 uppercase tracking-wider">Value</th>
+                        <th className="text-center px-3 py-3.5 text-[10px] font-semibold text-white/40 uppercase tracking-wider">Status</th>
+                        <th className="text-center px-3 py-3.5 text-[10px] font-semibold text-white/40 uppercase tracking-wider w-12"></th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-white/5">
@@ -427,14 +475,14 @@ function InventoryContent() {
                         return (
                           <tr
                             key={record._id}
-                            className={`hover:bg-white/5 transition-colors ${
-                              isLowStock ? 'bg-warning/5' : isDepleted ? 'bg-error/5' : ''
+                            className={`hover:bg-white/[0.03] transition-colors ${
+                              isLowStock ? 'bg-warning/[0.03]' : isDepleted ? 'bg-error/[0.03] opacity-70' : ''
                             }`}
                           >
                             {/* Product (Image + Name) */}
-                            <td className="px-4 py-3">
+                            <td className="px-5 py-4">
                               <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-lg overflow-hidden bg-secondary border border-white/10 flex-shrink-0 flex items-center justify-center">
+                                <div className="w-10 h-10 rounded-lg overflow-hidden bg-secondary border border-white/10 flex-shrink-0 flex items-center justify-center ring-1 ring-white/5">
                                   {record.productImage ? (
                                     <img
                                       src={record.productImage}
@@ -445,32 +493,34 @@ function InventoryContent() {
                                     <Package className="w-4 h-4 text-white/30" />
                                   )}
                                 </div>
-                                <span className="font-medium text-white truncate max-w-[180px]">
+                                <span className="font-medium text-white truncate max-w-[200px]">
                                   {record.productName || 'Unknown Product'}
                                 </span>
                               </div>
                             </td>
 
-                            {/* Batch Code */}
-                            <td className="px-4 py-3">
-                              <span className="text-white/70 font-mono text-xs">{record.batchCode}</span>
+                            {/* Batch Code - as pill */}
+                            <td className="px-3 py-4">
+                              <span className="inline-block px-2 py-1 rounded-md bg-white/5 border border-white/10 text-white/70 font-mono text-[10px] tracking-tight">
+                                {record.batchCode}
+                              </span>
                             </td>
 
                             {/* Category */}
-                            <td className="px-4 py-3">
-                              <span className="text-white/70 capitalize">{record.category}</span>
+                            <td className="px-3 py-4">
+                              <span className="text-white/70 capitalize text-xs">{record.category}</span>
                             </td>
 
                             {/* Stock Level with progress bar */}
-                            <td className="px-4 py-3">
-                              <div className="space-y-1">
-                                <div className="flex items-center justify-between">
-                                  <span className="text-white font-medium">{record.currentQty}</span>
-                                  <span className="text-white/40 text-xs">/ {record.initialQty}</span>
+                            <td className="px-3 py-4">
+                              <div className="space-y-1.5">
+                                <div className="flex items-baseline justify-between gap-2">
+                                  <span className="text-white font-bold text-sm">{record.currentQty}</span>
+                                  <span className="text-white/40 text-[10px]">of {record.initialQty}</span>
                                 </div>
-                                <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
+                                <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
                                   <div
-                                    className={`h-full transition-all duration-300 ${
+                                    className={`h-full transition-all duration-300 rounded-full ${
                                       stockPercentage < 20
                                         ? 'bg-error'
                                         : stockPercentage < 50
@@ -484,38 +534,42 @@ function InventoryContent() {
                             </td>
 
                             {/* Reserved */}
-                            <td className="px-4 py-3 text-center">
-                              <span className="text-white/70">{record.reservedQty}</span>
+                            <td className="px-3 py-4 text-center">
+                              <span className={`text-sm ${record.reservedQty > 0 ? 'text-warning font-medium' : 'text-white/30'}`}>
+                                {record.reservedQty || '—'}
+                              </span>
                             </td>
 
                             {/* Sold */}
-                            <td className="px-4 py-3 text-center">
-                              <span className="text-primary font-medium">{record.soldQty}</span>
+                            <td className="px-3 py-4 text-center">
+                              <span className={`text-sm ${record.soldQty > 0 ? 'text-primary font-semibold' : 'text-white/30'}`}>
+                                {record.soldQty || '—'}
+                              </span>
                             </td>
 
                             {/* Mortality */}
-                            <td className="px-4 py-3 text-center">
-                              <span className={record.mortalityLossQty > 0 ? 'text-error font-medium' : 'text-white/70'}>
-                                {record.mortalityLossQty}
+                            <td className="px-3 py-4 text-center">
+                              <span className={`text-sm ${record.mortalityLossQty > 0 ? 'text-error font-semibold' : 'text-white/30'}`}>
+                                {record.mortalityLossQty || '—'}
                               </span>
                             </td>
 
                             {/* Value */}
-                            <td className="px-4 py-3 text-right">
-                              <span className="text-white font-medium">
-                                {record.productPrice ? formatCurrency(stockValue) : '--'}
+                            <td className="px-3 py-4 text-right">
+                              <span className="text-white font-semibold text-sm">
+                                {record.productPrice ? formatCurrency(stockValue) : '—'}
                               </span>
                             </td>
 
                             {/* Status */}
-                            <td className="px-4 py-3 text-center">
-                              <span className={`inline-block px-2 py-1 rounded-lg text-xs font-medium ${badge.className}`}>
+                            <td className="px-3 py-4 text-center">
+                              <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wide ${badge.className}`}>
                                 {badge.label}
                               </span>
                             </td>
 
                             {/* Actions */}
-                            <td className="px-4 py-3 text-center">
+                            <td className="px-3 py-4 text-center">
                               <div className="relative inline-block">
                                 <button
                                   onClick={() => setOpenMenuId(openMenuId === record._id ? null : record._id)}
@@ -766,6 +820,7 @@ function InventoryContent() {
             </div>
           </>
         )}
+        </div>
       </div>
 
       {/* Bottom Navigation */}

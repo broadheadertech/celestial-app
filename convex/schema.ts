@@ -120,6 +120,14 @@ export default defineSchema({
     paymentMethod: v.string(),
     customerName: v.optional(v.string()), // For walk-in customers without an account
     notes: v.optional(v.string()),
+    // Payment tracking
+    paymentStatus: v.optional(v.union(
+      v.literal("unpaid"),
+      v.literal("partial"),
+      v.literal("paid"),
+      v.literal("refunded"),
+    )),
+    amountPaid: v.optional(v.number()),
     // Sales associate tracking (for incentive programs)
     salesAssociateId: v.optional(v.id("users")),
     salesAssociateName: v.optional(v.string()),
@@ -191,6 +199,14 @@ export default defineSchema({
       v.literal("cancelled")
     ),
     notes: v.optional(v.string()),
+    // Payment tracking
+    paymentStatus: v.optional(v.union(
+      v.literal("unpaid"),
+      v.literal("partial"),
+      v.literal("paid"),
+      v.literal("refunded"),
+    )),
+    amountPaid: v.optional(v.number()),
     // Sales associate tracking
     salesAssociateId: v.optional(v.id("users")),
     salesAssociateName: v.optional(v.string()),
@@ -340,4 +356,49 @@ export default defineSchema({
     .index("by_batch_code", ["batchCode"])
     .index("by_movement_type", ["movementType"])
     .index("by_created", ["createdAt"]),
+
+  // Expenses — both restocking (auto) and operational (manual)
+  expenses: defineTable({
+    type: v.union(v.literal("restocking"), v.literal("operational")),
+    category: v.optional(v.union(
+      v.literal("travel"),
+      v.literal("food"),
+      v.literal("supplies"),
+      v.literal("utilities"),
+      v.literal("rent"),
+      v.literal("salary"),
+      v.literal("maintenance"),
+      v.literal("marketing"),
+      v.literal("other"),
+    )),
+    amount: v.number(),
+    description: v.string(),
+    paymentMethod: v.string(), // cash, gcash, bank_transfer, card
+    date: v.number(), // when the expense was paid
+
+    // Restocking link (if type = restocking)
+    stockRecordId: v.optional(v.id("stockRecords")),
+    productId: v.optional(v.id("products")),
+    quantity: v.optional(v.number()),
+
+    receiptImage: v.optional(v.string()),
+    notes: v.optional(v.string()),
+    createdBy: v.optional(v.id("users")),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_type", ["type"])
+    .index("by_date", ["date"])
+    .index("by_category", ["category"])
+    .index("by_stock_record", ["stockRecordId"])
+    .index("by_product", ["productId"]),
+
+  // Financial settings (key-value store for opening balance, etc.)
+  financialSettings: defineTable({
+    key: v.string(), // "opening_cash_balance"
+    value: v.number(),
+    updatedAt: v.number(),
+    updatedBy: v.optional(v.id("users")),
+  })
+    .index("by_key", ["key"]),
 });
