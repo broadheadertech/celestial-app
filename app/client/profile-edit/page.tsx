@@ -60,7 +60,7 @@ export default function ProfileEditPage() {
     }
 
     if (user?.role === 'super_admin') {
-      router.push('/control_panel');
+      router.push('/admin/dashboard');
       return;
     }
   }, [isAuthenticated, user?.role, router]);

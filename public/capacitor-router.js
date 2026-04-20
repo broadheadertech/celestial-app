@@ -35,9 +35,6 @@
     '^/admin/reservations/[^/]+/?$': '/admin/reservations/',
     '^/admin/products/form\\?': '/admin/products/form/',
 
-    // Control panel routes (if needed)
-    '^/control_panel/products/[^/]+/?$': '/control_panel/products/',
-    '^/control_panel/reservations/[^/]+/?$': '/control_panel/reservations/',
   };
 
   // Function to find matching route

@@ -43,9 +43,9 @@ function LoginContent() {
       // If user is authenticated, redirect to appropriate dashboard
       if (isAuthenticated && user && !hasRedirected) {
         const role = user.role;
-        const path = role === 'admin' ? '/admin/dashboard' :
-                     role === 'super_admin' ? '/control_panel' :
-                     '/client/dashboard';
+        const path = role === 'admin' || role === 'super_admin'
+          ? '/admin/dashboard'
+          : '/client/dashboard';
         setHasRedirected(true);
         router.push(path);
       }

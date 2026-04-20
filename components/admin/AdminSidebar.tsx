@@ -3,7 +3,6 @@
 import React from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import {
-  BarChart3,
   Users,
   Package,
   ShoppingBag,
@@ -14,7 +13,9 @@ import {
   Boxes,
   Fish,
   Wallet,
+  Sliders,
 } from 'lucide-react';
+import { useAuthStore } from '@/store/auth';
 
 interface NavItem {
   id: string;
@@ -22,6 +23,7 @@ interface NavItem {
   icon: React.ComponentType<{ className?: string }>;
   href: string;
   matchPaths?: string[];
+  superAdminOnly?: boolean;
 }
 
 interface NavSection {
@@ -32,8 +34,10 @@ interface NavSection {
 export default function AdminSidebar() {
   const router = useRouter();
   const pathname = usePathname();
+  const { user } = useAuthStore();
+  const isSuperAdmin = user?.role === 'super_admin';
 
-  const sections: NavSection[] = [
+  const rawSections: NavSection[] = [
     {
       title: 'Overview',
       items: [
@@ -109,6 +113,13 @@ export default function AdminSidebar() {
           href: '/admin/settings',
         },
         {
+          id: 'app-settings',
+          label: 'App Settings',
+          icon: Sliders,
+          href: '/admin/app-settings',
+          superAdminOnly: true,
+        },
+        {
           id: 'marketing',
           label: 'Marketing',
           icon: Megaphone,
@@ -117,6 +128,13 @@ export default function AdminSidebar() {
       ],
     },
   ];
+
+  const sections: NavSection[] = rawSections
+    .map((s) => ({
+      ...s,
+      items: s.items.filter((i) => !i.superAdminOnly || isSuperAdmin),
+    }))
+    .filter((s) => s.items.length > 0);
 
   const isActiveRoute = (item: NavItem): boolean => {
     const normalizedPathname = pathname.replace(/\/$/, '');

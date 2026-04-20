@@ -137,7 +137,7 @@ function ClientDashboardContent() {
       router.push("/admin/dashboard");
     } else if (isAuthenticated && user?.role === "super_admin") {
       setIsRedirecting(true);
-      router.push("/control_panel");
+      router.push("/admin/dashboard");
     }
   }, [isAuthenticated, user?.role, router]);
 

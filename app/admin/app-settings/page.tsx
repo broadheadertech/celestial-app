@@ -6,14 +6,16 @@ import { useQuery, useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import {
   ArrowLeft,
-  Settings,
+  Settings as SettingsIcon,
   Save,
   RefreshCw,
   Bell,
-  Info,
   CheckCircle,
+  Info,
+  ShieldAlert,
 } from 'lucide-react';
 import Button from '@/components/ui/Button';
+import { useAuthStore } from '@/store/auth';
 
 type SettingsForm = {
   siteName: string;
@@ -39,8 +41,9 @@ const INITIAL: SettingsForm = {
   lowStockThreshold: 10,
 };
 
-export default function SettingsPage() {
+export default function AppSettingsPage() {
   const router = useRouter();
+  const { user } = useAuthStore();
   const [activeTab, setActiveTab] = useState<'general' | 'notifications'>('general');
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
@@ -65,6 +68,23 @@ export default function SettingsPage() {
       });
     }
   }, [remote, dirty]);
+
+  if (user && user.role !== 'super_admin') {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-6">
+        <div className="max-w-md text-center bg-secondary/40 border border-white/10 rounded-2xl p-8">
+          <ShieldAlert className="w-12 h-12 text-error mx-auto mb-4" />
+          <h1 className="text-xl font-bold text-white mb-2">Restricted</h1>
+          <p className="text-sm text-white/60 mb-6">
+            App settings are only editable by super admins.
+          </p>
+          <Button onClick={() => router.push('/admin/dashboard')} className="bg-primary hover:bg-primary/90">
+            Back to Dashboard
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   const patch = <K extends keyof SettingsForm>(key: K, value: SettingsForm[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -99,19 +119,9 @@ export default function SettingsPage() {
   const isLoading = remote === undefined;
 
   const tabs = [
-    { id: 'general' as const, name: 'General', icon: Settings },
+    { id: 'general' as const, name: 'General', icon: SettingsIcon },
     { id: 'notifications' as const, name: 'Notifications', icon: Bell },
   ];
-
-  const SettingCard = ({ children, title, description }: { children: React.ReactNode; title: string; description?: string }) => (
-    <div className="bg-secondary/40 backdrop-blur-sm rounded-xl p-6 border border-white/10">
-      <div className="mb-4">
-        <h3 className="text-white font-bold text-lg">{title}</h3>
-        {description && <p className="text-white/60 text-sm">{description}</p>}
-      </div>
-      {children}
-    </div>
-  );
 
   const Toggle = ({ enabled, onChange, label, description }: { enabled: boolean; onChange: (v: boolean) => void; label: string; description?: string }) => (
     <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
@@ -121,9 +131,7 @@ export default function SettingsPage() {
       </div>
       <button
         onClick={() => onChange(!enabled)}
-        className={`relative w-12 h-6 rounded-full transition-colors ${
-          enabled ? 'bg-primary' : 'bg-white/20'
-        }`}
+        className={`relative w-12 h-6 rounded-full transition-colors ${enabled ? 'bg-primary' : 'bg-white/20'}`}
       >
         <div
           className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${
@@ -134,21 +142,95 @@ export default function SettingsPage() {
     </div>
   );
 
-  const renderTabContent = () => {
-    if (isLoading) {
-      return (
-        <div className="bg-secondary/40 backdrop-blur-sm rounded-xl p-8 border border-white/10 flex items-center justify-center">
-          <RefreshCw className="w-6 h-6 text-primary animate-spin mr-3" />
-          <span className="text-white/70">Loading settings...</span>
-        </div>
-      );
-    }
+  return (
+    <div className="min-h-screen bg-background">
+      <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-md border-b border-white/10">
+        <div className="px-4 lg:px-6 py-4">
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div className="flex items-center space-x-4">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => router.back()}
+                className="text-white/60 hover:text-white"
+              >
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Back
+              </Button>
 
-    switch (activeTab) {
-      case 'general':
-        return (
-          <div className="space-y-6">
-            <SettingCard title="Site Configuration" description="Basic site settings and preferences">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 bg-gradient-to-br from-primary to-orange-600 rounded-xl flex items-center justify-center">
+                  <SettingsIcon className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-xl font-bold text-white">App Settings</h1>
+                  <p className="text-sm text-white/60">Super admin configuration</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              {saveStatus === 'success' && !dirty && (
+                <div className="flex items-center gap-1.5 text-green-400 text-sm">
+                  <CheckCircle className="w-4 h-4" />
+                  <span>Saved</span>
+                </div>
+              )}
+              {saveStatus === 'error' && (
+                <div className="flex items-center gap-1.5 text-red-400 text-sm">
+                  <Info className="w-4 h-4" />
+                  <span>Save failed</span>
+                </div>
+              )}
+              <Button
+                onClick={handleSave}
+                disabled={isSaving || !dirty || isLoading}
+                className="bg-primary/90 hover:bg-primary disabled:opacity-50"
+              >
+                {isSaving ? (
+                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Save className="w-4 h-4 mr-2" />
+                )}
+                {isSaving ? 'Saving...' : 'Save Changes'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex flex-col md:flex-row">
+        <div className="md:w-64 bg-secondary/40 backdrop-blur-sm border-b md:border-b-0 md:border-r border-white/10 md:min-h-screen p-4">
+          <div className="flex md:flex-col gap-2 overflow-x-auto md:overflow-visible">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex-shrink-0 md:w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-all ${
+                  activeTab === tab.id
+                    ? 'bg-primary text-white'
+                    : 'text-white/70 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                <tab.icon className="w-5 h-5" />
+                <span className="font-medium">{tab.name}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex-1 p-4 lg:p-6">
+          {isLoading ? (
+            <div className="bg-secondary/40 backdrop-blur-sm rounded-xl p-8 border border-white/10 flex items-center justify-center">
+              <RefreshCw className="w-6 h-6 text-primary animate-spin mr-3" />
+              <span className="text-white/70">Loading settings...</span>
+            </div>
+          ) : activeTab === 'general' ? (
+            <div className="bg-secondary/40 backdrop-blur-sm rounded-xl p-6 border border-white/10">
+              <div className="mb-4">
+                <h3 className="text-white font-bold text-lg">Site Configuration</h3>
+                <p className="text-white/60 text-sm">Basic site settings and preferences</p>
+              </div>
               <div className="space-y-4">
                 <div>
                   <label className="text-white/70 text-sm font-medium block mb-2">Site Name</label>
@@ -203,14 +285,13 @@ export default function SettingsPage() {
                   description="Temporarily disable public access to the site"
                 />
               </div>
-            </SettingCard>
-          </div>
-        );
-
-      case 'notifications':
-        return (
-          <div className="space-y-6">
-            <SettingCard title="Notification Preferences" description="Control which events create notifications">
+            </div>
+          ) : (
+            <div className="bg-secondary/40 backdrop-blur-sm rounded-xl p-6 border border-white/10">
+              <div className="mb-4">
+                <h3 className="text-white font-bold text-lg">Notification Preferences</h3>
+                <p className="text-white/60 text-sm">Control which events create notifications</p>
+              </div>
               <div className="space-y-3">
                 <Toggle
                   enabled={form.notifyLowStock}
@@ -245,94 +326,8 @@ export default function SettingsPage() {
                   description="Notify admins when a new customer registers"
                 />
               </div>
-            </SettingCard>
-          </div>
-        );
-
-      default:
-        return null;
-    }
-  };
-
-  return (
-    <div className="min-h-screen bg-background">
-      <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-md border-b border-white/10">
-        <div className="px-4 lg:px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => router.back()}
-                className="text-white/60 hover:text-white"
-              >
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back
-              </Button>
-
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 bg-gradient-to-br from-primary to-orange-600 rounded-xl flex items-center justify-center">
-                  <Settings className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-xl font-bold text-white">System Settings</h1>
-                  <p className="text-sm text-white/60">Configure system preferences and controls</p>
-                </div>
-              </div>
             </div>
-
-            <div className="flex items-center gap-3">
-              {saveStatus === 'success' && !dirty && (
-                <div className="flex items-center gap-1.5 text-green-400 text-sm">
-                  <CheckCircle className="w-4 h-4" />
-                  <span>Saved</span>
-                </div>
-              )}
-              {saveStatus === 'error' && (
-                <div className="flex items-center gap-1.5 text-red-400 text-sm">
-                  <Info className="w-4 h-4" />
-                  <span>Save failed</span>
-                </div>
-              )}
-              <Button
-                onClick={handleSave}
-                disabled={isSaving || !dirty || isLoading}
-                className="bg-primary/90 hover:bg-primary disabled:opacity-50"
-              >
-                {isSaving ? (
-                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                ) : (
-                  <Save className="w-4 h-4 mr-2" />
-                )}
-                {isSaving ? 'Saving...' : 'Save Changes'}
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="flex">
-        <div className="w-64 bg-secondary/40 backdrop-blur-sm border-r border-white/10 min-h-screen p-4">
-          <div className="space-y-2">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-all ${
-                  activeTab === tab.id
-                    ? 'bg-primary text-white'
-                    : 'text-white/70 hover:text-white hover:bg-white/10'
-                }`}
-              >
-                <tab.icon className="w-5 h-5" />
-                <span className="font-medium">{tab.name}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="flex-1 p-4 lg:p-6">
-          {renderTabContent()}
+          )}
         </div>
       </div>
     </div>

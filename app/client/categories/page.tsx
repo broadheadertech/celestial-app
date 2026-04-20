@@ -64,7 +64,7 @@ export default function CategoriesPage() {
   }
 
   if (isAuthenticated && user?.role === 'super_admin') {
-    router.push('/control_panel');
+    router.push('/admin/dashboard');
     return null;
   }
 

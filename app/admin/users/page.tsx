@@ -25,11 +25,15 @@ import {
   RefreshCw,
   X,
   Plus,
+  Ban,
+  Unlock,
+  UserCog,
 } from 'lucide-react';
 import { formatDate, getRelativeTime } from '@/lib/utils';
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
 import ConfirmationModal from '@/components/ui/ConfirmationModal';
+import { useAuthStore } from '@/store/auth';
 
 const formatCurrency = (amount: number) => {
   return `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`;
@@ -123,6 +127,8 @@ function UserActionDropdown({
 
 function AdminUsersContent() {
   const router = useRouter();
+  const { user: currentUser } = useAuthStore();
+  const isSuperAdmin = currentUser?.role === 'super_admin';
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedRole, setSelectedRole] = useState<string>('all');
@@ -133,6 +139,8 @@ function AdminUsersContent() {
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
+  const [showBulkBar, setShowBulkBar] = useState(false);
   const [confirmationModalProps, setConfirmationModalProps] = useState({
     title: '',
     message: '',
@@ -154,6 +162,10 @@ function AdminUsersContent() {
   const adminCreateCustomer = useMutation(api.services.admin.adminCreateCustomer);
   const toggleSalesAssociate = useMutation(api.services.admin.toggleSalesAssociate);
   const deleteUserMutation = useMutation(api.services.admin.deleteUser);
+  // Super-admin-only mutations
+  const banUser = useMutation(api.services.admin.banUser);
+  const unbanUser = useMutation(api.services.admin.unbanUser);
+  const bulkUpdateUsers = useMutation(api.services.admin.bulkUpdateUsers);
 
   const handleToggleSA = async (userId: string) => {
     try {
@@ -204,46 +216,47 @@ function AdminUsersContent() {
     setShowConfirmationModal(true);
   };
 
-  // Filter to show only client users (excluding admin and super_admin)
-  const clientOnlyUsers = useMemo(() => {
+  // Super admins see all users; admins see clients only
+  const visibleUsers = useMemo(() => {
     if (!users) return [];
-    return users.filter(user => user.role === 'client');
-  }, [users]);
+    return isSuperAdmin ? users : users.filter((u) => u.role === 'client');
+  }, [users, isSuperAdmin]);
 
-  // Calculate stats from real data (clients only)
   const userStats = useMemo(() => {
-    if (!clientOnlyUsers) return {
+    if (!visibleUsers) return {
       total: 0,
       active: 0,
       inactive: 0,
+      banned: 0,
       newThisMonth: 0,
     };
 
-    const total = clientOnlyUsers.length;
-    const active = clientOnlyUsers.filter(u => u.isActive).length;
-    const inactive = clientOnlyUsers.filter(u => !u.isActive).length;
-    const newThisMonth = clientOnlyUsers.filter(u => u.createdAt > Date.now() - 2592000000).length;
+    const total = visibleUsers.length;
+    const active = visibleUsers.filter((u) => u.isActive && !u.isBanned).length;
+    const inactive = visibleUsers.filter((u) => !u.isActive && !u.isBanned).length;
+    const banned = visibleUsers.filter((u) => u.isBanned).length;
+    const newThisMonth = visibleUsers.filter((u) => u.createdAt > Date.now() - 2592000000).length;
 
-    return { total, active, inactive, newThisMonth };
-  }, [clientOnlyUsers]);
+    return { total, active, inactive, banned, newThisMonth };
+  }, [visibleUsers]);
 
-  // Apply additional client-side filters (already only clients)
   const filteredUsers = useMemo(() => {
-    if (!clientOnlyUsers) return [];
+    if (!visibleUsers) return [];
 
-    let filtered = clientOnlyUsers;
+    let filtered = visibleUsers;
 
-    // Status filter (additional to API filter)
     if (selectedStatus !== 'all') {
       if (selectedStatus === 'active') {
-        filtered = filtered.filter(user => user.isActive);
+        filtered = filtered.filter((u) => u.isActive && !u.isBanned);
       } else if (selectedStatus === 'inactive') {
-        filtered = filtered.filter(user => !user.isActive);
+        filtered = filtered.filter((u) => !u.isActive && !u.isBanned);
+      } else if (selectedStatus === 'banned') {
+        filtered = filtered.filter((u) => u.isBanned);
       }
     }
 
     return filtered.sort((a, b) => b.createdAt - a.createdAt);
-  }, [clientOnlyUsers, selectedStatus]);
+  }, [visibleUsers, selectedStatus]);
 
   const handleToggleUserStatus = async (userId: string, currentStatus: boolean) => {
     try {
@@ -271,9 +284,42 @@ function AdminUsersContent() {
     setSelectedUser(null);
   };
 
+  const handleDemoteToClient = async (userId: string) => {
+    try {
+      await updateUserRole({
+        userId: userId as Id<'users'>,
+        role: 'client',
+      });
+      showConfirmation('Success', 'User demoted to client successfully!', 'success');
+    } catch (error) {
+      showConfirmation('Error', 'Error demoting user. Please try again.', 'error');
+    }
+    setSelectedUser(null);
+  };
+
+  const handleBanUser = async (userId: string) => {
+    try {
+      await banUser({ userId: userId as Id<'users'> });
+      showConfirmation('Banned', 'User has been banned.', 'success');
+    } catch (error) {
+      showConfirmation('Error', error instanceof Error ? error.message : 'Failed to ban user', 'error');
+    }
+    setSelectedUser(null);
+  };
+
+  const handleUnbanUser = async (userId: string) => {
+    try {
+      await unbanUser({ userId: userId as Id<'users'> });
+      showConfirmation('Unbanned', 'User has been unbanned.', 'success');
+    } catch (error) {
+      showConfirmation('Error', error instanceof Error ? error.message : 'Failed to unban user', 'error');
+    }
+    setSelectedUser(null);
+  };
+
   const handleDeleteUser = async (userId: string) => {
-    const user = users?.find((u: any) => u._id === userId);
-    const userName = user ? `${(user as any).firstName} ${(user as any).lastName}` : 'this user';
+    const user = visibleUsers?.find((u) => u._id === userId);
+    const userName = user ? `${user.firstName} ${user.lastName}` : 'this user';
 
     if (!confirm(`Delete ${userName}? This cannot be undone.`)) {
       setSelectedUser(null);
@@ -287,6 +333,36 @@ function AdminUsersContent() {
       showConfirmation('Error', error instanceof Error ? error.message : 'Failed to delete user', 'error');
     }
     setSelectedUser(null);
+  };
+
+  const toggleSelect = (userId: string) => {
+    const next = new Set(selectedUserIds);
+    next.has(userId) ? next.delete(userId) : next.add(userId);
+    setSelectedUserIds(next);
+  };
+
+  const selectAllVisible = () => {
+    if (selectedUserIds.size === filteredUsers.length) {
+      setSelectedUserIds(new Set());
+    } else {
+      setSelectedUserIds(new Set(filteredUsers.map((u) => u._id)));
+    }
+  };
+
+  const handleBulkAction = async (action: 'activate' | 'deactivate' | 'ban' | 'unban' | 'delete') => {
+    if (selectedUserIds.size === 0) return;
+    const ids = Array.from(selectedUserIds) as Id<'users'>[];
+    if (action === 'delete' && !confirm(`Delete ${ids.length} user${ids.length === 1 ? '' : 's'}? This cannot be undone.`)) return;
+
+    try {
+      const result = await bulkUpdateUsers({ userIds: ids, action });
+      const suffix = result.skipped > 0 ? ` (${result.skipped} skipped)` : '';
+      showConfirmation('Bulk Action', `${action} applied to ${result.processed} user${result.processed === 1 ? '' : 's'}${suffix}.`, 'success');
+      setSelectedUserIds(new Set());
+      setShowBulkBar(false);
+    } catch (error) {
+      showConfirmation('Error', error instanceof Error ? error.message : 'Bulk action failed', 'error');
+    }
   };
 
   const clearFilters = () => {
@@ -498,6 +574,9 @@ function AdminUsersContent() {
                 { value: 'all', label: 'All Status', count: userStats.total },
                 { value: 'active', label: 'Active', count: userStats.active },
                 { value: 'inactive', label: 'Inactive', count: userStats.inactive },
+                ...(isSuperAdmin
+                  ? [{ value: 'banned', label: 'Banned', count: userStats.banned }]
+                  : []),
               ].map((status) => (
                 <button
                   key={status.value}
@@ -523,20 +602,55 @@ function AdminUsersContent() {
         </div>
       )}
 
+      {/* Bulk action bar (super admin only) */}
+      {isSuperAdmin && showBulkBar && selectedUserIds.size > 0 && (
+        <div className="px-3 sm:px-6 py-2 sm:py-3 border-b border-white/10 bg-primary/5">
+          <div className="max-w-7xl mx-auto flex items-center justify-between flex-wrap gap-2">
+            <span className="text-xs sm:text-sm text-white/80">
+              {selectedUserIds.size} selected
+            </span>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <button onClick={() => handleBulkAction('activate')} className="px-2.5 py-1.5 rounded-lg text-xs bg-success/10 text-success border border-success/30 hover:bg-success/20">Activate</button>
+              <button onClick={() => handleBulkAction('deactivate')} className="px-2.5 py-1.5 rounded-lg text-xs bg-warning/10 text-warning border border-warning/30 hover:bg-warning/20">Deactivate</button>
+              <button onClick={() => handleBulkAction('ban')} className="px-2.5 py-1.5 rounded-lg text-xs bg-error/10 text-error border border-error/30 hover:bg-error/20">Ban</button>
+              <button onClick={() => handleBulkAction('unban')} className="px-2.5 py-1.5 rounded-lg text-xs bg-info/10 text-info border border-info/30 hover:bg-info/20">Unban</button>
+              <button onClick={() => handleBulkAction('delete')} className="px-2.5 py-1.5 rounded-lg text-xs bg-error text-white hover:bg-error/80">Delete</button>
+              <button onClick={() => { setSelectedUserIds(new Set()); setShowBulkBar(false); }} className="p-1.5 rounded-lg hover:bg-white/10">
+                <X className="w-3.5 h-3.5 text-white/60" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Users List */}
       <div className="px-3 sm:px-6 py-3 sm:py-4 max-w-7xl mx-auto">
-        <div className="flex items-center justify-between mb-3 sm:mb-4">
+        <div className="flex items-center justify-between mb-3 sm:mb-4 gap-2 flex-wrap">
           <h2 className="text-sm sm:text-lg font-bold text-white">
-            Client Users <span className="text-white/60">({filteredUsers.length})</span>
+            {isSuperAdmin ? 'All Users' : 'Client Users'} <span className="text-white/60">({filteredUsers.length})</span>
           </h2>
-          {filteredUsers.length === 0 && clientOnlyUsers && clientOnlyUsers.length > 0 && (
-            <button
-              onClick={clearFilters}
-              className="px-2.5 sm:px-3 py-1 rounded-lg bg-primary/10 border border-primary text-primary text-[10px] sm:text-xs hover:bg-primary/20 active:scale-95 transition-all touch-manipulation"
-            >
-              Clear Filters
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            {isSuperAdmin && (
+              <button
+                onClick={() => { setShowBulkBar((v) => !v); if (showBulkBar) setSelectedUserIds(new Set()); }}
+                className={`px-2.5 py-1 rounded-lg text-[10px] sm:text-xs border transition-all ${
+                  showBulkBar
+                    ? 'bg-primary border-primary text-white'
+                    : 'bg-secondary/60 border-white/10 text-white/70 hover:text-white'
+                }`}
+              >
+                {showBulkBar ? 'Exit Bulk' : 'Bulk Actions'}
+              </button>
+            )}
+            {filteredUsers.length === 0 && visibleUsers && visibleUsers.length > 0 && (
+              <button
+                onClick={clearFilters}
+                className="px-2.5 sm:px-3 py-1 rounded-lg bg-primary/10 border border-primary text-primary text-[10px] sm:text-xs hover:bg-primary/20 active:scale-95 transition-all touch-manipulation"
+              >
+                Clear Filters
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Loading State */}
@@ -552,7 +666,7 @@ function AdminUsersContent() {
             <Users className="w-12 h-12 sm:w-16 sm:h-16 text-white/20 mx-auto mb-3 sm:mb-4" />
             <h3 className="text-base sm:text-xl font-bold text-white mb-1 sm:mb-2">No users found</h3>
             <p className="text-xs sm:text-sm text-white/60 mb-4 sm:mb-6 text-center px-4">
-              {!clientOnlyUsers || clientOnlyUsers.length === 0
+              {!visibleUsers || visibleUsers.length === 0
                 ? 'No clients have been registered yet.'
                 : 'Try adjusting your search terms or filters.'}
             </p>
@@ -566,6 +680,16 @@ function AdminUsersContent() {
                   <table className="w-full text-left">
                     <thead>
                       <tr className="border-b border-white/10 bg-secondary/60">
+                        {isSuperAdmin && showBulkBar && (
+                          <th className="px-3 py-3 w-10">
+                            <input
+                              type="checkbox"
+                              checked={selectedUserIds.size === filteredUsers.length && filteredUsers.length > 0}
+                              onChange={selectAllVisible}
+                              className="rounded border-white/20 bg-secondary/40"
+                            />
+                          </th>
+                        )}
                         <th className="px-4 py-3 text-xs font-semibold text-white/60 uppercase tracking-wider">Name</th>
                         <th className="px-4 py-3 text-xs font-semibold text-white/60 uppercase tracking-wider">Email</th>
                         <th className="px-4 py-3 text-xs font-semibold text-white/60 uppercase tracking-wider">Phone</th>
@@ -580,14 +704,31 @@ function AdminUsersContent() {
                     </thead>
                     <tbody className="divide-y divide-white/5">
                       {filteredUsers.map((user) => {
-                        if (user.role !== 'client') return null;
+                        if (!isSuperAdmin && user.role !== 'client') return null;
+                        const roleLabel = user.role === 'super_admin' ? 'Super Admin' : user.role;
+                        const roleClass = user.role === 'super_admin'
+                          ? 'bg-warning/10 text-warning border-warning/30'
+                          : user.role === 'admin'
+                            ? 'bg-info/10 text-info border-info/30'
+                            : 'bg-primary/10 text-primary border-primary/30';
                         return (
                           <tr
                             key={user._id}
                             className={`transition-colors hover:bg-white/5 ${
-                              !user.isActive ? 'bg-error/5' : ''
+                              user.isBanned ? 'bg-error/10' : !user.isActive ? 'bg-error/5' : ''
                             }`}
                           >
+                            {isSuperAdmin && showBulkBar && (
+                              <td className="px-3 py-3">
+                                <input
+                                  type="checkbox"
+                                  checked={selectedUserIds.has(user._id)}
+                                  onChange={() => toggleSelect(user._id)}
+                                  disabled={user.role === 'super_admin'}
+                                  className="rounded border-white/20 bg-secondary/40 disabled:opacity-30"
+                                />
+                              </td>
+                            )}
                             {/* Name */}
                             <td className="px-4 py-3">
                               <div className="flex items-center gap-3">
@@ -611,8 +752,8 @@ function AdminUsersContent() {
                             </td>
                             {/* Role */}
                             <td className="px-4 py-3">
-                              <span className="inline-block px-2 py-0.5 rounded-lg text-xs font-medium bg-primary/10 text-primary border border-primary/30 capitalize">
-                                {(user.role as string) === 'super_admin' ? 'Super Admin' : user.role}
+                              <span className={`inline-block px-2 py-0.5 rounded-lg text-xs font-medium border capitalize ${roleClass}`}>
+                                {roleLabel}
                               </span>
                             </td>
                             {/* Sales Associate badge */}
@@ -627,7 +768,12 @@ function AdminUsersContent() {
                             </td>
                             {/* Status */}
                             <td className="px-4 py-3">
-                              {user.isActive ? (
+                              {user.isBanned ? (
+                                <span className="inline-flex items-center gap-1.5 text-xs font-medium text-error">
+                                  <Ban className="w-3 h-3" />
+                                  Banned
+                                </span>
+                              ) : user.isActive ? (
                                 <span className="inline-flex items-center gap-1.5 text-xs font-medium text-success">
                                   <span className="w-1.5 h-1.5 rounded-full bg-success" />
                                   Active
@@ -680,7 +826,7 @@ function AdminUsersContent() {
             {/* ==================== MOBILE CARDS (below sm) ==================== */}
             <div className="sm:hidden space-y-2.5">
               {filteredUsers.map((user) => {
-                if (user.role !== 'client') return null;
+                if (!isSuperAdmin && user.role !== 'client') return null;
                 return (
                   <div
                     key={user._id}
@@ -923,16 +1069,20 @@ function AdminUsersContent() {
 
       {/* User Actions Dropdown (portal-based) */}
       {selectedUser && dropdownAnchor && (() => {
-        const user = filteredUsers.find((u: any) => u._id === selectedUser);
+        const user = filteredUsers.find((u) => u._id === selectedUser);
         if (!user) return null;
 
-        const actions: UserMenuAction[] = [
-          {
+        // Super admins cannot act on other super admins
+        const isProtected = user.role === 'super_admin';
+        const actions: UserMenuAction[] = [];
+
+        if (!isProtected) {
+          actions.push({
             icon: user.isActive ? <ShieldOff className="w-4 h-4" /> : <Shield className="w-4 h-4" />,
             label: user.isActive ? 'Deactivate' : 'Activate',
             onClick: () => handleToggleUserStatus(user._id, user.isActive ?? false),
-          },
-        ];
+          });
+        }
 
         if ((['admin', 'super_admin'] as string[]).includes(user.role)) {
           actions.push({
@@ -943,12 +1093,51 @@ function AdminUsersContent() {
           });
         }
 
-        actions.push({
-          icon: <Trash2 className="w-4 h-4" />,
-          label: 'Delete User',
-          onClick: () => handleDeleteUser(user._id),
-          variant: 'danger',
-        });
+        // Super-admin-only actions
+        if (isSuperAdmin && !isProtected) {
+          if (user.role === 'client') {
+            actions.push({
+              icon: <UserCog className="w-4 h-4 text-warning" />,
+              label: 'Promote to Admin',
+              onClick: () => handlePromoteToAdmin(user._id),
+            });
+          }
+          if (user.role === 'admin') {
+            actions.push({
+              icon: <UserCog className="w-4 h-4" />,
+              label: 'Demote to Client',
+              onClick: () => handleDemoteToClient(user._id),
+            });
+          }
+          if (user.isBanned) {
+            actions.push({
+              icon: <Unlock className="w-4 h-4 text-success" />,
+              label: 'Unban User',
+              onClick: () => handleUnbanUser(user._id),
+              variant: 'success',
+            });
+          } else {
+            actions.push({
+              icon: <Ban className="w-4 h-4" />,
+              label: 'Ban User',
+              onClick: () => handleBanUser(user._id),
+              variant: 'danger',
+            });
+          }
+        }
+
+        if (!isProtected) {
+          actions.push({
+            icon: <Trash2 className="w-4 h-4" />,
+            label: 'Delete User',
+            onClick: () => handleDeleteUser(user._id),
+            variant: 'danger',
+          });
+        }
+
+        if (actions.length === 0) {
+          return null;
+        }
 
         return (
           <UserActionDropdown
