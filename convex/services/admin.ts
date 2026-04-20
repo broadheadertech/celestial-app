@@ -816,37 +816,84 @@ export const deleteUser = mutation({
   },
 });
 
-// Ban user (placeholder - UI exists but functionality not implemented per request)
 export const banUser = mutation({
   args: {
     userId: v.id("users"),
   },
   handler: async (ctx, { userId }) => {
     const user = await ctx.db.get(userId);
-    if (!user) {
-      throw new Error("User not found");
-    }
+    if (!user) throw new Error("User not found");
+    if (user.role === "super_admin") throw new Error("Cannot ban super admin accounts");
 
-    // Placeholder - do nothing for now but return success
-    // TODO: Implement ban functionality in the future
-    return { success: true, message: "Ban functionality not yet implemented" };
+    await ctx.db.patch(userId, {
+      isBanned: true,
+      isActive: false,
+      updatedAt: Date.now(),
+    });
+    return { success: true };
   },
 });
 
-// Unban user (placeholder - UI exists but functionality not implemented per request)
 export const unbanUser = mutation({
   args: {
     userId: v.id("users"),
   },
   handler: async (ctx, { userId }) => {
     const user = await ctx.db.get(userId);
-    if (!user) {
-      throw new Error("User not found");
+    if (!user) throw new Error("User not found");
+
+    await ctx.db.patch(userId, {
+      isBanned: false,
+      isActive: true,
+      updatedAt: Date.now(),
+    });
+    return { success: true };
+  },
+});
+
+// Bulk update users: activate / deactivate / ban / unban / delete
+export const bulkUpdateUsers = mutation({
+  args: {
+    userIds: v.array(v.id("users")),
+    action: v.union(
+      v.literal("activate"),
+      v.literal("deactivate"),
+      v.literal("ban"),
+      v.literal("unban"),
+      v.literal("delete"),
+    ),
+  },
+  handler: async (ctx, { userIds, action }) => {
+    const now = Date.now();
+    let processed = 0;
+    const skipped: string[] = [];
+
+    for (const userId of userIds) {
+      const user = await ctx.db.get(userId);
+      if (!user) {
+        skipped.push(userId);
+        continue;
+      }
+      if (user.role === "super_admin" && action !== "activate" && action !== "deactivate") {
+        skipped.push(userId);
+        continue;
+      }
+
+      if (action === "activate") {
+        await ctx.db.patch(userId, { isActive: true, isBanned: false, updatedAt: now });
+      } else if (action === "deactivate") {
+        await ctx.db.patch(userId, { isActive: false, updatedAt: now });
+      } else if (action === "ban") {
+        await ctx.db.patch(userId, { isBanned: true, isActive: false, updatedAt: now });
+      } else if (action === "unban") {
+        await ctx.db.patch(userId, { isBanned: false, isActive: true, updatedAt: now });
+      } else if (action === "delete") {
+        await ctx.db.delete(userId);
+      }
+      processed++;
     }
 
-    // Placeholder - do nothing for now but return success
-    // TODO: Implement unban functionality in the future
-    return { success: true, message: "Unban functionality not yet implemented" };
+    return { success: true, processed, skipped: skipped.length };
   },
 });
 

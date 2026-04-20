@@ -7,9 +7,11 @@ export default defineSchema({
     firstName: v.string(),
     lastName: v.string(),
     phone: v.optional(v.string()),
+    address: v.optional(v.string()),
     passwordHash: v.optional(v.string()), // Optional for Facebook users
     role: v.union(v.literal("client"), v.literal("admin"), v.literal("super_admin")),
     isActive: v.optional(v.boolean()),
+    isBanned: v.optional(v.boolean()),
     isSalesAssociate: v.optional(v.boolean()), // Tag staff as sales associate for incentive tracking
     // Facebook integration fields
     facebookId: v.optional(v.string()),
@@ -107,9 +109,13 @@ export default defineSchema({
     items: v.array(v.object({
       productId: v.id("products"),
       quantity: v.number(),
-      price: v.number(),
+      price: v.number(), // Final unit price (post line-item discount)
+      originalPrice: v.optional(v.number()), // Unit list price before discount
+      discount: v.optional(v.number()), // Per-unit discount amount (₱)
     })),
-    totalAmount: v.number(),
+    subtotal: v.optional(v.number()), // Sum of (price × qty) before order-level discount
+    orderDiscount: v.optional(v.number()), // Order-wide discount amount (₱)
+    totalAmount: v.number(), // Final total after all discounts
     shippingAddress: v.object({
       street: v.string(),
       city: v.string(),
@@ -179,8 +185,12 @@ export default defineSchema({
     items: v.optional(v.array(v.object({
       productId: v.id("products"),
       quantity: v.number(),
-      reservedPrice: v.number(), // Price at time of reservation
+      reservedPrice: v.number(), // Final unit price (post line-item discount)
+      originalPrice: v.optional(v.number()), // Unit list price before discount
+      discount: v.optional(v.number()), // Per-unit discount amount (₱)
     }))),
+    subtotal: v.optional(v.number()), // Sum of (price × qty) before order-level discount
+    orderDiscount: v.optional(v.number()), // Order-wide discount amount (₱)
     totalAmount: v.optional(v.number()), // Total amount for all items - Optional for backward compatibility
     totalQuantity: v.optional(v.number()), // Total quantity of all items - Optional for backward compatibility
 
@@ -401,4 +411,19 @@ export default defineSchema({
     updatedBy: v.optional(v.id("users")),
   })
     .index("by_key", ["key"]),
+
+  // Application-wide settings (singleton; always use first row)
+  appSettings: defineTable({
+    siteName: v.string(),
+    siteDescription: v.optional(v.string()),
+    timezone: v.string(),
+    currency: v.string(),
+    maintenanceMode: v.boolean(),
+    notifyLowStock: v.boolean(),
+    notifyNewOrders: v.boolean(),
+    notifyNewUsers: v.boolean(),
+    lowStockThreshold: v.number(),
+    updatedAt: v.number(),
+    updatedBy: v.optional(v.id("users")),
+  }),
 });

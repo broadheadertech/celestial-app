@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
   ArrowLeft,
   Plus,
@@ -54,88 +55,113 @@ const getStockStatus = (stock: number) => {
   };
 };
 
-// Desktop dropdown menu for actions
+// Portal-based dropdown menu - escapes overflow clipping, flips up near bottom
 function ActionsDropdown({
   product,
-  onAction
+  onAction,
 }: {
   product: { _id: string; isActive: boolean; name: string };
   onAction: (productId: string, action: string) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const anchorRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [position, setPosition] = useState<{ top: number; left: number; openUp: boolean } | null>(null);
 
   useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (ref.current && !ref.current.contains(event.target as Node)) {
-        setOpen(false);
-      }
-    }
-    if (open) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    if (!open || !anchorRef.current) return;
+    const rect = anchorRef.current.getBoundingClientRect();
+    const dropdownHeight = 320;
+    const dropdownWidth = 208; // w-52
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const openUp = spaceBelow < dropdownHeight && rect.top > dropdownHeight;
+
+    const top = openUp ? rect.top - 4 : rect.bottom + 4;
+    const left = Math.min(
+      rect.right - dropdownWidth,
+      window.innerWidth - dropdownWidth - 8
+    );
+    setPosition({ top, left: Math.max(8, left), openUp });
   }, [open]);
 
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (
+        menuRef.current && !menuRef.current.contains(e.target as Node) &&
+        anchorRef.current && !anchorRef.current.contains(e.target as Node)
+      ) {
+        setOpen(false);
+      }
+    };
+    const closeOnScroll = () => setOpen(false);
+    document.addEventListener('mousedown', handler);
+    window.addEventListener('scroll', closeOnScroll, true);
+    window.addEventListener('resize', closeOnScroll);
+    return () => {
+      document.removeEventListener('mousedown', handler);
+      window.removeEventListener('scroll', closeOnScroll, true);
+      window.removeEventListener('resize', closeOnScroll);
+    };
+  }, [open]);
+
+  const run = (action: string) => {
+    onAction(product._id, action);
+    setOpen(false);
+  };
+
   return (
-    <div className="relative" ref={ref}>
+    <>
       <button
+        ref={anchorRef}
         onClick={() => setOpen(!open)}
         className="p-1.5 rounded-lg hover:bg-white/10 transition-all"
       >
         <MoreVertical className="w-4 h-4 text-white/60" />
       </button>
-      {open && (
-        <div className="absolute right-0 top-full mt-1 w-48 bg-secondary border border-white/10 rounded-lg shadow-xl z-30 py-1 animate-in fade-in zoom-in-95 duration-150">
-          <button
-            onClick={() => { onAction(product._id, 'View'); setOpen(false); }}
-            className="w-full px-3 py-2 text-left text-sm text-white hover:bg-white/10 flex items-center gap-2"
-          >
+      {open && position && typeof window !== 'undefined' && createPortal(
+        <div
+          ref={menuRef}
+          style={{
+            position: 'fixed',
+            top: position.openUp ? 'auto' : position.top,
+            bottom: position.openUp ? window.innerHeight - position.top : 'auto',
+            left: position.left,
+          }}
+          className="z-[9999] w-52 bg-secondary border border-white/15 rounded-xl shadow-2xl py-1.5 animate-in fade-in slide-in-from-top-2 duration-150"
+        >
+          <button onClick={() => run('View')} className="w-full px-3.5 py-2.5 text-left text-sm text-white hover:bg-white/10 flex items-center gap-3">
             <Eye className="w-4 h-4 text-info" />
             View Details
           </button>
-          <button
-            onClick={() => { onAction(product._id, 'Edit'); setOpen(false); }}
-            className="w-full px-3 py-2 text-left text-sm text-white hover:bg-white/10 flex items-center gap-2"
-          >
+          <button onClick={() => run('Edit')} className="w-full px-3.5 py-2.5 text-left text-sm text-white hover:bg-white/10 flex items-center gap-3">
             <Edit className="w-4 h-4 text-primary" />
             Edit Product
           </button>
-          <button
-            onClick={() => { onAction(product._id, 'Restock'); setOpen(false); }}
-            className="w-full px-3 py-2 text-left text-sm text-white hover:bg-white/10 flex items-center gap-2"
-          >
+          <button onClick={() => run('Restock')} className="w-full px-3.5 py-2.5 text-left text-sm text-white hover:bg-white/10 flex items-center gap-3">
             <TrendingUp className="w-4 h-4 text-success" />
             Restock
           </button>
-          <button
-            onClick={() => { onAction(product._id, 'MortalityLoss'); setOpen(false); }}
-            className="w-full px-3 py-2 text-left text-sm text-white hover:bg-white/10 flex items-center gap-2"
-          >
+          <button onClick={() => run('MortalityLoss')} className="w-full px-3.5 py-2.5 text-left text-sm text-white hover:bg-white/10 flex items-center gap-3">
             <AlertCircle className="w-4 h-4 text-warning" />
             Mortality Loss
           </button>
           <div className="border-t border-white/10 my-1" />
-          <button
-            onClick={() => { onAction(product._id, 'Toggle'); setOpen(false); }}
-            className="w-full px-3 py-2 text-left text-sm text-white hover:bg-white/10 flex items-center gap-2"
-          >
+          <button onClick={() => run('Toggle')} className="w-full px-3.5 py-2.5 text-left text-sm text-white hover:bg-white/10 flex items-center gap-3">
             {product.isActive ? (
               <><EyeOff className="w-4 h-4 text-warning" />Deactivate</>
             ) : (
               <><Eye className="w-4 h-4 text-success" />Activate</>
             )}
           </button>
-          <button
-            onClick={() => { onAction(product._id, 'Delete'); setOpen(false); }}
-            className="w-full px-3 py-2 text-left text-sm text-error hover:bg-error/10 flex items-center gap-2"
-          >
+          <button onClick={() => run('Delete')} className="w-full px-3.5 py-2.5 text-left text-sm text-error hover:bg-error/10 flex items-center gap-3">
             <Trash2 className="w-4 h-4" />
             Delete
           </button>
-        </div>
+        </div>,
+        document.body
       )}
-    </div>
+    </>
   );
 }
 

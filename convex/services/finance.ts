@@ -330,6 +330,33 @@ export const getFinancialSummary = query({
     const grossProfit = totalRevenue - cogs;
     const grossMargin = totalRevenue > 0 ? (grossProfit / totalRevenue) * 100 : 0;
 
+    // Total discounts given — line-level + order-level across paid/partial transactions
+    const discountedOrders = activeOrders.filter(o => o.paymentStatus !== 'unpaid' && o.paymentStatus !== 'refunded');
+    let totalLineDiscounts = 0;
+    let totalOrderDiscounts = 0;
+    for (const o of discountedOrders) {
+      for (const item of o.items || []) {
+        if (item.discount && item.discount > 0) {
+          totalLineDiscounts += item.discount * item.quantity;
+        }
+      }
+      if (o.orderDiscount && o.orderDiscount > 0) {
+        totalOrderDiscounts += o.orderDiscount;
+      }
+    }
+    for (const r of completedReservations) {
+      if (r.paymentStatus === 'unpaid' || r.paymentStatus === 'refunded') continue;
+      for (const item of r.items || []) {
+        if (item.discount && item.discount > 0) {
+          totalLineDiscounts += item.discount * item.quantity;
+        }
+      }
+      if (r.orderDiscount && r.orderDiscount > 0) {
+        totalOrderDiscounts += r.orderDiscount;
+      }
+    }
+    const totalDiscountsGiven = totalLineDiscounts + totalOrderDiscounts;
+
     // Expenses breakdown
     const filteredExpenses = expenses.filter(e => inRange(e.date));
     const restockingExpenses = filteredExpenses.filter(e => e.type === 'restocking');
@@ -388,6 +415,10 @@ export const getFinancialSummary = query({
       cogs,
       grossProfit,
       grossMargin: grossMargin.toFixed(1),
+      // Discounts given
+      totalDiscountsGiven,
+      totalLineDiscounts,
+      totalOrderDiscounts,
       // Expenses
       totalExpenses,
       totalRestockingExpense,

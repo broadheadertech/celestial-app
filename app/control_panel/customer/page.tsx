@@ -88,7 +88,6 @@ export default function CustomerManagement() {
   const toggleUserStatus = useMutation(api.services.admin.toggleUserStatus);
   const updateUserRole = useMutation(api.services.admin.updateUserRole);
   const deleteUser = useMutation(api.services.admin.deleteUser);
-  const resetUserPassword = useMutation(api.services.admin.resetUserPassword);
   const bulkUpdateUsers = useMutation(api.services.admin.bulkUpdateUsers);
   const banUser = useMutation(api.services.admin.banUser);
   const unbanUser = useMutation(api.services.admin.unbanUser);
@@ -256,7 +255,7 @@ export default function CustomerManagement() {
     );
   };
 
-  const handleChangeUserRole = async (userId: string, newRole: 'client' | 'admin' | 'super_admin') => {
+  const handleChangeUserRole = async (userId: string, newRole: 'client' | 'admin') => {
     showConfirmation(
       'Change User Role',
       `Are you sure you want to change this user's role to ${newRole}? This will affect their system access.`,
@@ -295,25 +294,30 @@ export default function CustomerManagement() {
     );
   };
 
-  const handleBulkAction = async (action: string) => {
+  const handleBulkAction = async (action: 'activate' | 'deactivate' | 'ban' | 'unban' | 'delete') => {
     if (selectedUsers.size === 0) {
       showConfirmation('No Selection', 'Please select users first.', 'warning');
       return;
     }
 
     const userIds = Array.from(selectedUsers);
-    
+
     showConfirmation(
       'Bulk Action',
       `Apply "${action}" to ${userIds.length} selected users?`,
       'warning',
       async () => {
         try {
-          await bulkUpdateUsers({ 
+          const result = await bulkUpdateUsers({
             userIds: userIds as Id<'users'>[],
-            action 
+            action,
           });
-          showConfirmation('Success', 'Bulk action completed!', 'success');
+          const skippedNote = result.skipped > 0 ? ` (${result.skipped} skipped)` : '';
+          showConfirmation(
+            'Success',
+            `Bulk ${action} applied to ${result.processed} user${result.processed === 1 ? '' : 's'}${skippedNote}.`,
+            'success',
+          );
           setSelectedUsers(new Set());
           setShowBulkActions(false);
         } catch (error) {
@@ -914,10 +918,6 @@ export default function CustomerManagement() {
                         </div>
                       )}
                       
-                      {/* Online Status Indicator */}
-                      {user.isOnline && (
-                        <div className="absolute -bottom-1 -left-1 w-3 h-3 rounded-full bg-[var(--color-success)] border-2 border-[var(--color-secondary)]"></div>
-                      )}
                     </div>
 
                     {/* Enhanced User Info */}
@@ -956,11 +956,6 @@ export default function CustomerManagement() {
                                 <div className="px-2 py-0.5 rounded-full bg-[var(--color-success)]/20 text-[var(--color-success)] border border-[var(--color-success)]/30 text-xs font-medium flex items-center space-x-1">
                                   <UserCheck className="w-3 h-3" />
                                   <span>Active</span>
-                                </div>
-                              )}
-                              {user.isVerified && (
-                                <div className="px-2 py-0.5 rounded-full bg-[var(--color-success)]/20 text-[var(--color-success)] border border-[var(--color-success)]/30 text-xs font-medium">
-                                  Verified
                                 </div>
                               )}
                             </div>
@@ -1040,26 +1035,6 @@ export default function CustomerManagement() {
                         </div>
                       </div>
 
-                      {/* Quick Action Buttons */}
-                      <div className="flex items-center justify-between pt-3 border-t border-[var(--color-muted)]/10">
-                        <div className="flex items-center space-x-1 text-xs">
-                          {user.emailVerified && (
-                            <div className="px-2 py-1 rounded bg-[var(--color-success)]/10 text-[var(--color-success)] border border-[var(--color-success)]/30">
-                              Email Verified
-                            </div>
-                          )}
-                          {user.phoneVerified && (
-                            <div className="px-2 py-1 rounded bg-[var(--color-success)]/10 text-[var(--color-success)] border border-[var(--color-success)]/30">
-                              Phone Verified
-                            </div>
-                          )}
-                          {user.twoFactorEnabled && (
-                            <div className="px-2 py-1 rounded bg-[var(--color-info)]/10 text-[var(--color-info)] border border-[var(--color-info)]/30">
-                              2FA Enabled
-                            </div>
-                          )}
-                        </div>
-                      </div>
                     </div>
                   </div>
                 </div>
@@ -1132,6 +1107,14 @@ export default function CustomerManagement() {
                             <span>{user.isActive ? 'Deactivate Account' : 'Activate Account'}</span>
                           </button>
 
+                          <button
+                            onClick={() => handleChangeUserRole(user._id, 'admin')}
+                            className="w-full px-4 py-2.5 text-left hover:bg-[var(--color-warning)]/10 active:bg-[var(--color-warning)]/15 rounded-lg flex items-center gap-3 text-sm transition-colors text-[var(--color-warning)]"
+                          >
+                            <Shield className="w-4 h-4" />
+                            <span>Promote to Admin</span>
+                          </button>
+
                           {!user.isBanned ? (
                             <button
                               onClick={() => handleBanUser(user._id)}
@@ -1170,6 +1153,14 @@ export default function CustomerManagement() {
                           >
                             {user.isActive ? <UserX className="w-4 h-4 text-[var(--color-warning)]" /> : <UserPlus className="w-4 h-4 text-[var(--color-success)]" />}
                             <span>{user.isActive ? 'Deactivate Account' : 'Activate Account'}</span>
+                          </button>
+
+                          <button
+                            onClick={() => handleChangeUserRole(user._id, 'client')}
+                            className="w-full px-4 py-2.5 text-left hover:bg-[var(--color-muted)]/10 active:bg-[var(--color-muted)]/15 rounded-lg flex items-center gap-3 text-sm transition-colors text-[var(--color-foreground)]"
+                          >
+                            <ShieldOff className="w-4 h-4 text-[var(--color-muted)]" />
+                            <span>Demote to Client</span>
                           </button>
 
                           <div className="border-t border-[var(--color-muted)]/10 my-2"></div>
@@ -1269,6 +1260,14 @@ export default function CustomerManagement() {
                             )}
                           </button>
 
+                          <button
+                            onClick={() => handleChangeUserRole(user._id, 'admin')}
+                            className="w-full px-4 py-3.5 bg-[var(--color-warning)]/10 hover:bg-[var(--color-warning)]/20 active:bg-[var(--color-warning)]/30 border border-[var(--color-warning)]/30 rounded-xl text-[var(--color-warning)] flex items-center gap-3 transition-all touch-manipulation"
+                          >
+                            <Shield className="w-5 h-5" />
+                            <span className="font-medium">Promote to Admin</span>
+                          </button>
+
                           {!user.isBanned ? (
                             <button
                               onClick={() => handleBanUser(user._id)}
@@ -1314,6 +1313,14 @@ export default function CustomerManagement() {
                                 <span className="font-medium">Activate Account</span>
                               </>
                             )}
+                          </button>
+
+                          <button
+                            onClick={() => handleChangeUserRole(user._id, 'client')}
+                            className="w-full px-4 py-3.5 bg-[var(--color-secondary)]/60 hover:bg-[var(--color-muted)]/10 active:bg-[var(--color-muted)]/15 border border-[var(--color-muted)]/10 rounded-xl text-[var(--color-foreground)] flex items-center gap-3 transition-all touch-manipulation"
+                          >
+                            <ShieldOff className="w-5 h-5 text-[var(--color-muted)]" />
+                            <span className="font-medium">Demote to Client</span>
                           </button>
 
                           <button

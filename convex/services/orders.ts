@@ -368,20 +368,22 @@ export const adminCreateOrder = mutation({
     items: v.array(v.object({
       productId: v.id("products"),
       quantity: v.number(),
+      discount: v.optional(v.number()), // Per-unit discount amount (₱)
     })),
+    orderDiscount: v.optional(v.number()), // Order-wide flat discount (₱)
     paymentMethod: v.string(),
     notes: v.optional(v.string()),
     customerName: v.optional(v.string()),
     salesAssociateId: v.optional(v.id("users")),
     salesAssociateName: v.optional(v.string()),
   },
-  handler: async (ctx, { userId, items, paymentMethod, notes, customerName, salesAssociateId, salesAssociateName }) => {
+  handler: async (ctx, { userId, items, orderDiscount, paymentMethod, notes, customerName, salesAssociateId, salesAssociateName }) => {
     if (items.length === 0) {
       throw new Error("No items provided");
     }
 
     const orderItems = [];
-    let totalAmount = 0;
+    let subtotal = 0;
     const now = Date.now();
 
     for (const item of items) {
@@ -395,13 +397,19 @@ export const adminCreateOrder = mutation({
         throw new Error(`Insufficient stock for ${product.name}. Available: ${product.stock}, Requested: ${item.quantity}`);
       }
 
+      const originalPrice = product.price;
+      const discount = Math.max(0, Math.min(item.discount || 0, originalPrice));
+      const finalPrice = originalPrice - discount;
+
       orderItems.push({
         productId: item.productId,
         quantity: item.quantity,
-        price: product.price,
+        price: finalPrice,
+        originalPrice,
+        discount,
       });
 
-      totalAmount += product.price * item.quantity;
+      subtotal += finalPrice * item.quantity;
 
       // Deduct stock
       await ctx.db.patch(item.productId, {
@@ -415,11 +423,16 @@ export const adminCreateOrder = mutation({
       });
     }
 
+    const clampedOrderDiscount = Math.max(0, Math.min(orderDiscount || 0, subtotal));
+    const totalAmount = subtotal - clampedOrderDiscount;
+
     // Use a placeholder address for in-store orders
     const orderId = await ctx.db.insert("orders", {
       userId: userId || undefined,
       status: "pending",
       items: orderItems,
+      subtotal,
+      orderDiscount: clampedOrderDiscount,
       totalAmount,
       shippingAddress: {
         street: "In-Store Pickup",
@@ -443,6 +456,8 @@ export const adminCreateOrder = mutation({
     return {
       orderId,
       orderCode: generateOrderCode(orderId),
+      subtotal,
+      orderDiscount: clampedOrderDiscount,
       totalAmount,
       itemCount: orderItems.length,
     };
@@ -486,6 +501,8 @@ export const acknowledgeOrder = mutation({
       orderId,
       status: "confirmed",
       items: itemsWithProducts,
+      subtotal: order.subtotal,
+      orderDiscount: order.orderDiscount,
       totalAmount: order.totalAmount,
       paymentMethod: order.paymentMethod,
       customer: user ? {
@@ -543,6 +560,8 @@ export const releaseOrder = mutation({
       orderId,
       status: "delivered",
       items: itemsWithProducts,
+      subtotal: order.subtotal,
+      orderDiscount: order.orderDiscount,
       totalAmount: order.totalAmount,
       paymentMethod: order.paymentMethod,
       customer: user ? {

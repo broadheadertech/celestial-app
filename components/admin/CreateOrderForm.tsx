@@ -10,6 +10,8 @@ import {
   User,
   Package,
   ChevronDown,
+  Tag,
+  Percent,
 } from 'lucide-react';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
@@ -23,10 +25,12 @@ const formatCurrency = (amount: number) =>
 interface CartItem {
   productId: string;
   name: string;
-  price: number;
+  price: number; // Original unit price
   image?: string;
   quantity: number;
   stock: number;
+  discountType: 'amount' | 'percent'; // Per-unit discount type
+  discountValue: number; // Raw input value
 }
 
 interface CreateOrderFormProps {
@@ -51,6 +55,13 @@ export default function CreateOrderForm({ onSuccess }: CreateOrderFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [receiptData, setReceiptData] = useState<any>(null);
 
+  // Order-level discount
+  const [orderDiscountType, setOrderDiscountType] = useState<'amount' | 'percent'>('amount');
+  const [orderDiscountValue, setOrderDiscountValue] = useState('');
+
+  // Track which line item has discount editor open
+  const [discountEditingId, setDiscountEditingId] = useState<string | null>(null);
+
   const products = useQuery(api.services.admin.getAllProductsAdmin, {});
   const users = useQuery(api.services.admin.getAllUsers, {});
   const staffUsers = useQuery(api.services.admin.getStaffUsers, {});
@@ -68,7 +79,30 @@ export default function CreateOrderForm({ onSuccess }: CreateOrderFormProps) {
       .slice(0, 8);
   }, [products, productSearch]);
 
-  const totalAmount = orderItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  // Compute per-unit discount amount (₱) from type + value, clamped to price
+  const computeLineDiscount = (item: CartItem): number => {
+    const raw = item.discountType === 'percent'
+      ? item.price * (item.discountValue / 100)
+      : item.discountValue;
+    return Math.max(0, Math.min(raw || 0, item.price));
+  };
+
+  const subtotal = orderItems.reduce((sum, item) => {
+    const discount = computeLineDiscount(item);
+    return sum + (item.price - discount) * item.quantity;
+  }, 0);
+
+  const totalLineDiscounts = orderItems.reduce((sum, item) => {
+    return sum + computeLineDiscount(item) * item.quantity;
+  }, 0);
+
+  const orderDiscountInput = parseFloat(orderDiscountValue) || 0;
+  const rawOrderDiscount = orderDiscountType === 'percent'
+    ? subtotal * (orderDiscountInput / 100)
+    : orderDiscountInput;
+  const orderDiscount = Math.max(0, Math.min(rawOrderDiscount, subtotal));
+  const totalAmount = subtotal - orderDiscount;
+  const totalSavings = totalLineDiscounts + orderDiscount;
 
   const clientUsers = useMemo(() => {
     if (!users) return [];
@@ -82,9 +116,22 @@ export default function CreateOrderForm({ onSuccess }: CreateOrderFormProps) {
         setOrderItems(items => items.map(i => i.productId === product._id ? { ...i, quantity: i.quantity + 1 } : i));
       }
     } else {
-      setOrderItems(items => [...items, { productId: product._id, name: product.name, price: product.price, image: product.image, quantity: 1, stock: product.stock }]);
+      setOrderItems(items => [...items, {
+        productId: product._id,
+        name: product.name,
+        price: product.price,
+        image: product.image,
+        quantity: 1,
+        stock: product.stock,
+        discountType: 'amount',
+        discountValue: 0,
+      }]);
     }
     setProductSearch('');
+  };
+
+  const updateDiscount = (productId: string, type: 'amount' | 'percent', value: number) => {
+    setOrderItems(items => items.map(i => i.productId === productId ? { ...i, discountType: type, discountValue: value } : i));
   };
 
   const updateQuantity = (productId: string, delta: number) => {
@@ -123,7 +170,12 @@ export default function CreateOrderForm({ onSuccess }: CreateOrderFormProps) {
     try {
       const result = await adminCreateOrder({
         userId: selectedUserId ? selectedUserId as Id<"users"> : undefined,
-        items: orderItems.map(i => ({ productId: i.productId as Id<"products">, quantity: i.quantity })),
+        items: orderItems.map(i => ({
+          productId: i.productId as Id<"products">,
+          quantity: i.quantity,
+          discount: computeLineDiscount(i),
+        })),
+        orderDiscount,
         paymentMethod,
         notes: notes || undefined,
         customerName: customerName || undefined,
@@ -203,21 +255,74 @@ export default function CreateOrderForm({ onSuccess }: CreateOrderFormProps) {
             <div className="text-center py-4"><ShoppingCart className="w-8 h-8 text-white/20 mx-auto mb-1" /><p className="text-xs text-white/40">Search and add products</p></div>
           ) : (
             <div className="space-y-2">
-              {orderItems.map((item) => (
-                <div key={item.productId} className="flex items-center gap-2 p-2 rounded-lg bg-background/40 border border-white/5">
-                  <div className="w-8 h-8 rounded bg-secondary overflow-hidden flex-shrink-0 flex items-center justify-center">
-                    {item.image ? <img src={item.image} alt="" className="w-full h-full object-cover" /> : <Package className="w-3 h-3 text-white/30" />}
+              {orderItems.map((item) => {
+                const lineDiscount = computeLineDiscount(item);
+                const finalUnitPrice = item.price - lineDiscount;
+                const lineTotal = finalUnitPrice * item.quantity;
+                const isEditing = discountEditingId === item.productId;
+                return (
+                  <div key={item.productId} className="rounded-lg bg-background/40 border border-white/5">
+                    <div className="flex items-center gap-2 p-2">
+                      <div className="w-8 h-8 rounded bg-secondary overflow-hidden flex-shrink-0 flex items-center justify-center">
+                        {item.image ? <img src={item.image} alt="" className="w-full h-full object-cover" /> : <Package className="w-3 h-3 text-white/30" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-white truncate">{item.name}</p>
+                        <div className="flex items-center gap-1.5">
+                          {lineDiscount > 0 ? (
+                            <>
+                              <span className="text-xs text-white/40 line-through">{formatCurrency(item.price)}</span>
+                              <span className="text-xs text-success font-medium">{formatCurrency(finalUnitPrice)}</span>
+                            </>
+                          ) : (
+                            <span className="text-xs text-white/40">{formatCurrency(item.price)}</span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => updateQuantity(item.productId, -1)} disabled={item.quantity <= 1} className="w-6 h-6 rounded bg-secondary flex items-center justify-center disabled:opacity-30"><Minus className="w-3 h-3 text-white" /></button>
+                        <span className="text-sm font-bold text-white w-5 text-center">{item.quantity}</span>
+                        <button onClick={() => updateQuantity(item.productId, 1)} disabled={item.quantity >= item.stock} className="w-6 h-6 rounded bg-secondary flex items-center justify-center disabled:opacity-30"><Plus className="w-3 h-3 text-white" /></button>
+                      </div>
+                      <p className="text-sm font-bold text-white w-16 text-right">{formatCurrency(lineTotal)}</p>
+                      <button
+                        onClick={() => setDiscountEditingId(isEditing ? null : item.productId)}
+                        title="Line discount"
+                        className={`p-1 rounded transition-colors ${lineDiscount > 0 ? 'text-success bg-success/10' : 'text-white/40 hover:bg-white/10'}`}
+                      >
+                        <Tag className="w-3.5 h-3.5" />
+                      </button>
+                      <button onClick={() => removeItem(item.productId)} className="p-1 rounded hover:bg-error/20"><Trash2 className="w-3 h-3 text-error" /></button>
+                    </div>
+                    {isEditing && (
+                      <div className="px-2 pb-2 pt-0">
+                        <div className="flex items-center gap-2 p-2 rounded-lg bg-secondary/60 border border-white/10">
+                          <div className="flex rounded-md overflow-hidden border border-white/10 flex-shrink-0">
+                            <button onClick={() => updateDiscount(item.productId, 'amount', item.discountValue)} className={`px-2 py-1 text-xs font-medium ${item.discountType === 'amount' ? 'bg-primary text-white' : 'bg-background/60 text-white/60'}`}>₱</button>
+                            <button onClick={() => updateDiscount(item.productId, 'percent', item.discountValue)} className={`px-2 py-1 text-xs font-medium ${item.discountType === 'percent' ? 'bg-primary text-white' : 'bg-background/60 text-white/60'}`}>%</button>
+                          </div>
+                          <input
+                            type="number"
+                            min="0"
+                            max={item.discountType === 'percent' ? 100 : item.price}
+                            step="0.01"
+                            value={item.discountValue || ''}
+                            onChange={(e) => updateDiscount(item.productId, item.discountType, parseFloat(e.target.value) || 0)}
+                            placeholder={item.discountType === 'percent' ? '0%' : '0.00'}
+                            className="flex-1 px-2 py-1 bg-background/60 border border-white/10 rounded text-xs text-white placeholder:text-white/40 focus:outline-none focus:ring-1 focus:ring-primary"
+                          />
+                          <span className="text-xs text-white/50 whitespace-nowrap">
+                            -{formatCurrency(lineDiscount * item.quantity)}
+                          </span>
+                          {item.discountValue > 0 && (
+                            <button onClick={() => updateDiscount(item.productId, item.discountType, 0)} className="text-xs text-error hover:underline whitespace-nowrap">Clear</button>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <div className="flex-1 min-w-0"><p className="text-sm text-white truncate">{item.name}</p><p className="text-xs text-white/40">{formatCurrency(item.price)}</p></div>
-                  <div className="flex items-center gap-1">
-                    <button onClick={() => updateQuantity(item.productId, -1)} disabled={item.quantity <= 1} className="w-6 h-6 rounded bg-secondary flex items-center justify-center disabled:opacity-30"><Minus className="w-3 h-3 text-white" /></button>
-                    <span className="text-sm font-bold text-white w-5 text-center">{item.quantity}</span>
-                    <button onClick={() => updateQuantity(item.productId, 1)} disabled={item.quantity >= item.stock} className="w-6 h-6 rounded bg-secondary flex items-center justify-center disabled:opacity-30"><Plus className="w-3 h-3 text-white" /></button>
-                  </div>
-                  <p className="text-sm font-bold text-white w-14 text-right">{formatCurrency(item.price * item.quantity)}</p>
-                  <button onClick={() => removeItem(item.productId)} className="p-1 rounded hover:bg-error/20"><Trash2 className="w-3 h-3 text-error" /></button>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -246,9 +351,43 @@ export default function CreateOrderForm({ onSuccess }: CreateOrderFormProps) {
           <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Notes (optional)" rows={2} className="w-full px-3 py-2 bg-background/60 border border-white/10 rounded-lg text-sm text-white placeholder:text-white/40 resize-none focus:outline-none focus:ring-2 focus:ring-primary" />
         </div>
 
+        {/* Order Discount */}
+        {orderItems.length > 0 && (
+          <div className="bg-secondary/40 rounded-xl p-4 border border-white/10">
+            <h3 className="text-sm font-bold text-white mb-2 flex items-center gap-2"><Percent className="w-4 h-4 text-warning" /> Order Discount</h3>
+            <div className="flex items-center gap-2">
+              <div className="flex rounded-lg overflow-hidden border border-white/10 flex-shrink-0">
+                <button onClick={() => setOrderDiscountType('amount')} className={`px-3 py-2 text-xs font-medium ${orderDiscountType === 'amount' ? 'bg-primary text-white' : 'bg-background/60 text-white/60'}`}>₱</button>
+                <button onClick={() => setOrderDiscountType('percent')} className={`px-3 py-2 text-xs font-medium ${orderDiscountType === 'percent' ? 'bg-primary text-white' : 'bg-background/60 text-white/60'}`}>%</button>
+              </div>
+              <input
+                type="number"
+                min="0"
+                max={orderDiscountType === 'percent' ? 100 : subtotal}
+                step="0.01"
+                value={orderDiscountValue}
+                onChange={(e) => setOrderDiscountValue(e.target.value)}
+                placeholder={orderDiscountType === 'percent' ? '0%' : '0.00'}
+                className="flex-1 px-3 py-2 bg-background/60 border border-white/10 rounded-lg text-sm text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+              <span className="text-xs text-white/50 whitespace-nowrap w-24 text-right">-{formatCurrency(orderDiscount)}</span>
+            </div>
+          </div>
+        )}
+
         {/* Submit */}
         <div className="bg-primary/5 rounded-xl p-4 border border-primary/30">
-          <div className="flex justify-between mb-2"><span className="text-sm text-white/60">Items</span><span className="text-sm font-medium text-white">{orderItems.length}</span></div>
+          <div className="flex justify-between mb-1.5"><span className="text-xs text-white/60">Items</span><span className="text-xs font-medium text-white">{orderItems.length}</span></div>
+          {totalLineDiscounts > 0 && (
+            <div className="flex justify-between mb-1.5"><span className="text-xs text-white/60">Line discounts</span><span className="text-xs font-medium text-success">-{formatCurrency(totalLineDiscounts)}</span></div>
+          )}
+          <div className="flex justify-between mb-1.5"><span className="text-xs text-white/60">Subtotal</span><span className="text-xs font-medium text-white">{formatCurrency(subtotal)}</span></div>
+          {orderDiscount > 0 && (
+            <div className="flex justify-between mb-1.5"><span className="text-xs text-white/60">Order discount</span><span className="text-xs font-medium text-success">-{formatCurrency(orderDiscount)}</span></div>
+          )}
+          {totalSavings > 0 && (
+            <div className="flex justify-between mb-2 pb-2 border-b border-white/10"><span className="text-xs text-white/50">Total savings</span><span className="text-xs font-bold text-success">-{formatCurrency(totalSavings)}</span></div>
+          )}
           <div className="flex justify-between mb-4"><span className="text-base font-bold text-white">Total</span><span className="text-lg font-bold text-primary">{formatCurrency(totalAmount)}</span></div>
           {!canSubmit && orderItems.length > 0 && <p className="text-xs text-error mb-2 text-center">Select a customer or enter a walk-in name</p>}
           <button onClick={handleSubmit} disabled={!canSubmit}

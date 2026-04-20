@@ -272,6 +272,28 @@ function FinanceContent() {
                   <span className="text-error font-semibold">−{fmt(summary.cogs)}</span>
                 </div>
 
+                {(summary.totalDiscountsGiven || 0) > 0 && (
+                  <>
+                    <div className="flex justify-between items-baseline text-sm pt-1">
+                      <span className="text-white/70">Discounts Given</span>
+                      <span className="text-warning font-medium">−{fmt(summary.totalDiscountsGiven)}</span>
+                    </div>
+                    {(summary.totalLineDiscounts || 0) > 0 && (
+                      <div className="flex justify-between items-baseline text-xs">
+                        <span className="text-white/50 pl-3">Line-item</span>
+                        <span className="text-white/70">−{fmt(summary.totalLineDiscounts)}</span>
+                      </div>
+                    )}
+                    {(summary.totalOrderDiscounts || 0) > 0 && (
+                      <div className="flex justify-between items-baseline text-xs">
+                        <span className="text-white/50 pl-3">Order-level</span>
+                        <span className="text-white/70">−{fmt(summary.totalOrderDiscounts)}</span>
+                      </div>
+                    )}
+                    <p className="text-[10px] text-white/30 pl-3">(already reflected in Revenue)</p>
+                  </>
+                )}
+
                 <div className="flex justify-between items-baseline py-2 border-b border-white/10">
                   <div>
                     <span className="text-white font-semibold">Gross Profit</span>

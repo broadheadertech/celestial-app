@@ -31,6 +31,8 @@ interface ReportData {
   totalCustomers: number;
   totalProducts: number;
   activeProducts: number;
+  totalLineDiscounts: number;
+  totalOrderDiscounts: number;
   topProducts: Array<{
     _id: string;
     name: string;
@@ -86,6 +88,8 @@ export default function ReportsPage() {
         totalCustomers: 0,
         totalProducts: 0,
         activeProducts: 0,
+        totalLineDiscounts: 0,
+        totalOrderDiscounts: 0,
         topProducts: [],
         categoryStats: [],
         monthlyStats: [],
@@ -282,6 +286,30 @@ export default function ReportsPage() {
       };
     });
 
+    // Aggregate discount totals across completed orders and reservations
+    let totalLineDiscounts = 0;
+    let totalOrderDiscounts = 0;
+    for (const order of completedOrders) {
+      for (const item of order.items || []) {
+        if (item.discount && item.discount > 0) {
+          totalLineDiscounts += item.discount * item.quantity;
+        }
+      }
+      if (order.orderDiscount && order.orderDiscount > 0) {
+        totalOrderDiscounts += order.orderDiscount;
+      }
+    }
+    for (const reservation of completedReservations) {
+      for (const item of reservation.items || []) {
+        if (item.discount && item.discount > 0) {
+          totalLineDiscounts += item.discount * item.quantity;
+        }
+      }
+      if (reservation.orderDiscount && reservation.orderDiscount > 0) {
+        totalOrderDiscounts += reservation.orderDiscount;
+      }
+    }
+
     return {
       totalRevenue,
       totalOrders: yearOrders.length,
@@ -289,6 +317,8 @@ export default function ReportsPage() {
       totalCustomers: usersQuery.length,
       totalProducts: productsQuery.length,
       activeProducts: activeProducts.length,
+      totalLineDiscounts,
+      totalOrderDiscounts,
       topProducts,
       categoryStats,
       monthlyStats,
@@ -305,6 +335,63 @@ export default function ReportsPage() {
   const handleRefresh = () => {
     setIsRefreshing(true);
     setTimeout(() => setIsRefreshing(false), 1000);
+  };
+
+  const handleExport = () => {
+    if (typeof window === "undefined") return;
+
+    const sections: string[] = [];
+
+    sections.push(`Celestial Drakon Aquatics — ${selectedYear} Report`);
+    sections.push(`Generated: ${new Date().toLocaleString("en-PH")}`);
+    sections.push("");
+
+    sections.push("Summary");
+    sections.push("Metric,Value");
+    sections.push(`Total Revenue,${reportData.totalRevenue.toFixed(2)}`);
+    sections.push(`Total Orders,${reportData.totalOrders}`);
+    sections.push(`Total Reservations,${reportData.totalReservations}`);
+    sections.push(`Total Customers,${reportData.totalCustomers}`);
+    sections.push(`Active Products,${reportData.activeProducts}`);
+    sections.push(`Line-item Discounts,${reportData.totalLineDiscounts.toFixed(2)}`);
+    sections.push(`Order-level Discounts,${reportData.totalOrderDiscounts.toFixed(2)}`);
+    sections.push("");
+
+    sections.push("Top Products by Revenue");
+    sections.push("Rank,Product,Category,Units Sold,Revenue");
+    reportData.topProducts.forEach((p, i) => {
+      const safeName = p.name.includes(",") ? `"${p.name}"` : p.name;
+      const safeCat = p.category.includes(",") ? `"${p.category}"` : p.category;
+      sections.push(`${i + 1},${safeName},${safeCat},${p.sales},${p.revenue.toFixed(2)}`);
+    });
+    sections.push("");
+
+    sections.push("Revenue by Category");
+    sections.push("Category,Products,Revenue,Share (%)");
+    reportData.categoryStats.forEach((c) => {
+      const safeName = c.name.includes(",") ? `"${c.name}"` : c.name;
+      sections.push(
+        `${safeName},${c.productCount},${c.totalRevenue.toFixed(2)},${c.percentage.toFixed(1)}`,
+      );
+    });
+    sections.push("");
+
+    sections.push("Monthly Trends");
+    sections.push("Month,Revenue,Orders,Reservations");
+    reportData.monthlyStats.forEach((m) => {
+      sections.push(
+        `${m.month},${m.revenue.toFixed(2)},${m.orders},${m.reservations}`,
+      );
+    });
+
+    const csv = sections.join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `cda-report-${selectedYear}-${Date.now()}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   // Check if there's any data for the selected year
@@ -397,7 +484,9 @@ export default function ReportsPage() {
 
                 <Button
                   size="sm"
-                  className="bg-primary/90 hover:bg-primary px-3"
+                  onClick={handleExport}
+                  disabled={!hasData}
+                  className="bg-primary/90 hover:bg-primary px-3 disabled:opacity-50"
                 >
                   <Download className="w-4 h-4 mr-1.5" />
                   Export
@@ -489,7 +578,7 @@ export default function ReportsPage() {
                 <div className="bg-secondary/40 backdrop-blur-sm rounded-xl p-4 border border-white/10">
                   <div className="flex items-center justify-between mb-2">
                     <DollarSign className="w-5 h-5 text-success" />
-                    <span className="text-xs text-success">+12.5%</span>
+                    <span className="text-xs text-white/50">{selectedYear}</span>
                   </div>
                   <p className="text-2xl font-bold text-white">
                     {formatCurrency(reportData.totalRevenue)}
@@ -499,19 +588,21 @@ export default function ReportsPage() {
                 <div className="bg-secondary/40 backdrop-blur-sm rounded-xl p-4 border border-white/10">
                   <div className="flex items-center justify-between mb-2">
                     <ShoppingCart className="w-5 h-5 text-primary" />
-                    <span className="text-xs text-primary">+8.3%</span>
+                    <span className="text-xs text-white/50">{selectedYear}</span>
                   </div>
                   <p className="text-2xl font-bold text-white">
                     {formatNumber(
                       reportData.totalOrders + reportData.totalReservations,
                     )}
                   </p>
-                  <p className="text-xs text-white/60">Total Orders</p>
+                  <p className="text-xs text-white/60">
+                    {reportData.totalOrders} orders, {reportData.totalReservations} reservations
+                  </p>
                 </div>
                 <div className="bg-secondary/40 backdrop-blur-sm rounded-xl p-4 border border-white/10">
                   <div className="flex items-center justify-between mb-2">
                     <Users className="w-5 h-5 text-info" />
-                    <span className="text-xs text-info">+15.2%</span>
+                    <span className="text-xs text-white/50">Lifetime</span>
                   </div>
                   <p className="text-2xl font-bold text-white">
                     {formatNumber(reportData.totalCustomers)}
@@ -521,7 +612,7 @@ export default function ReportsPage() {
                 <div className="bg-secondary/40 backdrop-blur-sm rounded-xl p-4 border border-white/10">
                   <div className="flex items-center justify-between mb-2">
                     <Package className="w-5 h-5 text-warning" />
-                    <span className="text-xs text-warning">+5.7%</span>
+                    <span className="text-xs text-white/50">Now</span>
                   </div>
                   <p className="text-2xl font-bold text-white">
                     {formatNumber(reportData.activeProducts)}
@@ -529,6 +620,40 @@ export default function ReportsPage() {
                   <p className="text-xs text-white/60">Active Products</p>
                 </div>
               </div>
+
+              {/* Discounts Given */}
+              {(reportData.totalLineDiscounts + reportData.totalOrderDiscounts) > 0 && (
+                <div className="bg-secondary/40 backdrop-blur-sm rounded-xl p-6 border border-white/10">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-lg font-bold text-white">Discounts Given</h3>
+                    <span className="text-xs text-white/50">
+                      Already reflected in revenue
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="bg-white/5 rounded-lg p-3">
+                      <p className="text-xs text-white/60">Line-item discounts</p>
+                      <p className="text-lg font-bold text-green-400">
+                        −{formatCurrency(reportData.totalLineDiscounts)}
+                      </p>
+                    </div>
+                    <div className="bg-white/5 rounded-lg p-3">
+                      <p className="text-xs text-white/60">Order-level discounts</p>
+                      <p className="text-lg font-bold text-green-400">
+                        −{formatCurrency(reportData.totalOrderDiscounts)}
+                      </p>
+                    </div>
+                    <div className="bg-white/5 rounded-lg p-3">
+                      <p className="text-xs text-white/60">Total given</p>
+                      <p className="text-lg font-bold text-green-400">
+                        −{formatCurrency(
+                          reportData.totalLineDiscounts + reportData.totalOrderDiscounts,
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Category Breakdown */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

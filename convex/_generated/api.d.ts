@@ -29,6 +29,7 @@ import type * as services_orders from "../services/orders.js";
 import type * as services_payments from "../services/payments.js";
 import type * as services_products from "../services/products.js";
 import type * as services_reservations from "../services/reservations.js";
+import type * as services_settings from "../services/settings.js";
 import type * as services_stock from "../services/stock.js";
 import type * as services_users from "../services/users.js";
 import type * as services_wishlist from "../services/wishlist.js";
@@ -58,6 +59,7 @@ declare const fullApi: ApiFromModules<{
   "services/payments": typeof services_payments;
   "services/products": typeof services_products;
   "services/reservations": typeof services_reservations;
+  "services/settings": typeof services_settings;
   "services/stock": typeof services_stock;
   "services/users": typeof services_users;
   "services/wishlist": typeof services_wishlist;

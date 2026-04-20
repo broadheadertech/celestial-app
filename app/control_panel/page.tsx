@@ -22,7 +22,6 @@ import {
   ShoppingCart,
   Package,
   DollarSign,
-  Calendar,
   Download,
   RefreshCw,
   MoreVertical,
@@ -38,6 +37,7 @@ import {
 import { useAuthStore, useIsAuthenticated } from "@/store/auth";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import { Id } from "@/convex/_generated/dataModel";
 import { getRelativeTime } from "@/lib/utils";
 import Button from "@/components/ui/Button";
 import ControlPanelNav from "@/components/ControlPanelNav";
@@ -47,7 +47,6 @@ export default function ControlPanel() {
   const { user } = useAuthStore();
   const isAuthenticated = useIsAuthenticated();
 
-  const [dateRange, setDateRange] = useState("30");
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [productFilter, setProductFilter] = useState<string>("all");
 
@@ -56,7 +55,7 @@ export default function ControlPanel() {
   const categoriesData = useQuery(api.services.categories.getCategories, {});
   const topProductsData = useQuery(api.services.analytics.getTopProducts, {
     limit: 8,
-    categoryId: productFilter !== "all" ? productFilter as any : undefined
+    categoryId: productFilter !== "all" ? (productFilter as Id<"categories">) : undefined,
   });
   const revenueData = useQuery(api.services.analytics.getRevenueData, {});
   const categoryData = useQuery(api.services.analytics.getCategoryData, {});
@@ -164,20 +163,6 @@ export default function ControlPanel() {
               </div>
 
               <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-white/60" />
-                  <select
-                    value={dateRange}
-                    onChange={(e) => setDateRange(e.target.value)}
-                    className="bg-secondary/60 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:border-primary/50 focus:outline-none"
-                  >
-                    <option value="7">Last 7 days</option>
-                    <option value="30">Last 30 days</option>
-                    <option value="90">Last 90 days</option>
-                    <option value="365">Last year</option>
-                  </select>
-                </div>
-
                 <Button
                   variant="ghost"
                   size="sm"
@@ -191,7 +176,11 @@ export default function ControlPanel() {
                   Refresh
                 </Button>
 
-                <Button size="sm" className="bg-primary hover:bg-primary/90">
+                <Button
+                  size="sm"
+                  onClick={() => router.push("/control_panel/reports")}
+                  className="bg-primary hover:bg-primary/90"
+                >
                   <Download className="w-4 h-4 mr-2" />
                   Export
                 </Button>

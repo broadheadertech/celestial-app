@@ -11,6 +11,8 @@ interface ReservationItem {
   name: string;
   quantity: number;
   price: number;
+  originalPrice?: number;
+  discount?: number;
 }
 
 interface MockReservation {
@@ -20,6 +22,8 @@ interface MockReservation {
   customerEmail: string;
   customerPhone: string;
   items: ReservationItem[];
+  subtotal?: number;
+  orderDiscount?: number;
   totalAmount: number;
   status: string;
   pickupDate: string;
@@ -46,7 +50,6 @@ import {
   Edit,
   MoreVertical,
   Download,
-  RefreshCw,
   Plus,
   CalendarDays,
   Timer,
@@ -178,9 +181,13 @@ export default function ReservationsPage() {
                 (itemObj.reservedPrice as number) ||
                 (product?.price as number) ||
                 0,
+              originalPrice: itemObj.originalPrice as number | undefined,
+              discount: itemObj.discount as number | undefined,
             };
           })
         : [],
+      subtotal: res.subtotal as number | undefined,
+      orderDiscount: res.orderDiscount as number | undefined,
       totalAmount:
         (res.totalAmount as number) ||
         (Array.isArray(res.items)
@@ -253,7 +260,7 @@ export default function ReservationsPage() {
     );
   }, [reservationsData, selectedDate]);
 
-  // Calculate reservation stats
+  // Calculate reservation stats (with 30-day vs prior 30-day trend)
   const reservationStats = useMemo(() => {
     const total = reservationsData.length;
     const pending = reservationsData.filter(
@@ -275,6 +282,43 @@ export default function ReservationsPage() {
       .filter((r) => r.status === "pending" || r.status === "confirmed")
       .reduce((sum, r) => sum + (r.totalAmount || 0), 0);
 
+    const now = Date.now();
+    const day = 24 * 60 * 60 * 1000;
+    const last30Start = now - 30 * day;
+    const prev30Start = now - 60 * day;
+
+    const recent = reservationsData.filter((r) => r.createdAt >= last30Start);
+    const prior = reservationsData.filter(
+      (r) => r.createdAt >= prev30Start && r.createdAt < last30Start,
+    );
+
+    const pctChange = (a: number, b: number): string => {
+      if (b === 0) return a > 0 ? "New" : "—";
+      const diff = ((a - b) / b) * 100;
+      return `${diff >= 0 ? "+" : ""}${diff.toFixed(1)}%`;
+    };
+
+    const countByStatus = (
+      list: typeof reservationsData,
+      status: string,
+    ) => list.filter((r) => r.status === status).length;
+
+    const recentRevenue = recent
+      .filter((r) => r.status === "completed")
+      .reduce((s, r) => s + (r.totalAmount || 0), 0);
+    const priorRevenue = prior
+      .filter((r) => r.status === "completed")
+      .reduce((s, r) => s + (r.totalAmount || 0), 0);
+
+    const trends = {
+      total: pctChange(recent.length, prior.length),
+      pending: pctChange(countByStatus(recent, "pending"), countByStatus(prior, "pending")),
+      confirmed: pctChange(countByStatus(recent, "confirmed"), countByStatus(prior, "confirmed")),
+      completed: pctChange(countByStatus(recent, "completed"), countByStatus(prior, "completed")),
+      cancelled: pctChange(countByStatus(recent, "cancelled"), countByStatus(prior, "cancelled")),
+      revenue: pctChange(recentRevenue, priorRevenue),
+    };
+
     return {
       total,
       pending,
@@ -283,8 +327,12 @@ export default function ReservationsPage() {
       cancelled,
       totalRevenue,
       pendingRevenue,
+      trends,
     };
   }, [reservationsData]);
+
+  const trendToneTotal = reservationStats.trends.total.startsWith("+") || reservationStats.trends.total === "New" ? "success" : "error";
+  const trendToneRevenue = reservationStats.trends.revenue.startsWith("+") || reservationStats.trends.revenue === "New" ? "success" : "error";
 
   // Convex mutations
   const updateReservationStatus = useMutation(
@@ -353,6 +401,41 @@ export default function ReservationsPage() {
     setSelectedReservation(null);
   };
 
+  const handleExport = () => {
+    if (typeof window === "undefined" || filteredReservations.length === 0) return;
+
+    const rows: string[] = [];
+    rows.push("Code,Customer,Email,Phone,Status,Pickup Date,Items,Subtotal,Order Discount,Total,Created");
+    filteredReservations.forEach((r) => {
+      const items = r.items
+        .map((i) => `${i.quantity}x ${i.name}`)
+        .join(" | ")
+        .replace(/"/g, "'");
+      const line = [
+        r.reservationCode || r._id.slice(-8),
+        `"${r.customerName.replace(/"/g, "'")}"`,
+        r.customerEmail,
+        r.customerPhone,
+        r.status,
+        r.pickupDate,
+        `"${items}"`,
+        (r.subtotal ?? r.totalAmount).toFixed(2),
+        (r.orderDiscount ?? 0).toFixed(2),
+        r.totalAmount.toFixed(2),
+        new Date(r.createdAt).toISOString(),
+      ].join(",");
+      rows.push(line);
+    });
+
+    const blob = new Blob([rows.join("\n")], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `reservations-${Date.now()}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="min-h-screen bg-background">
       {/* Navigation Sidebar */}
@@ -385,18 +468,12 @@ export default function ReservationsPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="border-white/10 text-white hover:bg-white/10"
+                  onClick={handleExport}
+                  disabled={filteredReservations.length === 0}
+                  className="border-white/10 text-white hover:bg-white/10 disabled:opacity-50"
                 >
                   <Download className="w-4 h-4 mr-2" />
                   Export
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="border-white/10 text-white hover:bg-white/10"
-                >
-                  <RefreshCw className="w-4 h-4 mr-2" />
-                  Refresh
                 </Button>
               </div>
             </div>
@@ -409,7 +486,9 @@ export default function ReservationsPage() {
             <div className="bg-secondary/40 backdrop-blur-sm rounded-xl p-4 border border-white/10">
               <div className="flex items-center justify-between mb-2">
                 <Calendar className="w-5 h-5 text-primary" />
-                <span className="text-xs text-success">+5.2%</span>
+                <span className={`text-xs text-${trendToneTotal}`}>
+                  {reservationStats.trends.total}
+                </span>
               </div>
               <p className="text-2xl font-bold text-white">
                 {reservationStats.total}
@@ -419,7 +498,9 @@ export default function ReservationsPage() {
             <div className="bg-secondary/40 backdrop-blur-sm rounded-xl p-4 border border-white/10">
               <div className="flex items-center justify-between mb-2">
                 <Clock className="w-5 h-5 text-warning" />
-                <span className="text-xs text-warning">+2.1%</span>
+                <span className="text-xs text-warning">
+                  {reservationStats.trends.pending}
+                </span>
               </div>
               <p className="text-2xl font-bold text-white">
                 {reservationStats.pending}
@@ -429,7 +510,9 @@ export default function ReservationsPage() {
             <div className="bg-secondary/40 backdrop-blur-sm rounded-xl p-4 border border-white/10">
               <div className="flex items-center justify-between mb-2">
                 <CheckCircle className="w-5 h-5 text-info" />
-                <span className="text-xs text-info">+1.8%</span>
+                <span className="text-xs text-info">
+                  {reservationStats.trends.confirmed}
+                </span>
               </div>
               <p className="text-2xl font-bold text-white">
                 {reservationStats.confirmed}
@@ -439,7 +522,9 @@ export default function ReservationsPage() {
             <div className="bg-secondary/40 backdrop-blur-sm rounded-xl p-4 border border-white/10">
               <div className="flex items-center justify-between mb-2">
                 <CheckCircle2 className="w-5 h-5 text-success" />
-                <span className="text-xs text-success">+3.5%</span>
+                <span className="text-xs text-success">
+                  {reservationStats.trends.completed}
+                </span>
               </div>
               <p className="text-2xl font-bold text-white">
                 {reservationStats.completed}
@@ -449,7 +534,9 @@ export default function ReservationsPage() {
             <div className="bg-secondary/40 backdrop-blur-sm rounded-xl p-4 border border-white/10">
               <div className="flex items-center justify-between mb-2">
                 <XCircle className="w-5 h-5 text-error" />
-                <span className="text-xs text-error">+0.5%</span>
+                <span className="text-xs text-error">
+                  {reservationStats.trends.cancelled}
+                </span>
               </div>
               <p className="text-2xl font-bold text-white">
                 {reservationStats.cancelled}
@@ -459,7 +546,9 @@ export default function ReservationsPage() {
             <div className="bg-secondary/40 backdrop-blur-sm rounded-xl p-4 border border-white/10">
               <div className="flex items-center justify-between mb-2">
                 <Package className="w-5 h-5 text-info" />
-                <span className="text-xs text-success">+12.3%</span>
+                <span className={`text-xs text-${trendToneRevenue}`}>
+                  {reservationStats.trends.revenue}
+                </span>
               </div>
               <p className="text-2xl font-bold text-white">
                 {formatCurrency(reservationStats.totalRevenue)}
@@ -751,21 +840,50 @@ export default function ReservationsPage() {
                         <div className="mt-3 pt-3 border-t border-white/10">
                           <div className="space-y-1">
                             {reservation.items.map(
-                              (item: ReservationItem, index: number) => (
-                                <div
-                                  key={index}
-                                  className="flex items-center justify-between text-xs"
-                                >
-                                  <span className="text-white/80">
-                                    {item.quantity}x {item.name}
-                                  </span>
-                                  <span className="text-white/60">
-                                    {formatCurrency(item.price * item.quantity)}
-                                  </span>
-                                </div>
-                              ),
+                              (item: ReservationItem, index: number) => {
+                                const hasLineDiscount =
+                                  (item.discount || 0) > 0 && item.originalPrice;
+                                return (
+                                  <div
+                                    key={index}
+                                    className="flex items-center justify-between text-xs"
+                                  >
+                                    <span className="text-white/80">
+                                      {item.quantity}x {item.name}
+                                      {hasLineDiscount && (
+                                        <span className="ml-2 text-[10px] text-white/50">
+                                          <span className="line-through">
+                                            {formatCurrency(item.originalPrice!)}
+                                          </span>
+                                          <span className="text-green-400 ml-1">
+                                            −{formatCurrency(item.discount!)}
+                                          </span>
+                                        </span>
+                                      )}
+                                    </span>
+                                    <span className="text-white/60">
+                                      {formatCurrency(item.price * item.quantity)}
+                                    </span>
+                                  </div>
+                                );
+                              },
                             )}
                           </div>
+                          {(reservation.orderDiscount || 0) > 0 &&
+                            reservation.subtotal !== undefined && (
+                              <div className="mt-2 pt-2 border-t border-white/10 space-y-0.5 text-xs">
+                                <div className="flex items-center justify-between text-white/60">
+                                  <span>Subtotal</span>
+                                  <span>{formatCurrency(reservation.subtotal)}</span>
+                                </div>
+                                <div className="flex items-center justify-between text-green-400">
+                                  <span>Order Discount</span>
+                                  <span>
+                                    −{formatCurrency(reservation.orderDiscount!)}
+                                  </span>
+                                </div>
+                              </div>
+                            )}
                         </div>
 
                         {/* Notes */}

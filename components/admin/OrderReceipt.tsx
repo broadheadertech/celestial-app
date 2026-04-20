@@ -7,6 +7,8 @@ interface ReceiptItem {
   productId: string;
   quantity: number;
   price: number;
+  originalPrice?: number;
+  discount?: number;
   productName: string;
   productImage?: string;
 }
@@ -15,6 +17,8 @@ interface ReceiptData {
   receiptType: 'acknowledgement' | 'release';
   orderCode: string;
   items: ReceiptItem[];
+  subtotal?: number;
+  orderDiscount?: number;
   totalAmount: number;
   paymentMethod: string;
   customer: {
@@ -204,17 +208,42 @@ export default function OrderReceipt({ data, onClose }: OrderReceiptProps) {
           <div className="items border-t border-b border-gray-200 py-3 my-3">
             <p className="section-title text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Items</p>
             <div className="space-y-2">
-              {data.items.map((item, index) => (
-                <div key={index} className="item flex justify-between text-sm">
-                  <span className="name flex-1 text-gray-800">{item.productName}</span>
-                  <span className="qty w-10 text-center text-gray-500">x{item.quantity}</span>
-                  <span className="price w-20 text-right font-medium text-gray-900">
-                    {formatCurrency(item.price * item.quantity)}
-                  </span>
-                </div>
-              ))}
+              {data.items.map((item, index) => {
+                const hasLineDiscount = (item.discount || 0) > 0 && item.originalPrice;
+                return (
+                  <div key={index} className="item flex justify-between text-sm">
+                    <div className="flex-1">
+                      <span className="name text-gray-800">{item.productName}</span>
+                      {hasLineDiscount && (
+                        <div className="text-[10px] text-gray-400 mt-0.5">
+                          <span className="line-through">{formatCurrency(item.originalPrice!)}</span>
+                          <span className="text-green-700 ml-1">-{formatCurrency(item.discount!)}</span>
+                        </div>
+                      )}
+                    </div>
+                    <span className="qty w-10 text-center text-gray-500">x{item.quantity}</span>
+                    <span className="price w-20 text-right font-medium text-gray-900">
+                      {formatCurrency(item.price * item.quantity)}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           </div>
+
+          {/* Subtotal / Discount / Total */}
+          {(data.orderDiscount || 0) > 0 && data.subtotal !== undefined && (
+            <>
+              <div className="info-row flex justify-between text-sm mb-1">
+                <span className="label text-gray-500">Subtotal</span>
+                <span className="value text-gray-700">{formatCurrency(data.subtotal)}</span>
+              </div>
+              <div className="info-row flex justify-between text-sm mb-2">
+                <span className="label text-gray-500">Order Discount</span>
+                <span className="value font-medium text-green-700">-{formatCurrency(data.orderDiscount || 0)}</span>
+              </div>
+            </>
+          )}
 
           {/* Total */}
           <div className="total flex justify-between text-base font-bold text-gray-900 pt-2 border-t-2 border-gray-900">

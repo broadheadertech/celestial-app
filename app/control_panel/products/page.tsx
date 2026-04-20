@@ -17,7 +17,6 @@ import {
   AlertTriangle,
   CheckCircle,
   ArrowLeft,
-  RefreshCw,
   Download,
   X,
   Loader,
@@ -338,6 +337,36 @@ function ProductsPageContent() {
     if (productDetails?.certificate) {
       setCertificateModalVisible(true);
     }
+  };
+
+  const handleExport = () => {
+    if (typeof window === "undefined" || filteredProducts.length === 0) return;
+
+    const rows: string[] = [];
+    rows.push("SKU,Name,Category,Price,Cost,Stock,Status,Created");
+    filteredProducts.forEach((p) => {
+      const safeName = `"${(p.name ?? "").toString().replace(/"/g, "'")}"`;
+      const categoryName = categoryMap[p.categoryId] ?? "Unknown";
+      const status = !p.isActive ? "inactive" : p.stock === 0 ? "out_of_stock" : "active";
+      rows.push([
+        p.sku ?? "",
+        safeName,
+        categoryName,
+        (p.price ?? 0).toFixed(2),
+        (p.costPrice ?? 0).toFixed(2),
+        p.stock ?? 0,
+        status,
+        new Date(p.createdAt).toISOString(),
+      ].join(","));
+    });
+
+    const blob = new Blob([rows.join("\n")], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `products-${Date.now()}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   // Loading states
@@ -889,18 +918,12 @@ function ProductsPageContent() {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="border-white/10 text-white hover:bg-white/10"
+                  onClick={handleExport}
+                  disabled={filteredProducts.length === 0}
+                  className="border-white/10 text-white hover:bg-white/10 disabled:opacity-50"
                 >
                   <Download className="w-4 h-4 mr-2" />
                   Export
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="border-white/10 text-white hover:bg-white/10"
-                >
-                  <RefreshCw className="w-4 h-4 mr-2" />
-                  Refresh
                 </Button>
               </div>
             </div>
