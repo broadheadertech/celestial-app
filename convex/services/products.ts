@@ -195,17 +195,17 @@ export const createProduct = mutation({
     
     // Category-specific data (optional)
     fishData: v.optional(v.object({
-      scientificName: v.string(),
+      scientificName: v.optional(v.string()),
       weight: v.optional(v.number()),
       size: v.number(),
-      temperature: v.number(),
+      temperature: v.optional(v.number()),
       age: v.number(),
       phLevel: v.string(),
-      lifespan: v.string(),
-      origin: v.string(),
+      lifespan: v.optional(v.string()),
+      origin: v.optional(v.string()),
       diet: v.string()
     })),
-    
+
     tankData: v.optional(v.object({
       tankType: v.string(),
       material: v.string(),
@@ -221,43 +221,43 @@ export const createProduct = mutation({
       filtation: v.number(),
     }))
   },
-  
+
   handler: async (ctx, args) => {
     // Enhanced validation
     if (!args.name?.trim()) {
       throw new Error("Product name is required and cannot be empty");
     }
-    
+
     if (args.price <= 0) {
       throw new Error("Price must be greater than 0");
     }
-    
+
     if (args.originalPrice && args.originalPrice <= args.price) {
       throw new Error("Original price must be greater than current price");
     }
-    
+
     if (args.stock < 0) {
       throw new Error("Stock cannot be negative");
     }
-    
+
     // Check for duplicate SKU only if SKU is provided
     if (args.sku) {
       const existingProduct = await ctx.db
         .query("products")
         .filter((q) => q.eq(q.field("sku"), args.sku))
         .first();
-      
+
       if (existingProduct) {
         throw new Error("A product with this SKU already exists");
       }
     }
-    
+
     // Get and validate category
     const category = await ctx.db.get(args.categoryId);
     if (!category) {
       throw new Error("Invalid category ID");
     }
-    
+
     if (!category.isActive) {
       throw new Error("Cannot create product in inactive category");
     }
@@ -266,20 +266,16 @@ export const createProduct = mutation({
     const categoryName = category.name.toLowerCase();
     const isFishCategory = categoryName.includes('fish') || categoryName.includes('aquatic');
     const isTankCategory = categoryName.includes('tank') || categoryName.includes('aquarium');
-    
+
     // Enhanced category-specific validation
     if (isFishCategory && args.fishData) {
-      // Validate fish-specific data
-      if (!args.fishData.scientificName?.trim()) {
-        throw new Error("Scientific name is required for fish products");
-      }
       if (args.fishData.weight !== undefined && args.fishData.weight <= 0) {
         throw new Error("Fish weight must be greater than 0");
       }
       if (args.fishData.size <= 0) {
         throw new Error("Fish size must be greater than 0");
       }
-      if (args.fishData.temperature < 0 || args.fishData.temperature > 50) {
+      if (args.fishData.temperature !== undefined && (args.fishData.temperature < 0 || args.fishData.temperature > 50)) {
         throw new Error("Temperature must be between 0-50°C");
       }
       if (args.fishData.age < 0) {
@@ -406,14 +402,14 @@ export const createProduct = mutation({
       if (isFishCategory && args.fishData) {
         await ctx.db.insert("fish", {
           productId,
-          scientificName: args.fishData.scientificName.trim(),
+          scientificName: args.fishData.scientificName?.trim() || undefined,
           weight: args.fishData.weight,
           size: args.fishData.size,
           temperature: args.fishData.temperature,
           age: args.fishData.age,
           phLevel: args.fishData.phLevel.trim(),
-          lifespan: args.fishData.lifespan.trim(),
-          origin: args.fishData.origin.trim(),
+          lifespan: args.fishData.lifespan?.trim() || undefined,
+          origin: args.fishData.origin?.trim() || undefined,
           diet: args.fishData.diet.trim()
         });
       }
@@ -520,17 +516,17 @@ export const updateProduct = mutation({
     
     // Category-specific data (optional)
     fishData: v.optional(v.object({
-      scientificName: v.string(),
+      scientificName: v.optional(v.string()),
       weight: v.optional(v.number()),
       size: v.number(),
-      temperature: v.number(),
+      temperature: v.optional(v.number()),
       age: v.number(),
       phLevel: v.string(),
-      lifespan: v.string(),
-      origin: v.string(),
+      lifespan: v.optional(v.string()),
+      origin: v.optional(v.string()),
       diet: v.string()
     })),
-    
+
     tankData: v.optional(v.object({
       tankType: v.string(),
       material: v.string(),
@@ -546,7 +542,7 @@ export const updateProduct = mutation({
       filtation: v.number(),
     }))
   },
-  
+
   handler: async (ctx, args) => {
     const { productId, fishData, tankData, ...updates } = args;
     
@@ -619,18 +615,14 @@ export const updateProduct = mutation({
       if (!isFishCategory) {
         throw new Error("Cannot add fish data to non-fish category product");
       }
-      
-      // Validate fish-specific data
-      if (!fishData.scientificName?.trim()) {
-        throw new Error("Scientific name is required for fish products");
-      }
+
       if (fishData.weight !== undefined && fishData.weight <= 0) {
         throw new Error("Fish weight must be greater than 0");
       }
       if (fishData.size <= 0) {
         throw new Error("Fish size must be greater than 0");
       }
-      if (fishData.temperature < 0 || fishData.temperature > 50) {
+      if (fishData.temperature !== undefined && (fishData.temperature < 0 || fishData.temperature > 50)) {
         throw new Error("Temperature must be between 0-50°C");
       }
       if (fishData.age < 0) {
@@ -761,28 +753,28 @@ export const updateProduct = mutation({
         if (existingFishData) {
           // Update existing fish data
           await ctx.db.patch(existingFishData._id, {
-            scientificName: fishData.scientificName.trim(),
+            scientificName: fishData.scientificName?.trim() || undefined,
             weight: fishData.weight,
             size: fishData.size,
             temperature: fishData.temperature,
             age: fishData.age,
             phLevel: fishData.phLevel.trim(),
-            lifespan: fishData.lifespan.trim(),
-            origin: fishData.origin.trim(),
+            lifespan: fishData.lifespan?.trim() || undefined,
+            origin: fishData.origin?.trim() || undefined,
             diet: fishData.diet.trim()
           });
         } else {
           // Create new fish data
           await ctx.db.insert("fish", {
             productId,
-            scientificName: fishData.scientificName.trim(),
+            scientificName: fishData.scientificName?.trim() || undefined,
             weight: fishData.weight,
             size: fishData.size,
             temperature: fishData.temperature,
             age: fishData.age,
             phLevel: fishData.phLevel.trim(),
-            lifespan: fishData.lifespan.trim(),
-            origin: fishData.origin.trim(),
+            lifespan: fishData.lifespan?.trim() || undefined,
+            origin: fishData.origin?.trim() || undefined,
             diet: fishData.diet.trim()
           });
         }

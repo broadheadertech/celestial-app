@@ -372,11 +372,9 @@ export function ProductFormContentInner({ editProductId, onSuccess, isDrawer }: 
       return;
     }
 
-    // Additional validation for fish products
+    // Additional validation for fish products (scientificName/temperature/origin/lifespan are optional)
     if (isFishProduct) {
-      if (!formData.scientificName || !formData.fishSize ||
-          !formData.fishTemperature || !formData.fishAge || !formData.phLevel ||
-          !formData.origin || !formData.diet) {
+      if (!formData.fishSize || !formData.fishAge || !formData.phLevel || !formData.diet) {
         showConfirmation('Incomplete Fish Data', 'Please fill in all required fish details', 'warning');
         return;
       }
@@ -428,17 +426,17 @@ export function ProductFormContentInner({ editProductId, onSuccess, isDrawer }: 
       let savedProductId: any;
 
       if (isEditing && productId) {
-        // Prepare fish data for update
+        // Prepare fish data for update (scientificName/temperature/origin/lifespan are optional)
         let fishDataForUpdate = undefined;
         if (isFishProduct) {
           fishDataForUpdate = {
-            scientificName: formData.scientificName.trim(),
+            scientificName: formData.scientificName.trim() || undefined,
             size: parseFloat(formData.fishSize),
-            temperature: parseFloat(formData.fishTemperature),
+            temperature: formData.fishTemperature ? parseFloat(formData.fishTemperature) : undefined,
             age: parseFloat(formData.fishAge),
             phLevel: formData.phLevel.trim(),
-            lifespan: formData.fishLifespan.trim() || formData.lifespan || '2-4 years',
-            origin: formData.origin.trim(),
+            lifespan: formData.fishLifespan.trim() || formData.lifespan.trim() || undefined,
+            origin: formData.origin.trim() || undefined,
             diet: formData.diet
           };
         }
@@ -471,17 +469,17 @@ export function ProductFormContentInner({ editProductId, onSuccess, isDrawer }: 
       } else {
         savedProductId = await createProduct(baseProductData);
 
-        // Handle fish-specific data for new products
+        // Handle fish-specific data for new products (scientificName/temperature/origin/lifespan optional)
         if (isFishProduct && savedProductId) {
           const fishData = {
             productId: savedProductId as any,
-            scientificName: formData.scientificName.trim(),
+            scientificName: formData.scientificName.trim() || undefined,
             size: parseFloat(formData.fishSize),
-            temperature: parseFloat(formData.fishTemperature),
+            temperature: formData.fishTemperature ? parseFloat(formData.fishTemperature) : undefined,
             age: parseFloat(formData.fishAge),
             phLevel: formData.phLevel.trim(),
-            lifespan: formData.fishLifespan.trim() || formData.lifespan || '2-4 years',
-            origin: formData.origin.trim(),
+            lifespan: formData.fishLifespan.trim() || formData.lifespan.trim() || undefined,
+            origin: formData.origin.trim() || undefined,
             diet: formData.diet
           };
 
@@ -871,12 +869,12 @@ export function ProductFormContentInner({ editProductId, onSuccess, isDrawer }: 
             <h2 className="text-lg font-bold text-primary mb-4">Fish Specifications</h2>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* Scientific Name - full width */}
+              {/* Scientific Name - full width (optional) */}
               <div className="sm:col-span-2">
-                {renderFormField('Scientific Name', true)}
+                {renderFormField('Scientific Name')}
                 <input
                   className="w-full p-4 rounded-lg bg-secondary border border-primary/10 text-white placeholder:text-muted"
-                  placeholder="e.g., Pterophyllum scalare"
+                  placeholder="e.g., Pterophyllum scalare (optional)"
                   value={formData.scientificName}
                   onChange={(e) => handleInputChange('scientificName', e.target.value)}
                 />
@@ -895,12 +893,12 @@ export function ProductFormContentInner({ editProductId, onSuccess, isDrawer }: 
                 />
               </div>
 
-              {/* Temperature */}
+              {/* Temperature (optional) */}
               <div>
-                {renderFormField('Temperature (°C)', true)}
+                {renderFormField('Temperature (°C)')}
                 <input
                   className="w-full p-4 rounded-lg bg-secondary border border-primary/10 text-white placeholder:text-muted"
-                  placeholder="26"
+                  placeholder="26 (optional)"
                   type="number"
                   value={formData.fishTemperature}
                   onChange={(e) => handleInputChange('fishTemperature', e.target.value)}
@@ -930,23 +928,23 @@ export function ProductFormContentInner({ editProductId, onSuccess, isDrawer }: 
                 />
               </div>
 
-              {/* Fish Lifespan */}
+              {/* Fish Lifespan (optional) */}
               <div>
-                {renderFormField('Lifespan', true)}
+                {renderFormField('Lifespan')}
                 <input
                   className="w-full p-4 rounded-lg bg-secondary border border-primary/10 text-white placeholder:text-muted"
-                  placeholder="e.g., 2-4 years"
+                  placeholder="e.g., 2-4 years (optional)"
                   value={formData.fishLifespan}
                   onChange={(e) => handleInputChange('fishLifespan', e.target.value)}
                 />
               </div>
 
-              {/* Origin */}
+              {/* Origin (optional) */}
               <div>
-                {renderFormField('Origin', true)}
+                {renderFormField('Origin')}
                 <input
                   className="w-full p-4 rounded-lg bg-secondary border border-primary/10 text-white placeholder:text-muted"
-                  placeholder="e.g., Amazon Basin, South America"
+                  placeholder="e.g., Amazon Basin (optional)"
                   value={formData.origin}
                   onChange={(e) => handleInputChange('origin', e.target.value)}
                 />

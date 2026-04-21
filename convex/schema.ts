@@ -84,14 +84,14 @@ export default defineSchema({
   //Fish Additional data
   fish:  defineTable({
     productId: v.id("products"),
-    scientificName: v.string(),
+    scientificName: v.optional(v.string()),
     weight: v.optional(v.number()),
     size: v.number(),
-    temperature: v.number(),
+    temperature: v.optional(v.number()),
     age: v.number(),
     phLevel: v.string(),
-    lifespan:v.string (),
-    origin: v.string(),
+    lifespan: v.optional(v.string()),
+    origin: v.optional(v.string()),
     diet: v.string()
   })
     .index("by_product", ["productId"]),
