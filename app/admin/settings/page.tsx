@@ -107,9 +107,9 @@ function AdminSettingsContent() {
     },
   });
 
-  // Redirect if not authenticated or not admin
+  // Redirect if not authenticated or not admin/super_admin
   useEffect(() => {
-    if (!isAuthenticated || user?.role !== "admin") {
+    if (!isAuthenticated || (user?.role !== "admin" && user?.role !== "super_admin")) {
       router.replace("/auth/login");
     }
   }, [isAuthenticated, user, router]);
@@ -304,7 +304,7 @@ function AdminSettingsContent() {
     </div>
   );
 
-  if (!isAuthenticated || user?.role !== "admin") {
+  if (!isAuthenticated || (user?.role !== "admin" && user?.role !== "super_admin")) {
     return null;
   }
 
