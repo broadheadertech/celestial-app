@@ -170,12 +170,15 @@ export default function CreateOrderForm({ onSuccess }: CreateOrderFormProps) {
     try {
       const result = await adminCreateOrder({
         userId: selectedUserId ? selectedUserId as Id<"users"> : undefined,
-        items: orderItems.map(i => ({
-          productId: i.productId as Id<"products">,
-          quantity: i.quantity,
-          discount: computeLineDiscount(i),
-        })),
-        orderDiscount,
+        items: orderItems.map(i => {
+          const lineDiscount = computeLineDiscount(i);
+          return {
+            productId: i.productId as Id<"products">,
+            quantity: i.quantity,
+            ...(lineDiscount > 0 ? { discount: lineDiscount } : {}),
+          };
+        }),
+        ...(orderDiscount > 0 ? { orderDiscount } : {}),
         paymentMethod,
         notes: notes || undefined,
         customerName: customerName || undefined,
