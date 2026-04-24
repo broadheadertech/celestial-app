@@ -499,6 +499,7 @@ export const updateProduct = mutation({
     name: v.optional(v.string()),
     description: v.optional(v.string()),
     price: v.optional(v.number()),
+    costPrice: v.optional(v.number()),
     originalPrice: v.optional(v.number()),
     categoryId: v.optional(v.id("categories")),
     image: v.optional(v.string()),
@@ -728,6 +729,7 @@ export const updateProduct = mutation({
       
       // Add other fields directly
       if (updates.price !== undefined) updateData.price = updates.price;
+      if (updates.costPrice !== undefined) updateData.costPrice = updates.costPrice;
       if (updates.originalPrice !== undefined) updateData.originalPrice = updates.originalPrice;
       if (updates.categoryId !== undefined) updateData.categoryId = updates.categoryId;
       if (updates.image !== undefined) updateData.image = updates.image;

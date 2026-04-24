@@ -7,7 +7,8 @@ import {
   Users,
   Package,
   ShoppingBag,
-  Settings
+  Settings,
+  Wallet,
 } from 'lucide-react';
 
 interface NavItem {
@@ -49,17 +50,23 @@ const BottomNavbar: React.FC<BottomNavbarProps> = ({ className = '' }) => {
     },
     {
       id: 'orders',
-      label: 'Reservations',
+      label: 'Orders',
       icon: ShoppingBag,
       href: '/admin/orders',
       matchPaths: ['/admin/reservations', '/admin/orders']
+    },
+    {
+      id: 'finance',
+      label: 'P&L',
+      icon: Wallet,
+      href: '/admin/finance'
     },
     {
       id: 'settings',
       label: 'Settings',
       icon: Settings,
       href: '/admin/settings',
-      matchPaths: ['/admin/analytics', '/admin/marketing']
+      matchPaths: ['/admin/analytics', '/admin/marketing', '/admin/app-settings']
     }
   ];
 
@@ -105,25 +112,25 @@ const BottomNavbar: React.FC<BottomNavbarProps> = ({ className = '' }) => {
 
   return (
     <div className={`fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur-sm border-t border-white/10 sm:hidden ${className}`}>
-      <div className="grid grid-cols-5 py-2">
+      <div className="grid grid-cols-6 py-2">
         {navItems.map((item) => {
           const IconComponent = item.icon;
           const isActive = isActiveRoute(item);
-          
+
           return (
             <button
               key={item.id}
               onClick={() => handleNavigation(item.href)}
-              className={`flex flex-col items-center py-2 px-3 transition-colors ${
-                isActive 
-                  ? 'text-primary' 
+              className={`flex flex-col items-center py-2 px-1 transition-colors ${
+                isActive
+                  ? 'text-primary'
                   : 'text-muted hover:text-foreground'
               }`}
               aria-label={item.label}
               aria-current={isActive ? 'page' : undefined}
             >
               <IconComponent className="w-5 h-5 mb-1" />
-              <span className={`text-xs ${isActive ? 'font-medium' : ''}`}>
+              <span className={`text-[10px] leading-tight ${isActive ? 'font-medium' : ''}`}>
                 {item.label}
               </span>
             </button>
