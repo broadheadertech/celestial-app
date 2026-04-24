@@ -22,6 +22,7 @@ import {
   Warehouse,
   TrendingUp,
   AlertCircle,
+  Wrench,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useQuery, useMutation } from 'convex/react';
@@ -146,6 +147,10 @@ function ActionsDropdown({
             <AlertCircle className="w-4 h-4 text-warning" />
             Mortality Loss
           </button>
+          <button onClick={() => run('InternalUse')} className="w-full px-3.5 py-2.5 text-left text-sm text-white hover:bg-white/10 flex items-center gap-3">
+            <Wrench className="w-4 h-4 text-info" />
+            Internal Use
+          </button>
           <div className="border-t border-white/10 my-1" />
           <button onClick={() => run('Toggle')} className="w-full px-3.5 py-2.5 text-left text-sm text-white hover:bg-white/10 flex items-center gap-3">
             {product.isActive ? (
@@ -188,6 +193,13 @@ function AdminProductsContent() {
   const [mortalityProductId, setMortalityProductId] = useState<string | null>(null);
   const [mortalityQuantity, setMortalityQuantity] = useState('');
 
+  // Internal use modal state
+  const [showInternalUseModal, setShowInternalUseModal] = useState(false);
+  const [internalUseProductId, setInternalUseProductId] = useState<string | null>(null);
+  const [internalUseQuantity, setInternalUseQuantity] = useState('');
+  const [internalUseNotes, setInternalUseNotes] = useState('');
+  const [isLoggingInternalUse, setIsLoggingInternalUse] = useState(false);
+
   // Convex queries
   const products = useQuery(api.services.admin.getAllProductsAdmin);
   const categories = useQuery(api.services.categories.getCategories);
@@ -196,6 +208,7 @@ function AdminProductsContent() {
   const toggleProductStatus = useMutation(api.services.admin.toggleProductStatus);
   const restockProduct = useMutation(api.services.stock.restockProduct);
   const recordMortalityLoss = useMutation(api.services.stock.recordMortalityLossByProduct);
+  const logInternalUse = useMutation(api.services.stock.logInternalUse);
   const deleteProductMutation = useMutation(api.services.admin.deleteProduct);
 
   // Delete confirmation state
@@ -363,6 +376,11 @@ function AdminProductsContent() {
       setMortalityProductId(productId);
       setMortalityQuantity('');
       setShowMortalityModal(true);
+    } else if (action === 'InternalUse') {
+      setInternalUseProductId(productId);
+      setInternalUseQuantity('');
+      setInternalUseNotes('');
+      setShowInternalUseModal(true);
     } else if (action === 'Delete') {
       const product = products?.find(p => p._id === productId);
       if (product) setDeleteConfirm({ id: productId, name: product.name });
@@ -408,6 +426,47 @@ function AdminProductsContent() {
       alert(`${result.message}\nNew batch code: ${result.batchCode}\nTotal stock: ${result.newTotalStock} units`);
     } catch (error) {
       alert('Failed to restock product. Please try again.');
+    }
+  };
+
+  const handleInternalUse = async () => {
+    if (!internalUseProductId || !internalUseQuantity) return;
+    const quantity = parseInt(internalUseQuantity);
+    if (isNaN(quantity) || quantity <= 0) {
+      alert('Please enter a valid quantity');
+      return;
+    }
+
+    const product = products?.find((p) => p._id === internalUseProductId);
+    if (!product) {
+      alert('Product not found');
+      return;
+    }
+    if (product.stock < quantity) {
+      alert(`Insufficient stock. Available: ${product.stock}, Requested: ${quantity}`);
+      return;
+    }
+
+    setIsLoggingInternalUse(true);
+    try {
+      const result = await logInternalUse({
+        productId: internalUseProductId as any,
+        quantity,
+        notes: internalUseNotes.trim() || undefined,
+      });
+      setShowInternalUseModal(false);
+      setInternalUseProductId(null);
+      setInternalUseQuantity('');
+      setInternalUseNotes('');
+      setSuccessMessage(
+        `Logged ${quantity} × ${product.name} as internal use. ` +
+          `Expense: ₱${result.expenseAmount.toLocaleString('en-PH', { minimumFractionDigits: 2 })}.`,
+      );
+      setTimeout(() => setSuccessMessage(''), 4000);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Failed to log internal use');
+    } finally {
+      setIsLoggingInternalUse(false);
     }
   };
 
@@ -1325,6 +1384,163 @@ function AdminProductsContent() {
         </>
       )}
 
+      {/* Internal Use Modal */}
+      {showInternalUseModal && internalUseProductId && (() => {
+        const product = products?.find((p) => p._id === internalUseProductId);
+        if (!product) return null;
+        const qty = parseInt(internalUseQuantity) || 0;
+        const missingCost = !product.costPrice || product.costPrice <= 0;
+        const expenseAmount = qty * (product.costPrice || 0);
+        return (
+          <>
+            <div
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 animate-in fade-in duration-200"
+              onClick={() => {
+                setShowInternalUseModal(false);
+                setInternalUseProductId(null);
+              }}
+            />
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+              <div
+                className="bg-secondary/95 backdrop-blur-md border border-white/10 rounded-2xl shadow-2xl w-full max-w-md pointer-events-auto animate-in zoom-in-95 duration-200"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between">
+                  <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                    <Wrench className="w-5 h-5 text-info" />
+                    Log Internal Use
+                  </h2>
+                  <button
+                    onClick={() => {
+                      setShowInternalUseModal(false);
+                      setInternalUseProductId(null);
+                    }}
+                    className="p-1.5 rounded-lg hover:bg-white/10 transition-colors"
+                  >
+                    <X className="w-5 h-5 text-white/60" />
+                  </button>
+                </div>
+
+                <div className="px-6 py-5 space-y-4">
+                  {/* Product card */}
+                  <div className="bg-secondary/60 rounded-xl p-4 border border-white/10">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="w-14 h-14 rounded-lg overflow-hidden bg-secondary border border-white/10 flex-shrink-0">
+                        {product.image ? (
+                          <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <Package className="w-6 h-6 text-white/30" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-bold text-white text-base truncate">{product.name}</h3>
+                        <p className="text-xs text-white/60">
+                          Stock: <span className="text-white font-medium">{product.stock}</span>
+                          {product.costPrice ? (
+                            <span className="ml-2">
+                              · Cost: <span className="text-white font-medium">{formatCurrency(product.costPrice)}</span>
+                            </span>
+                          ) : null}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {missingCost ? (
+                    <div className="bg-error/10 border border-error/30 rounded-xl p-3">
+                      <div className="flex gap-2">
+                        <AlertCircle className="w-5 h-5 text-error flex-shrink-0 mt-0.5" />
+                        <div>
+                          <p className="text-sm font-medium text-error mb-1">Cost price required</p>
+                          <p className="text-xs text-white/70">
+                            Edit this product and set a cost price before logging internal use, so the P&L reflects the correct expense.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-info/10 border border-info/30 rounded-xl p-3">
+                      <div className="flex gap-2">
+                        <AlertCircle className="w-5 h-5 text-info flex-shrink-0 mt-0.5" />
+                        <div className="text-xs text-white/80">
+                          <p className="font-medium mb-0.5">Logged as expense in P&L</p>
+                          <p className="text-white/60">
+                            Cash-on-hand is unaffected (no cash leaves the drawer). The expense is recorded under Operating Supplies.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="block text-sm font-medium text-white mb-2">
+                      Quantity Used <span className="text-error">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      max={product.stock}
+                      value={internalUseQuantity}
+                      onChange={(e) => setInternalUseQuantity(e.target.value)}
+                      placeholder="e.g. 1"
+                      className="w-full px-4 py-3 bg-secondary border border-white/10 rounded-lg text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-info"
+                      autoFocus
+                      disabled={missingCost}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-white mb-2">Notes (optional)</label>
+                    <textarea
+                      value={internalUseNotes}
+                      onChange={(e) => setInternalUseNotes(e.target.value)}
+                      placeholder="e.g. Used for store tank feeding"
+                      rows={2}
+                      className="w-full px-4 py-2.5 bg-secondary border border-white/10 rounded-lg text-sm text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-info resize-none"
+                      disabled={missingCost}
+                    />
+                  </div>
+
+                  {qty > 0 && !missingCost && (
+                    <div className="flex items-center justify-between px-4 py-3 bg-white/[0.04] border border-white/10 rounded-xl">
+                      <span className="text-xs text-white/60 uppercase tracking-wider">Expense amount</span>
+                      <span className="text-lg font-bold text-info">{formatCurrency(expenseAmount)}</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="px-6 py-4 border-t border-white/10 flex gap-3">
+                  <button
+                    onClick={() => {
+                      setShowInternalUseModal(false);
+                      setInternalUseProductId(null);
+                    }}
+                    className="flex-1 px-4 py-2.5 bg-secondary/60 hover:bg-white/10 border border-white/10 rounded-lg text-white font-medium transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleInternalUse}
+                    disabled={
+                      missingCost ||
+                      isLoggingInternalUse ||
+                      !internalUseQuantity ||
+                      parseInt(internalUseQuantity) <= 0 ||
+                      parseInt(internalUseQuantity) > product.stock
+                    }
+                    className="flex-1 px-4 py-2.5 bg-info hover:bg-info/90 disabled:bg-info/40 disabled:cursor-not-allowed rounded-lg text-white font-medium transition-all"
+                  >
+                    {isLoggingInternalUse ? 'Logging...' : 'Log Use'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </>
+        );
+      })()}
+
       {/* Mobile-Optimized Action Sheet */}
       {selectedProduct && (
         <>
@@ -1412,6 +1628,14 @@ function AdminProductsContent() {
                       >
                         <AlertCircle className="w-5 h-5 text-warning" />
                         <span className="font-medium">Record Mortality Loss</span>
+                      </button>
+
+                      <button
+                        onClick={() => handleProductAction(product._id, 'InternalUse')}
+                        className="w-full px-4 py-3.5 bg-secondary/60 hover:bg-white/10 active:bg-white/15 border border-white/10 rounded-xl text-white flex items-center gap-3 transition-all touch-manipulation"
+                      >
+                        <Wrench className="w-5 h-5 text-info" />
+                        <span className="font-medium">Log Internal Use</span>
                       </button>
 
                       <button

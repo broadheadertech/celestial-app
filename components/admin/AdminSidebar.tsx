@@ -14,6 +14,7 @@ import {
   Fish,
   Wallet,
   Sliders,
+  Zap,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/auth';
 
@@ -56,6 +57,24 @@ export default function AdminSidebar() {
       ],
     },
     {
+      title: 'Sales',
+      items: [
+        {
+          id: 'pos',
+          label: 'POS',
+          icon: Zap,
+          href: '/admin/pos',
+        },
+        {
+          id: 'orders',
+          label: 'Orders & Reservations',
+          icon: ShoppingBag,
+          href: '/admin/orders',
+          matchPaths: ['/admin/orders', '/admin/reservation-detail'],
+        },
+      ],
+    },
+    {
       title: 'Management',
       items: [
         {
@@ -71,13 +90,6 @@ export default function AdminSidebar() {
           icon: Boxes,
           href: '/admin/inventory',
           matchPaths: ['/admin/inventory'],
-        },
-        {
-          id: 'orders',
-          label: 'Orders & Reservations',
-          icon: ShoppingBag,
-          href: '/admin/orders',
-          matchPaths: ['/admin/orders', '/admin/reservation-detail'],
         },
       ],
     },

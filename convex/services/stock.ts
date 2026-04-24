@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query, MutationCtx } from "../_generated/server";
 import { Id } from "../_generated/dataModel";
-import { createRestockExpenseHelper } from "./finance";
+import { createRestockExpenseHelper, createInternalUseExpenseHelper } from "./finance";
 
 // ==================== HELPER FUNCTIONS (callable from other mutations) ====================
 
@@ -810,6 +810,107 @@ export const restockProduct = mutation({
       batchQty: quantity,
       message: `Successfully restocked ${quantity} units. New batch created: ${batchCode}`,
       newTotalStock,
+    };
+  },
+});
+
+// Log internal use: product consumed for shop operations (not sold).
+// Deducts from stock using FIFO batches and creates an expense at costPrice.
+export const logInternalUse = mutation({
+  args: {
+    productId: v.id("products"),
+    quantity: v.number(),
+    notes: v.optional(v.string()),
+    userId: v.optional(v.id("users")),
+  },
+  handler: async (ctx, { productId, quantity, notes, userId }) => {
+    if (quantity <= 0) {
+      throw new Error("Quantity must be greater than 0");
+    }
+
+    const product = await ctx.db.get(productId);
+    if (!product) {
+      throw new Error("Product not found");
+    }
+
+    if (!product.costPrice || product.costPrice <= 0) {
+      throw new Error(
+        `Set a cost price for "${product.name}" before logging internal use (needed for P&L).`,
+      );
+    }
+
+    if (product.stock < quantity) {
+      throw new Error(
+        `Insufficient stock for ${product.name}. Available: ${product.stock}, Requested: ${quantity}`,
+      );
+    }
+
+    const now = Date.now();
+    const batches = await getActiveBatchesFIFO(ctx, productId);
+
+    let remaining = quantity;
+    const prevTotalStock = product.stock;
+
+    for (const batch of batches) {
+      if (remaining <= 0) break;
+      if (batch.currentQty <= 0) continue;
+
+      const takeFromBatch = Math.min(batch.currentQty, remaining);
+      const newBatchQty = batch.currentQty - takeFromBatch;
+      const newInternalUseQty = (batch.internalUseQty || 0) + takeFromBatch;
+
+      await ctx.db.patch(batch._id, {
+        currentQty: newBatchQty,
+        internalUseQty: newInternalUseQty,
+        status: newBatchQty === 0 ? "depleted" : batch.status,
+        updatedAt: now,
+      });
+
+      // Log a movement per affected batch
+      await ctx.db.insert("stockMovements", {
+        stockRecordId: batch._id,
+        productId,
+        batchCode: batch.batchCode,
+        movementType: "internal_use",
+        quantityBefore: batch.currentQty,
+        quantityChange: -takeFromBatch,
+        quantityAfter: newBatchQty,
+        createdAt: now,
+      });
+
+      remaining -= takeFromBatch;
+    }
+
+    if (remaining > 0) {
+      // Shouldn't happen given the stock check above, but fail safely
+      throw new Error(
+        `Could not fulfill internal use: ${remaining} units unaccounted for across batches.`,
+      );
+    }
+
+    // Deduct from product aggregate stock
+    const newTotalStock = prevTotalStock - quantity;
+    await ctx.db.patch(productId, {
+      stock: newTotalStock,
+      updatedAt: now,
+    });
+
+    // Create expense at costPrice × quantity (paymentMethod = "internal",
+    // so cash-on-hand is unaffected but P&L still reflects the cost)
+    const expenseId = await createInternalUseExpenseHelper(ctx, {
+      productId,
+      quantity,
+      unitCost: product.costPrice,
+      notes,
+      userId,
+    });
+
+    return {
+      success: true,
+      quantityUsed: quantity,
+      newTotalStock,
+      expenseAmount: product.costPrice * quantity,
+      expenseId,
     };
   },
 });

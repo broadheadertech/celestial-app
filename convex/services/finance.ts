@@ -5,6 +5,47 @@ import { Id } from "../_generated/dataModel";
 // ==================== HELPER (callable from other mutations) ====================
 
 /**
+ * Create an internal-use expense — called from logInternalUse mutation.
+ * Amount = product.costPrice × quantity. Payment method is always "internal"
+ * (doesn't affect cash-on-hand — no cash actually leaves your hand).
+ */
+export async function createInternalUseExpenseHelper(
+  ctx: MutationCtx,
+  args: {
+    productId: Id<"products">;
+    quantity: number;
+    unitCost: number;
+    notes?: string;
+    userId?: Id<"users">;
+  }
+) {
+  const { productId, quantity, unitCost, notes, userId } = args;
+  const product = await ctx.db.get(productId);
+  if (!product) return null;
+
+  const totalCost = unitCost * quantity;
+  if (totalCost <= 0) return null;
+
+  const now = Date.now();
+  const id = await ctx.db.insert("expenses", {
+    type: "operational",
+    category: "supplies",
+    amount: totalCost,
+    description: `Internal use: ${quantity} × ${product.name}`,
+    paymentMethod: "internal",
+    date: now,
+    productId,
+    quantity,
+    notes,
+    createdBy: userId,
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  return id;
+}
+
+/**
  * Create a restocking expense — called from restockProduct mutation.
  * Amount = product.costPrice × quantity. Defaults to cash payment.
  */

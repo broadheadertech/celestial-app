@@ -7,8 +7,8 @@ import {
   Users,
   Package,
   ShoppingBag,
-  Settings,
   Wallet,
+  Zap,
 } from 'lucide-react';
 
 interface NavItem {
@@ -30,16 +30,16 @@ const BottomNavbar: React.FC<BottomNavbarProps> = ({ className = '' }) => {
   const navItems: NavItem[] = [
     {
       id: 'dashboard',
-      label: 'Dashboard',
+      label: 'Home',
       icon: BarChart3,
       href: '/admin/dashboard',
       matchPaths: ['/admin']
     },
     {
-      id: 'users',
-      label: 'Users',
-      icon: Users,
-      href: '/admin/users'
+      id: 'pos',
+      label: 'POS',
+      icon: Zap,
+      href: '/admin/pos'
     },
     {
       id: 'products',
@@ -62,11 +62,11 @@ const BottomNavbar: React.FC<BottomNavbarProps> = ({ className = '' }) => {
       href: '/admin/finance'
     },
     {
-      id: 'settings',
-      label: 'Settings',
-      icon: Settings,
-      href: '/admin/settings',
-      matchPaths: ['/admin/analytics', '/admin/marketing', '/admin/app-settings']
+      id: 'users',
+      label: 'Users',
+      icon: Users,
+      href: '/admin/users',
+      matchPaths: ['/admin/settings', '/admin/analytics', '/admin/marketing', '/admin/app-settings']
     }
   ];
 

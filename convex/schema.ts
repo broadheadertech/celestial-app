@@ -289,6 +289,7 @@ export default defineSchema({
     soldQty: v.number(), // Quantity already sold
     mortalityLossQty: v.number(), // Quantity lost due to mortality/damage
     returnedQty: v.number(), // Quantity returned by customers
+    internalUseQty: v.optional(v.number()), // Quantity consumed for in-shop use (not sold)
     
     // Location tracking
     tankNumber: v.optional(v.string()), // Tank number if applicable
@@ -350,7 +351,8 @@ export default defineSchema({
       v.literal("damage"), // Marked as damaged
       v.literal("adjustment"), // Manual adjustment
       v.literal("transfer"), // Transfer between locations
-      v.literal("expiry") // Expired stock removal
+      v.literal("expiry"), // Expired stock removal
+      v.literal("internal_use") // Consumed for in-shop use (not sold)
     ),
     
     // Quantity changes
