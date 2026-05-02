@@ -1,8 +1,10 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ArrowLeft,
+  ChevronLeft,
+  ChevronRight,
   Hourglass,
   Package,
   Search,
@@ -81,6 +83,9 @@ function StockAgingContent() {
   const [category, setCategory] = useState<CategoryFilter>('all');
   const [bucketFilter, setBucketFilter] = useState<'all' | BucketKey>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [page, setPage] = useState(1);
+
+  const PAGE_SIZE = 10;
 
   const aging = useQuery(
     api.services.stock.getStockAging,
@@ -105,6 +110,17 @@ function StockAgingContent() {
     }
     return rows;
   }, [aging, bucketFilter, searchQuery]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredRecords.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const pageStart = (safePage - 1) * PAGE_SIZE;
+  const pageEnd = pageStart + PAGE_SIZE;
+  const pagedRecords = filteredRecords.slice(pageStart, pageEnd);
+
+  // Reset to page 1 whenever filters change the result set
+  useEffect(() => {
+    setPage(1);
+  }, [category, bucketFilter, searchQuery]);
 
   return (
     <div className="min-h-screen bg-background text-foreground pb-24 sm:pb-6">
@@ -317,7 +333,7 @@ function StockAgingContent() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-white/5">
-                        {filteredRecords.map((record) => {
+                        {pagedRecords.map((record) => {
                           const theme = bucketTheme[record.bucket as BucketKey];
                           return (
                             <tr
@@ -377,7 +393,7 @@ function StockAgingContent() {
 
               {/* Mobile cards */}
               <div className="sm:hidden space-y-3">
-                {filteredRecords.map((record) => {
+                {pagedRecords.map((record) => {
                   const theme = bucketTheme[record.bucket as BucketKey];
                   return (
                     <Card
@@ -433,6 +449,36 @@ function StockAgingContent() {
                     </Card>
                   );
                 })}
+              </div>
+
+              {/* Pagination */}
+              <div className="mt-4 flex items-center justify-between gap-3">
+                <p className="text-xs text-white/50">
+                  Showing <span className="text-white font-medium tabular-nums">{filteredRecords.length === 0 ? 0 : pageStart + 1}</span>
+                  –<span className="text-white font-medium tabular-nums">{Math.min(pageEnd, filteredRecords.length)}</span>
+                  {' '}of <span className="text-white font-medium tabular-nums">{filteredRecords.length}</span>
+                </p>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={safePage <= 1}
+                    className="p-2 rounded-lg bg-secondary/60 border border-white/10 text-white/80 hover:bg-white/10 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                    aria-label="Previous page"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <span className="px-3 py-1.5 rounded-lg bg-secondary/60 border border-white/10 text-xs font-semibold text-white tabular-nums">
+                    {safePage} / {totalPages}
+                  </span>
+                  <button
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={safePage >= totalPages}
+                    className="p-2 rounded-lg bg-secondary/60 border border-white/10 text-white/80 hover:bg-white/10 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                    aria-label="Next page"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
             </>
           )}
