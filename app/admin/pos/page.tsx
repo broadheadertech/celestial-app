@@ -562,7 +562,7 @@ function PosPageContent() {
             </div>
           )}
 
-          <div className="p-4 sm:p-5 flex-1 lg:overflow-y-auto space-y-5">
+          <div className="p-4 sm:p-5 pb-8 flex-1 min-h-0 overflow-y-auto space-y-5">
             {/* Cart lines */}
             <div>
               <div className="flex items-center justify-between mb-2.5">
