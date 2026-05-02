@@ -17,6 +17,7 @@ import {
   Minus,
   ArrowRightLeft,
   Clock,
+  Hourglass,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useQuery, useMutation } from 'convex/react';
@@ -233,6 +234,13 @@ function InventoryContent() {
                 Movements
               </button>
               <button
+                onClick={() => router.push('/admin/inventory/aging')}
+                className="hidden sm:flex px-3 py-2 rounded-lg bg-secondary/60 border border-white/10 text-white/80 text-sm font-medium hover:bg-white/10 transition-all items-center gap-2"
+              >
+                <Hourglass className="w-4 h-4" />
+                Aging
+              </button>
+              <button
                 onClick={() => router.push('/admin/inventory/expiring')}
                 className="hidden sm:flex px-3 py-2 rounded-lg bg-secondary/60 border border-white/10 text-white/80 text-sm font-medium hover:bg-white/10 transition-all items-center gap-2"
               >
@@ -257,6 +265,13 @@ function InventoryContent() {
             >
               <ArrowRightLeft className="w-3.5 h-3.5" />
               Movements
+            </button>
+            <button
+              onClick={() => router.push('/admin/inventory/aging')}
+              className="flex-1 px-3 py-2 rounded-lg bg-secondary/60 border border-white/10 text-white text-xs font-medium flex items-center justify-center gap-1.5"
+            >
+              <Hourglass className="w-3.5 h-3.5" />
+              Aging
             </button>
             <button
               onClick={() => router.push('/admin/inventory/expiring')}

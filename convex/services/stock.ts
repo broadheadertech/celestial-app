@@ -1444,6 +1444,122 @@ export const getStockSummary = query({
   },
 });
 
+// Stock Aging — bucket each active batch by days since receivedDate.
+// Used to identify slow-moving / dead inventory and plan markdowns.
+export const getStockAging = query({
+  args: {
+    category: v.optional(v.union(v.literal("fish"), v.literal("tank"), v.literal("accessory"))),
+  },
+  handler: async (ctx, { category }) => {
+    const records = category
+      ? await ctx.db
+          .query("stockRecords")
+          .withIndex("by_category", (q) => q.eq("category", category))
+          .collect()
+      : await ctx.db.query("stockRecords").collect();
+
+    // Only batches that still hold inventory and aren't mortality records
+    const live = records.filter(
+      (r) => !r.isMortalityLoss && r.currentQty > 0 && r.status !== "depleted" && r.status !== "expired"
+    );
+
+    type BucketKey = "fresh" | "aging" | "old" | "stale" | "dead";
+    const bucketDefs: { key: BucketKey; label: string; min: number; max: number | null }[] = [
+      { key: "fresh", label: "0-30 days", min: 0, max: 30 },
+      { key: "aging", label: "31-60 days", min: 31, max: 60 },
+      { key: "old", label: "61-90 days", min: 61, max: 90 },
+      { key: "stale", label: "91-180 days", min: 91, max: 180 },
+      { key: "dead", label: "180+ days", min: 181, max: null },
+    ];
+
+    const bucketFor = (days: number): BucketKey => {
+      for (const b of bucketDefs) {
+        if (b.max === null) {
+          if (days >= b.min) return b.key;
+        } else if (days >= b.min && days <= b.max) {
+          return b.key;
+        }
+      }
+      return "fresh";
+    };
+
+    const now = Date.now();
+    const DAY_MS = 24 * 60 * 60 * 1000;
+
+    // Enrich each batch with product details + age
+    const enriched = await Promise.all(
+      live.map(async (record) => {
+        const product = await ctx.db.get(record.productId);
+        const ageDays = Math.max(0, Math.floor((now - record.receivedDate) / DAY_MS));
+        const bucket = bucketFor(ageDays);
+        const unitPrice = product?.price ?? 0;
+        const unitCost = product?.costPrice ?? 0;
+        return {
+          _id: record._id,
+          productId: record.productId,
+          productName: product?.name ?? "Unknown product",
+          productImage: product?.image,
+          category: record.category,
+          batchCode: record.batchCode,
+          tankNumber: record.tankNumber,
+          qualityGrade: record.qualityGrade,
+          status: record.status,
+          receivedDate: record.receivedDate,
+          ageDays,
+          bucket,
+          currentQty: record.currentQty,
+          initialQty: record.initialQty,
+          reservedQty: record.reservedQty,
+          soldQty: record.soldQty,
+          unitPrice,
+          unitCost,
+          retailValue: unitPrice * record.currentQty,
+          costValue: unitCost * record.currentQty,
+        };
+      })
+    );
+
+    // Sort oldest first
+    enriched.sort((a, b) => b.ageDays - a.ageDays);
+
+    // Aggregate by bucket
+    const summary = bucketDefs.map((def) => {
+      const items = enriched.filter((r) => r.bucket === def.key);
+      const batches = items.length;
+      const units = items.reduce((sum, r) => sum + r.currentQty, 0);
+      const retailValue = items.reduce((sum, r) => sum + r.retailValue, 0);
+      const costValue = items.reduce((sum, r) => sum + r.costValue, 0);
+      return {
+        key: def.key,
+        label: def.label,
+        minDays: def.min,
+        maxDays: def.max,
+        batches,
+        units,
+        retailValue,
+        costValue,
+      };
+    });
+
+    const totals = {
+      batches: enriched.length,
+      units: enriched.reduce((sum, r) => sum + r.currentQty, 0),
+      retailValue: enriched.reduce((sum, r) => sum + r.retailValue, 0),
+      costValue: enriched.reduce((sum, r) => sum + r.costValue, 0),
+      avgAgeDays: enriched.length === 0
+        ? 0
+        : Math.round(enriched.reduce((sum, r) => sum + r.ageDays, 0) / enriched.length),
+      oldestAgeDays: enriched.length === 0 ? 0 : enriched[0].ageDays,
+    };
+
+    return {
+      records: enriched,
+      summary,
+      totals,
+    };
+  },
+});
+
 // Record mortality loss — FIFO deducts from oldest batch(es),
 // creates ONE mortality record per event for reporting/traceability.
 export const recordMortalityLossByProduct = mutation({
