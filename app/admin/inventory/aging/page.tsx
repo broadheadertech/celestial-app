@@ -126,9 +126,9 @@ function StockAgingContent() {
     <div className="min-h-screen bg-background text-foreground pb-24 sm:pb-6">
       {/* Header */}
       <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-white/10 safe-area-top">
-        <div className="px-4 sm:px-6 py-3 sm:py-4 max-w-7xl mx-auto">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3 flex-1 min-w-0">
+        <div className="px-3 sm:px-4 lg:px-6 py-3 sm:py-4 max-w-7xl mx-auto">
+          <div className="flex items-center justify-between gap-2 sm:gap-3">
+            <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
               <button
                 onClick={() => router.back()}
                 className="p-2 rounded-lg bg-secondary/60 border border-white/10 hover:bg-white/10 active:scale-95 transition-all flex-shrink-0"
@@ -136,15 +136,15 @@ function StockAgingContent() {
                 <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
               </button>
               <div className="min-w-0 flex-1">
-                <h1 className="text-lg sm:text-2xl font-bold text-white truncate">Stock Aging</h1>
-                <p className="text-xs text-white/50 hidden sm:block">Days-in-stock buckets per batch (FIFO basis)</p>
+                <h1 className="text-base sm:text-xl lg:text-2xl font-bold text-white truncate">Stock Aging</h1>
+                <p className="text-[11px] sm:text-xs text-white/50 truncate">Days-in-stock buckets per batch (FIFO basis)</p>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="px-4 sm:px-6 py-4 sm:py-6 max-w-7xl mx-auto space-y-4 sm:space-y-6">
+      <div className="px-3 sm:px-4 lg:px-6 py-3 sm:py-5 lg:py-6 max-w-7xl mx-auto space-y-3 sm:space-y-5 lg:space-y-6">
         {/* Category filter */}
         <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1">
           {([
@@ -169,49 +169,49 @@ function StockAgingContent() {
 
         {/* Headline KPIs */}
         {aging && (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-            <div className="bg-gradient-to-br from-secondary/60 to-secondary/30 rounded-xl p-4 border border-white/10">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 lg:gap-4">
+            <div className="bg-gradient-to-br from-secondary/60 to-secondary/30 rounded-xl p-3 sm:p-4 border border-white/10">
               <div className="flex items-center justify-between mb-2">
-                <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                  <Layers className="w-4 h-4 text-primary" />
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <Layers className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-primary" />
                 </div>
-                <span className="text-[10px] font-medium text-white/40 uppercase tracking-wider">Batches</span>
+                <span className="text-[9px] sm:text-[10px] font-medium text-white/40 uppercase tracking-wider">Batches</span>
               </div>
-              <p className="text-2xl font-bold text-white tabular-nums">{aging.totals.batches}</p>
-              <p className="text-xs text-white/50 mt-0.5">{aging.totals.units} units in stock</p>
+              <p className="text-xl sm:text-2xl font-bold text-white tabular-nums">{aging.totals.batches}</p>
+              <p className="text-[11px] sm:text-xs text-white/50 mt-0.5 truncate">{aging.totals.units} units in stock</p>
             </div>
 
-            <div className="bg-gradient-to-br from-secondary/60 to-secondary/30 rounded-xl p-4 border border-white/10">
+            <div className="bg-gradient-to-br from-secondary/60 to-secondary/30 rounded-xl p-3 sm:p-4 border border-white/10">
               <div className="flex items-center justify-between mb-2">
-                <div className="w-8 h-8 rounded-lg bg-info/10 flex items-center justify-center">
-                  <Hourglass className="w-4 h-4 text-info" />
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-info/10 flex items-center justify-center">
+                  <Hourglass className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-info" />
                 </div>
-                <span className="text-[10px] font-medium text-white/40 uppercase tracking-wider">Avg age</span>
+                <span className="text-[9px] sm:text-[10px] font-medium text-white/40 uppercase tracking-wider">Avg age</span>
               </div>
-              <p className="text-2xl font-bold text-white tabular-nums">{aging.totals.avgAgeDays}<span className="text-sm text-white/50 ml-1">d</span></p>
-              <p className="text-xs text-white/50 mt-0.5">Across all live batches</p>
+              <p className="text-xl sm:text-2xl font-bold text-white tabular-nums">{aging.totals.avgAgeDays}<span className="text-xs sm:text-sm text-white/50 ml-1">d</span></p>
+              <p className="text-[11px] sm:text-xs text-white/50 mt-0.5 truncate">Across all live batches</p>
             </div>
 
-            <div className="bg-gradient-to-br from-secondary/60 to-secondary/30 rounded-xl p-4 border border-white/10">
+            <div className="bg-gradient-to-br from-secondary/60 to-secondary/30 rounded-xl p-3 sm:p-4 border border-white/10">
               <div className="flex items-center justify-between mb-2">
-                <div className="w-8 h-8 rounded-lg bg-warning/10 flex items-center justify-center">
-                  <TrendingDown className="w-4 h-4 text-warning" />
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-warning/10 flex items-center justify-center">
+                  <TrendingDown className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-warning" />
                 </div>
-                <span className="text-[10px] font-medium text-white/40 uppercase tracking-wider">Oldest</span>
+                <span className="text-[9px] sm:text-[10px] font-medium text-white/40 uppercase tracking-wider">Oldest</span>
               </div>
-              <p className="text-2xl font-bold text-white tabular-nums">{aging.totals.oldestAgeDays}<span className="text-sm text-white/50 ml-1">d</span></p>
-              <p className="text-xs text-white/50 mt-0.5">Single batch high-water mark</p>
+              <p className="text-xl sm:text-2xl font-bold text-white tabular-nums">{aging.totals.oldestAgeDays}<span className="text-xs sm:text-sm text-white/50 ml-1">d</span></p>
+              <p className="text-[11px] sm:text-xs text-white/50 mt-0.5 truncate">Single batch high-water mark</p>
             </div>
 
-            <div className="bg-gradient-to-br from-secondary/60 to-secondary/30 rounded-xl p-4 border border-white/10">
+            <div className="bg-gradient-to-br from-secondary/60 to-secondary/30 rounded-xl p-3 sm:p-4 border border-white/10">
               <div className="flex items-center justify-between mb-2">
-                <div className="w-8 h-8 rounded-lg bg-success/10 flex items-center justify-center">
-                  <Calendar className="w-4 h-4 text-success" />
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-success/10 flex items-center justify-center">
+                  <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-success" />
                 </div>
-                <span className="text-[10px] font-medium text-white/40 uppercase tracking-wider">Retail value</span>
+                <span className="text-[9px] sm:text-[10px] font-medium text-white/40 uppercase tracking-wider truncate">Retail value</span>
               </div>
-              <p className="text-2xl font-bold text-primary tabular-nums">{formatCurrency(aging.totals.retailValue)}</p>
-              <p className="text-xs text-white/50 mt-0.5">Cost basis {formatCurrency(aging.totals.costValue)}</p>
+              <p className="text-base sm:text-xl lg:text-2xl font-bold text-primary tabular-nums truncate">{formatCurrency(aging.totals.retailValue)}</p>
+              <p className="text-[11px] sm:text-xs text-white/50 mt-0.5 truncate">Cost {formatCurrency(aging.totals.costValue)}</p>
             </div>
           </div>
         )}
@@ -219,22 +219,22 @@ function StockAgingContent() {
         {/* Aging buckets */}
         {aging && (
           <div>
-            <div className="flex items-baseline justify-between mb-3">
-              <h2 className="text-base sm:text-lg font-bold text-white">Buckets</h2>
-              <p className="text-xs text-white/50">Tap to filter</p>
+            <div className="flex items-baseline justify-between mb-2 sm:mb-3 gap-2">
+              <h2 className="text-sm sm:text-base lg:text-lg font-bold text-white">Buckets</h2>
+              <p className="text-[11px] sm:text-xs text-white/50 truncate">Tap to filter</p>
             </div>
-            <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 sm:gap-3">
               <button
                 onClick={() => setBucketFilter('all')}
-                className={`text-left p-3 rounded-xl border transition-all ${
+                className={`text-left p-2.5 sm:p-3 rounded-xl border transition-all min-w-0 ${
                   bucketFilter === 'all'
                     ? 'bg-primary/10 border-primary/40'
                     : 'bg-secondary/40 border-white/10 hover:border-white/20'
                 }`}
               >
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-white/50 mb-1">All ages</p>
-                <p className="text-xl font-bold text-white tabular-nums">{aging.totals.batches}</p>
-                <p className="text-[10px] text-white/50 mt-0.5">{aging.totals.units} units · {formatCurrency(aging.totals.retailValue)}</p>
+                <p className="text-[9px] sm:text-[10px] font-semibold uppercase tracking-wider text-white/50 mb-1 truncate">All ages</p>
+                <p className="text-lg sm:text-xl font-bold text-white tabular-nums">{aging.totals.batches}</p>
+                <p className="text-[10px] text-white/50 mt-0.5 truncate">{aging.totals.units} units · {formatCurrency(aging.totals.retailValue)}</p>
               </button>
 
               {aging.summary.map((b) => {
@@ -245,19 +245,19 @@ function StockAgingContent() {
                   <button
                     key={b.key}
                     onClick={() => setBucketFilter(b.key as BucketKey)}
-                    className={`text-left p-3 rounded-xl border transition-all ${
+                    className={`text-left p-2.5 sm:p-3 rounded-xl border transition-all min-w-0 ${
                       isActive ? 'bg-white/[0.06] border-white/30' : 'bg-secondary/40 border-white/10 hover:border-white/20'
                     }`}
                   >
                     <div className="flex items-center justify-between mb-1">
-                      <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase border ${theme.chip}`}>
+                      <span className={`inline-flex items-center gap-1 sm:gap-1.5 px-1.5 sm:px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-semibold uppercase border ${theme.chip}`}>
                         <span className={`w-1.5 h-1.5 rounded-full ${theme.dot}`} />
                         {theme.label}
                       </span>
                     </div>
-                    <p className="text-[10px] text-white/50">{b.label}</p>
-                    <p className="text-xl font-bold text-white tabular-nums mt-0.5">{b.batches}</p>
-                    <p className="text-[10px] text-white/50">{b.units} units · {formatCurrency(b.retailValue)}</p>
+                    <p className="text-[9px] sm:text-[10px] text-white/50 truncate">{b.label}</p>
+                    <p className="text-lg sm:text-xl font-bold text-white tabular-nums mt-0.5">{b.batches}</p>
+                    <p className="text-[10px] text-white/50 truncate">{b.units} units · {formatCurrency(b.retailValue)}</p>
                     <div className="mt-2 h-1 rounded-full bg-white/5 overflow-hidden">
                       <div className={`h-full ${theme.bar}`} style={{ width: `${pct}%` }} />
                     </div>
@@ -290,9 +290,9 @@ function StockAgingContent() {
 
         {/* Batch list */}
         <div>
-          <div className="flex items-baseline justify-between mb-3">
-            <h2 className="text-base sm:text-lg font-bold text-white">Batches by age</h2>
-            <p className="text-xs text-white/50">
+          <div className="flex items-baseline justify-between mb-2 sm:mb-3 gap-2">
+            <h2 className="text-sm sm:text-base lg:text-lg font-bold text-white">Batches by age</h2>
+            <p className="text-[11px] sm:text-xs text-white/50 truncate">
               {filteredRecords.length} {filteredRecords.length === 1 ? 'batch' : 'batches'}
               {bucketFilter !== 'all' ? ` · ${bucketTheme[bucketFilter].label.toLowerCase()}` : ''}
             </p>
@@ -315,21 +315,21 @@ function StockAgingContent() {
             </Card>
           ) : (
             <>
-              {/* Desktop table */}
-              <div className="hidden sm:block">
+              {/* Desktop / tablet table */}
+              <div className="hidden md:block">
                 <div className="bg-secondary/30 border border-white/10 rounded-xl overflow-hidden shadow-xl">
                   <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
+                    <table className="w-full text-xs lg:text-sm">
                       <thead>
                         <tr className="border-b border-white/10 bg-secondary/60">
-                          <th className="text-left px-5 py-3.5 text-[10px] font-semibold text-white/40 uppercase tracking-wider">Product</th>
-                          <th className="text-left px-3 py-3.5 text-[10px] font-semibold text-white/40 uppercase tracking-wider">Batch</th>
-                          <th className="text-left px-3 py-3.5 text-[10px] font-semibold text-white/40 uppercase tracking-wider">Received</th>
-                          <th className="text-center px-3 py-3.5 text-[10px] font-semibold text-white/40 uppercase tracking-wider">Age</th>
-                          <th className="text-center px-3 py-3.5 text-[10px] font-semibold text-white/40 uppercase tracking-wider">Bucket</th>
-                          <th className="text-right px-3 py-3.5 text-[10px] font-semibold text-white/40 uppercase tracking-wider">Qty</th>
-                          <th className="text-right px-3 py-3.5 text-[10px] font-semibold text-white/40 uppercase tracking-wider">Cost</th>
-                          <th className="text-right px-5 py-3.5 text-[10px] font-semibold text-white/40 uppercase tracking-wider">Retail</th>
+                          <th className="text-left px-3 lg:px-5 py-3 lg:py-3.5 text-[10px] font-semibold text-white/40 uppercase tracking-wider">Product</th>
+                          <th className="text-left px-2 lg:px-3 py-3 lg:py-3.5 text-[10px] font-semibold text-white/40 uppercase tracking-wider">Batch</th>
+                          <th className="text-left px-2 lg:px-3 py-3 lg:py-3.5 text-[10px] font-semibold text-white/40 uppercase tracking-wider hidden lg:table-cell">Received</th>
+                          <th className="text-center px-2 lg:px-3 py-3 lg:py-3.5 text-[10px] font-semibold text-white/40 uppercase tracking-wider">Age</th>
+                          <th className="text-center px-2 lg:px-3 py-3 lg:py-3.5 text-[10px] font-semibold text-white/40 uppercase tracking-wider">Bucket</th>
+                          <th className="text-right px-2 lg:px-3 py-3 lg:py-3.5 text-[10px] font-semibold text-white/40 uppercase tracking-wider">Qty</th>
+                          <th className="text-right px-2 lg:px-3 py-3 lg:py-3.5 text-[10px] font-semibold text-white/40 uppercase tracking-wider hidden lg:table-cell">Cost</th>
+                          <th className="text-right px-3 lg:px-5 py-3 lg:py-3.5 text-[10px] font-semibold text-white/40 uppercase tracking-wider">Retail</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-white/5">
@@ -341,9 +341,9 @@ function StockAgingContent() {
                               className={`hover:bg-white/[0.03] transition-colors border-l-4 ${theme.row} cursor-pointer`}
                               onClick={() => router.push(`/admin/inventory/activity_log?productId=${record.productId}&productName=${encodeURIComponent(record.productName)}`)}
                             >
-                              <td className="px-5 py-4">
-                                <div className="flex items-center gap-3">
-                                  <div className="w-10 h-10 rounded-lg overflow-hidden bg-secondary border border-white/10 flex-shrink-0 flex items-center justify-center">
+                              <td className="px-3 lg:px-5 py-3 lg:py-4">
+                                <div className="flex items-center gap-2 lg:gap-3">
+                                  <div className="w-9 h-9 lg:w-10 lg:h-10 rounded-lg overflow-hidden bg-secondary border border-white/10 flex-shrink-0 flex items-center justify-center">
                                     {record.productImage ? (
                                       // eslint-disable-next-line @next/next/no-img-element
                                       <img src={record.productImage} alt={record.productName} className="w-full h-full object-cover" />
@@ -352,34 +352,34 @@ function StockAgingContent() {
                                     )}
                                   </div>
                                   <div className="min-w-0">
-                                    <p className="font-medium text-white truncate max-w-[220px]">{record.productName}</p>
+                                    <p className="font-medium text-white truncate max-w-[140px] lg:max-w-[220px]">{record.productName}</p>
                                     <p className="text-[10px] text-white/40 capitalize">{record.category}</p>
                                   </div>
                                 </div>
                               </td>
-                              <td className="px-3 py-4">
-                                <span className="inline-block px-2 py-1 rounded-md bg-white/5 border border-white/10 text-white/70 font-mono text-[10px]">
+                              <td className="px-2 lg:px-3 py-3 lg:py-4">
+                                <span className="inline-block px-1.5 lg:px-2 py-0.5 lg:py-1 rounded-md bg-white/5 border border-white/10 text-white/70 font-mono text-[10px]">
                                   {record.batchCode}
                                 </span>
                               </td>
-                              <td className="px-3 py-4 text-white/70 text-xs">{formatDate(record.receivedDate)}</td>
-                              <td className="px-3 py-4 text-center">
-                                <span className={`text-sm font-semibold tabular-nums ${theme.text}`}>{record.ageDays}<span className="text-[10px] text-white/40 ml-0.5">d</span></span>
+                              <td className="px-2 lg:px-3 py-3 lg:py-4 text-white/70 text-[11px] lg:text-xs hidden lg:table-cell">{formatDate(record.receivedDate)}</td>
+                              <td className="px-2 lg:px-3 py-3 lg:py-4 text-center">
+                                <span className={`text-xs lg:text-sm font-semibold tabular-nums ${theme.text}`}>{record.ageDays}<span className="text-[10px] text-white/40 ml-0.5">d</span></span>
                               </td>
-                              <td className="px-3 py-4 text-center">
-                                <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase border ${theme.chip}`}>
+                              <td className="px-2 lg:px-3 py-3 lg:py-4 text-center">
+                                <span className={`inline-flex items-center gap-1 lg:gap-1.5 px-1.5 lg:px-2 py-0.5 rounded-full text-[9px] lg:text-[10px] font-semibold uppercase border ${theme.chip}`}>
                                   <span className={`w-1.5 h-1.5 rounded-full ${theme.dot}`} />
                                   {theme.label}
                                 </span>
                               </td>
-                              <td className="px-3 py-4 text-right">
+                              <td className="px-2 lg:px-3 py-3 lg:py-4 text-right">
                                 <span className="text-white font-semibold tabular-nums">{record.currentQty}</span>
                                 <span className="text-white/40 text-[10px] ml-1">/ {record.initialQty}</span>
                               </td>
-                              <td className="px-3 py-4 text-right text-white/70 text-xs tabular-nums">
+                              <td className="px-2 lg:px-3 py-3 lg:py-4 text-right text-white/70 text-[11px] lg:text-xs tabular-nums hidden lg:table-cell">
                                 {record.unitCost > 0 ? formatCurrency(record.costValue) : '—'}
                               </td>
-                              <td className="px-5 py-4 text-right text-white font-semibold tabular-nums">
+                              <td className="px-3 lg:px-5 py-3 lg:py-4 text-right text-white font-semibold tabular-nums whitespace-nowrap">
                                 {record.unitPrice > 0 ? formatCurrency(record.retailValue) : '—'}
                               </td>
                             </tr>
@@ -391,8 +391,8 @@ function StockAgingContent() {
                 </div>
               </div>
 
-              {/* Mobile cards */}
-              <div className="sm:hidden space-y-3">
+              {/* Mobile / small-tablet cards */}
+              <div className="md:hidden space-y-3">
                 {pagedRecords.map((record) => {
                   const theme = bucketTheme[record.bucket as BucketKey];
                   return (
@@ -452,13 +452,13 @@ function StockAgingContent() {
               </div>
 
               {/* Pagination */}
-              <div className="mt-4 flex items-center justify-between gap-3">
-                <p className="text-xs text-white/50">
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-2 sm:gap-3">
+                <p className="text-[11px] sm:text-xs text-white/50 order-2 sm:order-1 w-full sm:w-auto text-center sm:text-left">
                   Showing <span className="text-white font-medium tabular-nums">{filteredRecords.length === 0 ? 0 : pageStart + 1}</span>
                   –<span className="text-white font-medium tabular-nums">{Math.min(pageEnd, filteredRecords.length)}</span>
                   {' '}of <span className="text-white font-medium tabular-nums">{filteredRecords.length}</span>
                 </p>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 sm:gap-2 order-1 sm:order-2 mx-auto sm:mx-0">
                   <button
                     onClick={() => setPage((p) => Math.max(1, p - 1))}
                     disabled={safePage <= 1}
@@ -467,7 +467,7 @@ function StockAgingContent() {
                   >
                     <ChevronLeft className="w-4 h-4" />
                   </button>
-                  <span className="px-3 py-1.5 rounded-lg bg-secondary/60 border border-white/10 text-xs font-semibold text-white tabular-nums">
+                  <span className="px-2.5 sm:px-3 py-1.5 rounded-lg bg-secondary/60 border border-white/10 text-[11px] sm:text-xs font-semibold text-white tabular-nums">
                     {safePage} / {totalPages}
                   </span>
                   <button
