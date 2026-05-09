@@ -194,9 +194,11 @@ function AdminProductsContent() {
   const [mortalityQuantity, setMortalityQuantity] = useState('');
 
   // Internal use modal state
+  type InternalUseReason = 'treatment' | 'display' | 'feed' | 'loss_prevention' | 'other';
   const [showInternalUseModal, setShowInternalUseModal] = useState(false);
   const [internalUseProductId, setInternalUseProductId] = useState<string | null>(null);
   const [internalUseQuantity, setInternalUseQuantity] = useState('');
+  const [internalUseReason, setInternalUseReason] = useState<InternalUseReason>('display');
   const [internalUseNotes, setInternalUseNotes] = useState('');
   const [isLoggingInternalUse, setIsLoggingInternalUse] = useState(false);
 
@@ -379,6 +381,7 @@ function AdminProductsContent() {
     } else if (action === 'InternalUse') {
       setInternalUseProductId(productId);
       setInternalUseQuantity('');
+      setInternalUseReason('display');
       setInternalUseNotes('');
       setShowInternalUseModal(true);
     } else if (action === 'Delete') {
@@ -453,10 +456,12 @@ function AdminProductsContent() {
         productId: internalUseProductId as any,
         quantity,
         notes: internalUseNotes.trim() || undefined,
+        internalUseCategory: internalUseReason,
       });
       setShowInternalUseModal(false);
       setInternalUseProductId(null);
       setInternalUseQuantity('');
+      setInternalUseReason('display');
       setInternalUseNotes('');
       setSuccessMessage(
         `Logged ${quantity} × ${product.name} as internal use. ` +
@@ -506,11 +511,16 @@ function AdminProductsContent() {
       // Show detailed success message with batch information
       const isFirstLoss = result.isFirstMortalityLoss;
 
+      const writeOffLine = result.expenseAmount && result.expenseAmount > 0
+        ? `💸 P&L Write-off: ₱${result.expenseAmount.toLocaleString('en-PH', { minimumFractionDigits: 2 })} logged as mortality expense\n\n`
+        : `⚠ No P&L write-off — set a cost price on this product to track mortality losses on the P&L\n\n`;
+
       alert(
         `✅ Mortality Loss Recorded Successfully\n\n` +
         `Product: ${product.name}\n` +
         `Tank: ${product.tankNumber || 'N/A'}\n` +
         `SKU: ${product.sku || 'N/A'}\n\n` +
+        writeOffLine +
         `📦 Batch Information:\n` +
         `Batch Code: ${result.mortalityBatchCode}\n` +
         `${isFirstLoss ? '(First mortality loss - using source batch)' : '(Using previous mortality batch)'}\n\n` +
@@ -1473,6 +1483,39 @@ function AdminProductsContent() {
                       </div>
                     </div>
                   )}
+
+                  <div>
+                    <label className="block text-sm font-medium text-white mb-2">
+                      Reason <span className="text-error">*</span>
+                    </label>
+                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                      {([
+                        { key: 'treatment', label: 'Treatment', emoji: '💊' },
+                        { key: 'display', label: 'Display', emoji: '🎨' },
+                        { key: 'feed', label: 'Feed', emoji: '🍤' },
+                        { key: 'loss_prevention', label: 'Quarantine', emoji: '🛡️' },
+                        { key: 'other', label: 'Other', emoji: '📝' },
+                      ] as const).map((opt) => {
+                        const active = internalUseReason === opt.key;
+                        return (
+                          <button
+                            key={opt.key}
+                            type="button"
+                            disabled={missingCost}
+                            onClick={() => setInternalUseReason(opt.key)}
+                            className={`px-2 py-2 rounded-lg border text-xs font-medium transition-all flex flex-col items-center gap-0.5 ${
+                              active
+                                ? 'bg-info/15 border-info/50 text-info shadow-sm shadow-info/10'
+                                : 'bg-secondary border-white/10 text-white/70 hover:border-white/20 hover:text-white'
+                            } disabled:opacity-50 disabled:cursor-not-allowed`}
+                          >
+                            <span className="text-base leading-none">{opt.emoji}</span>
+                            <span>{opt.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
 
                   <div>
                     <label className="block text-sm font-medium text-white mb-2">

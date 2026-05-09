@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query, MutationCtx } from "../_generated/server";
 import { Id } from "../_generated/dataModel";
-import { createRestockExpenseHelper, createInternalUseExpenseHelper } from "./finance";
+import { createRestockExpenseHelper, createInternalUseExpenseHelper, createMortalityExpenseHelper } from "./finance";
 
 // ==================== HELPER FUNCTIONS (callable from other mutations) ====================
 
@@ -822,8 +822,15 @@ export const logInternalUse = mutation({
     quantity: v.number(),
     notes: v.optional(v.string()),
     userId: v.optional(v.id("users")),
+    internalUseCategory: v.optional(v.union(
+      v.literal("treatment"),
+      v.literal("display"),
+      v.literal("feed"),
+      v.literal("loss_prevention"),
+      v.literal("other"),
+    )),
   },
-  handler: async (ctx, { productId, quantity, notes, userId }) => {
+  handler: async (ctx, { productId, quantity, notes, userId, internalUseCategory }) => {
     if (quantity <= 0) {
       throw new Error("Quantity must be greater than 0");
     }
@@ -903,6 +910,7 @@ export const logInternalUse = mutation({
       unitCost: product.costPrice,
       notes,
       userId,
+      internalUseCategory,
     });
 
     return {
@@ -1678,6 +1686,15 @@ export const recordMortalityLossByProduct = mutation({
       updatedAt: now,
     });
 
+    // Record P&L write-off at cost (skipped silently if costPrice not set)
+    const expenseId = await createMortalityExpenseHelper(ctx, {
+      productId,
+      quantity,
+      notes,
+      userId,
+    });
+    const expenseAmount = (product.costPrice || 0) * quantity;
+
     return {
       success: true,
       mortalityStockRecordId: mortalityRecordId,
@@ -1685,6 +1702,8 @@ export const recordMortalityLossByProduct = mutation({
       affectedBatches,
       previousProductStock: product.stock,
       productStock: newProductStock,
+      expenseId,
+      expenseAmount: expenseId ? expenseAmount : 0,
     };
   },
 });

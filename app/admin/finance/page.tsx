@@ -39,7 +39,7 @@ const fmtDate = (ts: number) =>
     year: 'numeric',
   });
 
-type ExpenseCategory = 'travel' | 'food' | 'supplies' | 'utilities' | 'rent' | 'salary' | 'maintenance' | 'marketing' | 'other';
+type ExpenseCategory = 'travel' | 'food' | 'supplies' | 'utilities' | 'rent' | 'salary' | 'maintenance' | 'marketing' | 'investor_remit' | 'mortality' | 'other';
 type PaymentMethod = 'cash' | 'gcash' | 'bank_transfer' | 'card';
 
 const categoryIcons: Record<string, string> = {
@@ -51,7 +51,23 @@ const categoryIcons: Record<string, string> = {
   salary: '👥',
   maintenance: '🔧',
   marketing: '📣',
+  investor_remit: '💼',
+  mortality: '💀',
   other: '📝',
+};
+
+const categoryLabels: Record<string, string> = {
+  travel: 'travel',
+  food: 'food',
+  supplies: 'supplies',
+  utilities: 'utilities',
+  rent: 'rent',
+  salary: 'salary',
+  maintenance: 'maintenance',
+  marketing: 'marketing',
+  investor_remit: 'investor remit',
+  mortality: 'mortality',
+  other: 'other',
 };
 
 const paymentIcons: Record<string, React.ReactNode> = {
@@ -429,7 +445,7 @@ function FinanceContent() {
                   <div key={cat} className="bg-background/40 rounded-lg p-3 border border-white/5">
                     <div className="flex items-center gap-1.5 text-[10px] text-white/50 uppercase tracking-wider mb-1">
                       <span>{categoryIcons[cat] || '📝'}</span>
-                      <span>{cat}</span>
+                      <span>{categoryLabels[cat] || cat}</span>
                     </div>
                     <p className="text-sm font-bold text-white">{fmt(amount)}</p>
                   </div>
@@ -498,7 +514,7 @@ function FinanceContent() {
                                 ? 'bg-info/10 text-info border-info/30'
                                 : 'bg-warning/10 text-warning border-warning/30'
                             }`}>
-                              {e.type === 'restocking' ? '📦 Restock' : `${categoryIcons[e.category || 'other']} ${e.category || 'other'}`}
+                              {e.type === 'restocking' ? '📦 Restock' : `${categoryIcons[e.category || 'other']} ${categoryLabels[e.category || 'other'] || e.category || 'other'}`}
                             </span>
                           </td>
                           <td className="px-4 py-3 text-white max-w-xs truncate">{e.description}</td>
@@ -535,7 +551,7 @@ function FinanceContent() {
                             <span className={`px-1.5 py-0.5 rounded text-[9px] font-medium ${
                               e.type === 'restocking' ? 'bg-info/10 text-info' : 'bg-warning/10 text-warning'
                             }`}>
-                              {e.type === 'restocking' ? '📦 Restock' : `${categoryIcons[e.category || 'other']} ${e.category || 'other'}`}
+                              {e.type === 'restocking' ? '📦 Restock' : `${categoryIcons[e.category || 'other']} ${categoryLabels[e.category || 'other'] || e.category || 'other'}`}
                             </span>
                             <span className="text-[10px] text-white/40">{fmtDate(e.date)}</span>
                           </div>
@@ -584,7 +600,7 @@ function FinanceContent() {
                 <div>
                   <label className="block text-xs text-white/60 mb-1.5">Category</label>
                   <div className="grid grid-cols-3 gap-2">
-                    {(['travel', 'food', 'supplies', 'utilities', 'rent', 'salary', 'maintenance', 'marketing', 'other'] as ExpenseCategory[]).map((cat) => (
+                    {(['travel', 'food', 'supplies', 'utilities', 'rent', 'salary', 'maintenance', 'marketing', 'investor_remit', 'other'] as ExpenseCategory[]).map((cat) => (
                       <button
                         key={cat}
                         onClick={() => setFormCategory(cat)}
@@ -594,7 +610,7 @@ function FinanceContent() {
                             : 'bg-background/60 border-white/10 text-white/70'
                         }`}
                       >
-                        {categoryIcons[cat]} {cat}
+                        {categoryIcons[cat]} {categoryLabels[cat]}
                       </button>
                     ))}
                   </div>

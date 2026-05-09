@@ -17,9 +17,10 @@ export async function createInternalUseExpenseHelper(
     unitCost: number;
     notes?: string;
     userId?: Id<"users">;
+    internalUseCategory?: "treatment" | "display" | "feed" | "loss_prevention" | "other";
   }
 ) {
-  const { productId, quantity, unitCost, notes, userId } = args;
+  const { productId, quantity, unitCost, notes, userId, internalUseCategory } = args;
   const product = await ctx.db.get(productId);
   if (!product) return null;
 
@@ -27,11 +28,57 @@ export async function createInternalUseExpenseHelper(
   if (totalCost <= 0) return null;
 
   const now = Date.now();
+  const reasonLabel = internalUseCategory
+    ? ` [${internalUseCategory.replace("_", " ")}]`
+    : "";
   const id = await ctx.db.insert("expenses", {
     type: "operational",
     category: "supplies",
     amount: totalCost,
-    description: `Internal use: ${quantity} × ${product.name}`,
+    description: `Internal use${reasonLabel}: ${quantity} × ${product.name}`,
+    paymentMethod: "internal",
+    date: now,
+    productId,
+    quantity,
+    internalUseCategory,
+    notes,
+    createdBy: userId,
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  return id;
+}
+
+/**
+ * Create a mortality (inventory write-off) expense — called from recordMortalityLossByProduct.
+ * Amount = product.costPrice × quantity. Payment method is "internal" (no cash leaves the till).
+ * Returns null if costPrice is missing or zero, so old products without cost data don't block
+ * mortality recording — they just won't show up on the P&L until costPrice is set.
+ */
+export async function createMortalityExpenseHelper(
+  ctx: MutationCtx,
+  args: {
+    productId: Id<"products">;
+    quantity: number;
+    notes?: string;
+    userId?: Id<"users">;
+  }
+) {
+  const { productId, quantity, notes, userId } = args;
+  const product = await ctx.db.get(productId);
+  if (!product) return null;
+
+  const unitCost = product.costPrice || 0;
+  const totalCost = unitCost * quantity;
+  if (totalCost <= 0) return null; // skip silently when no cost data
+
+  const now = Date.now();
+  const id = await ctx.db.insert("expenses", {
+    type: "operational",
+    category: "mortality",
+    amount: totalCost,
+    description: `Mortality write-off: ${quantity} × ${product.name}`,
     paymentMethod: "internal",
     date: now,
     productId,
@@ -104,6 +151,8 @@ export const createExpense = mutation({
       v.literal("salary"),
       v.literal("maintenance"),
       v.literal("marketing"),
+      v.literal("investor_remit"),
+      v.literal("mortality"),
       v.literal("other"),
     )),
     amount: v.number(),
@@ -152,6 +201,8 @@ export const updateExpense = mutation({
       v.literal("salary"),
       v.literal("maintenance"),
       v.literal("marketing"),
+      v.literal("investor_remit"),
+      v.literal("mortality"),
       v.literal("other"),
     )),
     paymentMethod: v.optional(v.string()),

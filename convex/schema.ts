@@ -381,17 +381,28 @@ export default defineSchema({
       v.literal("salary"),
       v.literal("maintenance"),
       v.literal("marketing"),
+      v.literal("investor_remit"), // Cash remittance to investors (capital distribution)
+      v.literal("mortality"),       // Inventory write-off for dead/damaged stock (no cash leaves)
       v.literal("other"),
     )),
     amount: v.number(),
     description: v.string(),
-    paymentMethod: v.string(), // cash, gcash, bank_transfer, card
+    paymentMethod: v.string(), // cash, gcash, bank_transfer, card, internal
     date: v.number(), // when the expense was paid
 
     // Restocking link (if type = restocking)
     stockRecordId: v.optional(v.id("stockRecords")),
     productId: v.optional(v.id("products")),
     quantity: v.optional(v.number()),
+
+    // Internal-use sub-classification (only set when paymentMethod = "internal")
+    internalUseCategory: v.optional(v.union(
+      v.literal("treatment"),       // medication, water treatment, sterilizer
+      v.literal("display"),         // store decor, demo tank stocking
+      v.literal("feed"),            // food consumed in-house
+      v.literal("loss_prevention"), // quarantine, prophylactic use
+      v.literal("other"),
+    )),
 
     receiptImage: v.optional(v.string()),
     notes: v.optional(v.string()),

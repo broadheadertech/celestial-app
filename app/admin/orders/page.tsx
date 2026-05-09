@@ -269,6 +269,10 @@ function AdminOrdersContent() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [showFilters, setShowFilters] = useState(false);
+  const [dateFrom, setDateFrom] = useState<string>(''); // YYYY-MM-DD
+  const [dateTo, setDateTo] = useState<string>('');
+  const [productFilterIds, setProductFilterIds] = useState<Set<string>>(new Set());
+  const [productSearch, setProductSearch] = useState('');
   const [selectedItem, setSelectedItem] = useState<CombinedItem | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -293,6 +297,7 @@ function AdminOrdersContent() {
 
   const ordersQuery = useQuery(api.services.orders.getAllOrdersAdmin, {});
   const reservationsQuery = useQuery(api.services.reservations.getAllReservationsAdmin, {});
+  const productsQuery = useQuery(api.services.admin.getAllProductsAdmin, {});
   const updateOrderStatus = useMutation(api.services.orders.updateOrderStatus);
   const updateReservationStatus = useMutation(api.services.reservations.updateReservationStatus);
   const markReservationReadyForPickup = useMutation(api.services.reservations.markReservationReadyForPickup);
@@ -352,8 +357,26 @@ function AdminOrdersContent() {
       filtered = filtered.filter(item => item.code.toLowerCase().includes(query) || item.customer?.name.toLowerCase().includes(query) || item.customer?.email.toLowerCase().includes(query));
     }
     if (selectedStatus !== 'all') filtered = filtered.filter(item => item.status === selectedStatus);
+
+    // Date range filter — uses createdAt; inputs are YYYY-MM-DD in local time
+    if (dateFrom) {
+      const fromTs = new Date(dateFrom + 'T00:00:00').getTime();
+      if (!isNaN(fromTs)) filtered = filtered.filter(item => item.createdAt >= fromTs);
+    }
+    if (dateTo) {
+      const toTs = new Date(dateTo + 'T23:59:59.999').getTime();
+      if (!isNaN(toTs)) filtered = filtered.filter(item => item.createdAt <= toTs);
+    }
+
+    // Product filter — match orders/reservations containing ANY of the selected products
+    if (productFilterIds.size > 0) {
+      filtered = filtered.filter(item =>
+        item.items?.some(line => productFilterIds.has(line.productId)) ?? false
+      );
+    }
+
     return filtered.sort((a, b) => b.updatedAt - a.updatedAt);
-  }, [searchQuery, selectedStatus, allItems]);
+  }, [searchQuery, selectedStatus, allItems, dateFrom, dateTo, productFilterIds]);
 
   const totalPages = Math.ceil(filteredItems.length / ITEMS_PER_PAGE);
   const paginatedItems = useMemo(() => {
@@ -361,7 +384,7 @@ function AdminOrdersContent() {
     return filteredItems.slice(startIndex, startIndex + ITEMS_PER_PAGE);
   }, [filteredItems, currentPage]);
 
-  useMemo(() => { setCurrentPage(1); }, [searchQuery, selectedStatus]);
+  useMemo(() => { setCurrentPage(1); }, [searchQuery, selectedStatus, dateFrom, dateTo, productFilterIds]);
 
   const handleUpdateStatus = async (itemId: string, newStatus: string) => {
     try {
@@ -696,7 +719,7 @@ function AdminOrdersContent() {
               <input type="text" placeholder="Search orders, customers..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} disabled={isLoading} className="w-full pl-8 sm:pl-10 pr-8 sm:pr-10 py-2 sm:py-3 bg-secondary/60 border border-white/10 rounded-lg text-sm sm:text-base text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50" />
               {searchQuery && <button onClick={() => setSearchQuery('')} className="absolute right-2.5 sm:right-3 top-1/2 transform -translate-y-1/2 p-1 rounded hover:bg-white/10 active:scale-95 transition-all touch-manipulation"><X className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white/60" /></button>}
             </div>
-            <button onClick={() => setShowFilters(!showFilters)} disabled={isLoading} className={`px-3 sm:px-4 py-2 sm:py-3 rounded-lg border transition-all flex items-center gap-1.5 sm:gap-2 flex-shrink-0 active:scale-95 touch-manipulation ${showFilters || selectedStatus !== 'all' ? 'bg-primary border-primary text-white' : 'bg-secondary/60 border-white/10 text-white hover:bg-secondary/80'} disabled:opacity-50`}>
+            <button onClick={() => setShowFilters(!showFilters)} disabled={isLoading} className={`px-3 sm:px-4 py-2 sm:py-3 rounded-lg border transition-all flex items-center gap-1.5 sm:gap-2 flex-shrink-0 active:scale-95 touch-manipulation ${showFilters || selectedStatus !== 'all' || dateFrom || dateTo || productFilterIds.size > 0 ? 'bg-primary border-primary text-white' : 'bg-secondary/60 border-white/10 text-white hover:bg-secondary/80'} disabled:opacity-50`}>
               <Filter className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               <span className="text-xs sm:text-sm font-medium hidden xs:inline">Filters</span>
               {selectedStatus !== 'all' && <span className="w-2 h-2 rounded-full bg-white flex-shrink-0" />}
@@ -737,7 +760,7 @@ function AdminOrdersContent() {
               <div className="flex items-center justify-between">
                 <h3 className="text-xs sm:text-sm font-medium text-white">Filters</h3>
                 <div className="flex items-center gap-2">
-                  {selectedStatus !== 'all' && <button onClick={() => { setSearchQuery(''); setSelectedStatus('all'); setShowFilters(false); setCurrentPage(1); }} className="text-xs text-primary hover:text-primary/80 transition-colors touch-manipulation">Clear All</button>}
+                  {(selectedStatus !== 'all' || dateFrom || dateTo || productFilterIds.size > 0 || searchQuery) && <button onClick={() => { setSearchQuery(''); setSelectedStatus('all'); setDateFrom(''); setDateTo(''); setProductFilterIds(new Set()); setProductSearch(''); setCurrentPage(1); }} className="text-xs text-primary hover:text-primary/80 transition-colors touch-manipulation">Clear All</button>}
                   <button onClick={() => setShowFilters(false)} className="p-1 rounded hover:bg-white/10 transition-colors sm:hidden touch-manipulation"><X className="w-4 h-4 text-white/60" /></button>
                 </div>
               </div>
@@ -749,6 +772,123 @@ function AdminOrdersContent() {
                   ))}
                 </div>
               </div>
+
+              {/* Date range */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-xs sm:text-sm font-medium text-white">Date range <span className="text-white/40 font-normal">(created)</span></label>
+                  {(dateFrom || dateTo) && <button onClick={() => { setDateFrom(''); setDateTo(''); }} className="text-[11px] text-primary hover:text-primary/80 transition-colors touch-manipulation">Clear dates</button>}
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-[10px] uppercase tracking-wider text-white/40 mb-1">From</label>
+                    <input type="date" value={dateFrom} max={dateTo || undefined} onChange={(e) => setDateFrom(e.target.value)} className="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 bg-secondary/60 border border-white/10 rounded-lg text-xs sm:text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary/50 [color-scheme:dark]" />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] uppercase tracking-wider text-white/40 mb-1">To</label>
+                    <input type="date" value={dateTo} min={dateFrom || undefined} onChange={(e) => setDateTo(e.target.value)} className="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 bg-secondary/60 border border-white/10 rounded-lg text-xs sm:text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary/50 [color-scheme:dark]" />
+                  </div>
+                </div>
+                <div className="flex gap-1.5 mt-2 overflow-x-auto scrollbar-hide">
+                  {[
+                    { label: 'Today', days: 0 },
+                    { label: 'Last 7d', days: 6 },
+                    { label: 'Last 30d', days: 29 },
+                    { label: 'Last 90d', days: 89 },
+                  ].map(p => (
+                    <button
+                      key={p.label}
+                      onClick={() => {
+                        const today = new Date();
+                        const past = new Date();
+                        past.setDate(today.getDate() - p.days);
+                        const fmt = (d: Date) => d.toISOString().slice(0, 10);
+                        setDateFrom(fmt(past));
+                        setDateTo(fmt(today));
+                      }}
+                      className="flex-shrink-0 px-2 py-1 rounded-md text-[10px] sm:text-[11px] font-medium bg-secondary/60 border border-white/10 text-white/70 hover:text-white hover:border-primary/30 transition-all active:scale-95 touch-manipulation"
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Product multi-select */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-xs sm:text-sm font-medium text-white">Products <span className="text-white/40 font-normal">(matches any)</span></label>
+                  {productFilterIds.size > 0 && <button onClick={() => { setProductFilterIds(new Set()); setProductSearch(''); }} className="text-[11px] text-primary hover:text-primary/80 transition-colors touch-manipulation">Clear products</button>}
+                </div>
+
+                {/* Selected chips */}
+                {productFilterIds.size > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mb-2">
+                    {Array.from(productFilterIds).map(pid => {
+                      const prod = productsQuery?.find(p => p._id === pid);
+                      return (
+                        <span key={pid} className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-primary/15 border border-primary/30 text-primary text-[11px] font-medium">
+                          {prod?.name ?? 'Unknown'}
+                          <button
+                            onClick={() => {
+                              const next = new Set(productFilterIds);
+                              next.delete(pid);
+                              setProductFilterIds(next);
+                            }}
+                            className="hover:text-white"
+                            aria-label={`Remove ${prod?.name ?? 'product'} filter`}
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Search box */}
+                <div className="relative mb-2">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/40 pointer-events-none" />
+                  <input type="text" value={productSearch} onChange={(e) => setProductSearch(e.target.value)} placeholder="Search products..." className="w-full pl-8 pr-3 py-1.5 sm:py-2 bg-secondary/60 border border-white/10 rounded-lg text-xs sm:text-sm text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                </div>
+
+                {/* Product list — only render when search is non-empty or list is short */}
+                {(() => {
+                  if (!productsQuery) return <p className="text-[11px] text-white/40">Loading products…</p>;
+                  const q = productSearch.trim().toLowerCase();
+                  const filtered = q
+                    ? productsQuery.filter(p => p.name?.toLowerCase().includes(q))
+                    : productsQuery.slice(0, 30); // show first 30 by default
+                  if (filtered.length === 0) return <p className="text-[11px] text-white/40 px-1">No products match "{productSearch}".</p>;
+                  return (
+                    <div className="max-h-44 overflow-y-auto rounded-lg border border-white/5 bg-background/40 divide-y divide-white/5">
+                      {filtered.map(p => {
+                        const checked = productFilterIds.has(p._id);
+                        return (
+                          <label key={p._id} className="flex items-center gap-2 px-2.5 py-1.5 cursor-pointer hover:bg-white/5 transition-colors touch-manipulation">
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={(e) => {
+                                const next = new Set(productFilterIds);
+                                if (e.target.checked) next.add(p._id);
+                                else next.delete(p._id);
+                                setProductFilterIds(next);
+                              }}
+                              className="w-3.5 h-3.5 accent-primary"
+                            />
+                            <span className="text-xs text-white truncate flex-1">{p.name}</span>
+                            <span className="text-[10px] text-white/40">Stock: {p.stock ?? 0}</span>
+                          </label>
+                        );
+                      })}
+                      {!q && productsQuery.length > 30 && (
+                        <p className="text-[10px] text-white/40 px-2.5 py-1.5">Showing first 30. Type to search the rest.</p>
+                      )}
+                    </div>
+                  );
+                })()}
+              </div>
             </div>
           </div>
         </div>
@@ -758,7 +898,7 @@ function AdminOrdersContent() {
       <div className="max-w-7xl mx-auto px-3 sm:px-6 py-3 sm:py-4">
         <div className="flex items-center justify-between mb-3 sm:mb-4">
           <h2 className="text-sm sm:text-lg font-bold text-white">Items <span className="text-white/60">({filteredItems.length})</span></h2>
-          {filteredItems.length === 0 && allItems.length > 0 && <button onClick={() => { setSearchQuery(''); setSelectedStatus('all'); setShowFilters(false); setCurrentPage(1); }} className="px-2.5 sm:px-3 py-1 rounded-lg bg-primary/10 border border-primary text-primary text-[10px] sm:text-xs hover:bg-primary/20 active:scale-95 transition-all touch-manipulation">Clear Filters</button>}
+          {filteredItems.length === 0 && allItems.length > 0 && <button onClick={() => { setSearchQuery(''); setSelectedStatus('all'); setDateFrom(''); setDateTo(''); setProductFilterIds(new Set()); setProductSearch(''); setShowFilters(false); setCurrentPage(1); }} className="px-2.5 sm:px-3 py-1 rounded-lg bg-primary/10 border border-primary text-primary text-[10px] sm:text-xs hover:bg-primary/20 active:scale-95 transition-all touch-manipulation">Clear Filters</button>}
         </div>
 
         {isLoading ? (
@@ -856,8 +996,27 @@ function AdminOrdersContent() {
                           </td>
 
                           {/* Items */}
-                          <td className="px-4 py-3.5 text-center">
-                            <span className="text-white/80">{item.itemCount}</span>
+                          <td className="px-4 py-3.5 max-w-[260px]">
+                            {item.items && item.items.length > 0 ? (
+                              <div className="flex flex-wrap gap-1">
+                                {item.items.slice(0, 3).map((line, idx) => {
+                                  const name = line.product?.name ?? 'Unknown';
+                                  return (
+                                    <span key={`${item._id}-${idx}`} className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-white/5 border border-white/10 text-[11px] text-white/80 max-w-[220px]" title={`${line.quantity} × ${name}`}>
+                                      <span className="text-primary font-semibold tabular-nums">{line.quantity}×</span>
+                                      <span className="truncate">{name}</span>
+                                    </span>
+                                  );
+                                })}
+                                {item.items.length > 3 && (
+                                  <span className="inline-flex items-center px-1.5 py-0.5 rounded-md bg-white/5 border border-white/10 text-[11px] text-white/60" title={item.items.slice(3).map(l => `${l.quantity} × ${l.product?.name ?? 'Unknown'}`).join(', ')}>
+                                    +{item.items.length - 3} more
+                                  </span>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-white/40 text-xs">{item.itemCount} items</span>
+                            )}
                           </td>
 
                           {/* Amount */}
@@ -959,6 +1118,22 @@ function AdminOrdersContent() {
                       <div className="flex items-center gap-2 mt-2 p-2 bg-purple-500/10 border border-purple-500/20 rounded-lg">
                         <Calendar className="w-3 h-3 text-purple-400 shrink-0" />
                         <span className="text-xs text-white/80 truncate">{item.guestInfo.pickupSchedule.date} at {item.guestInfo.pickupSchedule.time}</span>
+                      </div>
+                    )}
+                    {item.items && item.items.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        {item.items.slice(0, 4).map((line, idx) => {
+                          const name = line.product?.name ?? 'Unknown';
+                          return (
+                            <span key={`${item._id}-m-${idx}`} className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-white/5 border border-white/10 text-[10px] text-white/80 max-w-[160px]">
+                              <span className="text-primary font-semibold tabular-nums">{line.quantity}×</span>
+                              <span className="truncate">{name}</span>
+                            </span>
+                          );
+                        })}
+                        {item.items.length > 4 && (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-md bg-white/5 border border-white/10 text-[10px] text-white/60">+{item.items.length - 4}</span>
+                        )}
                       </div>
                     )}
                   </div>
