@@ -4,6 +4,7 @@ import { ReactNode } from 'react';
 import { useAuthStore } from '@/store/auth';
 import AdminNotificationPopup from '@/components/notifications/AdminNotificationPopup';
 import AdminSidebar from '@/components/admin/AdminSidebar';
+import AdminTopBar from '@/components/admin/AdminTopBar';
 
 interface AdminLayoutWrapperProps {
   children: ReactNode;
@@ -17,8 +18,9 @@ export default function AdminLayoutWrapper({ children }: AdminLayoutWrapperProps
       {/* Desktop Sidebar - hidden on mobile */}
       <AdminSidebar />
 
-      {/* Main content - offset on desktop for sidebar */}
-      <div className="sm:ml-64">
+      {/* Main content column - offset on desktop for sidebar */}
+      <div className="sm:ml-64 flex flex-col min-h-screen">
+        <AdminTopBar />
         {children}
       </div>
 
