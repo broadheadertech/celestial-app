@@ -19,6 +19,11 @@ import {
   Clock,
   Hourglass,
   Trash2,
+  Barcode,
+  Plus,
+  LayoutGrid,
+  List as ListIcon,
+  Fish as FishIcon,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useQuery, useMutation } from 'convex/react';
@@ -46,6 +51,8 @@ function InventoryContent() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilter, setSelectedFilter] = useState<'all' | 'active' | 'depleted' | 'low_stock' | 'expired' | 'quarantine'>('all');
   const [showFilters, setShowFilters] = useState(false);
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
   // Success feedback
   const [successMessage, setSuccessMessage] = useState('');
@@ -179,6 +186,73 @@ function InventoryContent() {
     };
   }, [stockRecords]);
 
+  // ─── Catalog (product-centric) computations ───
+  const activeProducts = useMemo(
+    () => (products ?? []).filter((p) => p.isActive),
+    [products],
+  );
+
+  // Per-category chips (only categories that have at least one active product).
+  const catalogCategoryChips = useMemo(() => {
+    const m = new Map<string, { id: string; name: string; count: number }>();
+    for (const p of activeProducts) {
+      const id = p.categoryId as string;
+      const name = p.categoryName || 'Uncategorized';
+      const ex = m.get(id);
+      if (ex) ex.count += 1;
+      else m.set(id, { id, name, count: 1 });
+    }
+    return Array.from(m.values()).sort((a, b) => a.name.localeCompare(b.name));
+  }, [activeProducts]);
+
+  // Distinguish "live" (fish/livestock) categories vs "gear" by name heuristic.
+  const isLiveCategory = (name?: string) => {
+    const n = (name || '').toLowerCase();
+    return n.includes('fish') || n.includes('arowana') || n.includes('shrimp') || n.includes('livestock');
+  };
+
+  // 4 catalog KPIs.
+  const catalogKpis = useMemo(() => {
+    const live = activeProducts.filter((p) => isLiveCategory(p.categoryName));
+    const gear = activeProducts.filter((p) => !isLiveCategory(p.categoryName));
+    const livestockValue = live.reduce((s, p) => s + (p.price || 0) * (p.stock || 0), 0);
+    const gearValue = gear.reduce((s, p) => s + (p.price || 0) * (p.stock || 0), 0);
+    const liveCount = live.reduce((s, p) => s + (p.stock || 0), 0);
+    const tanks = new Set<string>();
+    for (const p of live) {
+      if (p.tankNumber) tanks.add(p.tankNumber);
+    }
+    const critical = activeProducts.filter((p) => (p.stock || 0) > 0 && (p.stock || 0) <= 5);
+    const criticalNames = critical.slice(0, 3).map((p) => p.name).join(' · ');
+    return {
+      liveCount,
+      tankCount: tanks.size,
+      livestockValue,
+      gearValue,
+      criticalCount: critical.length,
+      criticalNames,
+    };
+  }, [activeProducts]);
+
+  // Filtered catalog (Grid view).
+  const catalogProducts = useMemo(() => {
+    let list = activeProducts;
+    if (selectedCategory !== 'all') {
+      list = list.filter((p) => (p.categoryId as string) === selectedCategory);
+    }
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      list = list.filter(
+        (p) =>
+          p.name.toLowerCase().includes(q) ||
+          String(p.sku || '').toLowerCase().includes(q) ||
+          (p.tankNumber || '').toLowerCase().includes(q) ||
+          (p.certificate || '').toLowerCase().includes(q),
+      );
+    }
+    return list;
+  }, [activeProducts, selectedCategory, searchQuery]);
+
   // Handle restock submit
   const handleRestock = async () => {
     if (!selectedProductId || !restockQuantity) return;
@@ -274,82 +348,63 @@ function InventoryContent() {
     return { label: record.status.charAt(0).toUpperCase() + record.status.slice(1), className: 'bg-success/10 text-success border border-success/30' };
   };
 
-  return (
-    <div className="min-h-screen bg-background text-foreground pb-20 sm:pb-6">
-      {/* Compact sticky header */}
-      <div className="sticky top-0 z-50 backdrop-blur-sm border-b safe-area-top" style={{ background: 'oklch(0.135 0.005 25 / 0.85)', borderColor: 'var(--line)' }}>
-        <div className="px-4 sm:px-6 py-3 sm:py-4 max-w-7xl mx-auto relative">
-          <div className="caustics-line absolute bottom-0 left-4 right-4" />
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3 flex-1 min-w-0">
-              <button
-                onClick={() => router.back()}
-                className="p-2 rounded-lg border hover:opacity-90 flex-shrink-0"
-                style={{ background: 'var(--surface-2)', borderColor: 'var(--line)' }}
-              >
-                <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" style={{ color: 'var(--ink)' }} />
-              </button>
-              <div className="min-w-0 flex-1">
-                <p className="label-eyebrow truncate">Batch-level · FIFO</p>
-                <h1 className="display text-lg sm:text-2xl truncate" style={{ fontVariationSettings: '"opsz" 32, "wght" 700' }}>
-                  Inventory
-                </h1>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 flex-shrink-0">
-              <button
-                onClick={() => router.push('/admin/inventory/movements')}
-                className="hidden sm:flex px-3 py-2 rounded-lg bg-secondary/60 border border-white/10 text-white/80 text-sm font-medium hover:bg-white/10 transition-all items-center gap-2"
-              >
-                <ArrowRightLeft className="w-4 h-4" />
-                Movements
-              </button>
-              <button
-                onClick={() => router.push('/admin/inventory/aging')}
-                className="hidden sm:flex px-3 py-2 rounded-lg bg-secondary/60 border border-white/10 text-white/80 text-sm font-medium hover:bg-white/10 transition-all items-center gap-2"
-              >
-                <Hourglass className="w-4 h-4" />
-                Aging
-              </button>
-              <button
-                onClick={() => router.push('/admin/inventory/expiring')}
-                className="hidden sm:flex px-3 py-2 rounded-lg bg-secondary/60 border border-white/10 text-white/80 text-sm font-medium hover:bg-white/10 transition-all items-center gap-2"
-              >
-                <Clock className="w-4 h-4" />
-                Alerts
-              </button>
-              <button
-                onClick={() => setShowAddBatch(true)}
-                className="px-3 sm:px-4 py-2 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary/90 active:scale-95 transition-all flex items-center gap-2 shadow-lg shadow-primary/20"
-              >
-                <PackagePlus className="w-4 h-4" />
-                <span className="hidden xs:inline">Add Stock</span>
-              </button>
-            </div>
-          </div>
+  const totalActiveSkus = activeProducts.length;
 
-          {/* Mobile Quick Nav */}
-          <div className="sm:hidden flex gap-2 mt-3">
-            <button
-              onClick={() => router.push('/admin/inventory/movements')}
-              className="flex-1 px-3 py-2 rounded-lg bg-secondary/60 border border-white/10 text-white text-xs font-medium flex items-center justify-center gap-1.5"
+  return (
+    <div className="min-h-screen pb-24 sm:pb-6" style={{ background: 'var(--bg)', color: 'var(--ink)' }}>
+      {/* Catalog header */}
+      <div className="px-4 sm:px-8 pt-6 sm:pt-8 max-w-7xl mx-auto">
+        <div className="flex items-start justify-between gap-3 flex-wrap">
+          <div className="min-w-0">
+            <p className="label-eyebrow">Catalog · {totalActiveSkus} SKUs</p>
+            <h1
+              className="display mt-1"
+              style={{ fontSize: 'clamp(28px, 5vw, 44px)', fontVariationSettings: '"opsz" 48, "wght" 700' }}
             >
-              <ArrowRightLeft className="w-3.5 h-3.5" />
-              Movements
+              Inventory
+            </h1>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              disabled
+              title="Print labels — coming soon"
+              className="hidden sm:inline-flex items-center gap-2 px-4 py-2.5 rounded-[10px] border text-sm font-semibold opacity-60 cursor-not-allowed"
+              style={{
+                background: 'var(--surface-2)',
+                borderColor: 'var(--line)',
+                color: 'var(--ink)',
+              }}
+            >
+              <Barcode className="w-4 h-4" />
+              Print labels
             </button>
             <button
               onClick={() => router.push('/admin/inventory/aging')}
-              className="flex-1 px-3 py-2 rounded-lg bg-secondary/60 border border-white/10 text-white text-xs font-medium flex items-center justify-center gap-1.5"
+              className="hidden md:inline-flex items-center gap-2 px-3 py-2.5 rounded-[10px] border text-sm font-semibold"
+              style={{ background: 'var(--surface-2)', borderColor: 'var(--line)', color: 'var(--ink-2)' }}
             >
-              <Hourglass className="w-3.5 h-3.5" />
+              <Hourglass className="w-4 h-4" />
               Aging
             </button>
             <button
-              onClick={() => router.push('/admin/inventory/expiring')}
-              className="flex-1 px-3 py-2 rounded-lg bg-secondary/60 border border-white/10 text-white text-xs font-medium flex items-center justify-center gap-1.5"
+              onClick={() => router.push('/admin/inventory/movements')}
+              className="hidden md:inline-flex items-center gap-2 px-3 py-2.5 rounded-[10px] border text-sm font-semibold"
+              style={{ background: 'var(--surface-2)', borderColor: 'var(--line)', color: 'var(--ink-2)' }}
             >
-              <Clock className="w-3.5 h-3.5" />
-              Alerts
+              <ArrowRightLeft className="w-4 h-4" />
+              Movements
+            </button>
+            <button
+              onClick={() => setShowAddBatch(true)}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-[10px] border text-sm font-bold"
+              style={{
+                background: 'var(--red)',
+                borderColor: 'var(--red-deep)',
+                color: 'oklch(0.99 0 0)',
+              }}
+            >
+              <Plus className="w-4 h-4" />
+              Receive shipment
             </button>
           </div>
         </div>
@@ -401,84 +456,125 @@ function InventoryContent() {
           </div>
         )}
 
-        {/* Summary Stats — Dragon's Cave KPI tiles */}
-        {stockSummary && (
-          <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
-            <InvKpi
-              label="Batches"
-              value={String(stockSummary.totalRecords)}
-              sub={`${stockSummary.activeRecords} active`}
-              icon={<Package className="w-3.5 h-3.5" />}
-              tone="indigo"
+        {/* Catalog KPI strip (Dragon's Cave) */}
+        {products && (
+          <div
+            className="grid gap-3"
+            style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}
+          >
+            <CatalogKpi
+              label="Live arowanas"
+              value={String(catalogKpis.liveCount)}
+              sub={`Across ${catalogKpis.tankCount} holding tank${catalogKpis.tankCount === 1 ? '' : 's'}`}
+              accent="ink"
             />
-            <InvKpi
-              label="Units in stock"
-              value={String(stockSummary.totalCurrentQty)}
-              sub="Across all batches"
-              icon={<CheckCircle className="w-3.5 h-3.5" />}
-              tone="jade"
+            <CatalogKpi
+              label="Livestock value"
+              value={formatShort(catalogKpis.livestockValue)}
+              sub="At retail"
+              accent="jade"
             />
-            <InvKpi
-              label="Inventory at cost"
-              value={formatCurrency(stockSummary.totalValue)}
-              sub="Cost basis"
-              icon={<DollarSign className="w-3.5 h-3.5" />}
-              tone="red"
-              accent
+            <CatalogKpi
+              label="Gear value"
+              value={formatShort(catalogKpis.gearValue)}
+              sub="Tanks, filtration, feed"
+              accent="ink"
             />
-            <InvKpi
-              label="Mortality / damaged"
-              value={String(stockSummary.totalDamagedQty || 0)}
-              sub="Lifetime loss units"
-              icon={<AlertTriangle className="w-3.5 h-3.5" />}
-              tone="gold"
+            <CatalogKpi
+              label="Critical stock"
+              value={String(catalogKpis.criticalCount)}
+              sub={catalogKpis.criticalNames || 'All stock healthy'}
+              accent={catalogKpis.criticalCount > 0 ? 'red' : 'ink'}
             />
           </div>
         )}
 
-        {/* Search and Filter bar */}
-        <div className="flex gap-2 sm:gap-3">
+        {/* Search + Grid/List toggle */}
+        <div className="flex gap-3 items-center">
           <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-white/40 pointer-events-none" />
+            <Search
+              className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none"
+              style={{ color: 'var(--ink-4)' }}
+            />
             <input
               type="text"
-              placeholder="Search batches, products..."
+              placeholder="Name, SKU, microchip ID, CITES…"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-10 py-2.5 bg-secondary/40 border border-white/10 rounded-xl text-sm text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-all"
+              className="w-full pl-11 pr-11 py-3 rounded-[12px] border text-sm outline-none transition-colors"
+              style={{
+                background: 'var(--bg-2)',
+                borderColor: 'var(--line)',
+                color: 'var(--ink)',
+              }}
             />
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 p-1 rounded hover:bg-white/10 transition-colors"
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded hover:opacity-80"
+                style={{ color: 'var(--ink-4)' }}
               >
-                <X className="w-3.5 h-3.5 text-white/60" />
+                <X className="w-3.5 h-3.5" />
               </button>
             )}
           </div>
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className={`px-4 py-2.5 rounded-xl border transition-all flex items-center gap-2 flex-shrink-0 ${
-              showFilters || selectedFilter !== 'all'
-                ? 'bg-primary border-primary text-white shadow-lg shadow-primary/20'
-                : 'bg-secondary/40 border-white/10 text-white hover:bg-white/5'
-            }`}
+          <div
+            className="inline-flex p-[3px] gap-[2px] rounded-[10px] border flex-shrink-0"
+            style={{ background: 'var(--bg-2)', borderColor: 'var(--line)' }}
           >
-            <Filter className="w-4 h-4" />
-            <span className="text-sm font-medium hidden xs:inline">Filters</span>
-            {selectedFilter !== 'all' && (
-              <span className="w-1.5 h-1.5 rounded-full bg-white" />
-            )}
-          </button>
+            <button
+              onClick={() => setViewMode('grid')}
+              className="px-3 py-2 rounded-[7px] text-xs font-semibold inline-flex items-center gap-1.5"
+              style={{
+                background: viewMode === 'grid' ? 'var(--surface-hi)' : 'transparent',
+                color: viewMode === 'grid' ? 'var(--ink)' : 'var(--ink-3)',
+                boxShadow: viewMode === 'grid' ? '0 1px 2px oklch(0 0 0 / 0.2)' : 'none',
+              }}
+            >
+              <LayoutGrid className="w-3.5 h-3.5" />
+              Grid
+            </button>
+            <button
+              onClick={() => setViewMode('list')}
+              className="px-3 py-2 rounded-[7px] text-xs font-semibold inline-flex items-center gap-1.5"
+              style={{
+                background: viewMode === 'list' ? 'var(--surface-hi)' : 'transparent',
+                color: viewMode === 'list' ? 'var(--ink)' : 'var(--ink-3)',
+                boxShadow: viewMode === 'list' ? '0 1px 2px oklch(0 0 0 / 0.2)' : 'none',
+              }}
+            >
+              <ListIcon className="w-3.5 h-3.5" />
+              List
+            </button>
+          </div>
         </div>
 
-        {/* Filter chips (shown when expanded) */}
-        {showFilters && (
-          <div className="flex gap-2 overflow-x-auto sm:flex-wrap scrollbar-hide pb-1 animate-in slide-in-from-top duration-200">
+        {/* Category rail */}
+        <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1">
+          <CategoryChip
+            label="All"
+            count={activeProducts.length}
+            active={selectedCategory === 'all'}
+            onClick={() => setSelectedCategory('all')}
+          />
+          {catalogCategoryChips.map((c) => (
+            <CategoryChip
+              key={c.id}
+              label={c.name}
+              count={c.count}
+              active={selectedCategory === c.id}
+              onClick={() => setSelectedCategory(c.id)}
+            />
+          ))}
+        </div>
+
+        {/* List-view filter chips (only shown when in list mode) */}
+        {viewMode === 'list' && (
+          <div className="flex gap-2 overflow-x-auto sm:flex-wrap scrollbar-hide pb-1">
             {[
               { key: 'all', label: 'All' },
               { key: 'active', label: 'Active' },
-              { key: 'low_stock', label: 'Low Stock' },
+              { key: 'low_stock', label: 'Low stock' },
               { key: 'depleted', label: 'Depleted' },
               { key: 'expired', label: 'Expired' },
               { key: 'quarantine', label: 'Quarantine' },
@@ -489,16 +585,21 @@ function InventoryContent() {
                 <button
                   key={filter.key}
                   onClick={() => setSelectedFilter(filter.key as typeof selectedFilter)}
-                  className={`flex-shrink-0 px-3 py-2 rounded-lg text-xs sm:text-sm font-medium border flex items-center gap-2 transition-all whitespace-nowrap ${
-                    isActive
-                      ? 'bg-primary border-primary text-white shadow-md shadow-primary/20'
-                      : 'bg-secondary/40 border-white/10 text-white/70 hover:text-white hover:border-white/20'
-                  }`}
+                  className="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all border"
+                  style={{
+                    borderColor: isActive ? 'var(--red)' : 'var(--line)',
+                    background: isActive ? 'var(--red)' : 'var(--surface)',
+                    color: isActive ? 'oklch(0.99 0 0)' : 'var(--ink-2)',
+                  }}
                 >
                   <span>{filter.label}</span>
-                  <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${
-                    isActive ? 'bg-white/20 text-white' : 'bg-white/10 text-white/60'
-                  }`}>
+                  <span
+                    className="dc-mono text-[10px] px-1.5 py-0.5 rounded"
+                    style={{
+                      background: isActive ? 'oklch(1 0 0 / 0.18)' : 'var(--surface-hi)',
+                      color: isActive ? 'oklch(0.99 0 0)' : 'var(--ink-3)',
+                    }}
+                  >
                     {count}
                   </span>
                 </button>
@@ -507,8 +608,42 @@ function InventoryContent() {
           </div>
         )}
 
-        {/* Batch List section */}
-        <div>
+        {/* ============ GRID VIEW (catalog cards) ============ */}
+        {viewMode === 'grid' && (
+          <div>
+            {catalogProducts.length === 0 ? (
+              <Card variant="modern" padding="lg" className="text-center border border-white/10">
+                <Package className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-3 sm:mb-4" style={{ color: 'var(--ink-4)' }} />
+                <h3 className="display text-lg mb-2" style={{ fontVariationSettings: '"opsz" 24, "wght" 700' }}>
+                  No products match
+                </h3>
+                <p className="text-xs sm:text-sm mb-4" style={{ color: 'var(--ink-3)' }}>
+                  {searchQuery || selectedCategory !== 'all'
+                    ? 'Clear filters or try a different category.'
+                    : 'Add your first product to start tracking inventory.'}
+                </p>
+              </Card>
+            ) : (
+              <div
+                className="grid gap-4"
+                style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))' }}
+              >
+                {catalogProducts.map((p) => (
+                  <ProductCard
+                    key={p._id}
+                    product={p}
+                    isLive={isLiveCategory(p.categoryName)}
+                    onClick={() => router.push(`/admin/product-detail?id=${p._id}`)}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ============ LIST VIEW (batch table — original) ============ */}
+        {viewMode === 'list' && (
+          <div>
         <div className="flex items-end justify-between mb-3 sm:mb-4 gap-3">
           <div className="min-w-0">
             <p className="label-eyebrow">{filteredRecords.length} {filteredRecords.length === 1 ? 'batch' : 'batches'}{selectedFilter !== 'all' ? ` · ${selectedFilter.replace('_', ' ')}` : ''}</p>
@@ -948,6 +1083,7 @@ function InventoryContent() {
           </>
         )}
         </div>
+        )}
       </div>
 
       {/* Bottom Navigation */}
@@ -1265,6 +1401,228 @@ function InventoryContent() {
         }
       `}</style>
     </div>
+  );
+}
+
+/* ─────────── DRAGON'S CAVE CATALOG HELPERS ─────────── */
+
+function formatShort(n: number): string {
+  if (n >= 1_000_000) {
+    const m = n / 1_000_000;
+    return `₱${m.toFixed(m >= 10 ? 1 : 2)}M`;
+  }
+  if (n >= 1_000) {
+    const k = n / 1_000;
+    return `₱${k.toFixed(k >= 10 ? 0 : 1)}k`;
+  }
+  return `₱${Math.round(n).toLocaleString('en-PH')}`;
+}
+
+function CatalogKpi({
+  label,
+  value,
+  sub,
+  accent,
+}: {
+  label: string;
+  value: string;
+  sub?: string;
+  accent: 'ink' | 'red' | 'jade';
+}) {
+  const colorMap = {
+    ink: 'var(--ink)',
+    red: 'var(--red-hi)',
+    jade: 'var(--jade)',
+  } as const;
+  return (
+    <div
+      className="rounded-[14px] border p-5 min-w-0"
+      style={{
+        background: 'var(--surface)',
+        borderColor: 'var(--line)',
+        boxShadow: 'var(--shadow-card)',
+      }}
+    >
+      <p className="label-eyebrow mb-3">{label}</p>
+      <p
+        className="display dc-mono mb-1"
+        style={{
+          fontSize: 'clamp(28px, 3.4vw, 36px)',
+          fontVariationSettings: '"opsz" 48, "wght" 700',
+          letterSpacing: '-0.02em',
+          color: colorMap[accent],
+          lineHeight: 1,
+        }}
+      >
+        {value}
+      </p>
+      {sub && (
+        <p className="text-[12px] mt-1.5 truncate" style={{ color: 'var(--ink-3)' }}>
+          {sub}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function CategoryChip({
+  label,
+  count,
+  active,
+  onClick,
+}: {
+  label: string;
+  count: number;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex-shrink-0 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-semibold whitespace-nowrap transition-all border"
+      style={{
+        borderColor: active ? 'var(--red)' : 'var(--line)',
+        background: active ? 'var(--red)' : 'var(--surface)',
+        color: active ? 'oklch(0.99 0 0)' : 'var(--ink-2)',
+      }}
+    >
+      <span>{label} · {count}</span>
+    </button>
+  );
+}
+
+function ProductCard({
+  product,
+  isLive,
+  onClick,
+}: {
+  product: any;
+  isLive: boolean;
+  onClick: () => void;
+}) {
+  const stock = product.stock || 0;
+  const stockPill =
+    stock === 0
+      ? { label: 'Sold', bg: 'var(--red-wash)', fg: 'var(--red-hi)' }
+      : isLive && stock === 1
+      ? { label: 'Single specimen', bg: 'var(--gold-wash)', fg: 'var(--gold-deep)' }
+      : stock <= 3
+      ? { label: `${stock} left`, bg: 'var(--gold-wash)', fg: 'var(--gold-deep)' }
+      : stock <= 10
+      ? { label: `${stock} in stock`, bg: 'var(--jade-wash)', fg: 'var(--jade)' }
+      : { label: `${stock} in stock`, bg: 'var(--surface-hi)', fg: 'var(--ink-3)' };
+
+  // Live products get a red-tinted hero; gear gets a neutral surface tone.
+  const heroFrom = isLive ? 'oklch(0.30 0.14 27)' : 'var(--surface-2)';
+  const heroTo = isLive ? 'oklch(0.18 0.08 22)' : 'var(--surface)';
+  const fishColor = isLive ? 'oklch(0.62 0.22 27)' : 'var(--ink-4)';
+
+  return (
+    <button
+      onClick={onClick}
+      className="text-left rounded-[14px] border overflow-hidden transition-all hover:-translate-y-[2px]"
+      style={{
+        background: 'var(--surface)',
+        borderColor: 'var(--line)',
+        boxShadow: 'var(--shadow-card)',
+      }}
+    >
+      {/* Hero */}
+      <div
+        className="relative overflow-hidden"
+        style={{
+          aspectRatio: '4 / 3',
+          background: `linear-gradient(155deg, ${heroFrom}, ${heroTo})`,
+        }}
+      >
+        <div className="scales absolute inset-0 opacity-50" />
+        {/* Top metadata strip */}
+        <div className="absolute top-2.5 left-2.5 right-2.5 flex items-start justify-between gap-2 z-[2]">
+          {/* Tank number (left) — substitute for grade badge until schema adds one */}
+          {product.tankNumber ? (
+            <span
+              className="dc-mono inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider"
+              style={{
+                background: 'oklch(0 0 0 / 0.35)',
+                color: 'oklch(0.95 0 0 / 0.85)',
+                backdropFilter: 'blur(4px)',
+              }}
+            >
+              {product.tankNumber}
+            </span>
+          ) : (
+            <span className="w-px" />
+          )}
+          <span
+            className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider"
+            style={{ background: stockPill.bg, color: stockPill.fg }}
+          >
+            {stockPill.label}
+          </span>
+        </div>
+        {/* Centered fish image or silhouette */}
+        <div className="absolute inset-0 flex items-center justify-center px-6">
+          {product.image ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={product.image}
+              alt={product.name}
+              className="max-h-full max-w-full object-contain"
+            />
+          ) : (
+            <FishIcon className="w-24 h-24" style={{ color: fishColor }} />
+          )}
+        </div>
+      </div>
+
+      {/* Body */}
+      <div className="p-3.5">
+        <p
+          className="dc-mono text-[10px] uppercase tracking-[0.05em] truncate mb-1"
+          style={{ color: 'var(--ink-4)' }}
+        >
+          {product.sku ? `#${product.sku}` : product.categoryName || 'ITEM'}
+        </p>
+        <h3
+          className="text-[14px] font-bold leading-snug line-clamp-2 mb-1"
+          style={{ color: 'var(--ink)' }}
+        >
+          {product.name}
+        </h3>
+        {product.certificate ? (
+          <p
+            className="dc-mono text-[10px] truncate inline-flex items-center gap-1"
+            style={{ color: 'var(--ink-3)' }}
+          >
+            <span>⊕</span>
+            {product.certificate}
+          </p>
+        ) : (
+          <p
+            className="text-[10px] truncate"
+            style={{ color: 'var(--ink-4)' }}
+          >
+            {product.categoryName || ''}
+          </p>
+        )}
+        <div className="flex items-baseline gap-2 mt-2.5">
+          <span
+            className="dc-mono text-[14px] font-bold"
+            style={{ color: 'var(--ink)' }}
+          >
+            ₱{(product.price || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </span>
+          {product.originalPrice && product.originalPrice > product.price && (
+            <span
+              className="dc-mono text-[11px] line-through"
+              style={{ color: 'var(--ink-4)' }}
+            >
+              ₱{product.originalPrice.toLocaleString('en-PH')}
+            </span>
+          )}
+        </div>
+      </div>
+    </button>
   );
 }
 

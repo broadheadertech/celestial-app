@@ -82,13 +82,85 @@ function FinanceContent() {
   const router = useRouter();
   const { user } = useAuthStore();
 
-  const summary = useQuery(api.services.finance.getFinancialSummary, {});
-  const expenses = useQuery(api.services.finance.getExpenses, { limit: 100 });
+  // Date range filter (YYYY-MM-DD strings; converted to timestamps below).
+  const [dateFrom, setDateFrom] = useState<string>('');
+  const [dateTo, setDateTo] = useState<string>('');
+
+  const startTs = dateFrom ? new Date(dateFrom + 'T00:00:00').getTime() : undefined;
+  const endTs = dateTo ? new Date(dateTo + 'T23:59:59.999').getTime() : undefined;
+  const validStart = startTs && !isNaN(startTs) ? startTs : undefined;
+  const validEnd = endTs && !isNaN(endTs) ? endTs : undefined;
+
+  const summary = useQuery(api.services.finance.getFinancialSummary, {
+    startDate: validStart,
+    endDate: validEnd,
+  });
+  // Always-unfiltered snapshot so we can show "Right now" (actual till + lifetime net) next to "For this period".
+  const summaryAllTime = useQuery(api.services.finance.getFinancialSummary, {});
+  const expenses = useQuery(api.services.finance.getExpenses, {
+    limit: 200,
+    startDate: validStart,
+    endDate: validEnd,
+  });
   const createExpense = useMutation(api.services.finance.createExpense);
   const deleteExpense = useMutation(api.services.finance.deleteExpense);
 
   const [showExpenseForm, setShowExpenseForm] = useState(false);
   const [expenseFilter, setExpenseFilter] = useState<'all' | 'restocking' | 'operational'>('all');
+
+  // Date range presets — set both ends in local time.
+  const applyPreset = (preset: 'today' | 'last7' | 'last30' | 'month') => {
+    const today = new Date();
+    const fmt = (d: Date) => d.toISOString().slice(0, 10);
+    const todayStr = fmt(today);
+    if (preset === 'today') {
+      setDateFrom(todayStr);
+      setDateTo(todayStr);
+      return;
+    }
+    if (preset === 'last7') {
+      const past = new Date();
+      past.setDate(today.getDate() - 6);
+      setDateFrom(fmt(past));
+      setDateTo(todayStr);
+      return;
+    }
+    if (preset === 'last30') {
+      const past = new Date();
+      past.setDate(today.getDate() - 29);
+      setDateFrom(fmt(past));
+      setDateTo(todayStr);
+      return;
+    }
+    if (preset === 'month') {
+      const start = new Date(today.getFullYear(), today.getMonth(), 1);
+      setDateFrom(fmt(start));
+      setDateTo(todayStr);
+      return;
+    }
+  };
+
+  const isFiltered = !!dateFrom || !!dateTo;
+  const filterLabel = isFiltered
+    ? dateFrom && dateTo
+      ? dateFrom === dateTo
+        ? new Date(dateFrom + 'T12:00:00').toLocaleDateString('en-PH', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+          })
+        : `${new Date(dateFrom + 'T12:00:00').toLocaleDateString('en-PH', {
+            month: 'short',
+            day: 'numeric',
+          })} → ${new Date(dateTo + 'T12:00:00').toLocaleDateString('en-PH', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+          })}`
+      : dateFrom
+      ? `Since ${dateFrom}`
+      : `Until ${dateTo}`
+    : 'All time';
 
   // Form state
   const [formCategory, setFormCategory] = useState<ExpenseCategory>('supplies');
@@ -159,7 +231,7 @@ function FinanceContent() {
               </button>
               <div className="min-w-0 flex-1">
                 <h1 className="text-lg sm:text-2xl font-bold text-white truncate">Finance</h1>
-                <p className="text-xs text-white/50 hidden sm:block">P&L, cash flow & expenses</p>
+                <p className="text-xs text-white/50 hidden sm:block">P&amp;L, cash flow &amp; expenses · <span style={{ color: isFiltered ? 'var(--red-hi)' : 'var(--ink-3)' }}>{filterLabel}</span></p>
               </div>
             </div>
             <button
@@ -170,6 +242,80 @@ function FinanceContent() {
               <span className="hidden xs:inline">Add Expense</span>
             </button>
           </div>
+        </div>
+      </div>
+
+      {/* Date Range Filter */}
+      <div className="px-4 sm:px-6 pt-4 sm:pt-5 max-w-7xl mx-auto">
+        <div
+          className="rounded-[14px] border p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center gap-3"
+          style={{ background: 'var(--surface)', borderColor: 'var(--line)', boxShadow: 'var(--shadow-card)' }}
+        >
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <Calendar className="w-4 h-4" style={{ color: 'var(--red-hi)' }} />
+            <span className="label-eyebrow" style={{ color: 'var(--ink-3)' }}>Date range</span>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap flex-1">
+            <input
+              type="date"
+              value={dateFrom}
+              max={dateTo || undefined}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="px-3 py-2 rounded-md border text-xs sm:text-sm outline-none [color-scheme:dark] dc-mono"
+              style={{ background: 'var(--bg-2)', borderColor: 'var(--line)', color: 'var(--ink)' }}
+            />
+            <span className="text-xs" style={{ color: 'var(--ink-4)' }}>→</span>
+            <input
+              type="date"
+              value={dateTo}
+              min={dateFrom || undefined}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="px-3 py-2 rounded-md border text-xs sm:text-sm outline-none [color-scheme:dark] dc-mono"
+              style={{ background: 'var(--bg-2)', borderColor: 'var(--line)', color: 'var(--ink)' }}
+            />
+            <div className="flex gap-1.5 flex-wrap ml-1">
+              {[
+                { key: 'today', label: 'Today' },
+                { key: 'last7', label: 'Last 7d' },
+                { key: 'last30', label: 'Last 30d' },
+                { key: 'month', label: 'This month' },
+              ].map((p) => (
+                <button
+                  key={p.key}
+                  onClick={() => applyPreset(p.key as 'today' | 'last7' | 'last30' | 'month')}
+                  className="px-2.5 py-1.5 rounded-md border text-[11px] font-semibold"
+                  style={{
+                    background: 'var(--bg-2)',
+                    borderColor: 'var(--line)',
+                    color: 'var(--ink-2)',
+                  }}
+                >
+                  {p.label}
+                </button>
+              ))}
+              {isFiltered && (
+                <button
+                  onClick={() => {
+                    setDateFrom('');
+                    setDateTo('');
+                  }}
+                  className="px-2.5 py-1.5 rounded-md text-[11px] font-bold"
+                  style={{ color: 'var(--red-hi)' }}
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+          </div>
+          <span
+            className="dc-mono text-[11px] font-bold ml-auto px-2 py-1 rounded-md"
+            style={{
+              background: isFiltered ? 'var(--red-wash)' : 'var(--surface-hi)',
+              color: isFiltered ? 'var(--red-hi)' : 'var(--ink-3)',
+            }}
+          >
+            {filterLabel}
+          </span>
         </div>
       </div>
 
@@ -189,7 +335,9 @@ function FinanceContent() {
                 <div>
                   <div className="flex items-center gap-2 mb-1">
                     <Wallet className="w-4 h-4 text-success" />
-                    <p className="text-[11px] font-semibold text-success/80 uppercase tracking-wider">Cash on Hand</p>
+                    <p className="text-[11px] font-semibold text-success/80 uppercase tracking-wider">
+                      {isFiltered ? 'Cash flow · this period' : 'Cash on Hand'}
+                    </p>
                   </div>
                 </div>
                 <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
@@ -198,7 +346,15 @@ function FinanceContent() {
                   {summary.cashOnHand >= 0 ? 'Positive' : 'Negative'}
                 </span>
               </div>
-              <p className="text-4xl font-bold text-white mb-2">{fmt(summary.cashOnHand)}</p>
+              <p className="text-4xl font-bold text-white mb-1">{fmt(summary.cashOnHand)}</p>
+              {isFiltered && summaryAllTime && (
+                <p className="text-xs mb-2" style={{ color: 'var(--ink-3)' }}>
+                  <span style={{ color: 'var(--ink-4)' }}>Right now (all-time): </span>
+                  <span className="font-semibold dc-mono" style={{ color: 'var(--ink)' }}>
+                    {fmt(summaryAllTime.cashOnHand)}
+                  </span>
+                </p>
+              )}
               <div className="grid grid-cols-3 gap-2 pt-3 border-t border-white/10 text-xs">
                 <div>
                   <p className="text-white/40">Opening</p>
@@ -231,7 +387,9 @@ function FinanceContent() {
                     )}
                     <p className={`text-[11px] font-semibold uppercase tracking-wider ${
                       summary.netProfit >= 0 ? 'text-primary/80' : 'text-error/80'
-                    }`}>Net Profit</p>
+                    }`}>
+                      {isFiltered ? 'Net profit · this period' : 'Net Profit'}
+                    </p>
                   </div>
                 </div>
                 <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
@@ -240,7 +398,16 @@ function FinanceContent() {
                   {summary.netMargin}% margin
                 </span>
               </div>
-              <p className="text-4xl font-bold text-white mb-2">{fmt(summary.netProfit)}</p>
+              <p className="text-4xl font-bold text-white mb-1">{fmt(summary.netProfit)}</p>
+              {isFiltered && summaryAllTime && (
+                <p className="text-xs mb-2" style={{ color: 'var(--ink-3)' }}>
+                  <span style={{ color: 'var(--ink-4)' }}>Right now (all-time): </span>
+                  <span className="font-semibold dc-mono" style={{ color: 'var(--ink)' }}>
+                    {fmt(summaryAllTime.netProfit)}
+                  </span>
+                  <span style={{ color: 'var(--ink-4)' }}> · {summaryAllTime.netMargin}% margin</span>
+                </p>
+              )}
               <div className="grid grid-cols-3 gap-2 pt-3 border-t border-white/10 text-xs">
                 <div>
                   <p className="text-white/40">Revenue</p>
