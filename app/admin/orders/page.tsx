@@ -678,18 +678,19 @@ function AdminOrdersContent() {
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground pb-20 sm:pb-6">
+    <div className="min-h-screen pb-24 sm:pb-6" style={{ background: 'var(--bg)', color: 'var(--ink)' }}>
       {/* Header */}
-      <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-white/10 safe-area-top">
+      <div className="sticky top-0 z-50 backdrop-blur-sm border-b safe-area-top relative" style={{ background: 'oklch(0.135 0.005 25 / 0.85)', borderColor: 'var(--line)' }}>
+        <div className="caustics-line absolute bottom-0 left-3 right-3 sm:left-6 sm:right-6" />
         <div className="max-w-7xl mx-auto px-3 sm:px-6 py-3 sm:py-4">
           <div className="flex items-center justify-between gap-2 mb-3 sm:mb-4">
             <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0">
-              <button onClick={() => router.back()} className="p-2 rounded-full bg-secondary border border-white/10 hover:bg-white/10 active:scale-95 transition-all flex-shrink-0 touch-manipulation">
-                <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+              <button onClick={() => router.back()} className="p-2 rounded-lg border hover:opacity-90 flex-shrink-0" style={{ background: 'var(--surface-2)', borderColor: 'var(--line)' }}>
+                <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" style={{ color: 'var(--ink)' }} />
               </button>
               <div className="min-w-0 flex-1">
-                <h1 className="text-lg sm:text-2xl font-bold text-white truncate">Management Center</h1>
-                <p className="text-xs sm:text-sm text-white/60 hidden xs:block truncate">Orders & Reservations</p>
+                <p className="label-eyebrow truncate">Orders &amp; Reservations</p>
+                <h1 className="display text-lg sm:text-2xl truncate" style={{ fontVariationSettings: '"opsz" 32, "wght" 700' }}>Tape</h1>
               </div>
             </div>
             <div className="flex items-center gap-1 sm:gap-2 shrink-0">
@@ -897,7 +898,7 @@ function AdminOrdersContent() {
       {/* Main Content Area */}
       <div className="max-w-7xl mx-auto px-3 sm:px-6 py-3 sm:py-4">
         <div className="flex items-center justify-between mb-3 sm:mb-4">
-          <h2 className="text-sm sm:text-lg font-bold text-white">Items <span className="text-white/60">({filteredItems.length})</span></h2>
+          <h2 className="display text-base sm:text-xl" style={{ fontVariationSettings: '"opsz" 24, "wght" 700' }}>Items <span className="font-normal" style={{ color: 'var(--ink-4)' }}>({filteredItems.length})</span></h2>
           {filteredItems.length === 0 && allItems.length > 0 && <button onClick={() => { setSearchQuery(''); setSelectedStatus('all'); setDateFrom(''); setDateTo(''); setProductFilterIds(new Set()); setProductSearch(''); setShowFilters(false); setCurrentPage(1); }} className="px-2.5 sm:px-3 py-1 rounded-lg bg-primary/10 border border-primary text-primary text-[10px] sm:text-xs hover:bg-primary/20 active:scale-95 transition-all touch-manipulation">Clear Filters</button>}
         </div>
 

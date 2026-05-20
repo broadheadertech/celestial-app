@@ -272,6 +272,7 @@ export const getStockRecords = query({
           productName: product?.name,
           productImage: product?.image,
           productPrice: product?.price,
+          productCostPrice: product?.costPrice,
         };
       })
     );
@@ -1426,7 +1427,8 @@ export const getStockSummary = query({
 
     for (const record of allStockRecords) {
       const product = await ctx.db.get(record.productId);
-      const recordValue = product ? product.price * record.currentQty : 0;
+      // Inventory value at COST (not retail). Naturally drops as items sell, since currentQty decreases.
+      const recordValue = product ? (product.costPrice || 0) * record.currentQty : 0;
 
       summary.totalCurrentQty += record.currentQty;
       summary.totalReservedQty += record.reservedQty;

@@ -172,17 +172,20 @@ export default function AdminSidebar() {
 
   return (
     <aside className="hidden sm:flex fixed top-0 left-0 bottom-0 w-64 bg-background border-r border-white/10 flex-col z-40">
-      {/* Logo */}
-      <div className="px-5 py-5 border-b border-white/10">
+      {/* Wordmark */}
+      <div className="px-5 py-5 border-b border-white/10 relative">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-orange-600 flex items-center justify-center">
+          <div className="w-10 h-10 rounded-xl ember flex items-center justify-center" style={{ background: 'linear-gradient(150deg, var(--red-deep), var(--red))' }}>
             <Fish className="w-5 h-5 text-white" />
           </div>
-          <div>
-            <h1 className="text-sm font-bold text-white leading-tight">Dragon Cave</h1>
-            <p className="text-[10px] text-white/50">Admin Panel</p>
+          <div className="min-w-0">
+            <h1 className="display text-base text-white leading-none truncate" style={{ fontVariationSettings: '"opsz" 24, "wght" 800', letterSpacing: '-0.02em' }}>
+              Dragon&apos;s Cave
+            </h1>
+            <p className="label-eyebrow mt-1">Admin Console</p>
           </div>
         </div>
+        <div className="caustics-line absolute left-5 right-5 bottom-0" />
       </div>
 
       {/* Navigation */}
@@ -219,7 +222,7 @@ export default function AdminSidebar() {
 
       {/* Footer */}
       <div className="px-5 py-4 border-t border-white/10">
-        <p className="text-[10px] text-white/30 text-center">Dragon Cave Inventory</p>
+        <p className="text-[10px] text-white/30 text-center tracking-[0.18em] uppercase">Home of Premium Arowanas</p>
       </div>
     </aside>
   );

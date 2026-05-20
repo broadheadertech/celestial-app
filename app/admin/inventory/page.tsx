@@ -18,6 +18,7 @@ import {
   ArrowRightLeft,
   Clock,
   Hourglass,
+  Trash2,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useQuery, useMutation } from 'convex/react';
@@ -65,6 +66,10 @@ function InventoryContent() {
   const [adjustReason, setAdjustReason] = useState('');
   const [isAdjusting, setIsAdjusting] = useState(false);
 
+  // Delete product confirm modal state
+  const [deleteCandidate, setDeleteCandidate] = useState<{ productId: string; productName: string } | null>(null);
+  const [isDeletingProduct, setIsDeletingProduct] = useState(false);
+
   // Action menu state
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
@@ -77,6 +82,51 @@ function InventoryContent() {
   // Mutations
   const restockProduct = useMutation(api.services.stock.restockProduct);
   const adjustStock = useMutation(api.services.stock.adjustStock);
+  const deleteProductMutation = useMutation(api.services.admin.deleteProduct);
+  const cleanupOrphans = useMutation(api.services.admin.cleanupOrphanedRecords);
+
+  // Orphan detection — stockRecords whose product lookup failed during enrichment
+  // (productName comes back undefined when ctx.db.get(productId) returns null).
+  const orphanCount = useMemo(
+    () => (stockRecords ?? []).filter(r => !r.productName).length,
+    [stockRecords]
+  );
+
+  const [isCleaningOrphans, setIsCleaningOrphans] = useState(false);
+  const [showOrphanConfirm, setShowOrphanConfirm] = useState(false);
+  const handleCleanupOrphans = async () => {
+    setIsCleaningOrphans(true);
+    try {
+      const r = await cleanupOrphans({});
+      setShowOrphanConfirm(false);
+      const parts = [
+        r.removedBatches && `${r.removedBatches} batch${r.removedBatches === 1 ? '' : 'es'}`,
+        r.removedMovements && `${r.removedMovements} movement${r.removedMovements === 1 ? '' : 's'}`,
+        r.removedFish && `${r.removedFish} fish`,
+        r.removedTank && `${r.removedTank} tank`,
+        r.removedCart && `${r.removedCart} cart`,
+        r.removedWishlist && `${r.removedWishlist} wishlist`,
+      ].filter(Boolean);
+      showSuccess(parts.length > 0 ? `Cleaned up ${parts.join(', ')}.` : 'No orphans found — already clean.');
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Cleanup failed');
+    } finally {
+      setIsCleaningOrphans(false);
+    }
+  };
+
+  // Aggregate sold/reserved across all batches per product — gates Delete menu visibility.
+  // A product is deletable only if every batch shows zero sold AND zero reserved.
+  const productActivityMap = useMemo(() => {
+    const map = new Map<string, { sold: number; reserved: number }>();
+    for (const r of stockRecords ?? []) {
+      const cur = map.get(r.productId) ?? { sold: 0, reserved: 0 };
+      cur.sold += r.soldQty || 0;
+      cur.reserved += r.reservedQty || 0;
+      map.set(r.productId, cur);
+    }
+    return map;
+  }, [stockRecords]);
 
   // Filter stock records
   const filteredRecords = useMemo(() => {
@@ -158,6 +208,23 @@ function InventoryContent() {
     }
   };
 
+  // Handle delete product
+  const handleDeleteProduct = async () => {
+    if (!deleteCandidate) return;
+    setIsDeletingProduct(true);
+    try {
+      const result = await deleteProductMutation({
+        id: deleteCandidate.productId as Id<"products">,
+      });
+      setDeleteCandidate(null);
+      showSuccess(result?.message || 'Product deleted');
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Failed to delete product');
+    } finally {
+      setIsDeletingProduct(false);
+    }
+  };
+
   // Handle adjust stock submit
   const handleAdjustStock = async () => {
     if (!adjustRecordId || !adjustQuantity || !adjustReason.trim()) return;
@@ -210,19 +277,23 @@ function InventoryContent() {
   return (
     <div className="min-h-screen bg-background text-foreground pb-20 sm:pb-6">
       {/* Compact sticky header */}
-      <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-white/10 safe-area-top">
-        <div className="px-4 sm:px-6 py-3 sm:py-4 max-w-7xl mx-auto">
+      <div className="sticky top-0 z-50 backdrop-blur-sm border-b safe-area-top" style={{ background: 'oklch(0.135 0.005 25 / 0.85)', borderColor: 'var(--line)' }}>
+        <div className="px-4 sm:px-6 py-3 sm:py-4 max-w-7xl mx-auto relative">
+          <div className="caustics-line absolute bottom-0 left-4 right-4" />
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3 flex-1 min-w-0">
               <button
                 onClick={() => router.back()}
-                className="p-2 rounded-lg bg-secondary/60 border border-white/10 hover:bg-white/10 active:scale-95 transition-all flex-shrink-0"
+                className="p-2 rounded-lg border hover:opacity-90 flex-shrink-0"
+                style={{ background: 'var(--surface-2)', borderColor: 'var(--line)' }}
               >
-                <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+                <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" style={{ color: 'var(--ink)' }} />
               </button>
               <div className="min-w-0 flex-1">
-                <h1 className="text-lg sm:text-2xl font-bold text-white truncate">Inventory</h1>
-                <p className="text-xs text-white/50 hidden sm:block">Batch-level stock tracking (FIFO)</p>
+                <p className="label-eyebrow truncate">Batch-level · FIFO</p>
+                <h1 className="display text-lg sm:text-2xl truncate" style={{ fontVariationSettings: '"opsz" 32, "wght" 700' }}>
+                  Inventory
+                </h1>
               </div>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
@@ -287,6 +358,28 @@ function InventoryContent() {
       {/* Main content area */}
       <div className="px-4 sm:px-6 py-4 sm:py-6 max-w-7xl mx-auto space-y-4 sm:space-y-6">
 
+        {/* Orphaned Records Banner */}
+        {orphanCount > 0 && (
+          <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-gradient-to-r from-error/10 to-error/5 border border-error/30">
+            <div className="w-9 h-9 rounded-lg bg-error/20 flex items-center justify-center flex-shrink-0">
+              <Trash2 className="w-4 h-4 text-error" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-error">
+                {orphanCount} orphaned batch{orphanCount === 1 ? '' : 'es'} ("Unknown Product")
+              </p>
+              <p className="text-xs text-error/70 truncate">Stock records pointing to deleted products. Safe to remove.</p>
+            </div>
+            <button
+              onClick={() => setShowOrphanConfirm(true)}
+              disabled={isCleaningOrphans}
+              className="px-3 py-1.5 rounded-lg bg-error/20 hover:bg-error/30 text-error text-xs font-semibold transition-colors disabled:opacity-50 whitespace-nowrap"
+            >
+              Clean Up
+            </button>
+          </div>
+        )}
+
         {/* Low Stock Alert Banner */}
         {lowStockAlerts && lowStockAlerts.length > 0 && (
           <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-gradient-to-r from-warning/10 to-warning/5 border border-warning/30">
@@ -308,52 +401,38 @@ function InventoryContent() {
           </div>
         )}
 
-        {/* Summary Stats - redesigned */}
+        {/* Summary Stats — Dragon's Cave KPI tiles */}
         {stockSummary && (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-            <div className="bg-gradient-to-br from-secondary/60 to-secondary/30 rounded-xl p-4 border border-white/10 hover:border-white/20 transition-colors">
-              <div className="flex items-center justify-between mb-2">
-                <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                  <Package className="w-4 h-4 text-primary" />
-                </div>
-                <span className="text-[10px] font-medium text-white/40 uppercase tracking-wider">Batches</span>
-              </div>
-              <p className="text-2xl font-bold text-white">{stockSummary.totalRecords}</p>
-              <p className="text-xs text-white/50 mt-0.5">{stockSummary.activeRecords} active</p>
-            </div>
-
-            <div className="bg-gradient-to-br from-secondary/60 to-secondary/30 rounded-xl p-4 border border-white/10 hover:border-white/20 transition-colors">
-              <div className="flex items-center justify-between mb-2">
-                <div className="w-8 h-8 rounded-lg bg-success/10 flex items-center justify-center">
-                  <CheckCircle className="w-4 h-4 text-success" />
-                </div>
-                <span className="text-[10px] font-medium text-white/40 uppercase tracking-wider">Units</span>
-              </div>
-              <p className="text-2xl font-bold text-white">{stockSummary.totalCurrentQty}</p>
-              <p className="text-xs text-white/50 mt-0.5">In stock across all batches</p>
-            </div>
-
-            <div className="bg-gradient-to-br from-secondary/60 to-secondary/30 rounded-xl p-4 border border-white/10 hover:border-white/20 transition-colors">
-              <div className="flex items-center justify-between mb-2">
-                <div className="w-8 h-8 rounded-lg bg-info/10 flex items-center justify-center">
-                  <DollarSign className="w-4 h-4 text-info" />
-                </div>
-                <span className="text-[10px] font-medium text-white/40 uppercase tracking-wider">Value</span>
-              </div>
-              <p className="text-2xl font-bold text-primary">{formatCurrency(stockSummary.totalValue)}</p>
-              <p className="text-xs text-white/50 mt-0.5">Total stock value</p>
-            </div>
-
-            <div className="bg-gradient-to-br from-secondary/60 to-secondary/30 rounded-xl p-4 border border-white/10 hover:border-white/20 transition-colors">
-              <div className="flex items-center justify-between mb-2">
-                <div className="w-8 h-8 rounded-lg bg-error/10 flex items-center justify-center">
-                  <AlertTriangle className="w-4 h-4 text-error" />
-                </div>
-                <span className="text-[10px] font-medium text-white/40 uppercase tracking-wider">Losses</span>
-              </div>
-              <p className="text-2xl font-bold text-white">{stockSummary.totalDamagedQty || 0}</p>
-              <p className="text-xs text-white/50 mt-0.5">Mortality / damaged</p>
-            </div>
+          <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
+            <InvKpi
+              label="Batches"
+              value={String(stockSummary.totalRecords)}
+              sub={`${stockSummary.activeRecords} active`}
+              icon={<Package className="w-3.5 h-3.5" />}
+              tone="indigo"
+            />
+            <InvKpi
+              label="Units in stock"
+              value={String(stockSummary.totalCurrentQty)}
+              sub="Across all batches"
+              icon={<CheckCircle className="w-3.5 h-3.5" />}
+              tone="jade"
+            />
+            <InvKpi
+              label="Inventory at cost"
+              value={formatCurrency(stockSummary.totalValue)}
+              sub="Cost basis"
+              icon={<DollarSign className="w-3.5 h-3.5" />}
+              tone="red"
+              accent
+            />
+            <InvKpi
+              label="Mortality / damaged"
+              value={String(stockSummary.totalDamagedQty || 0)}
+              sub="Lifetime loss units"
+              icon={<AlertTriangle className="w-3.5 h-3.5" />}
+              tone="gold"
+            />
           </div>
         )}
 
@@ -430,12 +509,13 @@ function InventoryContent() {
 
         {/* Batch List section */}
         <div>
-        <div className="flex items-center justify-between mb-3 sm:mb-4">
-          <div>
-            <h2 className="text-base sm:text-lg font-bold text-white">Batches</h2>
-            <p className="text-xs text-white/50 mt-0.5">{filteredRecords.length} {filteredRecords.length === 1 ? 'batch' : 'batches'} shown{selectedFilter !== 'all' ? ` · filtered by ${selectedFilter.replace('_', ' ')}` : ''}</p>
+        <div className="flex items-end justify-between mb-3 sm:mb-4 gap-3">
+          <div className="min-w-0">
+            <p className="label-eyebrow">{filteredRecords.length} {filteredRecords.length === 1 ? 'batch' : 'batches'}{selectedFilter !== 'all' ? ` · ${selectedFilter.replace('_', ' ')}` : ''}</p>
+            <h2 className="display text-lg sm:text-xl mt-0.5" style={{ fontVariationSettings: '"opsz" 24, "wght" 700' }}>Batches</h2>
           </div>
         </div>
+        <div className="caustics-line mb-3 sm:mb-4" />
 
         {isLoading ? (
           <div className="text-center py-12">
@@ -485,7 +565,7 @@ function InventoryContent() {
                         const isLowStock = record.currentQty > 0 && record.currentQty <= 10;
                         const isDepleted = record.currentQty === 0 || record.status === 'depleted';
                         const badge = getStatusBadge(record);
-                        const stockValue = record.productPrice ? record.currentQty * record.productPrice : 0;
+                        const stockValue = record.productCostPrice ? record.currentQty * record.productCostPrice : 0;
 
                         return (
                           <tr
@@ -571,8 +651,8 @@ function InventoryContent() {
 
                             {/* Value */}
                             <td className="px-3 py-4 text-right">
-                              <span className="text-white font-semibold text-sm">
-                                {record.productPrice ? formatCurrency(stockValue) : '—'}
+                              <span className="text-white font-semibold text-sm" title="Stock value at cost">
+                                {record.productCostPrice ? formatCurrency(stockValue) : '—'}
                               </span>
                             </td>
 
@@ -592,31 +672,47 @@ function InventoryContent() {
                                 >
                                   <MoreVertical className="w-4 h-4 text-white/60" />
                                 </button>
-                                {openMenuId === record._id && (
-                                  <div className="absolute right-0 top-8 w-44 bg-secondary border border-white/10 rounded-lg shadow-xl z-20">
-                                    <button
-                                      onClick={() => {
-                                        setAdjustRecordId(record._id);
-                                        setShowAdjustModal(true);
-                                        setOpenMenuId(null);
-                                      }}
-                                      className="w-full px-3 py-2.5 text-left text-sm text-white hover:bg-white/10 flex items-center gap-2 rounded-t-lg"
-                                    >
-                                      <Minus className="w-3.5 h-3.5" />
-                                      Adjust Stock
-                                    </button>
-                                    <button
-                                      onClick={() => {
-                                        router.push(`/admin/inventory/activity_log?productId=${record.productId}&productName=${encodeURIComponent(record.productName || '')}`);
-                                        setOpenMenuId(null);
-                                      }}
-                                      className="w-full px-3 py-2.5 text-left text-sm text-white hover:bg-white/10 flex items-center gap-2 rounded-b-lg"
-                                    >
-                                      <Activity className="w-3.5 h-3.5" />
-                                      Activity Log
-                                    </button>
-                                  </div>
-                                )}
+                                {openMenuId === record._id && (() => {
+                                  const activity = productActivityMap.get(record.productId);
+                                  const canDelete = (activity?.sold ?? 0) === 0 && (activity?.reserved ?? 0) === 0;
+                                  return (
+                                    <div className="absolute right-0 top-8 w-48 bg-secondary border border-white/10 rounded-lg shadow-xl z-20 overflow-hidden">
+                                      <button
+                                        onClick={() => {
+                                          setAdjustRecordId(record._id);
+                                          setShowAdjustModal(true);
+                                          setOpenMenuId(null);
+                                        }}
+                                        className="w-full px-3 py-2.5 text-left text-sm text-white hover:bg-white/10 flex items-center gap-2"
+                                      >
+                                        <Minus className="w-3.5 h-3.5" />
+                                        Adjust Stock
+                                      </button>
+                                      <button
+                                        onClick={() => {
+                                          router.push(`/admin/inventory/activity_log?productId=${record.productId}&productName=${encodeURIComponent(record.productName || '')}`);
+                                          setOpenMenuId(null);
+                                        }}
+                                        className="w-full px-3 py-2.5 text-left text-sm text-white hover:bg-white/10 flex items-center gap-2"
+                                      >
+                                        <Activity className="w-3.5 h-3.5" />
+                                        Activity Log
+                                      </button>
+                                      {canDelete && (
+                                        <button
+                                          onClick={() => {
+                                            setDeleteCandidate({ productId: record.productId, productName: record.productName || 'this product' });
+                                            setOpenMenuId(null);
+                                          }}
+                                          className="w-full px-3 py-2.5 text-left text-sm text-error hover:bg-error/10 flex items-center gap-2 border-t border-white/5"
+                                        >
+                                          <Trash2 className="w-3.5 h-3.5" />
+                                          Delete Product
+                                        </button>
+                                      )}
+                                    </div>
+                                  );
+                                })()}
                               </div>
                             </td>
                           </tr>
@@ -685,31 +781,47 @@ function InventoryContent() {
                                 >
                                   <MoreVertical className="w-4 h-4 text-white/60" />
                                 </button>
-                                {openMenuId === record._id && (
-                                  <div className="absolute right-0 top-8 w-40 bg-secondary border border-white/10 rounded-lg shadow-xl z-20">
-                                    <button
-                                      onClick={() => {
-                                        setAdjustRecordId(record._id);
-                                        setShowAdjustModal(true);
-                                        setOpenMenuId(null);
-                                      }}
-                                      className="w-full px-3 py-2 text-left text-sm text-white hover:bg-white/10 flex items-center gap-2"
-                                    >
-                                      <Minus className="w-3.5 h-3.5" />
-                                      Adjust Stock
-                                    </button>
-                                    <button
-                                      onClick={() => {
-                                        router.push(`/admin/inventory/activity_log?productId=${record.productId}&productName=${encodeURIComponent(record.productName || '')}`);
-                                        setOpenMenuId(null);
-                                      }}
-                                      className="w-full px-3 py-2 text-left text-sm text-white hover:bg-white/10 flex items-center gap-2"
-                                    >
-                                      <Activity className="w-3.5 h-3.5" />
-                                      Activity Log
-                                    </button>
-                                  </div>
-                                )}
+                                {openMenuId === record._id && (() => {
+                                  const activity = productActivityMap.get(record.productId);
+                                  const canDelete = (activity?.sold ?? 0) === 0 && (activity?.reserved ?? 0) === 0;
+                                  return (
+                                    <div className="absolute right-0 top-8 w-44 bg-secondary border border-white/10 rounded-lg shadow-xl z-20 overflow-hidden">
+                                      <button
+                                        onClick={() => {
+                                          setAdjustRecordId(record._id);
+                                          setShowAdjustModal(true);
+                                          setOpenMenuId(null);
+                                        }}
+                                        className="w-full px-3 py-2 text-left text-sm text-white hover:bg-white/10 flex items-center gap-2"
+                                      >
+                                        <Minus className="w-3.5 h-3.5" />
+                                        Adjust Stock
+                                      </button>
+                                      <button
+                                        onClick={() => {
+                                          router.push(`/admin/inventory/activity_log?productId=${record.productId}&productName=${encodeURIComponent(record.productName || '')}`);
+                                          setOpenMenuId(null);
+                                        }}
+                                        className="w-full px-3 py-2 text-left text-sm text-white hover:bg-white/10 flex items-center gap-2"
+                                      >
+                                        <Activity className="w-3.5 h-3.5" />
+                                        Activity Log
+                                      </button>
+                                      {canDelete && (
+                                        <button
+                                          onClick={() => {
+                                            setDeleteCandidate({ productId: record.productId, productName: record.productName || 'this product' });
+                                            setOpenMenuId(null);
+                                          }}
+                                          className="w-full px-3 py-2 text-left text-sm text-error hover:bg-error/10 flex items-center gap-2 border-t border-white/5"
+                                        >
+                                          <Trash2 className="w-3.5 h-3.5" />
+                                          Delete Product
+                                        </button>
+                                      )}
+                                    </div>
+                                  );
+                                })()}
                               </div>
                             </div>
                           </div>
@@ -768,14 +880,14 @@ function InventoryContent() {
                                 </p>
                               </div>
                             )}
-                            {record.productPrice && (
+                            {record.productCostPrice ? (
                               <div>
-                                <p className="text-[10px] text-white/40">Stock Value</p>
+                                <p className="text-[10px] text-white/40">Stock Cost</p>
                                 <p className="text-xs font-medium text-white">
-                                  {formatCurrency(record.currentQty * record.productPrice)}
+                                  {formatCurrency(record.currentQty * record.productCostPrice)}
                                 </p>
                               </div>
-                            )}
+                            ) : null}
                             {record.qualityGrade && (
                               <div>
                                 <p className="text-[10px] text-white/40">Quality</p>
@@ -1021,6 +1133,110 @@ function InventoryContent() {
         </>
       )}
 
+      {/* Delete Product Confirm Modal */}
+      {deleteCandidate && (
+        <>
+          <div
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 animate-in fade-in duration-200"
+            onClick={() => !isDeletingProduct && setDeleteCandidate(null)}
+          />
+          <div className="fixed bottom-0 left-0 right-0 sm:inset-0 sm:flex sm:items-center sm:justify-center z-50 animate-in slide-in-from-bottom sm:animate-in sm:fade-in duration-300 safe-area-bottom">
+            <div className="bg-secondary/95 backdrop-blur-md border-t sm:border border-white/10 rounded-t-3xl sm:rounded-2xl shadow-2xl p-4 sm:p-6 sm:w-full sm:max-w-md sm:mx-4">
+              <div className="flex justify-center pt-2 pb-4 sm:hidden">
+                <div className="w-12 h-1.5 bg-white/20 rounded-full" />
+              </div>
+              <div className="flex items-start gap-3 mb-4">
+                <div className="w-10 h-10 rounded-full bg-error/15 border border-error/30 flex items-center justify-center flex-shrink-0">
+                  <Trash2 className="w-5 h-5 text-error" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-lg font-bold text-white">Delete product?</h3>
+                  <p className="text-sm text-white/70 mt-0.5 truncate">{deleteCandidate.productName}</p>
+                </div>
+              </div>
+
+              <div className="space-y-3 mb-5">
+                <div className="px-3 py-2.5 rounded-lg bg-error/5 border border-error/20 text-xs text-white/80">
+                  This permanently removes the product, all its batches, all stock movements, and any fish/tank metadata. <strong className="text-error">This cannot be undone.</strong>
+                </div>
+                <div className="px-3 py-2.5 rounded-lg bg-white/[0.04] border border-white/10 text-xs text-white/70">
+                  Allowed only because this product has <strong className="text-white">no sales</strong> and <strong className="text-white">no reservations</strong>. If history is found server-side, the product will be deactivated instead.
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setDeleteCandidate(null)}
+                  disabled={isDeletingProduct}
+                  className="flex-1 px-4 py-3 bg-secondary border border-white/10 text-white rounded-xl font-medium hover:bg-white/10 active:scale-95 transition-all touch-manipulation disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDeleteProduct}
+                  disabled={isDeletingProduct}
+                  className="flex-1 px-4 py-3 bg-error text-white rounded-xl font-medium hover:bg-error/90 active:scale-95 transition-all touch-manipulation disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isDeletingProduct ? 'Deleting...' : 'Delete'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Cleanup Orphans Confirm Modal */}
+      {showOrphanConfirm && (
+        <>
+          <div
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 animate-in fade-in duration-200"
+            onClick={() => !isCleaningOrphans && setShowOrphanConfirm(false)}
+          />
+          <div className="fixed bottom-0 left-0 right-0 sm:inset-0 sm:flex sm:items-center sm:justify-center z-50 animate-in slide-in-from-bottom sm:animate-in sm:fade-in duration-300 safe-area-bottom">
+            <div className="bg-secondary/95 backdrop-blur-md border-t sm:border border-white/10 rounded-t-3xl sm:rounded-2xl shadow-2xl p-4 sm:p-6 sm:w-full sm:max-w-md sm:mx-4">
+              <div className="flex justify-center pt-2 pb-4 sm:hidden">
+                <div className="w-12 h-1.5 bg-white/20 rounded-full" />
+              </div>
+              <div className="flex items-start gap-3 mb-4">
+                <div className="w-10 h-10 rounded-full bg-error/15 border border-error/30 flex items-center justify-center flex-shrink-0">
+                  <Trash2 className="w-5 h-5 text-error" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-lg font-bold text-white">Remove orphaned records?</h3>
+                  <p className="text-sm text-white/70 mt-0.5">{orphanCount} batch{orphanCount === 1 ? '' : 'es'} will be deleted</p>
+                </div>
+              </div>
+
+              <div className="space-y-3 mb-5">
+                <div className="px-3 py-2.5 rounded-lg bg-error/5 border border-error/20 text-xs text-white/80">
+                  This sweeps all <strong>stockRecords</strong>, <strong>stockMovements</strong>, fish/tank metadata, cart, and wishlist rows whose product no longer exists. Cannot be undone.
+                </div>
+                <div className="px-3 py-2.5 rounded-lg bg-white/[0.04] border border-white/10 text-xs text-white/70">
+                  These show as "Unknown Product" because the product was deleted before today's cascade-cleanup fix.
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowOrphanConfirm(false)}
+                  disabled={isCleaningOrphans}
+                  className="flex-1 px-4 py-3 bg-secondary border border-white/10 text-white rounded-xl font-medium hover:bg-white/10 active:scale-95 transition-all touch-manipulation disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleCleanupOrphans}
+                  disabled={isCleaningOrphans}
+                  className="flex-1 px-4 py-3 bg-error text-white rounded-xl font-medium hover:bg-error/90 active:scale-95 transition-all touch-manipulation disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isCleaningOrphans ? 'Cleaning...' : 'Clean Up'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
       {/* Success Toast */}
       {successMessage && (
         <div className="fixed top-4 right-4 sm:top-6 sm:right-6 z-[9999] animate-in slide-in-from-top duration-300">
@@ -1048,6 +1264,64 @@ function InventoryContent() {
           }
         }
       `}</style>
+    </div>
+  );
+}
+
+function InvKpi({
+  label,
+  value,
+  sub,
+  icon,
+  tone,
+  accent,
+}: {
+  label: string;
+  value: string;
+  sub?: string;
+  icon: React.ReactNode;
+  tone: 'red' | 'jade' | 'gold' | 'indigo';
+  accent?: boolean;
+}) {
+  const toneMap = {
+    red: { bg: 'var(--red-wash)', fg: 'var(--red-hi)' },
+    jade: { bg: 'var(--jade-wash)', fg: 'var(--jade)' },
+    gold: { bg: 'var(--gold-wash)', fg: 'var(--gold-deep)' },
+    indigo: { bg: 'var(--indigo-wash)', fg: 'var(--indigo)' },
+  } as const;
+  const t = toneMap[tone];
+  return (
+    <div
+      className="rounded-[14px] border p-4"
+      style={{
+        background: 'var(--surface)',
+        borderColor: 'var(--line)',
+        boxShadow: 'var(--shadow-card)',
+      }}
+    >
+      <div className="flex items-center justify-between mb-2.5">
+        <span
+          className="w-7 h-7 rounded-md inline-flex items-center justify-center"
+          style={{ background: t.bg, color: t.fg }}
+        >
+          {icon}
+        </span>
+        <p className="label-eyebrow">{label}</p>
+      </div>
+      <p
+        className="display dc-mono text-[22px] sm:text-[24px] leading-none mb-1"
+        style={{
+          fontVariationSettings: '"opsz" 36, "wght" 700',
+          color: accent ? 'var(--red)' : 'var(--ink)',
+        }}
+      >
+        {value}
+      </p>
+      {sub && (
+        <p className="text-[11px] truncate" style={{ color: 'var(--ink-3)' }}>
+          {sub}
+        </p>
+      )}
     </div>
   );
 }

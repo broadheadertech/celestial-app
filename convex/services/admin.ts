@@ -501,30 +501,243 @@ export const toggleProductStatus = mutation({
 });
 
 export const deleteProduct = mutation({
-  args: { id: v.id("products") },
-  handler: async (ctx, { id }) => {
+  args: {
+    id: v.id("products"),
+    forceDelete: v.optional(v.boolean()), // bypass history guard + cascade orders/reservations/expenses
+  },
+  handler: async (ctx, { id, forceDelete }) => {
     const product = await ctx.db.get(id);
     if (!product) {
       throw new Error("Product not found");
     }
-    
-    // Check if product has orders
-    const orders = await ctx.db.query("orders").collect();
-    const hasOrders = orders.some(order => 
-      order.items.some(item => item.productId === id)
-    );
-    
-    if (hasOrders) {
-      // Don't delete, just deactivate
-      await ctx.db.patch(id, { 
-        isActive: false,
-        updatedAt: Date.now(),
+
+    const [orders, reservations] = await Promise.all([
+      ctx.db.query("orders").collect(),
+      ctx.db.query("reservations").collect(),
+    ]);
+
+    // Default path: deactivate if any history exists.
+    if (!forceDelete) {
+      const hasOrders = orders.some(order =>
+        order.items.some(item => item.productId === id)
+      );
+      const hasReservations = reservations.some(r => {
+        if (r.productId === id) return true;
+        return r.items?.some(item => item.productId === id) ?? false;
       });
-      return { success: true, message: "Product deactivated (has order history)" };
+
+      if (hasOrders || hasReservations) {
+        await ctx.db.patch(id, {
+          isActive: false,
+          updatedAt: Date.now(),
+        });
+        return {
+          success: true,
+          deleted: false,
+          message: hasOrders
+            ? "Product deactivated (has order history)"
+            : "Product deactivated (has reservation history)",
+        };
+      }
     }
-    
+
+    // Force delete OR no history — proceed with cascade cleanup.
+    let deletedOrders = 0;
+    let trimmedOrders = 0;
+    let deletedReservations = 0;
+    let trimmedReservations = 0;
+    let deletedExpenses = 0;
+
+    if (forceDelete) {
+      // Orders: drop the matching line item; if no items remain, delete the order.
+      for (const order of orders) {
+        const matches = order.items.some(item => item.productId === id);
+        if (!matches) continue;
+        const remaining = order.items.filter(item => item.productId !== id);
+        if (remaining.length === 0) {
+          await ctx.db.delete(order._id);
+          deletedOrders++;
+        } else {
+          const subtotal = remaining.reduce((s, it) => s + it.price * it.quantity, 0);
+          const orderDiscount = order.orderDiscount ?? 0;
+          await ctx.db.patch(order._id, {
+            items: remaining,
+            subtotal,
+            totalAmount: Math.max(0, subtotal - orderDiscount),
+            updatedAt: Date.now(),
+          });
+          trimmedOrders++;
+        }
+      }
+
+      // Reservations: same logic, plus the legacy single-item shape.
+      for (const r of reservations) {
+        const isLegacyMatch = r.productId === id;
+        const itemMatches = r.items?.some(item => item.productId === id) ?? false;
+        if (!isLegacyMatch && !itemMatches) continue;
+
+        if (isLegacyMatch && !r.items) {
+          // Legacy single-item reservation pointed at this product — delete entirely.
+          await ctx.db.delete(r._id);
+          deletedReservations++;
+          continue;
+        }
+
+        const remaining = (r.items ?? []).filter(item => item.productId !== id);
+        if (remaining.length === 0) {
+          await ctx.db.delete(r._id);
+          deletedReservations++;
+        } else {
+          const subtotal = remaining.reduce((s, it) => s + it.reservedPrice * it.quantity, 0);
+          const orderDiscount = r.orderDiscount ?? 0;
+          const totalQuantity = remaining.reduce((s, it) => s + it.quantity, 0);
+          await ctx.db.patch(r._id, {
+            items: remaining,
+            subtotal,
+            totalAmount: Math.max(0, subtotal - orderDiscount),
+            totalQuantity,
+            updatedAt: Date.now(),
+          });
+          trimmedReservations++;
+        }
+      }
+
+      // Expenses tied to this product (restocking + mortality + internal_use).
+      const productExpenses = await ctx.db
+        .query("expenses")
+        .withIndex("by_product", (q) => q.eq("productId", id))
+        .collect();
+      for (const e of productExpenses) {
+        await ctx.db.delete(e._id);
+        deletedExpenses++;
+      }
+    }
+
+    // Always-cascade: stock + movements + fish/tank metadata + cart/wishlist refs.
+    const [stockRecords, fishRows, tankRows, cartRows, wishlistRows, movements] = await Promise.all([
+      ctx.db.query("stockRecords").withIndex("by_product", (q) => q.eq("productId", id)).collect(),
+      ctx.db.query("fish").withIndex("by_product", (q) => q.eq("productId", id)).collect(),
+      ctx.db.query("tank").withIndex("by_product", (q) => q.eq("productId", id)).collect(),
+      ctx.db.query("cart").collect(),
+      ctx.db.query("wishlist").collect(),
+      ctx.db.query("stockMovements").withIndex("by_product", (q) => q.eq("productId", id)).collect(),
+    ]);
+
+    let deletedBatches = 0;
+    let deletedMovements = 0;
+    for (const m of movements) {
+      await ctx.db.delete(m._id);
+      deletedMovements++;
+    }
+    for (const rec of stockRecords) {
+      await ctx.db.delete(rec._id);
+      deletedBatches++;
+    }
+    for (const f of fishRows) await ctx.db.delete(f._id);
+    for (const t of tankRows) await ctx.db.delete(t._id);
+    for (const c of cartRows.filter(c => c.productId === id)) await ctx.db.delete(c._id);
+    for (const w of wishlistRows.filter(w => w.productId === id)) await ctx.db.delete(w._id);
+
     await ctx.db.delete(id);
-    return { success: true, message: "Product deleted successfully" };
+
+    const parts = [
+      `${deletedBatches} batch${deletedBatches === 1 ? '' : 'es'}`,
+      `${deletedMovements} movement${deletedMovements === 1 ? '' : 's'}`,
+    ];
+    if (forceDelete) {
+      if (deletedOrders || trimmedOrders) parts.push(`${deletedOrders} order${deletedOrders === 1 ? '' : 's'} deleted, ${trimmedOrders} trimmed`);
+      if (deletedReservations || trimmedReservations) parts.push(`${deletedReservations} reservation${deletedReservations === 1 ? '' : 's'} deleted, ${trimmedReservations} trimmed`);
+      if (deletedExpenses) parts.push(`${deletedExpenses} expense${deletedExpenses === 1 ? '' : 's'}`);
+    }
+
+    return {
+      success: true,
+      deleted: true,
+      forced: forceDelete ?? false,
+      deletedBatches,
+      deletedMovements,
+      deletedOrders,
+      trimmedOrders,
+      deletedReservations,
+      trimmedReservations,
+      deletedExpenses,
+      message: `Product ${forceDelete ? 'force-' : ''}deleted (${parts.join(', ')}).`,
+    };
+  },
+});
+
+// Sweep orphaned records — stockRecords / movements / fish / tank / cart / wishlist
+// rows whose productId no longer points to an existing product. Created by legacy
+// deletes that didn't cascade. Safe to run repeatedly.
+export const cleanupOrphanedRecords = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const products = await ctx.db.query("products").collect();
+    const validIds = new Set<string>(products.map(p => p._id));
+
+    const [stockRecords, movements, fishRows, tankRows, cartRows, wishlistRows] = await Promise.all([
+      ctx.db.query("stockRecords").collect(),
+      ctx.db.query("stockMovements").collect(),
+      ctx.db.query("fish").collect(),
+      ctx.db.query("tank").collect(),
+      ctx.db.query("cart").collect(),
+      ctx.db.query("wishlist").collect(),
+    ]);
+
+    let removedBatches = 0;
+    let removedMovements = 0;
+    let removedFish = 0;
+    let removedTank = 0;
+    let removedCart = 0;
+    let removedWishlist = 0;
+
+    for (const m of movements) {
+      if (!validIds.has(m.productId as unknown as string)) {
+        await ctx.db.delete(m._id);
+        removedMovements++;
+      }
+    }
+    for (const r of stockRecords) {
+      if (!validIds.has(r.productId as unknown as string)) {
+        await ctx.db.delete(r._id);
+        removedBatches++;
+      }
+    }
+    for (const f of fishRows) {
+      if (!validIds.has(f.productId as unknown as string)) {
+        await ctx.db.delete(f._id);
+        removedFish++;
+      }
+    }
+    for (const t of tankRows) {
+      if (!validIds.has(t.productId as unknown as string)) {
+        await ctx.db.delete(t._id);
+        removedTank++;
+      }
+    }
+    for (const c of cartRows) {
+      if (!validIds.has(c.productId as unknown as string)) {
+        await ctx.db.delete(c._id);
+        removedCart++;
+      }
+    }
+    for (const w of wishlistRows) {
+      if (!validIds.has(w.productId as unknown as string)) {
+        await ctx.db.delete(w._id);
+        removedWishlist++;
+      }
+    }
+
+    return {
+      success: true,
+      removedBatches,
+      removedMovements,
+      removedFish,
+      removedTank,
+      removedCart,
+      removedWishlist,
+      total: removedBatches + removedMovements + removedFish + removedTank + removedCart + removedWishlist,
+    };
   },
 });
 

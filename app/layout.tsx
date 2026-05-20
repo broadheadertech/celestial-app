@@ -6,11 +6,11 @@ import { ReservationProvider } from "@/context/ReservationContext";
 import ClientReservationOverlay from "@/components/ui/ClientReservationOverlay";
 
 export const metadata: Metadata = {
-  title: "Dragon Cave Inventory",
+  title: "Dragon's Cave — Admin",
   description:
-    "Premium aquatic products and services - Your trusted partner for aquarium fish, tanks, and accessories.",
-  keywords: ["aquarium", "fish", "tanks", "aquatic", "Philippines"],
-  authors: [{ name: "Dragon Cave Inventory" }],
+    "Dragon's Cave — Home of Premium Arowanas. Admin console for inventory, reservations, and point of sale.",
+  keywords: ["arowana", "aquarium", "fish", "tanks", "aquatic", "Philippines", "Dragon's Cave"],
+  authors: [{ name: "Dragon's Cave" }],
 };
 
 export const viewport: Viewport = {
@@ -18,7 +18,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  themeColor: "#FF6B00",
+  themeColor: "#A02323",
   viewportFit: "cover",
 };
 
@@ -31,6 +31,12 @@ export default function RootLayout({
     <html lang="en">
       <head>
         <link rel="icon" href="/favicon.ico" />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,700;12..96,800&family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600;700&display=swap"
+          rel="stylesheet"
+        />
       </head>
       <body className="antialiased">
         <ConvexProvider>

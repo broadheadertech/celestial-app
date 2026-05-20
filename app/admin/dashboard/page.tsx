@@ -2,403 +2,494 @@
 
 import React, { useState, useMemo } from 'react';
 import {
+  Bell,
   BarChart3,
-  Users,
   Package,
   ShoppingBag,
-  DollarSign,
-  Activity,
-  RefreshCw,
-  AlertCircle,
-  CheckCircle,
-  Clock,
-  Bell,
+  Zap,
+  Calendar,
+  Wallet,
+  TrendingUp,
+  AlertTriangle,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
+import { useAuthStore } from '@/store/auth';
 import BottomNavbar from '@/components/common/BottomNavbar';
 import NotificationModal from '@/components/modal/NotificationModal';
 import SafeAreaProvider from '@/components/provider/SafeAreaProvider';
 
-const formatCurrency = (amount: number) => {
-  return `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`;
+const fmtPHP = (n: number) =>
+  `₱${n.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+const fmtPHPshort = (n: number) => {
+  if (n >= 1_000_000) return `₱${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `₱${(n / 1_000).toFixed(1)}k`;
+  return `₱${Math.round(n).toLocaleString('en-PH')}`;
 };
 
-const getOrderStatusColor = (status: string) => {
-  switch (status) {
-    case 'completed':
-    case 'delivered': return 'text-success';
-    case 'processing': return 'text-warning';
-    case 'pending': return 'text-muted';
-    case 'cancelled': return 'text-error';
-    default: return 'text-muted';
-  }
-};
-
-const getOrderStatusIcon = (status: string) => {
-  switch (status) {
-    case 'completed':
-    case 'delivered': return CheckCircle;
-    case 'processing': return RefreshCw;
-    case 'pending': return Clock;
-    case 'cancelled': return AlertCircle;
-    default: return Clock;
-  }
-};
+const greetingForHour = (h: number) =>
+  h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
 
 function AdminDashboardContent() {
   const router = useRouter();
+  const { user } = useAuthStore();
   const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
 
-  // Convex queries
+  // ─── Convex queries (unchanged wiring) ───
   const dashboardStats = useQuery(api.services.admin.getDashboardStats);
-  const recentOrders = useQuery(api.services.admin.getRecentOrders, { limit: 5 });
+  const recentOrders = useQuery(api.services.admin.getRecentOrders, { limit: 6 });
   const notificationCounts = useQuery(api.services.notifications.getNotificationCounts);
-  const products = useQuery(api.services.admin.getAllProductsAdmin);
+  const products = useQuery(api.services.admin.getAllProductsAdmin, {});
 
-  // Test notification mutation
-  const createTestNotificationMutation = useMutation(api.services.notifications.createTestNotification);
+  const createTestNotificationMutation = useMutation(
+    api.services.notifications.createTestNotification,
+  );
+  // Keep the test-notification handler referenceable by name (unused but harmless).
+  void createTestNotificationMutation;
 
-  // Calculate low stock products
   const lowStockProducts = useMemo(() => {
     if (!products) return [];
     return products
-      .filter(product => product.stock <= 5)
-      .slice(0, 4)
-      .map(product => ({
-        ...product,
-        categoryName: product.categoryName || 'Unknown Category'
+      .filter((p) => p.stock <= 5 && p.isActive)
+      .sort((a, b) => a.stock - b.stock)
+      .slice(0, 5)
+      .map((p) => ({
+        _id: p._id,
+        name: p.name,
+        stock: p.stock,
+        categoryName: p.categoryName || 'Uncategorized',
       }));
   }, [products]);
 
-  // Get unread notifications count
   const unreadCount = notificationCounts?.unread || 0;
 
-  // Test notification handler
-  const handleTestNotification = async (type: string) => {
-    try {
-      await createTestNotificationMutation({ type });
-    } catch (error) {
-    }
-  };
+  // ─── Today header ───
+  const now = new Date();
+  const greeting = greetingForHour(now.getHours());
+  const dateLabel = now.toLocaleDateString('en-PH', {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+  });
+  const firstName = user?.firstName?.trim() || 'there';
 
-  // Stats cards data with real data
-  const statsCards = useMemo(() => {
-    if (!dashboardStats) return [];
-
-    const pendingCount = dashboardStats.pendingOrders || 0;
-    const totalProducts = dashboardStats.totalProducts || 0;
-    const newUsers = dashboardStats.newUsersThisMonth || 0;
-    const profitMargin = dashboardStats.totalSales > 0
-      ? ((dashboardStats.grossProfit / dashboardStats.totalSales) * 100).toFixed(1)
-      : '0';
-
-    return [
-      {
-        id: 'sales',
-        title: 'Total Sales',
-        value: formatCurrency(dashboardStats.totalSales || 0),
-        change: `${dashboardStats.totalOrdersCount || 0} orders`,
-        icon: DollarSign,
-        color: 'text-success',
-        bgColor: 'bg-success/15'
-      },
-      {
-        id: 'orders',
-        title: 'Total Orders',
-        value: dashboardStats.totalOrdersCount?.toString() || '0',
-        change: `+${pendingCount} pending`,
-        icon: ShoppingBag,
-        color: 'text-info',
-        bgColor: 'bg-info/15'
-      },
-      {
-        id: 'profit',
-        title: 'Gross Profit',
-        value: formatCurrency(dashboardStats.grossProfit || 0),
-        change: `${profitMargin}% margin`,
-        icon: BarChart3,
-        color: 'text-primary',
-        bgColor: 'bg-primary/15'
-      },
-      {
-        id: 'products',
-        title: 'Active Products',
-        value: dashboardStats.activeProducts?.toString() || '0',
-        change: `${totalProducts} total`,
-        icon: Package,
-        color: 'text-warning',
-        bgColor: 'bg-warning/15'
-      },
-    ];
-  }, [dashboardStats]);
+  // ─── KPI strip ───
+  const totalSales = dashboardStats?.totalSales || 0;
+  const totalOrders = dashboardStats?.totalOrdersCount || 0;
+  const pendingOrders = dashboardStats?.pendingOrders || 0;
+  const grossProfit = dashboardStats?.grossProfit || 0;
+  const profitMargin =
+    totalSales > 0 ? ((grossProfit / totalSales) * 100).toFixed(1) : '—';
+  const activeProducts = dashboardStats?.activeProducts || 0;
+  const totalProducts = dashboardStats?.totalProducts || 0;
+  const avgTicket = totalOrders > 0 ? totalSales / totalOrders : 0;
 
   return (
-    <div className="min-h-screen bg-background text-foreground pb-20 sm:pb-6">
-      {/* Header - Mobile Optimized with Safe Area */}
-      <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-white/10 safe-area-top">
-        <div className="px-3 sm:px-6 py-3 sm:py-4">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex-1 min-w-0">
-              <h1 className="text-lg sm:text-xl font-bold text-foreground truncate">Dashboard</h1>
-              <p className="text-xs sm:text-sm text-muted truncate hidden xs:block">Welcome back! Here&apos;s your overview.</p>
-            </div>
-            <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
-              {/* Notification Bell */}
-              <button
-                onClick={() => setIsNotificationModalOpen(true)}
-                className="relative p-2 sm:p-2.5 rounded-lg bg-secondary border border-white/10 hover:bg-white/10 active:scale-95 transition-all touch-manipulation"
-                title="Notifications"
+    <div
+      className="min-h-screen pb-24 sm:pb-6"
+      style={{ background: 'var(--bg)', color: 'var(--ink)' }}
+    >
+      {/* ─── Sticky header ─── */}
+      <header
+        className="sticky top-0 z-40 backdrop-blur-sm border-b safe-area-top"
+        style={{ background: 'oklch(0.135 0.005 25 / 0.85)', borderColor: 'var(--line)' }}
+      >
+        <div className="px-4 sm:px-6 py-3 sm:py-4 max-w-7xl mx-auto flex items-center justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="label-eyebrow truncate">{dateLabel}</p>
+            <h1
+              className="display text-lg sm:text-xl truncate"
+              style={{ fontVariationSettings: '"opsz" 24, "wght" 700' }}
+            >
+              Dashboard
+            </h1>
+          </div>
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+            <button
+              onClick={() => setIsNotificationModalOpen(true)}
+              className="relative p-2 sm:p-2.5 rounded-lg border hover:opacity-90"
+              style={{ background: 'var(--surface-2)', borderColor: 'var(--line)' }}
+              title="Notifications"
+            >
+              <Bell className="w-4 h-4 sm:w-5 sm:h-5" style={{ color: 'var(--ink)' }} />
+              {unreadCount > 0 && (
+                <span
+                  className="absolute -top-1 -right-1 text-[10px] sm:text-xs rounded-full min-w-[18px] h-[18px] sm:min-w-[20px] sm:h-[20px] inline-flex items-center justify-center font-bold px-1"
+                  style={{ background: 'var(--red)', color: 'oklch(0.99 0 0)' }}
+                >
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
+            </button>
+            <button
+              onClick={() => router.push('/admin/analytics')}
+              className="p-2 sm:p-2.5 rounded-lg border hidden xs:flex"
+              style={{ background: 'var(--surface-2)', borderColor: 'var(--line)' }}
+              title="Analytics"
+            >
+              <BarChart3 className="w-4 h-4 sm:w-5 sm:h-5" style={{ color: 'var(--ink)' }} />
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <div className="px-4 sm:px-6 py-4 sm:py-6 max-w-7xl mx-auto space-y-5">
+        {/* ─── HERO STRIP ─── */}
+        <section
+          className="relative overflow-hidden rounded-[18px] border p-5 sm:p-7"
+          style={{
+            background:
+              'linear-gradient(135deg, var(--surface) 0%, var(--surface) 60%, var(--red-wash) 100%)',
+            borderColor: 'var(--line)',
+            boxShadow: 'var(--shadow-card)',
+          }}
+        >
+          <div className="caustics-line absolute top-0 left-5 right-5" />
+          <div className="relative max-w-2xl">
+            <p className="label-eyebrow mb-2">{dateLabel}</p>
+            <h2
+              className="display-xl mb-3"
+              style={{
+                fontSize: 'clamp(28px, 6vw, 52px)',
+                color: 'var(--ink)',
+              }}
+            >
+              {greeting},{' '}
+              <em
+                className="not-italic"
+                style={{
+                  fontStyle: 'italic',
+                  color: 'var(--red)',
+                  fontVariationSettings: '"opsz" 96, "wght" 700',
+                }}
               >
-                <Bell className="w-4 h-4 sm:w-5 sm:h-5 text-foreground" />
-                {unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-error text-white text-[10px] sm:text-xs rounded-full min-w-[18px] h-[18px] sm:min-w-[20px] sm:h-[20px] flex items-center justify-center font-medium px-1">
-                    {unreadCount > 9 ? '9+' : unreadCount}
-                  </span>
-                )}
+                {firstName}
+              </em>
+              .
+            </h2>
+            <p
+              className="text-sm sm:text-base leading-relaxed"
+              style={{ color: 'var(--ink-3)' }}
+            >
+              {totalOrders > 0 ? (
+                <>
+                  <strong style={{ color: 'var(--ink)' }}>{fmtPHP(totalSales)}</strong>{' '}
+                  tendered across {totalOrders} orders — {profitMargin}% gross margin so far.
+                  {pendingOrders > 0 && (
+                    <>
+                      {' '}
+                      You have{' '}
+                      <strong style={{ color: 'var(--red-hi)' }}>{pendingOrders} pending</strong>{' '}
+                      to review.
+                    </>
+                  )}
+                </>
+              ) : (
+                <>The store is quiet — no orders yet today. Open the register and start tendering.</>
+              )}
+            </p>
+            <div className="flex gap-2 mt-5 flex-wrap">
+              <button
+                onClick={() => router.push('/admin/pos')}
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-[10px] text-sm font-bold border"
+                style={{
+                  background: 'var(--red)',
+                  borderColor: 'var(--red-deep)',
+                  color: 'oklch(0.99 0 0)',
+                }}
+              >
+                <Zap className="w-4 h-4" />
+                Open Register
               </button>
               <button
-                onClick={() => router.push('/admin/analytics')}
-                className="p-2 sm:p-2.5 rounded-lg bg-secondary border border-white/10 hover:bg-white/10 active:scale-95 transition-all touch-manipulation hidden xs:flex"
-                title="View Analytics"
+                onClick={() => router.push('/admin/orders')}
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-[10px] text-sm font-semibold border"
+                style={{
+                  background: 'var(--surface-2)',
+                  borderColor: 'var(--line)',
+                  color: 'var(--ink)',
+                }}
               >
-                <BarChart3 className="w-4 h-4 sm:w-5 sm:h-5 text-foreground" />
+                <Calendar className="w-4 h-4" />
+                Orders {pendingOrders > 0 ? `(${pendingOrders})` : ''}
               </button>
               <button
-                onClick={() => router.push('/admin/settings')}
-                className="p-2 sm:p-2.5 rounded-lg bg-secondary border border-white/10 hover:bg-white/10 active:scale-95 transition-all touch-manipulation hidden sm:flex"
-                title="Settings"
+                onClick={() => router.push('/admin/inventory')}
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-[10px] text-sm font-semibold border"
+                style={{
+                  background: 'transparent',
+                  borderColor: 'var(--line)',
+                  color: 'var(--ink-2)',
+                }}
               >
-                <Activity className="w-4 h-4 sm:w-5 sm:h-5 text-foreground" />
+                <Package className="w-4 h-4" />
+                Inventory
               </button>
             </div>
           </div>
-        </div>
-      </div>
+        </section>
 
-      {/* Main Content with Safe Area Horizontal */}
-      <div className="px-3 sm:px-6 py-3 sm:py-4 max-w-7xl mx-auto">
-        {/* Stats Cards - Mobile First Grid */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 mb-4 sm:mb-6">
-          {statsCards.map((stat) => {
-            const IconComponent = stat.icon;
-            return (
-              <div
-                key={stat.id}
-                className="bg-secondary/40 border border-primary/10 rounded-lg sm:rounded-xl p-3 sm:p-4 backdrop-blur-sm hover:border-primary/20 hover:bg-secondary/50 transition-all duration-200 group"
-              >
-                <div className="flex items-start justify-between mb-2 sm:mb-2.5">
-                  <div className={`p-1.5 sm:p-2 rounded-md ${stat.bgColor} group-hover:scale-105 transition-transform`}>
-                    <IconComponent className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${stat.color}`} />
-                  </div>
-                  <span className={`text-[10px] sm:text-xs font-medium px-1.5 sm:px-2 py-0.5 rounded-md whitespace-nowrap ${
-                    stat.change.startsWith('+')
-                      ? 'text-success bg-success/15'
-                      : 'text-muted bg-muted/15'
-                  }`}>
-                    {stat.change}
-                  </span>
-                </div>
-                <div className="space-y-0.5 sm:space-y-1">
-                  <p className="text-base sm:text-lg font-bold text-foreground leading-none truncate">{stat.value}</p>
-                  <p className="text-[10px] sm:text-xs text-muted/70 leading-tight line-clamp-2">{stat.title}</p>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+        {/* ─── KPI STRIP ─── */}
+        <section
+          className="grid gap-3"
+          style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}
+        >
+          <KpiCard
+            label="Sales"
+            value={fmtPHPshort(totalSales)}
+            sub={fmtPHP(totalSales)}
+            icon={<Wallet className="w-3.5 h-3.5" />}
+            tone="jade"
+          />
+          <KpiCard
+            label="Orders"
+            value={String(totalOrders)}
+            sub={`${pendingOrders} pending`}
+            icon={<ShoppingBag className="w-3.5 h-3.5" />}
+            tone="indigo"
+          />
+          <KpiCard
+            label="Avg ticket"
+            value={fmtPHPshort(avgTicket)}
+            sub={`${profitMargin}% gross margin`}
+            icon={<TrendingUp className="w-3.5 h-3.5" />}
+            tone="gold"
+          />
+          <KpiCard
+            label="Active products"
+            value={String(activeProducts)}
+            sub={`${totalProducts} total in catalog`}
+            icon={<Package className="w-3.5 h-3.5" />}
+            tone="red"
+          />
+        </section>
 
-        {/* Recent Orders & Low Stock */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-6">
-          {/* Recent Orders */}
-          <div className="bg-secondary/50 border border-primary/10 rounded-xl p-4 sm:p-6 backdrop-blur-sm">
-            <div className="flex items-center justify-between mb-3 sm:mb-4">
-              <h3 className="text-base sm:text-lg font-bold text-foreground">Recent Orders</h3>
+        {/* ─── BOTTOM: Recent orders + Live alerts ─── */}
+        <section className="grid gap-4 lg:gap-5" style={{ gridTemplateColumns: 'minmax(0, 1.4fr) minmax(0, 1fr)' }}>
+          {/* Recent orders */}
+          <div
+            className="rounded-[14px] border p-4 sm:p-5"
+            style={{ background: 'var(--surface)', borderColor: 'var(--line)', boxShadow: 'var(--shadow-card)' }}
+          >
+            <div className="flex items-center justify-between mb-3">
+              <p className="label-eyebrow">Recent orders</p>
               <button
                 onClick={() => router.push('/admin/orders')}
-                className="text-xs sm:text-sm text-primary hover:text-primary/80 transition-colors font-medium touch-manipulation"
+                className="text-[11px] font-bold"
+                style={{ color: 'var(--red-hi)' }}
               >
-                View All
+                All orders →
               </button>
             </div>
 
             {!recentOrders ? (
-              <div className="text-center py-6 sm:py-8">
-                <RefreshCw className="w-5 h-5 sm:w-6 sm:h-6 animate-spin text-primary mx-auto mb-2" />
-                <p className="text-xs sm:text-sm text-muted">Loading...</p>
+              <div className="py-10 text-center text-xs" style={{ color: 'var(--ink-4)' }}>
+                Loading…
               </div>
             ) : recentOrders.length === 0 ? (
-              <div className="text-center py-6 sm:py-8">
-                <ShoppingBag className="w-6 h-6 sm:w-8 sm:h-8 text-muted mx-auto mb-2" />
-                <p className="text-xs sm:text-sm text-muted">No recent orders</p>
+              <div className="py-10 text-center text-xs" style={{ color: 'var(--ink-4)' }}>
+                No recent orders.
               </div>
             ) : (
-              <>
-                {/* Desktop table */}
-                <div className="hidden sm:block overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="text-left text-xs text-muted border-b border-white/10">
-                        <th className="pb-2 font-medium">Customer</th>
-                        <th className="pb-2 font-medium">Type</th>
-                        <th className="pb-2 font-medium text-right">Amount</th>
-                        <th className="pb-2 font-medium text-right">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {recentOrders.map((order) => {
-                        const StatusIcon = getOrderStatusIcon(order.status);
-                        return (
-                          <tr key={order._id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
-                            <td className="py-2.5 text-white font-medium">{order.customerName}</td>
-                            <td className="py-2.5 text-muted capitalize">{order.type}</td>
-                            <td className="py-2.5 text-white font-bold text-right">{formatCurrency(order.totalAmount)}</td>
-                            <td className="py-2.5 text-right">
-                              <span className={`inline-flex items-center gap-1 text-xs capitalize ${getOrderStatusColor(order.status)}`}>
-                                <StatusIcon className="w-3 h-3" />
-                                {order.status}
-                              </span>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* Mobile cards */}
-                <div className="sm:hidden space-y-2">
-                  {recentOrders.map((order) => {
-                    const StatusIcon = getOrderStatusIcon(order.status);
-                    return (
-                      <div key={order._id} className="flex items-center justify-between gap-2 p-2.5 bg-background/50 rounded-lg border border-white/5">
-                        <div className="flex items-center gap-2 flex-1 min-w-0">
-                          <div className="p-1.5 rounded-lg bg-primary/10 flex-shrink-0">
-                            <ShoppingBag className="w-3.5 h-3.5 text-primary" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium text-foreground text-xs truncate">{order.customerName}</p>
-                            <p className="text-[10px] text-muted truncate">{order.type} • {order.itemCount || 1} items</p>
-                          </div>
+              <div className="flex flex-col">
+                {recentOrders.map((o, i) => {
+                  const isLast = i === recentOrders.length - 1;
+                  const ts = new Date(o.createdAt || Date.now());
+                  const time = ts.toLocaleTimeString('en-PH', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  });
+                  const payTone =
+                    o.status === 'cancelled'
+                      ? { bg: 'var(--red-wash)', fg: 'var(--red-hi)' }
+                      : o.status === 'completed' || o.status === 'delivered'
+                      ? { bg: 'var(--jade-wash)', fg: 'var(--jade)' }
+                      : { bg: 'var(--surface-hi)', fg: 'var(--ink-3)' };
+                  return (
+                    <div
+                      key={o._id}
+                      className="grid items-center gap-3 py-2.5 px-1"
+                      style={{
+                        gridTemplateColumns: 'auto minmax(0, 1fr) auto auto',
+                        borderBottom: isLast ? 'none' : '1px solid var(--line-soft)',
+                      }}
+                    >
+                      <span
+                        className="dc-mono text-[11px] min-w-[40px]"
+                        style={{ color: 'var(--ink-4)' }}
+                      >
+                        {time}
+                      </span>
+                      <div className="min-w-0">
+                        <div className="text-[13px] font-medium truncate" style={{ color: 'var(--ink)' }}>
+                          {o.customerName || 'Walk-in'}
                         </div>
-                        <div className="text-right flex-shrink-0">
-                          <p className="font-bold text-foreground text-xs">{formatCurrency(order.totalAmount)}</p>
-                          <div className="flex items-center justify-end gap-1">
-                            <StatusIcon className={`w-2.5 h-2.5 ${getOrderStatusColor(order.status)}`} />
-                            <span className={`text-[10px] capitalize ${getOrderStatusColor(order.status)}`}>{order.status}</span>
-                          </div>
+                        <div className="text-[11px]" style={{ color: 'var(--ink-3)' }}>
+                          {o.type === 'reservation' ? 'Reservation' : 'Sale'} ·{' '}
+                          {o.itemCount || 1} item{(o.itemCount || 1) === 1 ? '' : 's'}
                         </div>
                       </div>
-                    );
-                  })}
-                </div>
-              </>
+                      <span
+                        className="inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full capitalize"
+                        style={{ background: payTone.bg, color: payTone.fg }}
+                      >
+                        {o.status}
+                      </span>
+                      <span
+                        className="dc-mono text-[13px] font-bold text-right"
+                        style={{ minWidth: 80, color: 'var(--ink)' }}
+                      >
+                        {fmtPHP(o.totalAmount || 0)}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
             )}
           </div>
 
-          {/* Low Stock Alert */}
-          <div className="bg-secondary/50 border border-primary/10 rounded-xl p-4 sm:p-6 backdrop-blur-sm">
-            <div className="flex items-center justify-between mb-3 sm:mb-4">
-              <h3 className="text-base sm:text-lg font-bold text-foreground">Low Stock Alert</h3>
+          {/* Live alerts */}
+          <div
+            className="rounded-[14px] border p-4 sm:p-5"
+            style={{ background: 'var(--surface)', borderColor: 'var(--line)', boxShadow: 'var(--shadow-card)' }}
+          >
+            <div className="flex items-center justify-between mb-3">
+              <p className="label-eyebrow">Live alerts</p>
               <button
-                onClick={() => router.push('/admin/products')}
-                className="text-xs sm:text-sm text-primary hover:text-primary/80 transition-colors font-medium touch-manipulation"
+                onClick={() => router.push('/admin/inventory/expiring')}
+                className="text-[11px] font-bold"
+                style={{ color: 'var(--red-hi)' }}
               >
-                Manage
+                View →
               </button>
             </div>
-            <div className="space-y-2 sm:space-y-3">
-              {!lowStockProducts ? (
-                <div className="text-center py-6 sm:py-8">
-                  <RefreshCw className="w-5 h-5 sm:w-6 sm:h-6 animate-spin text-primary mx-auto mb-2" />
-                  <p className="text-xs sm:text-sm text-muted">Loading low stock products...</p>
-                </div>
-              ) : lowStockProducts.length === 0 ? (
-                <div className="text-center py-6 sm:py-8">
-                  <CheckCircle className="w-6 h-6 sm:w-8 sm:h-8 text-success mx-auto mb-2" />
-                  <p className="text-xs sm:text-sm text-muted">All products are well stocked!</p>
-                </div>
-              ) : (
-                lowStockProducts.map((product) => (
-                  <div 
-                    key={product._id} 
-                    className="flex items-center justify-between gap-2 p-2.5 sm:p-3 bg-background/50 rounded-lg border border-white/5 hover:border-white/10 transition-colors"
-                  >
-                    <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
-                      <div className="p-1.5 sm:p-2 rounded-lg bg-warning/10 flex-shrink-0">
-                        <Package className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-warning" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-foreground text-xs sm:text-sm truncate">{product.name}</p>
-                        <p className="text-[10px] sm:text-xs text-muted truncate">{product.categoryName}</p>
-                      </div>
-                    </div>
-                    <div className="text-right flex-shrink-0">
-                      <div className={`px-2 py-1 rounded text-[10px] sm:text-xs font-medium whitespace-nowrap ${
-                        product.stock === 0
-                          ? 'bg-error/10 text-error'
-                          : 'bg-warning/10 text-warning'
-                      }`}>
-                        {product.stock === 0 ? 'Out' : `${product.stock} left`}
-                      </div>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        </div>
 
-        {/* Quick Actions - Mobile Optimized Grid */}
-        {/* <div className="mt-4 sm:mt-8 bg-secondary/50 border border-primary/10 rounded-xl p-4 sm:p-6 backdrop-blur-sm">
-          <h3 className="text-base sm:text-lg font-bold text-foreground mb-3 sm:mb-4">Quick Actions</h3>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
-            <button
-              onClick={() => router.push('/admin/products/form')}
-              className="flex flex-col items-center justify-center p-3 sm:p-4 bg-primary/10 border border-primary/20 rounded-lg hover:bg-primary/20 active:scale-95 transition-all touch-manipulation min-h-[80px] sm:min-h-[100px]"
-            >
-              <Package className="w-5 h-5 sm:w-6 sm:h-6 text-primary mb-1.5 sm:mb-2" />
-              <span className="text-xs sm:text-sm font-medium text-primary text-center">Add Product</span>
-            </button>
-            <button
-              onClick={() => router.push('/admin/orders')}
-              className="flex flex-col items-center justify-center p-3 sm:p-4 bg-info/10 border border-info/20 rounded-lg hover:bg-info/20 active:scale-95 transition-all touch-manipulation min-h-[80px] sm:min-h-[100px]"
-            >
-              <ShoppingBag className="w-5 h-5 sm:w-6 sm:h-6 text-info mb-1.5 sm:mb-2" />
-              <span className="text-xs sm:text-sm font-medium text-info text-center">View Orders</span>
-            </button>
-            <button
-              onClick={() => router.push('/admin/users')}
-              className="flex flex-col items-center justify-center p-3 sm:p-4 bg-warning/10 border border-warning/20 rounded-lg hover:bg-warning/20 active:scale-95 transition-all touch-manipulation min-h-[80px] sm:min-h-[100px]"
-            >
-              <Users className="w-5 h-5 sm:w-6 sm:h-6 text-warning mb-1.5 sm:mb-2" />
-              <span className="text-xs sm:text-sm font-medium text-warning text-center">Manage Users</span>
-            </button>
-            <button
-              onClick={() => router.push('/admin/analytics')}
-              className="flex flex-col items-center justify-center p-3 sm:p-4 bg-success/10 border border-success/20 rounded-lg hover:bg-success/20 active:scale-95 transition-all touch-manipulation min-h-[80px] sm:min-h-[100px]"
-            >
-              <BarChart3 className="w-5 h-5 sm:w-6 sm:h-6 text-success mb-1.5 sm:mb-2" />
-              <span className="text-xs sm:text-sm font-medium text-success text-center">View Analytics</span>
-            </button>
+            {lowStockProducts.length === 0 ? (
+              <div
+                className="text-center py-8 text-xs rounded-[10px] border"
+                style={{
+                  color: 'var(--ink-3)',
+                  background: 'var(--jade-wash)',
+                  borderColor: 'oklch(0.72 0.13 165 / 0.3)',
+                }}
+              >
+                Everything is stocked. Nothing to flag.
+              </div>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {lowStockProducts.map((p) => {
+                  const tone =
+                    p.stock === 0
+                      ? { bg: 'var(--red-wash)', dot: 'var(--red)', text: 'var(--red-hi)' }
+                      : p.stock <= 2
+                      ? { bg: 'var(--gold-wash)', dot: 'var(--gold)', text: 'var(--gold-deep)' }
+                      : { bg: 'var(--indigo-wash)', dot: 'var(--indigo)', text: 'var(--indigo)' };
+                  return (
+                    <div
+                      key={p._id}
+                      className="grid items-start gap-2.5 p-3 rounded-[10px]"
+                      style={{
+                        gridTemplateColumns: 'auto 1fr auto',
+                        background: tone.bg,
+                      }}
+                    >
+                      <span
+                        className="w-1.5 h-1.5 rounded-full mt-1.5"
+                        style={{
+                          background: tone.dot,
+                          boxShadow: p.stock === 0 ? `0 0 0 4px ${tone.bg}` : 'none',
+                        }}
+                      />
+                      <div className="min-w-0">
+                        <div
+                          className="text-[12.5px] truncate font-medium"
+                          style={{ color: 'var(--ink-2)' }}
+                        >
+                          {p.name}
+                        </div>
+                        <div className="text-[10.5px]" style={{ color: 'var(--ink-3)' }}>
+                          {p.categoryName}
+                        </div>
+                      </div>
+                      <span
+                        className="text-[10px] font-bold whitespace-nowrap"
+                        style={{ color: tone.text }}
+                      >
+                        {p.stock === 0 ? 'Out of stock' : `${p.stock} left`}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
-        </div> */}
+        </section>
       </div>
 
-      {/* Notification Modal */}
       <NotificationModal
         isOpen={isNotificationModalOpen}
         onClose={() => setIsNotificationModalOpen(false)}
       />
-
-      {/* Bottom Navigation */}
       <BottomNavbar />
     </div>
   );
 }
 
-// Main Export with SafeAreaProvider
+function KpiCard({
+  label,
+  value,
+  sub,
+  icon,
+  tone,
+}: {
+  label: string;
+  value: string;
+  sub?: string;
+  icon: React.ReactNode;
+  tone: 'red' | 'jade' | 'gold' | 'indigo';
+}) {
+  const toneMap = {
+    red: { bg: 'var(--red-wash)', fg: 'var(--red-hi)' },
+    jade: { bg: 'var(--jade-wash)', fg: 'var(--jade)' },
+    gold: { bg: 'var(--gold-wash)', fg: 'var(--gold-deep)' },
+    indigo: { bg: 'var(--indigo-wash)', fg: 'var(--indigo)' },
+  } as const;
+  const t = toneMap[tone];
+  return (
+    <div
+      className="rounded-[14px] border p-4"
+      style={{
+        background: 'var(--surface)',
+        borderColor: 'var(--line)',
+        boxShadow: 'var(--shadow-card)',
+      }}
+    >
+      <div className="flex items-center justify-between mb-2.5">
+        <span
+          className="w-7 h-7 rounded-md inline-flex items-center justify-center"
+          style={{ background: t.bg, color: t.fg }}
+        >
+          {icon}
+        </span>
+        <p className="label-eyebrow">{label}</p>
+      </div>
+      <p
+        className="display dc-mono text-[22px] sm:text-[24px] leading-none mb-1"
+        style={{ fontVariationSettings: '"opsz" 36, "wght" 700', color: 'var(--ink)' }}
+      >
+        {value}
+      </p>
+      {sub && (
+        <p className="text-[11px] truncate" style={{ color: 'var(--ink-3)' }}>
+          {sub}
+        </p>
+      )}
+    </div>
+  );
+}
+
 export default function AdminDashboardPage() {
   return (
     <SafeAreaProvider applySafeArea={false}>
