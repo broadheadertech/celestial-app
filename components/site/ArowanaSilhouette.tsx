@@ -49,9 +49,10 @@ export default function ArowanaSilhouette({
 }
 
 export function DragonsCaveMark({
-  size = 32,
+  size = 36,
   rounded = false,
 }: {
+  /** Height of the mark in px. Width scales to the natural aspect ratio (~1.26:1). */
   size?: number;
   /** When true, clip to a rounded square — useful for tight sidebar/header tiles. */
   rounded?: boolean;
@@ -64,12 +65,11 @@ export function DragonsCaveMark({
     <img
       src={src}
       alt="Dragon's Cave"
-      width={size}
       height={size}
       style={{
         display: 'block',
-        width: size,
         height: size,
+        width: 'auto',
         objectFit: 'contain',
         borderRadius: rounded ? Math.round(size * 0.2) : 0,
       }}

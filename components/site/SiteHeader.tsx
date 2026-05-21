@@ -50,7 +50,7 @@ export default function SiteHeader() {
         >
           {/* Brand */}
           <Link href="/" className="flex items-center gap-3">
-            <DragonsCaveMark size={34} />
+            <DragonsCaveMark size={40} />
             <div className="leading-none hidden xs:block">
               <span
                 className="display"
@@ -201,7 +201,7 @@ export default function SiteHeader() {
                 onClick={() => setMobileOpen(false)}
                 className="flex items-center gap-2"
               >
-                <DragonsCaveMark size={28} />
+                <DragonsCaveMark size={32} />
                 <span className="display" style={{ fontSize: 13, fontVariationSettings: '"opsz" 16, "wght" 800' }}>
                   DRAGON&apos;S CAVE
                 </span>

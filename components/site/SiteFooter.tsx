@@ -51,7 +51,7 @@ export default function SiteFooter() {
         >
           <div>
             <div className="flex items-center gap-3.5 mb-4">
-              <DragonsCaveMark size={42} />
+              <DragonsCaveMark size={52} />
               <div>
                 <div
                   className="display"

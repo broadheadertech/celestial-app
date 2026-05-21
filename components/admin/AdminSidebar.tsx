@@ -323,7 +323,7 @@ export default function AdminSidebar() {
   );
 }
 
-function DragonsCaveMark({ size = 32 }: { size?: number }) {
+function DragonsCaveMark({ size = 36 }: { size?: number }) {
   const theme = useTheme((s) => s.theme);
   const src = theme === 'dark' ? '/img/dc-logo-dark.png' : '/img/dc-logo-light.png';
   return (
@@ -331,12 +331,11 @@ function DragonsCaveMark({ size = 32 }: { size?: number }) {
     <img
       src={src}
       alt="Dragon's Cave"
-      width={size}
       height={size}
       style={{
         display: 'block',
-        width: size,
         height: size,
+        width: 'auto',
         objectFit: 'contain',
       }}
       draggable={false}
