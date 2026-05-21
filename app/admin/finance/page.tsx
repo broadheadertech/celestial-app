@@ -390,118 +390,306 @@ function FinanceContent() {
       ) : summary && (
         <div className="px-4 sm:px-6 py-4 sm:py-6 max-w-7xl mx-auto space-y-6">
 
-          {/* Hero Cards — Cash on Hand + Net Profit */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {/* Cash on Hand */}
-            <div className="bg-gradient-to-br from-success/20 to-success/5 rounded-2xl p-5 border border-success/30 relative overflow-hidden">
-              <div className="flex items-start justify-between mb-3">
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <Wallet className="w-4 h-4 text-success" />
-                    <p className="text-[11px] font-semibold text-success/80 uppercase tracking-wider">
-                      {isFiltered ? 'Cash flow · this period' : 'Cash on Hand'}
-                    </p>
-                  </div>
-                </div>
-                <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                  summary.cashOnHand >= 0 ? 'bg-success/20 text-success' : 'bg-error/20 text-error'
-                }`}>
-                  {summary.cashOnHand >= 0 ? 'Positive' : 'Negative'}
-                </span>
-              </div>
-              <p className="text-4xl font-bold text-white mb-1">{fmt(summary.cashOnHand)}</p>
-              {isFiltered && summaryAllTime && (
-                <p className="text-xs mb-2" style={{ color: 'var(--ink-3)' }}>
-                  <span style={{ color: 'var(--ink-4)' }}>Right now (all-time): </span>
-                  <span className="font-semibold dc-mono" style={{ color: 'var(--ink)' }}>
-                    {fmt(summaryAllTime.cashOnHand)}
-                  </span>
-                </p>
-              )}
+          {/* KPI strip — six headline cards */}
+          {(() => {
+            const investment = summary.cashInjections ?? 0;
+            const remittance = summary.operationalByCategory?.investor_remit ?? 0;
+            const irNet = investment - remittance;
+            const irBalanced = investment === 0 && remittance === 0;
+            return (
               <div
-                className="grid gap-2 pt-3 border-t border-white/10 text-xs"
-                style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(80px, 1fr))' }}
+                className="grid gap-3"
+                style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}
               >
-                <div>
-                  <p className="text-white/40">Opening</p>
-                  <p className="text-white font-medium">{fmt(summary.openingBalance)}</p>
-                </div>
-                <div>
-                  <p className="text-success/70">+ Cash in</p>
-                  <p className="text-success font-medium">{fmt(summary.cashRevenue)}</p>
-                </div>
-                <div>
-                  <p className="text-error/70">− Cash out</p>
-                  <p className="text-error font-medium">{fmt(summary.cashExpenses)}</p>
-                </div>
-                {(summary.cashInjections ?? 0) > 0 && (
-                  <div>
-                    <p className="text-success/70">+ Added</p>
-                    <p className="text-success font-medium">{fmt(summary.cashInjections ?? 0)}</p>
+                {/* 1 · Cash on Hand */}
+                <div
+                  className="rounded-2xl border p-5 relative overflow-hidden"
+                  style={{
+                    background:
+                      'linear-gradient(135deg, color-mix(in oklch, var(--jade) 18%, transparent), color-mix(in oklch, var(--jade) 4%, transparent))',
+                    borderColor: 'color-mix(in oklch, var(--jade) 30%, transparent)',
+                  }}
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <Wallet className="w-4 h-4" style={{ color: 'var(--jade)' }} />
+                      <p
+                        className="text-[10px] font-semibold uppercase tracking-wider"
+                        style={{ color: 'color-mix(in oklch, var(--jade) 80%, transparent)' }}
+                      >
+                        {isFiltered ? 'Cash flow · this period' : 'Cash on Hand'}
+                      </p>
+                    </div>
+                    <span
+                      className="px-2 py-0.5 rounded-full text-[10px] font-semibold"
+                      style={{
+                        background:
+                          summary.cashOnHand >= 0
+                            ? 'color-mix(in oklch, var(--jade) 20%, transparent)'
+                            : 'color-mix(in oklch, var(--red) 20%, transparent)',
+                        color: summary.cashOnHand >= 0 ? 'var(--jade)' : 'var(--red-hi)',
+                      }}
+                    >
+                      {summary.cashOnHand >= 0 ? 'Positive' : 'Negative'}
+                    </span>
                   </div>
-                )}
-                {(summary.cashWithdrawals ?? 0) > 0 && (
-                  <div>
-                    <p className="text-error/70">− Taken out</p>
-                    <p className="text-error font-medium">{fmt(summary.cashWithdrawals ?? 0)}</p>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Net Profit */}
-            <div className={`bg-gradient-to-br rounded-2xl p-5 border relative overflow-hidden ${
-              summary.netProfit >= 0
-                ? 'from-primary/20 to-primary/5 border-primary/30'
-                : 'from-error/20 to-error/5 border-error/30'
-            }`}>
-              <div className="flex items-start justify-between mb-3">
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    {summary.netProfit >= 0 ? (
-                      <TrendingUp className="w-4 h-4 text-primary" />
-                    ) : (
-                      <TrendingDown className="w-4 h-4 text-error" />
-                    )}
-                    <p className={`text-[11px] font-semibold uppercase tracking-wider ${
-                      summary.netProfit >= 0 ? 'text-primary/80' : 'text-error/80'
-                    }`}>
-                      {isFiltered ? 'Net profit · this period' : 'Net Profit'}
+                  <p className="text-[28px] font-bold dc-mono leading-tight">{fmt(summary.cashOnHand)}</p>
+                  {isFiltered && summaryAllTime && (
+                    <p className="text-[11px] mt-1.5" style={{ color: 'var(--ink-3)' }}>
+                      <span style={{ color: 'var(--ink-4)' }}>Right now: </span>
+                      <span className="font-semibold dc-mono">{fmt(summaryAllTime.cashOnHand)}</span>
                     </p>
+                  )}
+                  <div className="mt-3 pt-2.5 border-t flex flex-wrap gap-x-3 gap-y-1 text-[11px]" style={{ borderColor: 'var(--line-soft)' }}>
+                    <span style={{ color: 'var(--ink-4)' }}>
+                      Open <span className="font-semibold dc-mono" style={{ color: 'var(--ink-2)' }}>{fmt(summary.openingBalance)}</span>
+                    </span>
+                    <span style={{ color: 'var(--jade)' }}>
+                      +{fmt(summary.cashRevenue)}
+                    </span>
+                    <span style={{ color: 'var(--red-hi)' }}>
+                      −{fmt(summary.cashExpenses)}
+                    </span>
+                    {(summary.cashInjections ?? 0) > 0 && (
+                      <span style={{ color: 'var(--jade)' }}>+{fmt(summary.cashInjections ?? 0)}</span>
+                    )}
+                    {(summary.cashWithdrawals ?? 0) > 0 && (
+                      <span style={{ color: 'var(--red-hi)' }}>−{fmt(summary.cashWithdrawals ?? 0)}</span>
+                    )}
                   </div>
                 </div>
-                <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                  summary.netProfit >= 0 ? 'bg-primary/20 text-primary' : 'bg-error/20 text-error'
-                }`}>
-                  {summary.netMargin}% margin
-                </span>
+
+                {/* 2 · Gross Profit */}
+                <div
+                  className="rounded-2xl border p-5"
+                  style={{
+                    background:
+                      'linear-gradient(135deg, color-mix(in oklch, var(--jade) 14%, transparent), color-mix(in oklch, var(--jade) 3%, transparent))',
+                    borderColor: 'color-mix(in oklch, var(--jade) 24%, transparent)',
+                  }}
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <DollarSign className="w-4 h-4" style={{ color: 'var(--jade)' }} />
+                      <p
+                        className="text-[10px] font-semibold uppercase tracking-wider"
+                        style={{ color: 'color-mix(in oklch, var(--jade) 80%, transparent)' }}
+                      >
+                        Gross Profit
+                      </p>
+                    </div>
+                    <span
+                      className="px-2 py-0.5 rounded-full text-[10px] font-semibold"
+                      style={{
+                        background: 'color-mix(in oklch, var(--jade) 18%, transparent)',
+                        color: 'var(--jade)',
+                      }}
+                    >
+                      {summary.grossMargin}% margin
+                    </span>
+                  </div>
+                  <p className="text-[28px] font-bold dc-mono leading-tight">{fmt(summary.grossProfit)}</p>
+                  <p className="text-[11px] mt-1.5" style={{ color: 'var(--ink-3)' }}>
+                    Revenue {fmt(summary.totalRevenue)} − COGS {fmt(summary.cogs)}
+                  </p>
+                </div>
+
+                {/* 3 · Net Profit */}
+                <div
+                  className="rounded-2xl border p-5"
+                  style={{
+                    background:
+                      summary.netProfit >= 0
+                        ? 'linear-gradient(135deg, color-mix(in oklch, var(--red) 16%, transparent), color-mix(in oklch, var(--red) 4%, transparent))'
+                        : 'linear-gradient(135deg, color-mix(in oklch, var(--red) 22%, transparent), color-mix(in oklch, var(--red) 8%, transparent))',
+                    borderColor:
+                      summary.netProfit >= 0
+                        ? 'color-mix(in oklch, var(--red) 28%, transparent)'
+                        : 'color-mix(in oklch, var(--red) 40%, transparent)',
+                  }}
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      {summary.netProfit >= 0 ? (
+                        <TrendingUp className="w-4 h-4" style={{ color: 'var(--red-hi)' }} />
+                      ) : (
+                        <TrendingDown className="w-4 h-4" style={{ color: 'var(--red-hi)' }} />
+                      )}
+                      <p
+                        className="text-[10px] font-semibold uppercase tracking-wider"
+                        style={{ color: 'color-mix(in oklch, var(--red-hi) 90%, transparent)' }}
+                      >
+                        {isFiltered ? 'Net profit · this period' : 'Net Profit'}
+                      </p>
+                    </div>
+                    <span
+                      className="px-2 py-0.5 rounded-full text-[10px] font-semibold"
+                      style={{
+                        background: 'color-mix(in oklch, var(--red) 20%, transparent)',
+                        color: 'var(--red-hi)',
+                      }}
+                    >
+                      {summary.netMargin}% margin
+                    </span>
+                  </div>
+                  <p className="text-[28px] font-bold dc-mono leading-tight">{fmt(summary.netProfit)}</p>
+                  {isFiltered && summaryAllTime && (
+                    <p className="text-[11px] mt-1.5" style={{ color: 'var(--ink-3)' }}>
+                      <span style={{ color: 'var(--ink-4)' }}>Right now: </span>
+                      <span className="font-semibold dc-mono">{fmt(summaryAllTime.netProfit)}</span>
+                      <span style={{ color: 'var(--ink-4)' }}> · {summaryAllTime.netMargin}%</span>
+                    </p>
+                  )}
+                  <p className="text-[11px] mt-1.5" style={{ color: 'var(--ink-3)' }}>
+                    Gross {fmt(summary.grossProfit)} − OpEx {fmt(summary.totalOperationalExpense)}
+                  </p>
+                </div>
+
+                {/* 4 · Restock Expense */}
+                <div
+                  className="rounded-2xl border p-5"
+                  style={{
+                    background:
+                      'linear-gradient(135deg, color-mix(in oklch, var(--gold) 14%, transparent), color-mix(in oklch, var(--gold) 3%, transparent))',
+                    borderColor: 'color-mix(in oklch, var(--gold) 24%, transparent)',
+                  }}
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <Package className="w-4 h-4" style={{ color: 'var(--gold-deep)' }} />
+                      <p
+                        className="text-[10px] font-semibold uppercase tracking-wider"
+                        style={{ color: 'color-mix(in oklch, var(--gold-deep) 90%, transparent)' }}
+                      >
+                        Restock Expense
+                      </p>
+                    </div>
+                    <span
+                      className="px-2 py-0.5 rounded-full text-[10px] font-semibold dc-mono"
+                      style={{
+                        background: 'color-mix(in oklch, var(--gold) 18%, transparent)',
+                        color: 'var(--gold-deep)',
+                      }}
+                    >
+                      {summary.restockingCount}
+                    </span>
+                  </div>
+                  <p className="text-[28px] font-bold dc-mono leading-tight">{fmt(summary.totalRestockingExpense)}</p>
+                  <p className="text-[11px] mt-1.5" style={{ color: 'var(--ink-3)' }}>
+                    Paid for incoming batches{isFiltered ? ' · this period' : ' (lifetime)'}
+                  </p>
+                </div>
+
+                {/* 5 · Operational Expense */}
+                <div
+                  className="rounded-2xl border p-5"
+                  style={{
+                    background:
+                      'linear-gradient(135deg, color-mix(in oklch, var(--indigo) 16%, transparent), color-mix(in oklch, var(--indigo) 4%, transparent))',
+                    borderColor: 'color-mix(in oklch, var(--indigo) 26%, transparent)',
+                  }}
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <PieChartIcon className="w-4 h-4" style={{ color: 'var(--indigo)' }} />
+                      <p
+                        className="text-[10px] font-semibold uppercase tracking-wider"
+                        style={{ color: 'color-mix(in oklch, var(--indigo) 90%, transparent)' }}
+                      >
+                        Operational Expense
+                      </p>
+                    </div>
+                    <span
+                      className="px-2 py-0.5 rounded-full text-[10px] font-semibold dc-mono"
+                      style={{
+                        background: 'color-mix(in oklch, var(--indigo) 18%, transparent)',
+                        color: 'var(--indigo)',
+                      }}
+                    >
+                      {summary.operationalCount}
+                    </span>
+                  </div>
+                  <p className="text-[28px] font-bold dc-mono leading-tight">{fmt(summary.totalOperationalExpense)}</p>
+                  <p className="text-[11px] mt-1.5" style={{ color: 'var(--ink-3)' }}>
+                    Rent, utilities, salary, marketing, etc.
+                  </p>
+                </div>
+
+                {/* 6 · Investment vs Remittance */}
+                <div
+                  className="rounded-2xl border p-5"
+                  style={{
+                    background:
+                      'linear-gradient(135deg, var(--surface-2), var(--surface))',
+                    borderColor: 'var(--line)',
+                  }}
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <ArrowUpRight className="w-4 h-4" style={{ color: 'var(--ink-2)' }} />
+                      <p
+                        className="text-[10px] font-semibold uppercase tracking-wider"
+                        style={{ color: 'var(--ink-3)' }}
+                      >
+                        Investment vs Remittance
+                      </p>
+                    </div>
+                    {!irBalanced && (
+                      <span
+                        className="px-2 py-0.5 rounded-full text-[10px] font-semibold"
+                        style={{
+                          background:
+                            irNet >= 0
+                              ? 'color-mix(in oklch, var(--jade) 18%, transparent)'
+                              : 'color-mix(in oklch, var(--red) 20%, transparent)',
+                          color: irNet >= 0 ? 'var(--jade)' : 'var(--red-hi)',
+                        }}
+                      >
+                        Net {irNet >= 0 ? '+' : '−'}
+                        {fmt(Math.abs(irNet))}
+                      </span>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 mt-1">
+                    <div>
+                      <p
+                        className="text-[10px] font-semibold uppercase tracking-wider mb-1"
+                        style={{ color: 'var(--ink-4)' }}
+                      >
+                        Investment in
+                      </p>
+                      <p
+                        className="text-[20px] font-bold dc-mono leading-tight"
+                        style={{ color: 'var(--jade)' }}
+                      >
+                        +{fmt(investment)}
+                      </p>
+                      <p className="text-[10px] mt-0.5" style={{ color: 'var(--ink-4)' }}>
+                        Owner / float adds
+                      </p>
+                    </div>
+                    <div>
+                      <p
+                        className="text-[10px] font-semibold uppercase tracking-wider mb-1"
+                        style={{ color: 'var(--ink-4)' }}
+                      >
+                        Remitted out
+                      </p>
+                      <p
+                        className="text-[20px] font-bold dc-mono leading-tight"
+                        style={{ color: 'var(--red-hi)' }}
+                      >
+                        −{fmt(remittance)}
+                      </p>
+                      <p className="text-[10px] mt-0.5" style={{ color: 'var(--ink-4)' }}>
+                        Investor remit category
+                      </p>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <p className="text-4xl font-bold text-white mb-1">{fmt(summary.netProfit)}</p>
-              {isFiltered && summaryAllTime && (
-                <p className="text-xs mb-2" style={{ color: 'var(--ink-3)' }}>
-                  <span style={{ color: 'var(--ink-4)' }}>Right now (all-time): </span>
-                  <span className="font-semibold dc-mono" style={{ color: 'var(--ink)' }}>
-                    {fmt(summaryAllTime.netProfit)}
-                  </span>
-                  <span style={{ color: 'var(--ink-4)' }}> · {summaryAllTime.netMargin}% margin</span>
-                </p>
-              )}
-              <div className="grid grid-cols-3 gap-2 pt-3 border-t border-white/10 text-xs">
-                <div>
-                  <p className="text-white/40">Revenue</p>
-                  <p className="text-white font-medium">{fmt(summary.totalRevenue)}</p>
-                </div>
-                <div>
-                  <p className="text-white/40">COGS</p>
-                  <p className="text-white font-medium">{fmt(summary.cogs)}</p>
-                </div>
-                <div>
-                  <p className="text-white/40">OpEx</p>
-                  <p className="text-white font-medium">{fmt(summary.totalOperationalExpense)}</p>
-                </div>
-              </div>
-            </div>
-          </div>
+            );
+          })()}
 
           {/* Cash Adjustments History */}
           {cashAdjustments && cashAdjustments.length > 0 && (
