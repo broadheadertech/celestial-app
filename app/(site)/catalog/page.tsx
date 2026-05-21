@@ -301,7 +301,7 @@ export default function CatalogPage() {
 function CatalogTile({ product }: { product: any }) {
   return (
     <Link
-      href={`/specimen/${product._id}`}
+      href={`/specimen-detail?id=${product._id}`}
       className="lift-card block"
       style={{ background: 'transparent', color: 'var(--ink)' }}
     >
@@ -349,7 +349,7 @@ function CatalogTile({ product }: { product: any }) {
 function CatalogRow({ product }: { product: any }) {
   return (
     <Link
-      href={`/specimen/${product._id}`}
+      href={`/specimen-detail?id=${product._id}`}
       className="grid items-center gap-6 py-5 px-3 transition-colors hover:bg-[var(--surface)]"
       style={{
         gridTemplateColumns: '120px 1fr auto auto',

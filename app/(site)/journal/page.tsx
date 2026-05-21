@@ -101,7 +101,7 @@ export default function JournalIndexPage() {
             {JOURNAL_POSTS.map((a) => (
               <Link
                 key={a.slug}
-                href={`/journal/${a.slug}`}
+                href={`/journal/article?slug=${a.slug}`}
                 className="lift-card block relative overflow-hidden"
                 style={{
                   padding: 32,

@@ -1,13 +1,14 @@
 'use client';
 
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
+import { Suspense } from 'react';
 import { ChevronLeft } from 'lucide-react';
 import { JOURNAL_POSTS } from '../page';
 
-export default function JournalArticlePage() {
-  const params = useParams();
-  const slug = (params?.slug as string) || '';
+function JournalArticleContent() {
+  const searchParams = useSearchParams();
+  const slug = searchParams?.get('slug') || '';
   const post = JOURNAL_POSTS.find((p) => p.slug === slug) || JOURNAL_POSTS[0];
 
   return (
@@ -134,5 +135,21 @@ export default function JournalArticlePage() {
         </section>
       </article>
     </main>
+  );
+}
+
+export default function JournalArticlePage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="py-20" style={{ padding: '80px 0' }}>
+          <div className="site-container text-center" style={{ color: 'var(--ink-4)' }}>
+            Loading article…
+          </div>
+        </main>
+      }
+    >
+      <JournalArticleContent />
+    </Suspense>
   );
 }

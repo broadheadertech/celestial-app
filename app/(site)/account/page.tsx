@@ -384,7 +384,7 @@ export default function AccountPage() {
                         }}
                       >
                         <Link
-                          href={`/specimen/${p._id}`}
+                          href={`/specimen-detail?id=${p._id}`}
                           className="block"
                           style={{ color: 'var(--ink)' }}
                         >
@@ -410,7 +410,7 @@ export default function AccountPage() {
                         <div className="p-4 flex flex-col gap-2 flex-1">
                           <div className="placard">{p.categoryName || 'Specimen'}</div>
                           <Link
-                            href={`/specimen/${p._id}`}
+                            href={`/specimen-detail?id=${p._id}`}
                             className="display text-[15px] line-clamp-2"
                             style={{
                               color: 'var(--ink)',

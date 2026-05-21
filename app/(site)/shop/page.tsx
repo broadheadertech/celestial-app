@@ -226,11 +226,11 @@ function GearTile({ product, onAdd }: { product: any; onAdd: () => void }) {
       className="lift-card relative"
       style={{ background: 'transparent', color: 'var(--ink)' }}
     >
-      <Link href={`/specimen/${product._id}`}>
+      <Link href={`/specimen-detail?id=${product._id}`}>
         <GearPlate product={{ sku: product.sku ? String(product.sku) : undefined, name: product.name, image: product.image }} ratio="1 / 1" />
       </Link>
       <div style={{ padding: '18px 4px 8px' }}>
-        <Link href={`/specimen/${product._id}`} className="block">
+        <Link href={`/specimen-detail?id=${product._id}`} className="block">
           <div className="placard mb-1 truncate">{product.categoryName || 'Gear'}</div>
           <div
             className="display truncate"

@@ -1,8 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useParams, useRouter } from 'next/navigation';
-import { useMemo, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Suspense, useMemo, useState } from 'react';
 import { ArrowRight, Heart, Share2, ChevronLeft, Check } from 'lucide-react';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
@@ -27,10 +27,10 @@ const isLiveCategoryName = (name?: string) => {
   );
 };
 
-export default function SpecimenPage() {
-  const params = useParams();
+function SpecimenContent() {
   const router = useRouter();
-  const id = (params?.id as string) || '';
+  const searchParams = useSearchParams();
+  const id = searchParams?.get('id') || '';
 
   const productRaw = useQuery(
     api.services.products.getProduct,
@@ -477,7 +477,7 @@ export default function SpecimenPage() {
               {related.map((p) => (
                 <Link
                   key={p._id}
-                  href={`/specimen/${p._id}`}
+                  href={`/specimen-detail?id=${p._id}`}
                   className="lift-card block"
                   style={{ color: 'var(--ink)' }}
                 >
@@ -515,5 +515,21 @@ export default function SpecimenPage() {
         </section>
       )}
     </main>
+  );
+}
+
+export default function SpecimenPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="py-20" style={{ padding: '80px 0' }}>
+          <div className="site-container text-center" style={{ color: 'var(--ink-4)' }}>
+            Loading specimen…
+          </div>
+        </main>
+      }
+    >
+      <SpecimenContent />
+    </Suspense>
   );
 }

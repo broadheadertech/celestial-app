@@ -158,7 +158,7 @@ export default function SiteHome() {
 
             <div className="flex gap-3 items-center flex-wrap">
               {hero ? (
-                <Link href={`/specimen/${hero._id}`} className="b b-primary b-lg">
+                <Link href={`/specimen-detail?id=${hero._id}`} className="b b-primary b-lg">
                   Hold this specimen <ArrowRight size={14} />
                 </Link>
               ) : null}
@@ -758,7 +758,7 @@ function SiteSection({
 function SiteCatalogTile({ product }: { product: any }) {
   return (
     <Link
-      href={`/specimen/${product._id}`}
+      href={`/specimen-detail?id=${product._id}`}
       className="lift-card block"
       style={{ background: 'transparent', color: 'var(--ink)' }}
     >

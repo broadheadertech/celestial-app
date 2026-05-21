@@ -30,6 +30,10 @@
     // Client routes
     '^/client/product/[^/]+/?$': '/client/product/',
 
+    // Storefront (Dragon's Cave website) catch-all routes
+    '^/specimen/[^/]+/?$': '/specimen/',
+    '^/journal/[^/]+/?$': '/journal/',
+
     // Admin routes
     '^/admin/products/[^/]+/?$': '/admin/products/',
     '^/admin/reservations/[^/]+/?$': '/admin/reservations/',
