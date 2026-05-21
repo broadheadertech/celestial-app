@@ -114,10 +114,12 @@ function FinanceContent() {
   const createCashAdjustment = useMutation(api.services.cashAdjustments.createCashAdjustment);
   const deleteCashAdjustment = useMutation(api.services.cashAdjustments.deleteCashAdjustment);
   const [showAdjustForm, setShowAdjustForm] = useState(false);
-  const [adjType, setAdjType] = useState<'injection' | 'withdrawal' | 'correction'>('injection');
+  const [adjType, setAdjType] = useState<'deposit' | 'remit' | 'correction'>('deposit');
   const [adjAmount, setAdjAmount] = useState('');
   const [adjReason, setAdjReason] = useState('');
   const [adjNotes, setAdjNotes] = useState('');
+  const [adjPassword, setAdjPassword] = useState('');
+  const [adjError, setAdjError] = useState<string | null>(null);
   const [isAdjusting, setIsAdjusting] = useState(false);
   const [adjConfirmDelete, setAdjConfirmDelete] = useState<string | null>(null);
 
@@ -218,9 +220,14 @@ function FinanceContent() {
   };
 
   const handleAddAdjustment = async () => {
+    setAdjError(null);
     if (!adjReason.trim()) return;
     const num = parseFloat(adjAmount);
     if (isNaN(num) || num === 0) return;
+    if (adjType === 'correction' && !adjPassword.trim()) {
+      setAdjError('Password required to confirm a correction');
+      return;
+    }
     setIsAdjusting(true);
     try {
       await createCashAdjustment({
@@ -229,14 +236,16 @@ function FinanceContent() {
         reason: adjReason.trim(),
         notes: adjNotes.trim() || undefined,
         userId: user?._id as Id<'users'> | undefined,
+        password: adjType === 'correction' ? adjPassword : undefined,
       });
       setShowAdjustForm(false);
-      setAdjType('injection');
+      setAdjType('deposit');
       setAdjAmount('');
       setAdjReason('');
       setAdjNotes('');
+      setAdjPassword('');
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Failed to record cash adjustment');
+      setAdjError(e instanceof Error ? e.message : 'Failed to record cash adjustment');
     } finally {
       setIsAdjusting(false);
     }
@@ -1140,16 +1149,19 @@ function FinanceContent() {
                   <p className="text-xs text-white/60 mb-1.5">Type</p>
                   <div className="grid grid-cols-3 gap-2">
                     {([
-                      { v: 'injection' as const, label: 'Add', sub: 'Owner / float' },
-                      { v: 'withdrawal' as const, label: 'Remove', sub: 'Owner draw' },
-                      { v: 'correction' as const, label: 'Correction', sub: 'Reconcile ±' },
+                      { v: 'deposit' as const, label: 'Deposit', sub: 'Owner / float' },
+                      { v: 'remit' as const, label: 'Remit', sub: 'Investor / draw' },
+                      { v: 'correction' as const, label: 'Adjust', sub: 'Reconcile · pw' },
                     ]).map((opt) => {
                       const active = adjType === opt.v;
                       return (
                         <button
                           key={opt.v}
                           type="button"
-                          onClick={() => setAdjType(opt.v)}
+                          onClick={() => {
+                            setAdjType(opt.v);
+                            setAdjError(null);
+                          }}
                           className="p-2.5 rounded-lg text-xs font-semibold border transition-all"
                           style={{
                             background: active ? 'var(--red-wash)' : 'var(--bg-2)',
@@ -1166,9 +1178,21 @@ function FinanceContent() {
                     })}
                   </div>
                   {adjType === 'correction' && (
-                    <p className="text-[10px] text-white/40 mt-1.5">
-                      Use a negative amount (e.g. −500) if the cash count is short.
-                    </p>
+                    <div
+                      className="mt-2 p-2.5 rounded-lg text-[11px] flex items-start gap-2"
+                      style={{
+                        background: 'var(--gold-wash)',
+                        border: '1px solid color-mix(in oklch, var(--gold) 30%, transparent)',
+                        color: 'var(--gold-deep)',
+                      }}
+                    >
+                      <span>⚠</span>
+                      <span>
+                        Adjustments edit COH outside normal sales/expense flow. Requires your
+                        password + at least 10 characters of reason. Use a negative amount if the
+                        till is short.
+                      </span>
+                    </div>
                   )}
                 </div>
 
@@ -1190,17 +1214,24 @@ function FinanceContent() {
                 </div>
 
                 <div>
-                  <p className="text-xs text-white/60 mb-1.5">Reason</p>
+                  <p className="text-xs text-white/60 mb-1.5">
+                    Reason{' '}
+                    {adjType === 'correction' && (
+                      <span className="text-[10px]" style={{ color: 'var(--gold-deep)' }}>
+                        (min 10 chars)
+                      </span>
+                    )}
+                  </p>
                   <input
                     type="text"
                     value={adjReason}
                     onChange={(e) => setAdjReason(e.target.value)}
                     placeholder={
-                      adjType === 'injection'
+                      adjType === 'deposit'
                         ? 'e.g. Owner capital injection · Float top-up'
-                        : adjType === 'withdrawal'
-                        ? 'e.g. Owner draw · Bank deposit'
-                        : 'e.g. Cash count over by ₱200'
+                        : adjType === 'remit'
+                        ? 'e.g. Investor remittance · Owner draw'
+                        : 'e.g. Cash count over by ₱200 after morning recount'
                     }
                     className="w-full px-3 py-2.5 rounded-lg border text-sm outline-none"
                     style={{
@@ -1210,6 +1241,43 @@ function FinanceContent() {
                     }}
                   />
                 </div>
+
+                {adjType === 'correction' && (
+                  <div>
+                    <p className="text-xs text-white/60 mb-1.5">
+                      Your password{' '}
+                      <span className="text-[10px]" style={{ color: 'var(--ink-4)' }}>
+                        (confirm it&apos;s really you)
+                      </span>
+                    </p>
+                    <input
+                      type="password"
+                      value={adjPassword}
+                      onChange={(e) => setAdjPassword(e.target.value)}
+                      placeholder="••••••••"
+                      autoComplete="current-password"
+                      className="w-full px-3 py-2.5 rounded-lg border text-sm outline-none"
+                      style={{
+                        background: 'var(--bg-2)',
+                        borderColor: 'var(--line)',
+                        color: 'var(--ink)',
+                      }}
+                    />
+                  </div>
+                )}
+
+                {adjError && (
+                  <div
+                    className="px-3 py-2 rounded-lg text-xs"
+                    style={{
+                      background: 'var(--red-wash)',
+                      border: '1px solid var(--red)',
+                      color: 'var(--red-hi)',
+                    }}
+                  >
+                    {adjError}
+                  </div>
+                )}
 
                 <div>
                   <p className="text-xs text-white/60 mb-1.5">Notes (optional)</p>
