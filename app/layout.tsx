@@ -28,7 +28,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" data-theme="dark">
       <head>
         <link rel="icon" href="/favicon.ico" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -36,6 +36,18 @@ export default function RootLayout({
         <link
           href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,700;12..96,800&family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600;700&display=swap"
           rel="stylesheet"
+        />
+        {/* Apply persisted theme before paint to avoid flash */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              try {
+                var saved = JSON.parse(localStorage.getItem('dragons-cave-theme') || 'null');
+                var theme = (saved && saved.state && saved.state.theme) || 'dark';
+                document.documentElement.dataset.theme = theme;
+              } catch (e) {}
+            `,
+          }}
         />
       </head>
       <body className="antialiased">

@@ -191,8 +191,14 @@ export const createProduct = mutation({
     productStatus: v.optional(v.string()),
     lifespan: v.optional(v.string()),
     tankNumber: v.optional(v.string()),
+    grade: v.optional(v.union(
+      v.literal("S"),
+      v.literal("AAA"),
+      v.literal("AA"),
+      v.literal("A"),
+    )),
     isActive: v.boolean(),
-    
+
     // Category-specific data (optional)
     fishData: v.optional(v.object({
       scientificName: v.optional(v.string()),
@@ -393,6 +399,7 @@ export const createProduct = mutation({
         productStatus: args.productStatus,
         tankNumber: args.tankNumber,
         batchCode: batchCode,
+        grade: args.grade,
         isActive: args.isActive,
         createdAt: now,
         updatedAt: now,
@@ -513,8 +520,14 @@ export const updateProduct = mutation({
     productStatus: v.optional(v.string()),
     lifespan: v.optional(v.string()),
     tankNumber: v.optional(v.string()),
+    grade: v.optional(v.union(
+      v.literal("S"),
+      v.literal("AAA"),
+      v.literal("AA"),
+      v.literal("A"),
+    )),
     isActive: v.optional(v.boolean()),
-    
+
     // Category-specific data (optional)
     fishData: v.optional(v.object({
       scientificName: v.optional(v.string()),
@@ -739,6 +752,7 @@ export const updateProduct = mutation({
       if (updates.rating !== undefined) updateData.rating = updates.rating;
       if (updates.reviews !== undefined) updateData.reviews = updates.reviews;
       if (updates.tankNumber !== undefined) updateData.tankNumber = updates.tankNumber;
+      if (updates.grade !== undefined) updateData.grade = updates.grade;
       if (updates.isActive !== undefined) updateData.isActive = updates.isActive;
       
       // Update the main product

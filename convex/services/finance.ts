@@ -69,7 +69,8 @@ export async function createMortalityExpenseHelper(
   const product = await ctx.db.get(productId);
   if (!product) return null;
 
-  const unitCost = product.costPrice || 0;
+  // Prefer moving-average cost (per-batch actuals) over the static basis costPrice.
+  const unitCost = product.movingAverageCost ?? product.costPrice ?? 0;
   const totalCost = unitCost * quantity;
   if (totalCost <= 0) return null; // skip silently when no cost data
 
@@ -94,7 +95,8 @@ export async function createMortalityExpenseHelper(
 
 /**
  * Create a restocking expense — called from restockProduct mutation.
- * Amount = product.costPrice × quantity. Defaults to cash payment.
+ * Amount = (actualCostPrice ?? product.costPrice) × quantity. Defaults to cash payment.
+ * actualCostPrice is the price actually paid for THIS batch and trumps the product's base costPrice.
  */
 export async function createRestockExpenseHelper(
   ctx: MutationCtx,
@@ -105,24 +107,30 @@ export async function createRestockExpenseHelper(
     batchCode: string;
     userId?: Id<"users">;
     paymentMethod?: string;
+    actualCostPrice?: number;
   }
 ) {
-  const { productId, stockRecordId, quantity, batchCode, userId, paymentMethod = "cash" } = args;
+  const { productId, stockRecordId, quantity, batchCode, userId, paymentMethod = "cash", actualCostPrice } = args;
 
   const product = await ctx.db.get(productId);
   if (!product) return null;
 
-  // Use costPrice if set, otherwise fall back to 0 (admin should set costPrice)
-  const unitCost = product.costPrice || 0;
+  // Prefer per-batch actual cost, fall back to product.costPrice
+  const unitCost = actualCostPrice !== undefined && actualCostPrice >= 0
+    ? actualCostPrice
+    : (product.costPrice || 0);
   const totalCost = unitCost * quantity;
 
   if (totalCost === 0) return null; // skip if no cost data
 
   const now = Date.now();
+  const description = actualCostPrice !== undefined
+    ? `Restock: ${quantity} × ${product.name} (${batchCode}) @ ₱${unitCost.toLocaleString('en-PH')}/unit`
+    : `Restock: ${quantity} × ${product.name} (${batchCode})`;
   const id = await ctx.db.insert("expenses", {
     type: "restocking",
     amount: totalCost,
-    description: `Restock: ${quantity} × ${product.name} (${batchCode})`,
+    description,
     paymentMethod,
     date: now,
     stockRecordId,
@@ -329,16 +337,18 @@ export const getFinancialSummary = query({
     endDate: v.optional(v.number()),
   },
   handler: async (ctx, { startDate, endDate }) => {
-    const [orders, reservations, expenses, openingBalanceRecord, products] = await Promise.all([
-      ctx.db.query("orders").collect(),
-      ctx.db.query("reservations").collect(),
-      ctx.db.query("expenses").collect(),
-      ctx.db
-        .query("financialSettings")
-        .withIndex("by_key", (q) => q.eq("key", "opening_cash_balance"))
-        .first(),
-      ctx.db.query("products").collect(),
-    ]);
+    const [orders, reservations, expenses, openingBalanceRecord, products, cashAdjustments] =
+      await Promise.all([
+        ctx.db.query("orders").collect(),
+        ctx.db.query("reservations").collect(),
+        ctx.db.query("expenses").collect(),
+        ctx.db
+          .query("financialSettings")
+          .withIndex("by_key", (q) => q.eq("key", "opening_cash_balance"))
+          .first(),
+        ctx.db.query("products").collect(),
+        ctx.db.query("cashAdjustments").collect(),
+      ]);
 
     const openingBalance = openingBalanceRecord?.value || 0;
 
@@ -400,13 +410,17 @@ export const getFinancialSummary = query({
       }
     }
 
-    // COGS using product.costPrice × quantity sold — count only paid+partial orders
+    // COGS using moving-average cost when available (per-batch actual cost via MAC),
+    // otherwise falling back to product.costPrice. Counts only paid+partial transactions.
+    const effectiveCost = (p: { movingAverageCost?: number; costPrice?: number }) =>
+      p.movingAverageCost ?? p.costPrice ?? 0;
+
     const cogsOrders = activeOrders.filter(o => o.paymentStatus !== 'unpaid' && o.paymentStatus !== 'refunded');
     let cogs = 0;
     for (const o of cogsOrders) {
       for (const item of o.items || []) {
         const p = products.find(prod => prod._id === item.productId);
-        if (p?.costPrice) cogs += p.costPrice * item.quantity;
+        if (p) cogs += effectiveCost(p) * item.quantity;
       }
     }
     for (const r of completedReservations) {
@@ -414,7 +428,7 @@ export const getFinancialSummary = query({
       if (r.items) {
         for (const item of r.items) {
           const p = products.find(prod => prod._id === item.productId);
-          if (p?.costPrice) cogs += p.costPrice * item.quantity;
+          if (p) cogs += effectiveCost(p) * item.quantity;
         }
       }
     }
@@ -470,12 +484,21 @@ export const getFinancialSummary = query({
     const netProfit = grossProfit - totalOperationalExpense;
     const netMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
 
-    // Cash on hand = opening + cash revenue − cash expenses
+    // Cash on hand = opening + cash revenue − cash expenses + cash adjustments (signed)
     const cashRevenue = (revenueByPayment['cash'] || 0);
     const cashExpenses = filteredExpenses
       .filter(e => e.paymentMethod === 'cash')
       .reduce((s, e) => s + e.amount, 0);
-    const cashOnHand = openingBalance + cashRevenue - cashExpenses;
+    const filteredAdjustments = cashAdjustments.filter((a) => inRange(a.date));
+    const cashAdjustmentsTotal = filteredAdjustments.reduce((s, a) => s + a.amount, 0);
+    // Break down for the UI (so we can show "+ injections" and "− withdrawals" separately).
+    const cashInjections = filteredAdjustments
+      .filter((a) => a.amount > 0)
+      .reduce((s, a) => s + a.amount, 0);
+    const cashWithdrawals = filteredAdjustments
+      .filter((a) => a.amount < 0)
+      .reduce((s, a) => s + Math.abs(a.amount), 0);
+    const cashOnHand = openingBalance + cashRevenue - cashExpenses + cashAdjustmentsTotal;
 
     // Digital (non-cash) balance
     const digitalRevenue = totalRevenue - cashRevenue;
@@ -525,6 +548,9 @@ export const getFinancialSummary = query({
       cashOnHand,
       cashRevenue,
       cashExpenses,
+      cashAdjustmentsTotal,
+      cashInjections,
+      cashWithdrawals,
       digitalBalance,
       digitalRevenue,
       digitalExpenses,

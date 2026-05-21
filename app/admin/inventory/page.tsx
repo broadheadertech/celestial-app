@@ -62,6 +62,7 @@ function InventoryContent() {
   const [showAddBatch, setShowAddBatch] = useState(false);
   const [selectedProductId, setSelectedProductId] = useState('');
   const [restockQuantity, setRestockQuantity] = useState('');
+  const [restockActualCost, setRestockActualCost] = useState('');
   const [restockNotes, setRestockNotes] = useState('');
   const [restockQuality, setRestockQuality] = useState<'premium' | 'standard' | 'budget'>('standard');
   const [isRestocking, setIsRestocking] = useState(false);
@@ -260,21 +261,34 @@ function InventoryContent() {
     const quantity = parseInt(restockQuantity);
     if (isNaN(quantity) || quantity <= 0) return;
 
+    // Actual cost — only sent when typed; otherwise restock falls back to product.costPrice
+    const actualCostNum = parseFloat(restockActualCost);
+    const actualCostPrice =
+      restockActualCost.trim() !== '' && !isNaN(actualCostNum) && actualCostNum >= 0
+        ? actualCostNum
+        : undefined;
+
     setIsRestocking(true);
     try {
-      await restockProduct({
+      const result = await restockProduct({
         productId: selectedProductId as Id<"products">,
         quantity,
         notes: restockNotes || undefined,
         qualityGrade: restockQuality,
+        actualCostPrice,
       });
 
       setShowAddBatch(false);
       setSelectedProductId('');
       setRestockQuantity('');
+      setRestockActualCost('');
       setRestockNotes('');
       setRestockQuality('standard');
-      showSuccess(`Successfully restocked ${quantity} units`);
+
+      const macMsg = result?.movingAverageCost !== undefined
+        ? ` · MAC now ₱${result.movingAverageCost.toLocaleString('en-PH', { maximumFractionDigits: 2 })}`
+        : '';
+      showSuccess(`Restocked ${quantity} units${macMsg}`);
     } catch (error) {
       alert(error instanceof Error ? error.message : 'Failed to restock');
     } finally {
@@ -1142,6 +1156,84 @@ function InventoryContent() {
                     className="w-full px-3 py-3 bg-background/60 border border-white/10 rounded-lg text-sm text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-primary"
                   />
                 </div>
+
+                {/* Actual Cost Price for this batch + MAC preview */}
+                {(() => {
+                  const selected = products?.find((p) => p._id === selectedProductId);
+                  if (!selected) return null;
+                  const baseCost = selected.costPrice ?? 0;
+                  const currentMac =
+                    (selected as { movingAverageCost?: number }).movingAverageCost ?? baseCost;
+                  const qty = parseInt(restockQuantity) || 0;
+                  const actualCostNum = parseFloat(restockActualCost);
+                  const hasActual =
+                    restockActualCost.trim() !== '' &&
+                    !isNaN(actualCostNum) &&
+                    actualCostNum >= 0;
+                  const projectedMac = hasActual && qty > 0
+                    ? selected.stock <= 0
+                      ? actualCostNum
+                      : ((selected.stock * currentMac) + (qty * actualCostNum)) /
+                        (selected.stock + qty)
+                    : null;
+                  const expenseAmount = hasActual ? actualCostNum * qty : baseCost * qty;
+                  return (
+                    <div>
+                      <label className="block text-sm font-medium text-white mb-1.5">
+                        Actual cost / unit{' '}
+                        <span className="text-xs text-white/40 font-normal">
+                          (what you paid this batch)
+                        </span>
+                      </label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40 text-sm">
+                          ₱
+                        </span>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={restockActualCost}
+                          onChange={(e) => setRestockActualCost(e.target.value)}
+                          placeholder={`Default ₱${baseCost.toLocaleString('en-PH')} (basis cost)`}
+                          className="w-full pl-7 pr-3 py-3 bg-background/60 border border-white/10 rounded-lg text-sm text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-primary"
+                        />
+                      </div>
+                      {qty > 0 && (
+                        <div className="mt-2 px-3 py-2 rounded-lg border border-white/10 bg-background/40 text-xs space-y-1">
+                          <div className="flex justify-between">
+                            <span className="text-white/50">Expense recorded</span>
+                            <span className="font-mono-tabular font-semibold text-white">
+                              {formatCurrency(expenseAmount)}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-white/50">Current MAC</span>
+                            <span className="font-mono-tabular text-white/80">
+                              {formatCurrency(currentMac)}
+                            </span>
+                          </div>
+                          {projectedMac !== null && Math.abs(projectedMac - currentMac) > 0.005 && (
+                            <div className="flex justify-between">
+                              <span className="text-warning">New MAC after restock</span>
+                              <span
+                                className="font-mono-tabular font-semibold"
+                                style={{ color: 'var(--warning)' }}
+                              >
+                                {formatCurrency(projectedMac)}
+                              </span>
+                            </div>
+                          )}
+                          {!hasActual && (
+                            <p className="text-[10px] text-white/40 mt-1.5">
+                              Leave blank to charge the basis cost. MAC won&apos;t change.
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 {/* Quality Grade */}
                 <div>

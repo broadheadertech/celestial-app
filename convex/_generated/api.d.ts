@@ -21,7 +21,9 @@ import type * as services_aiInsights from "../services/aiInsights.js";
 import type * as services_analytics from "../services/analytics.js";
 import type * as services_auth from "../services/auth.js";
 import type * as services_cart from "../services/cart.js";
+import type * as services_cashAdjustments from "../services/cashAdjustments.js";
 import type * as services_categories from "../services/categories.js";
+import type * as services_contact from "../services/contact.js";
 import type * as services_email from "../services/email.js";
 import type * as services_finance from "../services/finance.js";
 import type * as services_notifications from "../services/notifications.js";
@@ -32,6 +34,7 @@ import type * as services_reservations from "../services/reservations.js";
 import type * as services_settings from "../services/settings.js";
 import type * as services_stock from "../services/stock.js";
 import type * as services_users from "../services/users.js";
+import type * as services_viewings from "../services/viewings.js";
 import type * as services_wishlist from "../services/wishlist.js";
 
 /**
@@ -51,7 +54,9 @@ declare const fullApi: ApiFromModules<{
   "services/analytics": typeof services_analytics;
   "services/auth": typeof services_auth;
   "services/cart": typeof services_cart;
+  "services/cashAdjustments": typeof services_cashAdjustments;
   "services/categories": typeof services_categories;
+  "services/contact": typeof services_contact;
   "services/email": typeof services_email;
   "services/finance": typeof services_finance;
   "services/notifications": typeof services_notifications;
@@ -62,6 +67,7 @@ declare const fullApi: ApiFromModules<{
   "services/settings": typeof services_settings;
   "services/stock": typeof services_stock;
   "services/users": typeof services_users;
+  "services/viewings": typeof services_viewings;
   "services/wishlist": typeof services_wishlist;
 }>;
 export declare const api: FilterApi<

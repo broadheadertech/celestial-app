@@ -55,7 +55,78 @@
   --grade-aa:  oklch(0.78 0.12 245);
   --grade-a:   oklch(0.78 0.04 80);
 
+  /* Storefront (deeper bg + cushion tones) */
+  --bg-3:       oklch(0.155 0.006 25);
+  --oxblood:    oklch(0.22 0.10 22);
+  --oxblood-2:  oklch(0.18 0.09 22);
+  --bone:       oklch(0.92 0.012 80);
+  --vellum:     oklch(0.84 0.025 80);
+  --vellum-2:   oklch(0.76 0.030 78);
+  --ink-5:      oklch(0.34 0.010 25);
+
   color-scheme: dark;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   LIGHT THEME — parchment / gallery wall
+   Overrides the dark defaults via [data-theme="light"] on <html>.
+   ───────────────────────────────────────────────────────────── */
+:root[data-theme="light"] {
+  --bg:           oklch(0.97 0.008 80);
+  --bg-2:         oklch(0.94 0.012 80);
+  --bg-3:         oklch(0.91 0.014 80);
+  --surface:      oklch(1 0 0);
+  --surface-2:    oklch(0.965 0.008 80);
+  --surface-hi:   oklch(0.93 0.010 80);
+  --line:         oklch(0.82 0.010 80 / 0.7);
+  --line-soft:    oklch(0.86 0.010 80 / 0.55);
+
+  --ink:          oklch(0.16 0.012 25);
+  --ink-2:        oklch(0.26 0.012 25);
+  --ink-3:        oklch(0.44 0.012 25);
+  --ink-4:        oklch(0.58 0.012 25);
+  --ink-5:        oklch(0.78 0.010 25);
+
+  --red:          oklch(0.50 0.22 27);
+  --red-deep:     oklch(0.40 0.22 27);
+  --red-hi:       oklch(0.46 0.23 27);
+  --red-wash:     oklch(0.50 0.22 27 / 0.10);
+  --red-glow:     oklch(0.50 0.22 27 / 0.20);
+
+  --oxblood:      oklch(0.28 0.10 22);
+  --oxblood-2:    oklch(0.22 0.09 22);
+
+  --bone:         oklch(0.97 0.008 80);
+  --vellum:       oklch(0.92 0.018 80);
+  --vellum-2:     oklch(0.86 0.022 78);
+
+  --gold:         oklch(0.60 0.13 75);
+  --gold-deep:    oklch(0.50 0.14 65);
+  --gold-wash:    oklch(0.60 0.13 75 / 0.10);
+
+  --jade:         oklch(0.52 0.13 165);
+  --jade-wash:    oklch(0.52 0.13 165 / 0.10);
+
+  --indigo:       oklch(0.50 0.16 270);
+  --indigo-wash:  oklch(0.50 0.16 270 / 0.10);
+
+  --shadow-card:  0 1px 0 oklch(1 0 0 / 0.7) inset, 0 16px 40px -22px oklch(0 0 0 / 0.18);
+  --shadow-pop:   0 32px 96px -32px oklch(0 0 0 / 0.30), 0 1px 0 oklch(1 0 0 / 0.7) inset;
+
+  --grade-s:   oklch(0.62 0.16 75);
+  --grade-aaa: oklch(0.46 0.13 165);
+  --grade-aa:  oklch(0.46 0.13 245);
+  --grade-a:   oklch(0.50 0.03 80);
+
+  /* Legacy aliases mapped to light */
+  --primary-black:  oklch(0.97 0.008 80);
+  --secondary-black: oklch(0.94 0.012 80);
+  --white:           oklch(0.16 0.012 25);
+  --light-gray:      oklch(0.44 0.012 25);
+  --medium-gray:     oklch(0.58 0.012 25);
+  --dark-gray:       oklch(0.965 0.008 80);
+
+  color-scheme: light;
 }
 
 @theme inline {
@@ -308,3 +379,182 @@ body {
 }
 .loading-dots span:nth-child(2) { animation-delay: 0.2s; }
 .loading-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+/* ─────────── STOREFRONT TYPOGRAPHY ─────────── */
+.display-xxl {
+  font-family: "Bricolage Grotesque", sans-serif;
+  font-variation-settings: "opsz" 96, "wght" 800;
+  letter-spacing: -0.045em;
+  line-height: 0.86;
+}
+.display-xl {
+  font-family: "Bricolage Grotesque", sans-serif;
+  font-variation-settings: "opsz" 72, "wght" 700;
+  letter-spacing: -0.038em;
+  line-height: 0.92;
+}
+.italic-flourish {
+  font-style: italic;
+  font-variation-settings: "opsz" 96, "wght" 600;
+  color: var(--red);
+}
+.placard {
+  font-family: "Geist Mono", monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+}
+.eyebrow {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.22em;
+  color: var(--ink-4);
+  font-weight: 600;
+}
+
+/* ─────────── STOREFRONT BUTTONS ─────────── */
+.b {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 22px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition: all 0.18s cubic-bezier(0.2, 0.8, 0.2, 1);
+  text-decoration: none;
+  font-family: inherit;
+}
+.b:hover { background: var(--surface); border-color: var(--ink-4); transform: translateY(-1px); }
+.b-primary {
+  background: var(--red);
+  color: oklch(0.99 0 0);
+  border-color: var(--red-deep);
+  box-shadow: 0 12px 24px -12px var(--red-glow);
+}
+.b-primary:hover { background: var(--red-hi); }
+.b-ghost { border-color: transparent; padding-left: 0; padding-right: 0; }
+.b-ghost:hover { background: transparent; color: var(--red); transform: none; }
+.b-sm { padding: 9px 16px; font-size: 12px; }
+.b-lg { padding: 18px 30px; font-size: 14px; letter-spacing: 0.02em; }
+.b-icon { padding: 10px; border-radius: 999px; }
+.b:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ─────────── STOREFRONT INPUTS ─────────── */
+.input {
+  width: 100%;
+  padding: 14px 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--ink);
+  font-size: 14px;
+  font-family: inherit;
+  transition: border-color 0.15s, background 0.15s;
+}
+.input:hover { border-color: var(--ink-4); }
+.input:focus { outline: 0; border-color: var(--red); }
+.input::placeholder { color: var(--ink-4); }
+
+/* ─────────── STOREFRONT ANIMATIONS / EFFECTS ─────────── */
+@keyframes swimX {
+  0%, 100% { transform: translateX(0) rotate(0deg); }
+  50%      { transform: translateX(3px) rotate(0.4deg); }
+}
+.swim-x { animation: swimX 5s ease-in-out infinite; }
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.text-shimmer {
+  background: linear-gradient(90deg, var(--ink) 0%, var(--ink) 40%, var(--gold) 50%, var(--ink) 60%, var(--ink) 100%);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: shimmer 6s linear infinite;
+}
+
+/* gallery lighting ring */
+.vitrine {
+  position: relative;
+  isolation: isolate;
+}
+.vitrine::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 60% 70% at 50% 30%, oklch(1 0 0 / 0.06) 0%, transparent 60%);
+  pointer-events: none;
+  z-index: 0;
+}
+.vitrine::after {
+  content: '';
+  position: absolute;
+  left: 50%; bottom: 0; transform: translateX(-50%);
+  width: 70%; height: 18%;
+  background: radial-gradient(ellipse at center, oklch(0 0 0 / 0.45) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+.vitrine > * { position: relative; z-index: 1; }
+
+/* Lift on hover (storefront) */
+.lift-card {
+  transition: transform 0.24s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.24s;
+}
+.lift-card:hover { transform: translateY(-3px); }
+
+/* Animated underline link */
+.a-link {
+  position: relative;
+  padding-bottom: 2px;
+  text-decoration: none;
+  color: inherit;
+}
+.a-link::after {
+  content: '';
+  position: absolute; left: 0; bottom: 0;
+  width: 100%; height: 1px;
+  background: currentColor; opacity: 0.3;
+  transform-origin: left;
+  transform: scaleX(0);
+  transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.a-link:hover::after { transform: scaleX(1); }
+
+/* Hairline */
+.hairline {
+  height: 1px;
+  background: var(--line);
+  border: 0;
+}
+
+/* Storefront grade badge */
+.grade-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 32px; height: 22px; padding: 0 7px;
+  border-radius: 4px;
+  font-family: "Bricolage Grotesque", sans-serif;
+  font-variation-settings: "opsz" 24, "wght" 800;
+  font-size: 10.5px; letter-spacing: 0.06em;
+  border: 1px solid currentColor;
+}
+
+/* Storefront container */
+.site-container {
+  width: 100%;
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 0 32px;
+}
+@media (max-width: 720px) {
+  .site-container { padding: 0 20px; }
+}

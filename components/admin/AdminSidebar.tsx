@@ -15,6 +15,8 @@ import {
   Wallet,
   Sliders,
   Zap,
+  Calendar,
+  MessageCircle,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/auth';
 import { useQuery } from 'convex/react';
@@ -73,6 +75,18 @@ export default function AdminSidebar() {
           icon: ShoppingBag,
           href: '/admin/orders',
           matchPaths: ['/admin/orders', '/admin/reservation-detail'],
+        },
+        {
+          id: 'viewings',
+          label: 'Viewings',
+          icon: Calendar,
+          href: '/admin/viewings',
+        },
+        {
+          id: 'messages',
+          label: 'Messages',
+          icon: MessageCircle,
+          href: '/admin/messages',
         },
       ],
     },

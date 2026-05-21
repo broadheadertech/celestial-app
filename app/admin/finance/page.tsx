@@ -105,6 +105,22 @@ function FinanceContent() {
   const createExpense = useMutation(api.services.finance.createExpense);
   const deleteExpense = useMutation(api.services.finance.deleteExpense);
 
+  // Cash adjustments
+  const cashAdjustments = useQuery(api.services.cashAdjustments.getCashAdjustments, {
+    startDate: validStart,
+    endDate: validEnd,
+    limit: 50,
+  });
+  const createCashAdjustment = useMutation(api.services.cashAdjustments.createCashAdjustment);
+  const deleteCashAdjustment = useMutation(api.services.cashAdjustments.deleteCashAdjustment);
+  const [showAdjustForm, setShowAdjustForm] = useState(false);
+  const [adjType, setAdjType] = useState<'injection' | 'withdrawal' | 'correction'>('injection');
+  const [adjAmount, setAdjAmount] = useState('');
+  const [adjReason, setAdjReason] = useState('');
+  const [adjNotes, setAdjNotes] = useState('');
+  const [isAdjusting, setIsAdjusting] = useState(false);
+  const [adjConfirmDelete, setAdjConfirmDelete] = useState<string | null>(null);
+
   const [showExpenseForm, setShowExpenseForm] = useState(false);
   const [expenseFilter, setExpenseFilter] = useState<'all' | 'restocking' | 'operational'>('all');
 
@@ -201,6 +217,40 @@ function FinanceContent() {
     }
   };
 
+  const handleAddAdjustment = async () => {
+    if (!adjReason.trim()) return;
+    const num = parseFloat(adjAmount);
+    if (isNaN(num) || num === 0) return;
+    setIsAdjusting(true);
+    try {
+      await createCashAdjustment({
+        type: adjType,
+        amount: num,
+        reason: adjReason.trim(),
+        notes: adjNotes.trim() || undefined,
+        userId: user?._id as Id<'users'> | undefined,
+      });
+      setShowAdjustForm(false);
+      setAdjType('injection');
+      setAdjAmount('');
+      setAdjReason('');
+      setAdjNotes('');
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Failed to record cash adjustment');
+    } finally {
+      setIsAdjusting(false);
+    }
+  };
+
+  const handleDeleteAdjustment = async (id: string) => {
+    try {
+      await deleteCashAdjustment({ id: id as Id<'cashAdjustments'> });
+      setAdjConfirmDelete(null);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Failed to delete');
+    }
+  };
+
   const handleDeleteExpense = async (id: string) => {
     try {
       await deleteExpense({ id: id as Id<"expenses"> });
@@ -234,6 +284,19 @@ function FinanceContent() {
                 <p className="text-xs text-white/50 hidden sm:block">P&amp;L, cash flow &amp; expenses · <span style={{ color: isFiltered ? 'var(--red-hi)' : 'var(--ink-3)' }}>{filterLabel}</span></p>
               </div>
             </div>
+            <button
+              onClick={() => setShowAdjustForm(true)}
+              className="px-3 sm:px-4 py-2 rounded-lg border text-sm font-semibold transition-all flex items-center gap-2"
+              style={{
+                background: 'var(--surface-2)',
+                borderColor: 'var(--line)',
+                color: 'var(--ink)',
+              }}
+              title="Add to or remove from Cash on Hand"
+            >
+              <Wallet className="w-4 h-4" />
+              <span className="hidden sm:inline">Adjust cash</span>
+            </button>
             <button
               onClick={() => setShowExpenseForm(true)}
               className="px-3 sm:px-4 py-2 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary/90 active:scale-95 transition-all flex items-center gap-2 shadow-lg shadow-primary/20"
@@ -355,7 +418,10 @@ function FinanceContent() {
                   </span>
                 </p>
               )}
-              <div className="grid grid-cols-3 gap-2 pt-3 border-t border-white/10 text-xs">
+              <div
+                className="grid gap-2 pt-3 border-t border-white/10 text-xs"
+                style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(80px, 1fr))' }}
+              >
                 <div>
                   <p className="text-white/40">Opening</p>
                   <p className="text-white font-medium">{fmt(summary.openingBalance)}</p>
@@ -368,6 +434,18 @@ function FinanceContent() {
                   <p className="text-error/70">− Cash out</p>
                   <p className="text-error font-medium">{fmt(summary.cashExpenses)}</p>
                 </div>
+                {(summary.cashInjections ?? 0) > 0 && (
+                  <div>
+                    <p className="text-success/70">+ Added</p>
+                    <p className="text-success font-medium">{fmt(summary.cashInjections ?? 0)}</p>
+                  </div>
+                )}
+                {(summary.cashWithdrawals ?? 0) > 0 && (
+                  <div>
+                    <p className="text-error/70">− Taken out</p>
+                    <p className="text-error font-medium">{fmt(summary.cashWithdrawals ?? 0)}</p>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -424,6 +502,94 @@ function FinanceContent() {
               </div>
             </div>
           </div>
+
+          {/* Cash Adjustments History */}
+          {cashAdjustments && cashAdjustments.length > 0 && (
+            <div
+              className="rounded-xl border p-5"
+              style={{ background: 'var(--surface)', borderColor: 'var(--line)' }}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                  <Wallet className="w-4 h-4" style={{ color: 'var(--jade)' }} />
+                  Cash adjustments
+                  <span className="text-[10px] font-mono-tabular ml-1.5" style={{ color: 'var(--ink-4)' }}>
+                    {cashAdjustments.length}
+                  </span>
+                </h3>
+                <button
+                  onClick={() => setShowAdjustForm(true)}
+                  className="text-[11px] font-bold inline-flex items-center gap-1"
+                  style={{ color: 'var(--red-hi)' }}
+                >
+                  + Record
+                </button>
+              </div>
+              <div className="flex flex-col">
+                {cashAdjustments.map((a, i) => {
+                  const positive = a.amount > 0;
+                  return (
+                    <div
+                      key={a._id}
+                      className="grid items-center gap-3 py-2.5 px-1"
+                      style={{
+                        gridTemplateColumns: 'auto minmax(0, 1fr) auto auto',
+                        borderBottom:
+                          i === cashAdjustments.length - 1 ? 'none' : '1px solid var(--line-soft)',
+                      }}
+                    >
+                      <span
+                        className="text-[11px] font-mono-tabular whitespace-nowrap min-w-[60px]"
+                        style={{ color: 'var(--ink-4)' }}
+                      >
+                        {new Date(a.date).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' })}
+                      </span>
+                      <div className="min-w-0">
+                        <div className="text-[13px] font-semibold truncate">{a.reason}</div>
+                        <div className="placard mt-0.5">
+                          {a.type}
+                          {a.notes ? ` · ${a.notes}` : ''}
+                        </div>
+                      </div>
+                      <span
+                        className="text-[13px] font-mono-tabular font-bold text-right whitespace-nowrap"
+                        style={{ color: positive ? 'var(--jade)' : 'var(--red-hi)' }}
+                      >
+                        {positive ? '+' : '−'}
+                        {fmt(Math.abs(a.amount))}
+                      </span>
+                      <button
+                        onClick={() => setAdjConfirmDelete(a._id)}
+                        className="p-1 rounded hover:bg-error/20 transition-colors"
+                        aria-label="Remove"
+                        title="Remove this adjustment"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" style={{ color: 'var(--ink-4)' }} />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+              <div
+                className="mt-3 pt-3 border-t flex justify-between text-[12px]"
+                style={{ borderColor: 'var(--line-soft)' }}
+              >
+                <span style={{ color: 'var(--ink-3)' }}>
+                  Net adjustments {isFiltered ? '· this period' : ''}
+                </span>
+                <span
+                  className="font-mono-tabular font-bold"
+                  style={{
+                    color:
+                      (summary.cashAdjustmentsTotal ?? 0) >= 0 ? 'var(--jade)' : 'var(--red-hi)',
+                  }}
+                >
+                  {(summary.cashAdjustmentsTotal ?? 0) >= 0 ? '+' : '−'}
+                  {fmt(Math.abs(summary.cashAdjustmentsTotal ?? 0))}
+                </span>
+              </div>
+            </div>
+          )}
 
           {/* P&L Statement + Payment Breakdown */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -750,6 +916,195 @@ function FinanceContent() {
       )}
 
       <BottomNavbar />
+
+      {/* Cash Adjustment Modal */}
+      {showAdjustForm && (
+        <>
+          <div
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9998]"
+            onClick={() => !isAdjusting && setShowAdjustForm(false)}
+          />
+          <div className="fixed bottom-0 left-0 right-0 sm:inset-0 sm:flex sm:items-center sm:justify-center z-[9999]">
+            <div
+              className="rounded-t-3xl sm:rounded-2xl shadow-2xl p-5 sm:p-6 sm:w-full sm:max-w-md sm:mx-4 max-h-[85vh] overflow-y-auto"
+              style={{
+                background: 'var(--secondary)',
+                border: '1px solid var(--line)',
+              }}
+            >
+              <div className="flex items-start gap-3 mb-4">
+                <div
+                  className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
+                  style={{ background: 'var(--jade-wash)', color: 'var(--jade)' }}
+                >
+                  <Wallet className="w-5 h-5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-lg font-bold text-white">Adjust cash on hand</h3>
+                  <p className="text-xs text-white/60 mt-0.5">
+                    Records a signed movement so COH and the audit trail stay in sync.
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <p className="text-xs text-white/60 mb-1.5">Type</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    {([
+                      { v: 'injection' as const, label: 'Add', sub: 'Owner / float' },
+                      { v: 'withdrawal' as const, label: 'Remove', sub: 'Owner draw' },
+                      { v: 'correction' as const, label: 'Correction', sub: 'Reconcile ±' },
+                    ]).map((opt) => {
+                      const active = adjType === opt.v;
+                      return (
+                        <button
+                          key={opt.v}
+                          type="button"
+                          onClick={() => setAdjType(opt.v)}
+                          className="p-2.5 rounded-lg text-xs font-semibold border transition-all"
+                          style={{
+                            background: active ? 'var(--red-wash)' : 'var(--bg-2)',
+                            borderColor: active ? 'var(--red)' : 'var(--line)',
+                            color: active ? 'var(--red-hi)' : 'var(--ink-2)',
+                          }}
+                        >
+                          <div>{opt.label}</div>
+                          <div className="text-[10px] mt-0.5 font-normal" style={{ color: 'var(--ink-4)' }}>
+                            {opt.sub}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {adjType === 'correction' && (
+                    <p className="text-[10px] text-white/40 mt-1.5">
+                      Use a negative amount (e.g. −500) if the cash count is short.
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <p className="text-xs text-white/60 mb-1.5">Amount (₱)</p>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={adjAmount}
+                    onChange={(e) => setAdjAmount(e.target.value)}
+                    placeholder={adjType === 'correction' ? '+ or − number' : '0.00'}
+                    className="w-full px-3 py-2.5 rounded-lg border text-sm outline-none"
+                    style={{
+                      background: 'var(--bg-2)',
+                      borderColor: 'var(--line)',
+                      color: 'var(--ink)',
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <p className="text-xs text-white/60 mb-1.5">Reason</p>
+                  <input
+                    type="text"
+                    value={adjReason}
+                    onChange={(e) => setAdjReason(e.target.value)}
+                    placeholder={
+                      adjType === 'injection'
+                        ? 'e.g. Owner capital injection · Float top-up'
+                        : adjType === 'withdrawal'
+                        ? 'e.g. Owner draw · Bank deposit'
+                        : 'e.g. Cash count over by ₱200'
+                    }
+                    className="w-full px-3 py-2.5 rounded-lg border text-sm outline-none"
+                    style={{
+                      background: 'var(--bg-2)',
+                      borderColor: 'var(--line)',
+                      color: 'var(--ink)',
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <p className="text-xs text-white/60 mb-1.5">Notes (optional)</p>
+                  <textarea
+                    rows={2}
+                    value={adjNotes}
+                    onChange={(e) => setAdjNotes(e.target.value)}
+                    placeholder="Anything for the audit trail"
+                    className="w-full px-3 py-2.5 rounded-lg border text-sm outline-none resize-none"
+                    style={{
+                      background: 'var(--bg-2)',
+                      borderColor: 'var(--line)',
+                      color: 'var(--ink)',
+                    }}
+                  />
+                </div>
+
+                <div className="flex gap-3 pt-1">
+                  <button
+                    onClick={() => setShowAdjustForm(false)}
+                    disabled={isAdjusting}
+                    className="flex-1 px-4 py-3 rounded-xl font-medium border"
+                    style={{
+                      background: 'transparent',
+                      borderColor: 'var(--line)',
+                      color: 'var(--ink-2)',
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleAddAdjustment}
+                    disabled={!adjAmount || !adjReason.trim() || isAdjusting || parseFloat(adjAmount) === 0}
+                    className="flex-1 px-4 py-3 rounded-xl font-bold border"
+                    style={{
+                      background: 'var(--red)',
+                      borderColor: 'var(--red-deep)',
+                      color: 'oklch(0.99 0 0)',
+                    }}
+                  >
+                    {isAdjusting ? 'Recording…' : 'Record adjustment'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Cash Adjustment Delete Confirm */}
+      {adjConfirmDelete && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center px-4">
+          <div
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => setAdjConfirmDelete(null)}
+          />
+          <div
+            className="relative max-w-sm w-full rounded-2xl p-6"
+            style={{ background: 'var(--secondary)', border: '1px solid var(--line)' }}
+          >
+            <h3 className="text-lg font-bold text-white mb-2">Remove adjustment?</h3>
+            <p className="text-sm text-white/70 mb-5">
+              This deletes the row entirely — COH will recompute without it. No history is kept.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setAdjConfirmDelete(null)}
+                className="flex-1 px-4 py-2.5 rounded-lg border text-sm font-semibold"
+                style={{ background: 'transparent', borderColor: 'var(--line)', color: 'var(--ink-2)' }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleDeleteAdjustment(adjConfirmDelete)}
+                className="flex-1 px-4 py-2.5 rounded-lg text-sm font-bold border"
+                style={{ background: 'var(--red)', borderColor: 'var(--red-deep)', color: 'oklch(0.99 0 0)' }}
+              >
+                Remove
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Add Expense Modal */}
       {showExpenseForm && (

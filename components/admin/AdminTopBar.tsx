@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Bell, Settings, Sun } from 'lucide-react';
+import { Bell, Settings, Sun, Moon } from 'lucide-react';
 import { useAuthStore } from '@/store/auth';
+import { useTheme } from '@/store/theme';
 import { useQuery } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import NotificationModal from '@/components/modal/NotificationModal';
@@ -13,6 +14,8 @@ export default function AdminTopBar() {
   const { user } = useAuthStore();
   const [now, setNow] = useState<Date | null>(null);
   const [showNotifications, setShowNotifications] = useState(false);
+  const theme = useTheme((s) => s.theme);
+  const toggleTheme = useTheme((s) => s.toggle);
 
   const notificationCounts = useQuery(api.services.notifications.getNotificationCounts);
   const unread = notificationCounts?.unread ?? 0;
@@ -91,13 +94,13 @@ export default function AdminTopBar() {
             )}
           </button>
           <button
-            disabled
-            className="p-2 rounded-lg border opacity-50 cursor-not-allowed"
+            onClick={toggleTheme}
+            className="p-2 rounded-lg border hover:opacity-90"
             style={{ background: 'var(--surface-2)', borderColor: 'var(--line)', color: 'var(--ink)' }}
-            aria-label="Theme — light mode not yet available"
-            title="Light theme not implemented yet"
+            aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+            title={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
           >
-            <Sun className="w-[15px] h-[15px]" />
+            {theme === 'dark' ? <Sun className="w-[15px] h-[15px]" /> : <Moon className="w-[15px] h-[15px]" />}
           </button>
           <button
             onClick={() => router.push('/admin/settings')}

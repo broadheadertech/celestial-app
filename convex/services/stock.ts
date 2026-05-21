@@ -273,6 +273,7 @@ export const getStockRecords = query({
           productImage: product?.image,
           productPrice: product?.price,
           productCostPrice: product?.costPrice,
+          productMovingAverageCost: product?.movingAverageCost,
         };
       })
     );
@@ -670,10 +671,16 @@ export const restockProduct = mutation({
     notes: v.optional(v.string()),
     qualityGrade: v.optional(v.union(v.literal("premium"), v.literal("standard"), v.literal("budget"))),
     userId: v.optional(v.id("users")),
+    // Actual per-unit cost for this batch (the price paid to acquire it). If unset,
+    // falls back to product.costPrice and the moving-average is left untouched.
+    actualCostPrice: v.optional(v.number()),
   },
-  handler: async (ctx, { productId, quantity, notes, qualityGrade, userId }) => {
+  handler: async (ctx, { productId, quantity, notes, qualityGrade, userId, actualCostPrice }) => {
     if (quantity <= 0) {
       throw new Error("Quantity must be greater than 0");
+    }
+    if (actualCostPrice !== undefined && actualCostPrice < 0) {
+      throw new Error("Actual cost price cannot be negative");
     }
 
     // Get product details
@@ -755,6 +762,9 @@ export const restockProduct = mutation({
       mortalityLossQty: 0,
       returnedQty: 0,
 
+      // Per-batch acquisition cost (the actual buying cost for this shipment)
+      actualCostPrice: actualCostPrice,
+
       // Location
       tankNumber: product.tankNumber,
 
@@ -788,19 +798,37 @@ export const restockProduct = mutation({
       createdAt: now,
     });
 
-    // Update product total stock
+    // Moving Average Cost (MAC) — recompute the running weighted average for this product.
+    // Only updates when actualCostPrice was supplied for this restock; otherwise leaves MAC as-is.
+    let nextMovingAverage: number | undefined = product.movingAverageCost;
+    if (actualCostPrice !== undefined && actualCostPrice >= 0) {
+      const priorAvg = product.movingAverageCost ?? product.costPrice ?? actualCostPrice;
+      const priorQty = product.stock; // pre-restock stock
+      if (priorQty <= 0) {
+        // Empty product — new MAC equals this batch's cost.
+        nextMovingAverage = actualCostPrice;
+      } else {
+        nextMovingAverage = ((priorQty * priorAvg) + (quantity * actualCostPrice)) / (priorQty + quantity);
+      }
+    }
+
+    // Update product total stock (+ MAC if it changed)
     await ctx.db.patch(productId, {
       stock: newTotalStock,
+      ...(nextMovingAverage !== undefined && nextMovingAverage !== product.movingAverageCost
+        ? { movingAverageCost: nextMovingAverage }
+        : {}),
       updatedAt: now,
     });
 
-    // Auto-create restocking expense (costPrice × quantity)
+    // Auto-create restocking expense at the actual cost when available
     await createRestockExpenseHelper(ctx, {
       productId,
       stockRecordId,
       quantity,
       batchCode,
       userId,
+      actualCostPrice,
     });
 
     return {
@@ -811,6 +839,8 @@ export const restockProduct = mutation({
       batchQty: quantity,
       message: `Successfully restocked ${quantity} units. New batch created: ${batchCode}`,
       newTotalStock,
+      movingAverageCost: nextMovingAverage,
+      actualCostPrice,
     };
   },
 });
@@ -908,17 +938,19 @@ export const logInternalUse = mutation({
     const expenseId = await createInternalUseExpenseHelper(ctx, {
       productId,
       quantity,
-      unitCost: product.costPrice,
+      // Prefer moving-average cost (per-batch actuals) over the static basis costPrice.
+      unitCost: product.movingAverageCost ?? product.costPrice,
       notes,
       userId,
       internalUseCategory,
     });
 
+    const unitCostUsed = product.movingAverageCost ?? product.costPrice;
     return {
       success: true,
       quantityUsed: quantity,
       newTotalStock,
-      expenseAmount: product.costPrice * quantity,
+      expenseAmount: unitCostUsed * quantity,
       expenseId,
     };
   },
@@ -1427,8 +1459,14 @@ export const getStockSummary = query({
 
     for (const record of allStockRecords) {
       const product = await ctx.db.get(record.productId);
-      // Inventory value at COST (not retail). Naturally drops as items sell, since currentQty decreases.
-      const recordValue = product ? (product.costPrice || 0) * record.currentQty : 0;
+      // Inventory value at COST. Prefers per-batch actualCostPrice (what was actually paid for
+      // this shipment), then falls back to product.movingAverageCost, then product.costPrice.
+      const perUnitCost =
+        record.actualCostPrice ??
+        product?.movingAverageCost ??
+        product?.costPrice ??
+        0;
+      const recordValue = perUnitCost * record.currentQty;
 
       summary.totalCurrentQty += record.currentQty;
       summary.totalReservedQty += record.reservedQty;
@@ -1695,7 +1733,8 @@ export const recordMortalityLossByProduct = mutation({
       notes,
       userId,
     });
-    const expenseAmount = (product.costPrice || 0) * quantity;
+    const mortalityUnitCost = product.movingAverageCost ?? product.costPrice ?? 0;
+    const expenseAmount = mortalityUnitCost * quantity;
 
     return {
       success: true,

@@ -41,7 +41,8 @@ export default defineSchema({
     name: v.string(),
     description: v.optional(v.string()),
     price: v.number(),
-    costPrice: v.optional(v.number()), // Cost/acquisition price for gross profit calculation
+    costPrice: v.optional(v.number()), // Base/declared cost; used as fallback for P&L when no batch actualCostPrice exists
+    movingAverageCost: v.optional(v.number()), // Weighted running average of batch actualCostPrice. P&L COGS prefers this over costPrice.
     originalPrice: v.optional(v.number()),
     categoryId: v.id("categories"),
     image: v.string(),
@@ -56,6 +57,13 @@ export default defineSchema({
     lifespan: v.optional(v.string()),
     tankNumber: v.optional(v.string()),
     batchCode: v.optional(v.string()),
+    // Premium specimen grade (S = best, then AAA / AA / A). Optional — only set on collector fish.
+    grade: v.optional(v.union(
+      v.literal("S"),
+      v.literal("AAA"),
+      v.literal("AA"),
+      v.literal("A"),
+    )),
     isActive: v.boolean(),
     createdAt: v.number(),
     updatedAt: v.number(),
@@ -290,6 +298,10 @@ export default defineSchema({
     mortalityLossQty: v.number(), // Quantity lost due to mortality/damage
     returnedQty: v.number(), // Quantity returned by customers
     internalUseQty: v.optional(v.number()), // Quantity consumed for in-shop use (not sold)
+
+    // Per-batch acquisition cost. When this batch is received, this is the cost paid.
+    // Drives P&L COGS via product.movingAverageCost; falls back to product.costPrice if unset.
+    actualCostPrice: v.optional(v.number()),
     
     // Location tracking
     tankNumber: v.optional(v.string()), // Tank number if applicable
@@ -424,6 +436,69 @@ export default defineSchema({
     updatedBy: v.optional(v.id("users")),
   })
     .index("by_key", ["key"]),
+
+  // Cash adjustments — manual injections/withdrawals to/from cash-on-hand
+  // (owner capital injection, float top-up, drawer count correction, owner draw, etc.).
+  // amount is signed: positive adds to COH, negative subtracts.
+  cashAdjustments: defineTable({
+    type: v.union(
+      v.literal("injection"),    // Add cash (owner capital, float top-up, found cash)
+      v.literal("withdrawal"),   // Remove cash (owner draw, bank deposit out)
+      v.literal("correction"),   // Plus or minus, used to reconcile cash counts
+    ),
+    amount: v.number(),          // Signed (+ adds to COH, − subtracts)
+    reason: v.string(),          // Short label e.g. "Owner capital injection"
+    notes: v.optional(v.string()),
+    date: v.number(),
+    createdBy: v.optional(v.id("users")),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_date", ["date"])
+    .index("by_type", ["type"]),
+
+  // Public contact form submissions from the website's /contact page.
+  contactMessages: defineTable({
+    name: v.string(),
+    email: v.string(),
+    phone: v.optional(v.string()),
+    subject: v.string(),
+    message: v.string(),
+    status: v.union(
+      v.literal("new"),
+      v.literal("responded"),
+      v.literal("archived"),
+    ),
+    userId: v.optional(v.id("users")),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_status", ["status"])
+    .index("by_user", ["userId"]),
+
+  // Gallery viewings — appointment bookings from the website's /visit page.
+  viewings: defineTable({
+    name: v.string(),
+    email: v.string(),
+    phone: v.string(),
+    date: v.string(), // YYYY-MM-DD
+    time: v.string(), // HH:MM (24h)
+    partySize: v.number(),
+    interest: v.optional(v.string()),
+    notes: v.optional(v.string()),
+    status: v.union(
+      v.literal("requested"),
+      v.literal("confirmed"),
+      v.literal("completed"),
+      v.literal("cancelled"),
+    ),
+    userId: v.optional(v.id("users")),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_date", ["date"])
+    .index("by_status", ["status"])
+    .index("by_user", ["userId"]),
 
   // Application-wide settings (singleton; always use first row)
   appSettings: defineTable({

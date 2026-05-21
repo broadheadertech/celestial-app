@@ -36,6 +36,7 @@ interface ProductFormData {
   status: string;
   featured: boolean;
   lifespan: string;
+  grade: '' | 'S' | 'AAA' | 'AA' | 'A';
 
   // Fish specific fields
   scientificName: string;
@@ -85,6 +86,7 @@ const initialFormData: ProductFormData = {
   status: 'active',
   featured: false,
   lifespan: '',
+  grade: '',
 
   // Fish specific fields
   scientificName: '',
@@ -218,6 +220,7 @@ export function ProductFormContentInner({ editProductId, onSuccess, isDrawer }: 
         sku: (existingProduct.sku || '').toString(),
         status: existingProduct.productStatus || 'active',
         lifespan: existingProduct.lifespan || '',
+        grade: (existingProduct as { grade?: 'S' | 'AAA' | 'AA' | 'A' }).grade || '',
       }));
     }
   }, [existingProduct, isEditing, categories]);
@@ -420,6 +423,7 @@ export function ProductFormContentInner({ editProductId, onSuccess, isDrawer }: 
         productStatus: formData.status,
         sku: skuString,
         lifespan: formData.lifespan || undefined,
+        grade: formData.grade || undefined,
         isActive: formData.status === 'active',
       };
 
@@ -756,6 +760,37 @@ export function ProductFormContentInner({ editProductId, onSuccess, isDrawer }: 
                 value={formData.lifespan}
                 onChange={(e) => handleInputChange('lifespan', e.target.value)}
               />
+            </>
+          )}
+
+          {/* Grade picker — only meaningful for fish/livestock */}
+          {isFishProduct && (
+            <>
+              <label className="block text-sm font-semibold text-foreground mb-2">
+                Grade <span className="text-muted text-xs font-normal">(Premium specimens only)</span>
+              </label>
+              <div className="grid grid-cols-5 gap-2 mb-4">
+                {(['', 'S', 'AAA', 'AA', 'A'] as const).map((g) => (
+                  <button
+                    key={g || 'none'}
+                    type="button"
+                    onClick={() => handleInputChange('grade', g)}
+                    className="py-2.5 rounded-lg text-sm font-bold border transition-all"
+                    style={{
+                      background:
+                        formData.grade === g
+                          ? 'var(--red-wash)'
+                          : 'var(--secondary)',
+                      borderColor:
+                        formData.grade === g ? 'var(--red)' : 'var(--line)',
+                      color:
+                        formData.grade === g ? 'var(--red-hi)' : 'var(--ink-3)',
+                    }}
+                  >
+                    {g || '—'}
+                  </button>
+                ))}
+              </div>
             </>
           )}
         </div>
