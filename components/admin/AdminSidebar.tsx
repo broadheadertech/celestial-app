@@ -19,6 +19,7 @@ import {
   MessageCircle,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/auth';
+import { useTheme } from '@/store/theme';
 import { useQuery } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 
@@ -323,21 +324,22 @@ export default function AdminSidebar() {
 }
 
 function DragonsCaveMark({ size = 32 }: { size?: number }) {
+  const theme = useTheme((s) => s.theme);
+  const src = theme === 'dark' ? '/img/dc-logo-dark.png' : '/img/dc-logo-light.png';
   return (
-    <svg width={size} height={size} viewBox="0 0 64 64" aria-hidden="true" style={{ display: 'block' }}>
-      <defs>
-        <clipPath id="dc-sb-clip">
-          <rect x="0" y="0" width="64" height="64" rx="12" />
-        </clipPath>
-      </defs>
-      <g clipPath="url(#dc-sb-clip)">
-        <rect x="0" y="0" width="64" height="64" rx="12" fill="var(--red)" />
-        <path
-          d="M14 14 L34 14 C42 14 46 18 46 24 C46 32 38 34 30 36 C24 37 18 38 14 42 C12 44 10 42 10 38 L10 18 C10 15 11 14 14 14 Z"
-          fill="oklch(0.99 0 0)"
-        />
-        <circle cx="20" cy="26" r="1.6" fill="var(--red)" />
-      </g>
-    </svg>
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={src}
+      alt="Dragon's Cave"
+      width={size}
+      height={size}
+      style={{
+        display: 'block',
+        width: size,
+        height: size,
+        objectFit: 'contain',
+      }}
+      draggable={false}
+    />
   );
 }

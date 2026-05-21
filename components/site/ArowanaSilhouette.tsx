@@ -1,5 +1,7 @@
 'use client';
 
+import { useTheme } from '@/store/theme';
+
 export default function ArowanaSilhouette({
   size = 200,
   color = 'currentColor',
@@ -46,29 +48,33 @@ export default function ArowanaSilhouette({
   );
 }
 
-export function DragonsCaveMark({ size = 32 }: { size?: number }) {
+export function DragonsCaveMark({
+  size = 32,
+  rounded = false,
+}: {
+  size?: number;
+  /** When true, clip to a rounded square — useful for tight sidebar/header tiles. */
+  rounded?: boolean;
+}) {
+  const theme = useTheme((s) => s.theme);
+  // Light theme: original black + red on white-knockout. Dark theme: black inverted to white.
+  const src = theme === 'dark' ? '/img/dc-logo-dark.png' : '/img/dc-logo-light.png';
   return (
-    <svg
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={src}
+      alt="Dragon's Cave"
       width={size}
       height={size}
-      viewBox="0 0 64 64"
-      style={{ display: 'block' }}
-      aria-hidden="true"
-    >
-      <defs>
-        <clipPath id="dc-site-clip">
-          <rect x="0" y="0" width="64" height="64" rx="12" />
-        </clipPath>
-      </defs>
-      <g clipPath="url(#dc-site-clip)">
-        <rect x="0" y="0" width="64" height="64" rx="12" fill="var(--red)" />
-        <path
-          d="M14 14 L34 14 C42 14 46 18 46 24 C46 32 38 34 30 36 C24 37 18 38 14 42 C12 44 10 42 10 38 L10 18 C10 15 11 14 14 14 Z"
-          fill="oklch(0.99 0 0)"
-        />
-        <circle cx="20" cy="26" r="1.6" fill="var(--red)" />
-      </g>
-    </svg>
+      style={{
+        display: 'block',
+        width: size,
+        height: size,
+        objectFit: 'contain',
+        borderRadius: rounded ? Math.round(size * 0.2) : 0,
+      }}
+      draggable={false}
+    />
   );
 }
 
