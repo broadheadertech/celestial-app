@@ -75,7 +75,7 @@ export default function PresentationPage() {
       </button>
 
       <iframe
-        src="/dragons-cave-deck.html"
+        src="/deck/index.html"
         title="Dragon's Cave — Presentation"
         allow="fullscreen"
         style={{
