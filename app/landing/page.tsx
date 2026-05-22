@@ -51,6 +51,14 @@ export default function LandingPage() {
                 Continue in Web Browser
               </Button>
               <Button
+                onClick={() => router.push('/presentation')}
+                size="lg"
+                variant="ghost"
+                className="w-full sm:w-auto border border-white/15 text-white hover:bg-white/5"
+              >
+                View Our Story →
+              </Button>
+              <Button
                 size="lg"
                 variant="ghost"
                 disabled
