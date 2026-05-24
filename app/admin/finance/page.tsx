@@ -406,25 +406,26 @@ function FinanceContent() {
             const irNet = investment - remittance;
             const irBalanced = investment === 0 && remittance === 0;
             return (
-              <div
-                className="grid gap-3"
-                style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}
-              >
-                {/* 1 · Cash on Hand */}
+              <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                {/* 1 · Cash on Hand — accent is jade if positive, red if negative (mirrors Net Profit) */}
+                {(() => {
+                  const isPositive = summary.cashOnHand >= 0;
+                  const accent = isPositive ? 'var(--jade)' : 'var(--red-hi)';
+                  const accentMix = isPositive ? 'var(--jade)' : 'var(--red)';
+                  return (
                 <div
-                  className="rounded-2xl border p-5 relative overflow-hidden"
+                  className="rounded-2xl border p-5 flex flex-col min-h-[182px] relative overflow-hidden"
                   style={{
-                    background:
-                      'linear-gradient(135deg, color-mix(in oklch, var(--jade) 18%, transparent), color-mix(in oklch, var(--jade) 4%, transparent))',
-                    borderColor: 'color-mix(in oklch, var(--jade) 30%, transparent)',
+                    background: `linear-gradient(135deg, color-mix(in oklch, ${accentMix} 18%, transparent), color-mix(in oklch, ${accentMix} 4%, transparent))`,
+                    borderColor: `color-mix(in oklch, ${accentMix} 30%, transparent)`,
                   }}
                 >
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center gap-2">
-                      <Wallet className="w-4 h-4" style={{ color: 'var(--jade)' }} />
+                      <Wallet className="w-4 h-4" style={{ color: accent }} />
                       <p
                         className="text-[10px] font-semibold uppercase tracking-wider"
-                        style={{ color: 'color-mix(in oklch, var(--jade) 80%, transparent)' }}
+                        style={{ color: `color-mix(in oklch, ${accent} 90%, transparent)` }}
                       >
                         {isFiltered ? 'Cash flow · this period' : 'Cash on Hand'}
                       </p>
@@ -432,24 +433,26 @@ function FinanceContent() {
                     <span
                       className="px-2 py-0.5 rounded-full text-[10px] font-semibold"
                       style={{
-                        background:
-                          summary.cashOnHand >= 0
-                            ? 'color-mix(in oklch, var(--jade) 20%, transparent)'
-                            : 'color-mix(in oklch, var(--red) 20%, transparent)',
-                        color: summary.cashOnHand >= 0 ? 'var(--jade)' : 'var(--red-hi)',
+                        background: `color-mix(in oklch, ${accentMix} 20%, transparent)`,
+                        color: accent,
                       }}
                     >
-                      {summary.cashOnHand >= 0 ? 'Positive' : 'Negative'}
+                      {isPositive ? 'Positive' : 'Negative'}
                     </span>
                   </div>
-                  <p className="text-[28px] font-bold dc-mono leading-tight">{fmt(summary.cashOnHand)}</p>
+                  <p
+                    className="text-[28px] font-bold dc-mono leading-tight"
+                    style={{ color: accent }}
+                  >
+                    {fmt(summary.cashOnHand)}
+                  </p>
                   {isFiltered && summaryAllTime && (
                     <p className="text-[11px] mt-1.5" style={{ color: 'var(--ink-3)' }}>
                       <span style={{ color: 'var(--ink-4)' }}>Right now: </span>
                       <span className="font-semibold dc-mono">{fmt(summaryAllTime.cashOnHand)}</span>
                     </p>
                   )}
-                  <div className="mt-3 pt-2.5 border-t flex flex-wrap gap-x-3 gap-y-1 text-[11px]" style={{ borderColor: 'var(--line-soft)' }}>
+                  <div className="mt-auto pt-2.5 border-t flex flex-wrap gap-x-3 gap-y-1 text-[11px]" style={{ borderColor: 'var(--line-soft)' }}>
                     <span style={{ color: 'var(--ink-4)' }}>
                       Open <span className="font-semibold dc-mono" style={{ color: 'var(--ink-2)' }}>{fmt(summary.openingBalance)}</span>
                     </span>
@@ -467,10 +470,12 @@ function FinanceContent() {
                     )}
                   </div>
                 </div>
+                  );
+                })()}
 
                 {/* 2 · Gross Profit */}
                 <div
-                  className="rounded-2xl border p-5"
+                  className="rounded-2xl border p-5 flex flex-col min-h-[182px]"
                   style={{
                     background:
                       'linear-gradient(135deg, color-mix(in oklch, var(--jade) 14%, transparent), color-mix(in oklch, var(--jade) 3%, transparent))',
@@ -482,7 +487,7 @@ function FinanceContent() {
                       <DollarSign className="w-4 h-4" style={{ color: 'var(--jade)' }} />
                       <p
                         className="text-[10px] font-semibold uppercase tracking-wider"
-                        style={{ color: 'color-mix(in oklch, var(--jade) 80%, transparent)' }}
+                        style={{ color: 'color-mix(in oklch, var(--jade) 90%, transparent)' }}
                       >
                         Gross Profit
                       </p>
@@ -497,36 +502,40 @@ function FinanceContent() {
                       {summary.grossMargin}% margin
                     </span>
                   </div>
-                  <p className="text-[28px] font-bold dc-mono leading-tight">{fmt(summary.grossProfit)}</p>
-                  <p className="text-[11px] mt-1.5" style={{ color: 'var(--ink-3)' }}>
+                  <p
+                    className="text-[28px] font-bold dc-mono leading-tight"
+                    style={{ color: summary.grossProfit >= 0 ? 'var(--jade)' : 'var(--red-hi)' }}
+                  >
+                    {fmt(summary.grossProfit)}
+                  </p>
+                  <p className="text-[11px] mt-auto pt-2" style={{ color: 'var(--ink-3)' }}>
                     Revenue {fmt(summary.totalRevenue)} − COGS {fmt(summary.cogs)}
                   </p>
                 </div>
 
-                {/* 3 · Net Profit */}
+                {/* 3 · Net Profit — color tracks sign (jade if profit, red if loss) */}
+                {(() => {
+                  const isProfit = summary.netProfit >= 0;
+                  const accent = isProfit ? 'var(--jade)' : 'var(--red-hi)';
+                  const accentMix = isProfit ? 'var(--jade)' : 'var(--red)';
+                  return (
                 <div
-                  className="rounded-2xl border p-5"
+                  className="rounded-2xl border p-5 flex flex-col min-h-[182px]"
                   style={{
-                    background:
-                      summary.netProfit >= 0
-                        ? 'linear-gradient(135deg, color-mix(in oklch, var(--red) 16%, transparent), color-mix(in oklch, var(--red) 4%, transparent))'
-                        : 'linear-gradient(135deg, color-mix(in oklch, var(--red) 22%, transparent), color-mix(in oklch, var(--red) 8%, transparent))',
-                    borderColor:
-                      summary.netProfit >= 0
-                        ? 'color-mix(in oklch, var(--red) 28%, transparent)'
-                        : 'color-mix(in oklch, var(--red) 40%, transparent)',
+                    background: `linear-gradient(135deg, color-mix(in oklch, ${accentMix} 18%, transparent), color-mix(in oklch, ${accentMix} 4%, transparent))`,
+                    borderColor: `color-mix(in oklch, ${accentMix} 30%, transparent)`,
                   }}
                 >
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center gap-2">
-                      {summary.netProfit >= 0 ? (
-                        <TrendingUp className="w-4 h-4" style={{ color: 'var(--red-hi)' }} />
+                      {isProfit ? (
+                        <TrendingUp className="w-4 h-4" style={{ color: accent }} />
                       ) : (
-                        <TrendingDown className="w-4 h-4" style={{ color: 'var(--red-hi)' }} />
+                        <TrendingDown className="w-4 h-4" style={{ color: accent }} />
                       )}
                       <p
                         className="text-[10px] font-semibold uppercase tracking-wider"
-                        style={{ color: 'color-mix(in oklch, var(--red-hi) 90%, transparent)' }}
+                        style={{ color: `color-mix(in oklch, ${accent} 90%, transparent)` }}
                       >
                         {isFiltered ? 'Net profit · this period' : 'Net Profit'}
                       </p>
@@ -534,14 +543,19 @@ function FinanceContent() {
                     <span
                       className="px-2 py-0.5 rounded-full text-[10px] font-semibold"
                       style={{
-                        background: 'color-mix(in oklch, var(--red) 20%, transparent)',
-                        color: 'var(--red-hi)',
+                        background: `color-mix(in oklch, ${accentMix} 20%, transparent)`,
+                        color: accent,
                       }}
                     >
                       {summary.netMargin}% margin
                     </span>
                   </div>
-                  <p className="text-[28px] font-bold dc-mono leading-tight">{fmt(summary.netProfit)}</p>
+                  <p
+                    className="text-[28px] font-bold dc-mono leading-tight"
+                    style={{ color: accent }}
+                  >
+                    {fmt(summary.netProfit)}
+                  </p>
                   {isFiltered && summaryAllTime && (
                     <p className="text-[11px] mt-1.5" style={{ color: 'var(--ink-3)' }}>
                       <span style={{ color: 'var(--ink-4)' }}>Right now: </span>
@@ -549,14 +563,16 @@ function FinanceContent() {
                       <span style={{ color: 'var(--ink-4)' }}> · {summaryAllTime.netMargin}%</span>
                     </p>
                   )}
-                  <p className="text-[11px] mt-1.5" style={{ color: 'var(--ink-3)' }}>
+                  <p className="text-[11px] mt-auto pt-2" style={{ color: 'var(--ink-3)' }}>
                     Gross {fmt(summary.grossProfit)} − OpEx {fmt(summary.totalOperationalExpense)}
                   </p>
                 </div>
+                  );
+                })()}
 
                 {/* 4 · Restock Expense */}
                 <div
-                  className="rounded-2xl border p-5"
+                  className="rounded-2xl border p-5 flex flex-col min-h-[182px]"
                   style={{
                     background:
                       'linear-gradient(135deg, color-mix(in oklch, var(--gold) 14%, transparent), color-mix(in oklch, var(--gold) 3%, transparent))',
@@ -583,15 +599,20 @@ function FinanceContent() {
                       {summary.restockingCount}
                     </span>
                   </div>
-                  <p className="text-[28px] font-bold dc-mono leading-tight">{fmt(summary.totalRestockingExpense)}</p>
-                  <p className="text-[11px] mt-1.5" style={{ color: 'var(--ink-3)' }}>
+                  <p
+                    className="text-[28px] font-bold dc-mono leading-tight"
+                    style={{ color: 'var(--gold-deep)' }}
+                  >
+                    {fmt(summary.totalRestockingExpense)}
+                  </p>
+                  <p className="text-[11px] mt-auto pt-2" style={{ color: 'var(--ink-3)' }}>
                     Paid for incoming batches{isFiltered ? ' · this period' : ' (lifetime)'}
                   </p>
                 </div>
 
                 {/* 5 · Operational Expense */}
                 <div
-                  className="rounded-2xl border p-5"
+                  className="rounded-2xl border p-5 flex flex-col min-h-[182px]"
                   style={{
                     background:
                       'linear-gradient(135deg, color-mix(in oklch, var(--indigo) 16%, transparent), color-mix(in oklch, var(--indigo) 4%, transparent))',
@@ -618,15 +639,20 @@ function FinanceContent() {
                       {summary.operationalCount}
                     </span>
                   </div>
-                  <p className="text-[28px] font-bold dc-mono leading-tight">{fmt(summary.totalOperationalExpense)}</p>
-                  <p className="text-[11px] mt-1.5" style={{ color: 'var(--ink-3)' }}>
+                  <p
+                    className="text-[28px] font-bold dc-mono leading-tight"
+                    style={{ color: 'var(--indigo)' }}
+                  >
+                    {fmt(summary.totalOperationalExpense)}
+                  </p>
+                  <p className="text-[11px] mt-auto pt-2" style={{ color: 'var(--ink-3)' }}>
                     Rent, utilities, salary, marketing, etc.
                   </p>
                 </div>
 
                 {/* 6 · Investment vs Remittance */}
                 <div
-                  className="rounded-2xl border p-5"
+                  className="rounded-2xl border p-5 flex flex-col min-h-[182px]"
                   style={{
                     background:
                       'linear-gradient(135deg, var(--surface-2), var(--surface))',
