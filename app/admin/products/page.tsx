@@ -187,6 +187,7 @@ function AdminProductsContent() {
   const [showRestockModal, setShowRestockModal] = useState(false);
   const [restockProductId, setRestockProductId] = useState<string | null>(null);
   const [restockQuantity, setRestockQuantity] = useState('');
+  const [restockCost, setRestockCost] = useState('');
 
   // Mortality loss modal state
   const [showMortalityModal, setShowMortalityModal] = useState(false);
@@ -373,6 +374,10 @@ function AdminProductsContent() {
     } else if (action === 'Restock') {
       setRestockProductId(productId);
       setRestockQuantity('');
+      // Pre-fill cost with the product's current costPrice so unchanged costs
+      // are a one-click confirmation, but admins can still override per batch.
+      const targetProduct = products?.find(p => p._id === productId);
+      setRestockCost(targetProduct?.costPrice != null ? String(targetProduct.costPrice) : '');
       setShowRestockModal(true);
     } else if (action === 'MortalityLoss') {
       setMortalityProductId(productId);
@@ -413,18 +418,31 @@ function AdminProductsContent() {
       return;
     }
 
+    // Parse actual cost — empty means "use product.costPrice fallback on the server".
+    let actualCostPrice: number | undefined;
+    if (restockCost.trim() !== '') {
+      const parsedCost = parseFloat(restockCost);
+      if (isNaN(parsedCost) || parsedCost < 0) {
+        alert('Please enter a valid cost per unit (or leave blank to use product default)');
+        return;
+      }
+      actualCostPrice = parsedCost;
+    }
+
     try {
       // Create a new stock record for this restock (1-to-many relationship)
       const result = await restockProduct({
         productId: restockProductId as any,
         quantity: quantity,
         notes: `Admin restock - Added ${quantity} units`,
+        actualCostPrice,
       });
 
       // Close modal and reset
       setShowRestockModal(false);
       setRestockProductId(null);
       setRestockQuantity('');
+      setRestockCost('');
 
       alert(`${result.message}\nNew batch code: ${result.batchCode}\nTotal stock: ${result.newTotalStock} units`);
     } catch (error) {
@@ -1082,6 +1100,7 @@ function AdminProductsContent() {
               setShowRestockModal(false);
               setRestockProductId(null);
               setRestockQuantity('');
+              setRestockCost('');
             }}
           />
 
@@ -1103,6 +1122,7 @@ function AdminProductsContent() {
                       setShowRestockModal(false);
                       setRestockProductId(null);
                       setRestockQuantity('');
+                      setRestockCost('');
                     }}
                     className="p-1.5 rounded-lg hover:bg-white/10 transition-colors"
                   >
@@ -1197,6 +1217,38 @@ function AdminProductsContent() {
                           </p>
                         )}
                       </div>
+
+                      {/* Actual Cost Per Unit Input */}
+                      <div>
+                        <label className="block text-sm font-medium text-white mb-2">
+                          Actual Cost Per Unit (₱)
+                          <span className="ml-2 text-xs text-white/40 font-normal">
+                            — what you paid for this batch
+                          </span>
+                        </label>
+                        <div className="relative">
+                          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-white/40 pointer-events-none">₱</span>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={restockCost}
+                            onChange={(e) => setRestockCost(e.target.value)}
+                            placeholder={product.costPrice != null ? `${product.costPrice} (default)` : 'e.g. 18000.00'}
+                            className="w-full pl-8 pr-4 py-3 bg-secondary border border-white/10 rounded-lg text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-primary"
+                          />
+                        </div>
+                        {restockCost && restockQuantity && !isNaN(parseFloat(restockCost)) && parseInt(restockQuantity) > 0 && (
+                          <p className="mt-2 text-sm text-white/60">
+                            Total batch cost: <span className="font-bold text-success">{formatCurrency(parseFloat(restockCost) * parseInt(restockQuantity || '0'))}</span>
+                          </p>
+                        )}
+                        {restockCost === '' && (
+                          <p className="mt-2 text-xs text-white/40">
+                            Leave blank to use the product&apos;s default cost ({product.costPrice != null ? formatCurrency(product.costPrice) : 'not set'}). The moving-average cost only updates when a cost is supplied here.
+                          </p>
+                        )}
+                      </div>
                     </>
                   );
                 })()}
@@ -1209,6 +1261,7 @@ function AdminProductsContent() {
                     setShowRestockModal(false);
                     setRestockProductId(null);
                     setRestockQuantity('');
+                    setRestockCost('');
                   }}
                   className="flex-1 px-4 py-2.5 bg-secondary/60 hover:bg-white/10 border border-white/10 rounded-lg text-white font-medium transition-all"
                 >
