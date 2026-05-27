@@ -337,7 +337,7 @@ export const getFinancialSummary = query({
     endDate: v.optional(v.number()),
   },
   handler: async (ctx, { startDate, endDate }) => {
-    const [orders, reservations, expenses, openingBalanceRecord, products, cashAdjustments] =
+    const [orders, reservations, expenses, openingBalanceRecord, products, cashAdjustments, stockRecords] =
       await Promise.all([
         ctx.db.query("orders").collect(),
         ctx.db.query("reservations").collect(),
@@ -348,6 +348,7 @@ export const getFinancialSummary = query({
           .first(),
         ctx.db.query("products").collect(),
         ctx.db.query("cashAdjustments").collect(),
+        ctx.db.query("stockRecords").collect(),
       ]);
 
     const openingBalance = openingBalanceRecord?.value || 0;
@@ -410,27 +411,69 @@ export const getFinancialSummary = query({
       }
     }
 
-    // COGS using moving-average cost when available (per-batch actual cost via MAC),
-    // otherwise falling back to product.costPrice. Counts only paid+partial transactions.
-    const effectiveCost = (p: { movingAverageCost?: number; costPrice?: number }) =>
-      p.movingAverageCost ?? p.costPrice ?? 0;
+    // ─── COGS via FIFO batch costing ───
+    // Each sold unit is costed against the earliest-RECEIVED batch still holding
+    // quantity, at that batch's actual acquisition cost (stockRecords.actualCostPrice).
+    // Falls back to moving-average → basis cost for batches with no recorded cost,
+    // or for units sold beyond the recorded batch quantity. Counts only paid+partial
+    // transactions (revenue-matched), excluding cancelled/unpaid/refunded.
+    const fallbackCost = (p?: { movingAverageCost?: number; costPrice?: number }) =>
+      p?.movingAverageCost ?? p?.costPrice ?? 0;
 
-    const cogsOrders = activeOrders.filter(o => o.paymentStatus !== 'unpaid' && o.paymentStatus !== 'refunded');
-    let cogs = 0;
-    for (const o of cogsOrders) {
+    const productMap = new Map(products.map((p) => [p._id as string, p]));
+
+    // Build per-product FIFO queues from purchase lots (exclude mortality write-offs).
+    type QueueBatch = { remaining: number; cost: number; received: number };
+    const fifoQueues = new Map<string, QueueBatch[]>();
+    for (const r of stockRecords) {
+      if (r.isMortalityLoss) continue; // write-offs are not purchase lots
+      if (r.initialQty <= 0) continue;
+      const product = productMap.get(r.productId as string);
+      const cost = r.actualCostPrice ?? fallbackCost(product);
+      const arr = fifoQueues.get(r.productId as string) ?? [];
+      arr.push({ remaining: r.initialQty, cost, received: r.receivedDate });
+      fifoQueues.set(r.productId as string, arr);
+    }
+    for (const arr of fifoQueues.values()) arr.sort((a, b) => a.received - b.received);
+
+    // Replay ALL recognized sales chronologically (even out-of-range) so in-range
+    // sales draw from the correct remaining batches; only in-range cost hits COGS.
+    type SaleItem = { productId: string; quantity: number; date: number; inRange: boolean };
+    const saleItems: SaleItem[] = [];
+    for (const o of orders) {
+      if (o.status === 'cancelled') continue;
+      if ((o.paymentStatus || 'unpaid') === 'unpaid' || o.paymentStatus === 'refunded') continue;
       for (const item of o.items || []) {
-        const p = products.find(prod => prod._id === item.productId);
-        if (p) cogs += effectiveCost(p) * item.quantity;
+        saleItems.push({ productId: item.productId as string, quantity: item.quantity, date: o.createdAt, inRange: inRange(o.createdAt) });
       }
     }
-    for (const r of completedReservations) {
-      if (r.paymentStatus === 'unpaid' || r.paymentStatus === 'refunded') continue;
-      if (r.items) {
-        for (const item of r.items) {
-          const p = products.find(prod => prod._id === item.productId);
-          if (p) cogs += effectiveCost(p) * item.quantity;
-        }
+    for (const r of reservations) {
+      if (r.status !== 'completed') continue;
+      if ((r.paymentStatus || 'unpaid') === 'unpaid' || r.paymentStatus === 'refunded') continue;
+      for (const item of r.items || []) {
+        saleItems.push({ productId: item.productId as string, quantity: item.quantity, date: r.createdAt, inRange: inRange(r.createdAt) });
       }
+    }
+    saleItems.sort((a, b) => a.date - b.date);
+
+    let cogs = 0;
+    for (const sale of saleItems) {
+      const queue = fifoQueues.get(sale.productId) ?? [];
+      let remaining = sale.quantity;
+      let lineCost = 0;
+      while (remaining > 0 && queue.length > 0) {
+        const head = queue[0];
+        const take = Math.min(remaining, head.remaining);
+        lineCost += take * head.cost;
+        head.remaining -= take;
+        remaining -= take;
+        if (head.remaining <= 0) queue.shift();
+      }
+      if (remaining > 0) {
+        // Queue exhausted (sold beyond recorded lots) — cost the remainder at fallback.
+        lineCost += remaining * fallbackCost(productMap.get(sale.productId));
+      }
+      if (sale.inRange) cogs += lineCost;
     }
 
     const grossProfit = totalRevenue - cogs;
@@ -480,7 +523,8 @@ export const getFinancialSummary = query({
     }
 
     // Net Profit = Gross Profit − Operational Expenses
-    // (Restocking is already reflected in COGS via costPrice)
+    // (Restocking is already reflected in COGS via FIFO batch costing, so it's not
+    //  subtracted again here — that would double-count the cost of inventory.)
     const netProfit = grossProfit - totalOperationalExpense;
     const netMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
 
@@ -528,6 +572,7 @@ export const getFinancialSummary = query({
       refundedCount,
       // Costs
       cogs,
+      cogsMethod: 'fifo' as const,
       grossProfit,
       grossMargin: grossMargin.toFixed(1),
       // Discounts given

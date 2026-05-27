@@ -261,12 +261,14 @@ function InventoryContent() {
     const quantity = parseInt(restockQuantity);
     if (isNaN(quantity) || quantity <= 0) return;
 
-    // Actual cost — only sent when typed; otherwise restock falls back to product.costPrice
+    // Actual cost is REQUIRED — every batch must declare what it actually cost so
+    // P&L COGS (FIFO) reflects real acquisition prices.
     const actualCostNum = parseFloat(restockActualCost);
-    const actualCostPrice =
-      restockActualCost.trim() !== '' && !isNaN(actualCostNum) && actualCostNum >= 0
-        ? actualCostNum
-        : undefined;
+    if (restockActualCost.trim() === '' || isNaN(actualCostNum) || actualCostNum < 0) {
+      alert('Enter the actual cost per unit for this batch.');
+      return;
+    }
+    const actualCostPrice = actualCostNum;
 
     setIsRestocking(true);
     try {
@@ -1180,7 +1182,7 @@ function InventoryContent() {
                   return (
                     <div>
                       <label className="block text-sm font-medium text-white mb-1.5">
-                        Actual cost / unit{' '}
+                        Actual cost / unit <span className="text-error">*</span>{' '}
                         <span className="text-xs text-white/40 font-normal">
                           (what you paid this batch)
                         </span>
@@ -1195,8 +1197,10 @@ function InventoryContent() {
                           step="0.01"
                           value={restockActualCost}
                           onChange={(e) => setRestockActualCost(e.target.value)}
-                          placeholder={`Default ₱${baseCost.toLocaleString('en-PH')} (basis cost)`}
-                          className="w-full pl-7 pr-3 py-3 bg-background/60 border border-white/10 rounded-lg text-sm text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-primary"
+                          placeholder={baseCost > 0 ? `e.g. ${baseCost.toLocaleString('en-PH')} (last basis cost)` : 'e.g. 120.00'}
+                          className={`w-full pl-7 pr-3 py-3 bg-background/60 border rounded-lg text-sm text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-primary ${
+                            !hasActual ? 'border-error/40' : 'border-white/10'
+                          }`}
                         />
                       </div>
                       {qty > 0 && (
@@ -1224,12 +1228,12 @@ function InventoryContent() {
                               </span>
                             </div>
                           )}
-                          {!hasActual && (
-                            <p className="text-[10px] text-white/40 mt-1.5">
-                              Leave blank to charge the basis cost. MAC won&apos;t change.
-                            </p>
-                          )}
                         </div>
+                      )}
+                      {!hasActual && (
+                        <p className="text-[10px] text-error/80 mt-1.5">
+                          Required — enter what this batch actually cost per unit.
+                        </p>
                       )}
                     </div>
                   );
@@ -1277,7 +1281,14 @@ function InventoryContent() {
                   </button>
                   <button
                     onClick={handleRestock}
-                    disabled={!selectedProductId || !restockQuantity || isRestocking}
+                    disabled={
+                      !selectedProductId ||
+                      !restockQuantity ||
+                      restockActualCost.trim() === '' ||
+                      isNaN(parseFloat(restockActualCost)) ||
+                      parseFloat(restockActualCost) < 0 ||
+                      isRestocking
+                    }
                     className="flex-1 px-4 py-3 bg-primary text-white rounded-xl font-medium hover:bg-primary/90 active:scale-95 transition-all touch-manipulation disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isRestocking ? 'Adding...' : 'Add Stock'}

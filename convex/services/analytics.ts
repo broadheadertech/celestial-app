@@ -450,3 +450,207 @@ function getRelativeTime(timestamp: number): string {
     return days === 1 ? "1 day ago" : `${days} days ago`;
   }
 }
+
+/**
+ * Product Performance — ranks every active product on real metrics:
+ *  • unitsSold / revenue (recognized = paid + partial, non-cancelled)
+ *  • FIFO profit & margin (per-batch actualCostPrice, falls back to MAC → basis cost)
+ *  • sellThrough (units sold ÷ units ever received) and velocity (units/day in window)
+ *  • a combined at-risk "riskScore" (0–100) blending slow velocity, aging stock,
+ *    low sell-through and capital tied up — to surface unlikely-to-sell inventory.
+ */
+export const getProductPerformance = query({
+  args: {
+    velocityWindowDays: v.optional(v.number()), // window for velocity / "recent" sales
+  },
+  handler: async (ctx, { velocityWindowDays = 90 }) => {
+    const [products, orders, reservations, stockRecords, categories] = await Promise.all([
+      ctx.db.query("products").withIndex("by_active", (q) => q.eq("isActive", true)).collect(),
+      ctx.db.query("orders").collect(),
+      ctx.db.query("reservations").collect(),
+      ctx.db.query("stockRecords").collect(),
+      ctx.db.query("categories").collect(),
+    ]);
+
+    const now = Date.now();
+    const DAY_MS = 24 * 60 * 60 * 1000;
+    const windowCutoff = now - velocityWindowDays * DAY_MS;
+
+    const categoryMap = new Map(categories.map((c) => [c._id as string, c.name]));
+    const productMap = new Map(products.map((p) => [p._id as string, p]));
+    const fallbackCost = (p?: { movingAverageCost?: number; costPrice?: number }) =>
+      p?.movingAverageCost ?? p?.costPrice ?? 0;
+
+    // ── Per-product purchase lots → FIFO queues + received/stock/cost aggregates ──
+    type Lot = { remaining: number; cost: number; received: number };
+    const fifoQueues = new Map<string, Lot[]>();
+    const unitsReceived = new Map<string, number>();
+    const oldestActiveReceived = new Map<string, number>(); // for aging of held stock
+    for (const r of stockRecords) {
+      if (r.isMortalityLoss) continue;
+      const pid = r.productId as string;
+      if (r.initialQty > 0) {
+        const cost = r.actualCostPrice ?? fallbackCost(productMap.get(pid));
+        const arr = fifoQueues.get(pid) ?? [];
+        arr.push({ remaining: r.initialQty, cost, received: r.receivedDate });
+        fifoQueues.set(pid, arr);
+        unitsReceived.set(pid, (unitsReceived.get(pid) ?? 0) + r.initialQty);
+      }
+      if (r.currentQty > 0 && r.status !== "depleted" && r.status !== "expired") {
+        const prev = oldestActiveReceived.get(pid);
+        if (prev === undefined || r.receivedDate < prev) oldestActiveReceived.set(pid, r.receivedDate);
+      }
+    }
+    for (const arr of fifoQueues.values()) arr.sort((a, b) => a.received - b.received);
+
+    // ── Recognized sale line-items (paid + partial), chronological for FIFO replay ──
+    type SaleLine = { productId: string; quantity: number; revenue: number; date: number };
+    const saleLines: SaleLine[] = [];
+    for (const o of orders) {
+      if (o.status === "cancelled") continue;
+      if ((o.paymentStatus || "unpaid") === "unpaid" || o.paymentStatus === "refunded") continue;
+      for (const item of o.items || []) {
+        saleLines.push({
+          productId: item.productId as string,
+          quantity: item.quantity,
+          revenue: item.price * item.quantity, // price is post line-discount
+          date: o.createdAt,
+        });
+      }
+    }
+    for (const r of reservations) {
+      if (r.status !== "completed") continue;
+      if ((r.paymentStatus || "unpaid") === "unpaid" || r.paymentStatus === "refunded") continue;
+      if (r.items && r.items.length > 0) {
+        for (const item of r.items) {
+          saleLines.push({
+            productId: item.productId as string,
+            quantity: item.quantity,
+            revenue: item.reservedPrice * item.quantity,
+            date: r.createdAt,
+          });
+        }
+      } else if (r.productId && r.quantity) {
+        const p = productMap.get(r.productId as string);
+        saleLines.push({
+          productId: r.productId as string,
+          quantity: r.quantity,
+          revenue: (p?.price ?? 0) * r.quantity,
+          date: r.createdAt,
+        });
+      }
+    }
+    saleLines.sort((a, b) => a.date - b.date);
+
+    // ── Accumulate per-product sales, revenue, FIFO COGS, last/recent sale ──
+    type Acc = { unitsSold: number; revenue: number; cogs: number; lastSale: number; unitsRecent: number };
+    const acc = new Map<string, Acc>();
+    const getAcc = (pid: string) =>
+      acc.get(pid) ?? acc.set(pid, { unitsSold: 0, revenue: 0, cogs: 0, lastSale: 0, unitsRecent: 0 }).get(pid)!;
+
+    for (const sale of saleLines) {
+      const a = getAcc(sale.productId);
+      a.unitsSold += sale.quantity;
+      a.revenue += sale.revenue;
+      if (sale.date > a.lastSale) a.lastSale = sale.date;
+      if (sale.date >= windowCutoff) a.unitsRecent += sale.quantity;
+
+      // FIFO cost for this line
+      const queue = fifoQueues.get(sale.productId) ?? [];
+      let remaining = sale.quantity;
+      while (remaining > 0 && queue.length > 0) {
+        const head = queue[0];
+        const take = Math.min(remaining, head.remaining);
+        a.cogs += take * head.cost;
+        head.remaining -= take;
+        remaining -= take;
+        if (head.remaining <= 0) queue.shift();
+      }
+      if (remaining > 0) a.cogs += remaining * fallbackCost(productMap.get(sale.productId));
+    }
+
+    // ── First pass: build rows + catalog maxima for risk normalization ──
+    const rows = products.map((p) => {
+      const pid = p._id as string;
+      const a = acc.get(pid);
+      const unitsSold = a?.unitsSold ?? 0;
+      const revenue = a?.revenue ?? 0;
+      const cogs = a?.cogs ?? 0;
+      const grossProfit = revenue - cogs;
+      const margin = revenue > 0 ? (grossProfit / revenue) * 100 : 0;
+      const received = unitsReceived.get(pid) ?? 0;
+      const sellThrough = received > 0 ? unitsSold / received : 0;
+      const currentStock = p.stock;
+      const unitCost = p.movingAverageCost ?? p.costPrice ?? 0;
+      const capitalTiedUp = currentStock * unitCost;
+      const velocity = (a?.unitsRecent ?? 0) / velocityWindowDays; // units/day
+      const lastSale = a?.lastSale ?? 0;
+      const daysSinceLastSale = lastSale > 0 ? Math.floor((now - lastSale) / DAY_MS) : null;
+      const oldestRcv = oldestActiveReceived.get(pid);
+      const stockAgeDays = oldestRcv !== undefined ? Math.floor((now - oldestRcv) / DAY_MS) : 0;
+
+      return {
+        id: pid,
+        name: p.name,
+        image: p.image || null,
+        category: categoryMap.get(p.categoryId as string) || "Uncategorized",
+        price: p.price,
+        unitCost,
+        currentStock,
+        unitsReceived: received,
+        unitsSold,
+        unitsRecent: a?.unitsRecent ?? 0,
+        revenue,
+        cogs,
+        grossProfit,
+        margin,
+        sellThrough,
+        velocity,
+        daysSinceLastSale,
+        stockAgeDays,
+        capitalTiedUp,
+        neverSold: unitsSold === 0,
+        riskScore: 0, // filled below
+      };
+    });
+
+    const maxVelocity = Math.max(0, ...rows.map((r) => r.velocity));
+    const maxCapital = Math.max(0, ...rows.map((r) => r.capitalTiedUp));
+
+    // ── Second pass: combined at-risk score (only meaningful when stock is held) ──
+    for (const r of rows) {
+      if (r.currentStock <= 0) {
+        r.riskScore = 0; // nothing to be "stuck" with
+        continue;
+      }
+      const velFactor = maxVelocity > 0 ? 1 - Math.min(r.velocity / maxVelocity, 1) : 1; // slow = high
+      const ageFactor = Math.min(r.stockAgeDays / 180, 1);
+      const capFactor = maxCapital > 0 ? Math.min(r.capitalTiedUp / maxCapital, 1) : 0;
+      const sellFactor = 1 - Math.min(r.sellThrough, 1);
+      let score = 100 * (0.35 * velFactor + 0.2 * ageFactor + 0.2 * capFactor + 0.25 * sellFactor);
+      if (r.neverSold) score = Math.max(score, 70); // never sold + holding stock = clearly at risk
+      r.riskScore = Math.round(score);
+    }
+
+    // ── Catalog summary ──
+    const totalRevenue = rows.reduce((s, r) => s + r.revenue, 0);
+    const totalProfit = rows.reduce((s, r) => s + r.grossProfit, 0);
+    const atRiskCount = rows.filter((r) => r.currentStock > 0 && r.riskScore >= 60).length;
+    const deadCapital = rows
+      .filter((r) => r.currentStock > 0 && r.riskScore >= 60)
+      .reduce((s, r) => s + r.capitalTiedUp, 0);
+
+    return {
+      rows,
+      velocityWindowDays,
+      summary: {
+        productCount: rows.length,
+        totalRevenue,
+        totalProfit,
+        avgMargin: totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0,
+        atRiskCount,
+        deadCapital,
+      },
+    };
+  },
+});

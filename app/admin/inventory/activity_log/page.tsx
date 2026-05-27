@@ -344,13 +344,22 @@ function ActivityLogContent() {
                             )}
 
                             {/* Footer */}
-                            <div className="flex items-center gap-2 text-[11px] text-white/40 mt-3 pt-3 border-t border-white/5">
+                            <div className="flex items-center flex-wrap gap-x-2 gap-y-1 text-[11px] text-white/40 mt-3 pt-3 border-t border-white/5">
                               <Calendar className="w-3 h-3" />
                               <span>{formatDate(record.createdAt)}</span>
                               {record.qualityGrade && (
                                 <>
                                   <span className="text-white/20">·</span>
                                   <span className="capitalize">{record.qualityGrade} grade</span>
+                                </>
+                              )}
+                              {!record.isMortalityLoss && record.actualCostPrice != null && (
+                                <>
+                                  <span className="text-white/20">·</span>
+                                  <span className="inline-flex items-center gap-1 text-white/60">
+                                    <DollarSign className="w-3 h-3 text-info" />
+                                    {formatCurrency(record.actualCostPrice)}/unit cost
+                                  </span>
                                 </>
                               )}
                             </div>

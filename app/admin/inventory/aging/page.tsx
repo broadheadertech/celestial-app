@@ -376,8 +376,21 @@ function StockAgingContent() {
                                 <span className="text-white font-semibold tabular-nums">{record.currentQty}</span>
                                 <span className="text-white/40 text-[10px] ml-1">/ {record.initialQty}</span>
                               </td>
-                              <td className="px-2 lg:px-3 py-3 lg:py-4 text-right text-white/70 text-[11px] lg:text-xs tabular-nums hidden lg:table-cell">
-                                {record.unitCost > 0 ? formatCurrency(record.costValue) : '—'}
+                              <td className="px-2 lg:px-3 py-3 lg:py-4 text-right tabular-nums hidden lg:table-cell">
+                                {record.unitCost > 0 ? (
+                                  <>
+                                    <div className="text-white/80 text-[11px] lg:text-xs whitespace-nowrap">
+                                      {formatCurrency(record.unitCost)}
+                                      <span className="text-white/40 text-[10px]">/u</span>
+                                      {!record.costRecorded && (
+                                        <span className="text-warning text-[10px] ml-1" title="No batch cost recorded — using product fallback cost">~</span>
+                                      )}
+                                    </div>
+                                    <div className="text-white/40 text-[10px] whitespace-nowrap">{formatCurrency(record.costValue)}</div>
+                                  </>
+                                ) : (
+                                  <span className="text-white/40 text-[11px]">—</span>
+                                )}
                               </td>
                               <td className="px-3 lg:px-5 py-3 lg:py-4 text-right text-white font-semibold tabular-nums whitespace-nowrap">
                                 {record.unitPrice > 0 ? formatCurrency(record.retailValue) : '—'}
@@ -435,14 +448,24 @@ function StockAgingContent() {
                                 <p className="text-sm font-bold text-white tabular-nums">{record.currentQty}<span className="text-[10px] text-white/40 ml-0.5">/ {record.initialQty}</span></p>
                               </div>
                               <div>
-                                <p className="text-[10px] text-white/40">Retail</p>
-                                <p className="text-sm font-semibold text-white tabular-nums">
-                                  {record.unitPrice > 0 ? formatCurrency(record.retailValue) : '—'}
+                                <p className="text-[10px] text-white/40">Cost</p>
+                                <p className="text-sm font-semibold text-white/80 tabular-nums whitespace-nowrap">
+                                  {record.unitCost > 0 ? (
+                                    <>
+                                      {formatCurrency(record.unitCost)}
+                                      {!record.costRecorded && <span className="text-warning ml-0.5">~</span>}
+                                    </>
+                                  ) : '—'}
                                 </p>
                               </div>
                             </div>
 
-                            <p className="text-[10px] text-white/40 mt-2">Received {formatDate(record.receivedDate)}</p>
+                            <p className="text-[10px] text-white/40 mt-2">
+                              Received {formatDate(record.receivedDate)}
+                              {record.unitPrice > 0 && (
+                                <> · Retail {formatCurrency(record.retailValue)}</>
+                              )}
+                            </p>
                           </div>
                         </div>
                       </button>

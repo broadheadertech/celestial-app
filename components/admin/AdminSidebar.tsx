@@ -17,6 +17,7 @@ import {
   Zap,
   Calendar,
   MessageCircle,
+  Gauge,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/auth';
 import { useTheme } from '@/store/theme';
@@ -58,6 +59,12 @@ export default function AdminSidebar() {
           label: 'Analytics',
           icon: TrendingUp,
           href: '/admin/analytics',
+        },
+        {
+          id: 'product-performance',
+          label: 'Product Performance',
+          icon: Gauge,
+          href: '/admin/product-performance',
         },
       ],
     },

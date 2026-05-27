@@ -840,7 +840,10 @@ function FinanceContent() {
                 </div>
 
                 <div className="flex justify-between items-baseline pb-2 border-b border-white/10 pt-2">
-                  <span className="text-white/70">Cost of Goods Sold</span>
+                  <span className="text-white/70">
+                    Cost of Goods Sold
+                    <span className="ml-1.5 text-[10px] uppercase tracking-wider text-white/40 border border-white/15 rounded px-1 py-0.5">FIFO</span>
+                  </span>
                   <span className="text-error font-semibold">−{fmt(summary.cogs)}</span>
                 </div>
 

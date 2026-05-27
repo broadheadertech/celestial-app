@@ -1541,7 +1541,10 @@ export const getStockAging = query({
         const ageDays = Math.max(0, Math.floor((now - record.receivedDate) / DAY_MS));
         const bucket = bucketFor(ageDays);
         const unitPrice = product?.price ?? 0;
-        const unitCost = product?.costPrice ?? 0;
+        // Per-batch acquisition cost: what was actually paid for THIS shipment.
+        // Falls back to the product's moving-average / basis cost when unrecorded.
+        const unitCost =
+          record.actualCostPrice ?? product?.movingAverageCost ?? product?.costPrice ?? 0;
         return {
           _id: record._id,
           productId: record.productId,
@@ -1561,6 +1564,7 @@ export const getStockAging = query({
           soldQty: record.soldQty,
           unitPrice,
           unitCost,
+          costRecorded: record.actualCostPrice != null, // true = real batch cost, false = fallback
           retailValue: unitPrice * record.currentQty,
           costValue: unitCost * record.currentQty,
         };
