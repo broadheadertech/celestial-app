@@ -35,7 +35,7 @@ const LENSES: { id: Lens; label: string; short: string; icon: typeof Trophy; hin
   { id: 'risk', label: 'At-risk / slow', short: 'At risk', icon: AlertTriangle, hint: 'Unlikely to sell — holding stock' },
 ];
 
-const WINDOWS = [30, 90, 180];
+const WINDOWS = [7, 30, 90, 180];
 
 const riskTheme = (score: number) => {
   if (score >= 60) return { text: 'text-error', bar: 'bg-error', chip: 'bg-error/10 text-error border-error/30', label: 'At risk' };
