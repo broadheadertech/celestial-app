@@ -450,10 +450,10 @@ function PosPageContent() {
     <div className="h-screen flex flex-col text-[var(--ink)]" style={{ background: 'var(--bg)' }}>
       {/* Top bar */}
       <header
-        className="flex items-center justify-between gap-3 px-4 sm:px-6 py-3 sm:py-4 border-b safe-area-top"
+        className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 px-3 sm:px-6 py-2.5 sm:py-4 border-b safe-area-top"
         style={{ borderColor: 'var(--line)', background: 'var(--bg)' }}
       >
-        <div className="flex items-center gap-3 min-w-0 flex-1">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
           <button
             onClick={() => router.back()}
             className="p-2 rounded-lg border hover:opacity-80 transition-opacity flex-shrink-0"
@@ -461,9 +461,9 @@ function PosPageContent() {
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <h1
-              className="display text-lg sm:text-2xl truncate"
+              className="display text-base sm:text-2xl truncate"
               style={{ fontVariationSettings: '"opsz" 36, "wght" 700' }}
             >
               Point of Sale
@@ -473,33 +473,44 @@ function PosPageContent() {
               <span>Live · drawer open</span>
             </div>
           </div>
+
+          {/* Mobile cart toggle — sits next to title on phones */}
+          <button
+            onClick={() => setShowCartMobile(true)}
+            className="lg:hidden relative flex items-center gap-1.5 px-3 py-2 rounded-lg border text-sm font-semibold flex-shrink-0"
+            style={{ borderColor: 'var(--line)', background: 'var(--surface-2)' }}
+          >
+            <ShoppingCart className="w-4 h-4" />
+            <span className="dc-mono">{cart.reduce((s, l) => s + l.quantity, 0)}</span>
+          </button>
         </div>
 
-        {/* Mode toggle + parked + associate */}
-        <div className="flex items-center gap-2 sm:gap-3 flex-wrap justify-end">
+        {/* Mode toggle + associate */}
+        <div className="flex items-center gap-2 sm:gap-3 justify-between sm:justify-end">
           {/* Segmented mode toggle */}
           <div
-            className="inline-flex p-[3px] gap-[2px] rounded-[10px] border"
+            className="inline-flex p-[3px] gap-[2px] rounded-[10px] border flex-1 sm:flex-none"
             style={{ background: 'var(--bg-2)', borderColor: 'var(--line)' }}
           >
             {([
-              { v: 'sale' as Mode, label: 'New Sale' },
-              { v: 'reserve' as Mode, label: 'Reservation' },
-              { v: 'refund' as Mode, label: 'Return' },
+              { v: 'sale' as Mode, label: 'New Sale', short: 'Sale' },
+              { v: 'reserve' as Mode, label: 'Reservation', short: 'Reserve' },
+              { v: 'refund' as Mode, label: 'Return', short: 'Return' },
             ]).map((opt) => {
               const active = mode === opt.v;
               return (
                 <button
                   key={opt.v}
                   onClick={() => setMode(opt.v)}
-                  className="px-3 py-1.5 rounded-[7px] text-xs font-semibold transition-all"
+                  className="flex-1 sm:flex-none px-2.5 sm:px-3 py-1.5 rounded-[7px] text-[11px] sm:text-xs font-semibold transition-all whitespace-nowrap"
                   style={{
                     background: active ? 'var(--surface-hi)' : 'transparent',
                     color: active ? 'var(--ink)' : 'var(--ink-3)',
                     boxShadow: active ? '0 1px 2px oklch(0 0 0 / 0.2)' : 'none',
                   }}
                 >
-                  {opt.label}
+                  <span className="sm:hidden">{opt.short}</span>
+                  <span className="hidden sm:inline">{opt.label}</span>
                 </button>
               );
             })}
@@ -539,16 +550,6 @@ function PosPageContent() {
               ))}
             </select>
           </div>
-
-          {/* Mobile cart toggle */}
-          <button
-            onClick={() => setShowCartMobile(true)}
-            className="lg:hidden relative flex items-center gap-1.5 px-3 py-2 rounded-lg border text-sm font-semibold"
-            style={{ borderColor: 'var(--line)', background: 'var(--surface-2)' }}
-          >
-            <ShoppingCart className="w-4 h-4" />
-            <span>{cart.reduce((s, l) => s + l.quantity, 0)}</span>
-          </button>
         </div>
       </header>
 
@@ -561,13 +562,10 @@ function PosPageContent() {
           onConfirm={(id) => setRefundConfirm(id)}
         />
       ) : (
-        <div
-          className="flex-1 min-h-0 grid"
-          style={{ gridTemplateColumns: 'minmax(0, 1fr) min(440px, 38%)' }}
-        >
+        <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_min(440px,38%)]">
           {/* ─── LEFT: PRODUCT BROWSER ─── */}
           <section
-            className="flex flex-col min-w-0 overflow-hidden border-r"
+            className="flex flex-col min-w-0 overflow-hidden lg:border-r"
             style={{ borderColor: 'var(--line)' }}
           >
             {/* Search row */}
@@ -635,7 +633,7 @@ function PosPageContent() {
             </div>
 
             {/* Product grid */}
-            <div className="flex-1 overflow-auto p-4 sm:p-6">
+            <div className="flex-1 overflow-auto p-3 sm:p-6 pb-24 lg:pb-6">
               {visibleProducts.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
                   <div
@@ -652,10 +650,7 @@ function PosPageContent() {
                   </p>
                 </div>
               ) : (
-                <div
-                  className="grid gap-3"
-                  style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))' }}
-                >
+                <div className="grid gap-2.5 sm:gap-3 grid-cols-2 sm:[grid-template-columns:repeat(auto-fill,minmax(180px,1fr))]">
                   {visibleProducts.map((p) => {
                     const inCart = cart.find((l) => l.productId === p._id);
                     return (
@@ -685,7 +680,7 @@ function PosPageContent() {
           <aside
             className={`flex flex-col min-h-0 overflow-hidden ${
               showCartMobile
-                ? 'fixed inset-0 z-50 lg:static lg:z-auto'
+                ? 'fixed inset-0 z-[60] safe-area-top lg:static lg:z-auto'
                 : 'hidden lg:flex'
             }`}
             style={{ background: 'var(--bg-2)' }}
@@ -944,7 +939,7 @@ function CartPanel(props: any) {
     <div className="flex flex-col min-h-0 flex-1" style={{ background: 'var(--bg-2)' }}>
       {/* Header */}
       <div
-        className="flex items-center justify-between px-5 py-4 border-b"
+        className="flex items-center justify-between px-4 sm:px-5 py-3 sm:py-4 border-b"
         style={{ background: 'var(--bg)', borderColor: 'var(--line)' }}
       >
         <div>
@@ -982,7 +977,7 @@ function CartPanel(props: any) {
       </div>
 
       {/* Scrollable body */}
-      <div className="flex-1 min-h-0 overflow-y-auto p-4 flex flex-col gap-3">
+      <div className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-4 flex flex-col gap-3">
         {cart.length === 0 ? (
           <div
             className="flex flex-col items-center justify-center text-center py-12 px-4 rounded-[14px] border border-dashed gap-2"
@@ -1263,7 +1258,7 @@ function CartPanel(props: any) {
 
       {/* TOTALS + ACTION BUTTON */}
       <div
-        className="border-t px-5 pt-3.5 pb-5"
+        className="border-t px-4 sm:px-5 pt-3.5 pb-5 safe-area-bottom"
         style={{ background: 'var(--bg)', borderColor: 'var(--line)' }}
       >
         <div className="caustics-line mb-3" />
@@ -1840,9 +1835,9 @@ function RefundView({
   onConfirm: (id: string) => void;
 }) {
   return (
-    <div className="flex-1 overflow-y-auto px-4 sm:px-8 py-8">
+    <div className="flex-1 overflow-y-auto px-4 sm:px-8 py-5 sm:py-8 pb-24 lg:pb-8">
       <div className="max-w-3xl mx-auto">
-        <h2 className="display text-2xl mb-1" style={{ fontVariationSettings: '"opsz" 36, "wght" 700' }}>
+        <h2 className="display text-xl sm:text-2xl mb-1" style={{ fontVariationSettings: '"opsz" 36, "wght" 700' }}>
           Return / Refund
         </h2>
         <p className="text-sm mb-6" style={{ color: 'var(--ink-3)' }}>
@@ -1875,11 +1870,11 @@ function RefundView({
               return (
                 <div
                   key={o._id}
-                  className="flex items-center gap-4 p-3.5 rounded-[12px] border"
+                  className="flex flex-wrap sm:flex-nowrap items-center gap-x-3 gap-y-2 sm:gap-4 p-3 sm:p-3.5 rounded-[12px] border"
                   style={{ background: 'var(--surface)', borderColor: 'var(--line)' }}
                 >
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
+                  <div className="flex-1 min-w-0 basis-full sm:basis-0">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <span className="dc-mono text-xs font-semibold">{code}</span>
                       <span className="text-[11px]" style={{ color: 'var(--ink-4)' }}>
                         {new Date(o.createdAt).toLocaleString('en-PH', {
@@ -1901,11 +1896,11 @@ function RefundView({
                       {o.items?.length || 0} items
                     </div>
                   </div>
-                  <div className="dc-mono font-bold">{fmt(o.totalAmount || 0)}</div>
+                  <div className="dc-mono font-bold text-sm sm:text-base">{fmt(o.totalAmount || 0)}</div>
                   <button
                     onClick={() => onConfirm(o._id)}
                     disabled={refunded}
-                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md border text-xs font-bold disabled:opacity-40"
+                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md border text-xs font-bold disabled:opacity-40 flex-shrink-0"
                     style={{
                       background: refunded ? 'var(--surface-2)' : 'var(--bg-2)',
                       borderColor: 'var(--line)',
