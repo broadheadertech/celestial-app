@@ -305,8 +305,8 @@ function ProductPerformanceContent() {
             </div>
 
             <p className="text-[11px] text-white/40 text-center pt-1">
-              {rows.length} {rows.length === 1 ? 'product' : 'products'} · profit & margin use FIFO batch cost ·
-              velocity over last {windowDays} days
+              {rows.length} {rows.length === 1 ? 'product' : 'products'} · sold / revenue / profit are for the last{' '}
+              {windowDays} days (FIFO cost) · sell-through &amp; risk are lifetime/current
             </p>
           </>
         )}

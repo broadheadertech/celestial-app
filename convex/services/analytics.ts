@@ -542,48 +542,64 @@ export const getProductPerformance = query({
     }
     saleLines.sort((a, b) => a.date - b.date);
 
-    // ── Accumulate per-product sales, revenue, FIFO COGS, last/recent sale ──
-    type Acc = { unitsSold: number; revenue: number; cogs: number; lastSale: number; unitsRecent: number };
+    // ── Accumulate per-product sales ──
+    // Sales metrics (units/revenue/COGS) are scoped to the selected WINDOW so the
+    // view reads as "performance over the last N days". COGS still replays ALL sales
+    // chronologically (so in-window units draw from the correct remaining batches),
+    // but only in-window lines are summed. Lifetime totals are kept for sell-through,
+    // last-sale recency and the never-sold flag (those are inherently lifetime).
+    type Acc = {
+      unitsWindow: number; revenueWindow: number; cogsWindow: number;
+      unitsLifetime: number; lastSale: number;
+    };
     const acc = new Map<string, Acc>();
     const getAcc = (pid: string) =>
-      acc.get(pid) ?? acc.set(pid, { unitsSold: 0, revenue: 0, cogs: 0, lastSale: 0, unitsRecent: 0 }).get(pid)!;
+      acc.get(pid) ?? acc.set(pid, {
+        unitsWindow: 0, revenueWindow: 0, cogsWindow: 0, unitsLifetime: 0, lastSale: 0,
+      }).get(pid)!;
 
     for (const sale of saleLines) {
       const a = getAcc(sale.productId);
-      a.unitsSold += sale.quantity;
-      a.revenue += sale.revenue;
+      a.unitsLifetime += sale.quantity;
       if (sale.date > a.lastSale) a.lastSale = sale.date;
-      if (sale.date >= windowCutoff) a.unitsRecent += sale.quantity;
 
-      // FIFO cost for this line
+      // FIFO cost for this line (always consume the queue, even out-of-window)
       const queue = fifoQueues.get(sale.productId) ?? [];
       let remaining = sale.quantity;
+      let lineCost = 0;
       while (remaining > 0 && queue.length > 0) {
         const head = queue[0];
         const take = Math.min(remaining, head.remaining);
-        a.cogs += take * head.cost;
+        lineCost += take * head.cost;
         head.remaining -= take;
         remaining -= take;
         if (head.remaining <= 0) queue.shift();
       }
-      if (remaining > 0) a.cogs += remaining * fallbackCost(productMap.get(sale.productId));
+      if (remaining > 0) lineCost += remaining * fallbackCost(productMap.get(sale.productId));
+
+      if (sale.date >= windowCutoff) {
+        a.unitsWindow += sale.quantity;
+        a.revenueWindow += sale.revenue;
+        a.cogsWindow += lineCost;
+      }
     }
 
     // ── First pass: build rows + catalog maxima for risk normalization ──
     const rows = products.map((p) => {
       const pid = p._id as string;
       const a = acc.get(pid);
-      const unitsSold = a?.unitsSold ?? 0;
-      const revenue = a?.revenue ?? 0;
-      const cogs = a?.cogs ?? 0;
+      const unitsSold = a?.unitsWindow ?? 0;        // windowed
+      const revenue = a?.revenueWindow ?? 0;        // windowed
+      const cogs = a?.cogsWindow ?? 0;              // windowed
       const grossProfit = revenue - cogs;
       const margin = revenue > 0 ? (grossProfit / revenue) * 100 : 0;
       const received = unitsReceived.get(pid) ?? 0;
-      const sellThrough = received > 0 ? unitsSold / received : 0;
+      const unitsLifetime = a?.unitsLifetime ?? 0;
+      const sellThrough = received > 0 ? unitsLifetime / received : 0; // lifetime
       const currentStock = p.stock;
       const unitCost = p.movingAverageCost ?? p.costPrice ?? 0;
       const capitalTiedUp = currentStock * unitCost;
-      const velocity = (a?.unitsRecent ?? 0) / velocityWindowDays; // units/day
+      const velocity = unitsSold / velocityWindowDays; // windowed units/day
       const lastSale = a?.lastSale ?? 0;
       const daysSinceLastSale = lastSale > 0 ? Math.floor((now - lastSale) / DAY_MS) : null;
       const oldestRcv = oldestActiveReceived.get(pid);
@@ -598,8 +614,8 @@ export const getProductPerformance = query({
         unitCost,
         currentStock,
         unitsReceived: received,
-        unitsSold,
-        unitsRecent: a?.unitsRecent ?? 0,
+        unitsSold,            // windowed
+        unitsLifetime,        // all-time
         revenue,
         cogs,
         grossProfit,
@@ -609,7 +625,7 @@ export const getProductPerformance = query({
         daysSinceLastSale,
         stockAgeDays,
         capitalTiedUp,
-        neverSold: unitsSold === 0,
+        neverSold: unitsLifetime === 0,
         riskScore: 0, // filled below
       };
     });
