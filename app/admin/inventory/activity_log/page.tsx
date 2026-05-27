@@ -89,6 +89,11 @@ function ActivityLogContent() {
     return [...stockRecords].sort((a, b) => b.createdAt - a.createdAt);
   }, [stockRecords]);
 
+  // Product-level cost used as a fallback when a batch has no recorded actualCostPrice
+  // (e.g. initial stock, or restocks created before per-batch cost was required).
+  const prodCost = product as { costPrice?: number; movingAverageCost?: number } | null | undefined;
+  const fallbackUnitCost = prodCost?.movingAverageCost ?? prodCost?.costPrice ?? 0;
+
   const stats = useMemo(() => {
     if (!stockRecords) return null;
     const nonMortality = stockRecords.filter(r => !r.isMortalityLoss);
@@ -271,6 +276,12 @@ function ActivityLogContent() {
                     const Icon = visual.icon;
                     const isLastActivity = index === 0;
 
+                    // Per-batch acquisition cost: prefer the recorded actualCostPrice,
+                    // fall back to the product's MAC/basis cost (flagged with ~).
+                    const unitCost = record.actualCostPrice ?? fallbackUnitCost;
+                    const costRecorded = record.actualCostPrice != null;
+                    const batchCost = unitCost * record.initialQty;
+
                     return (
                       <div key={record._id} className="relative">
                         <div className="flex gap-3 sm:gap-4">
@@ -329,6 +340,32 @@ function ActivityLogContent() {
                               </div>
                             </div>
 
+                            {/* Cost row */}
+                            {!record.isMortalityLoss && (
+                              <div className="flex items-center justify-between gap-3 mt-3 px-3 py-2 rounded-lg bg-background/40 border border-white/5">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <div className="w-7 h-7 rounded-lg bg-info/10 flex items-center justify-center flex-shrink-0">
+                                    <DollarSign className="w-3.5 h-3.5 text-info" />
+                                  </div>
+                                  <div className="min-w-0">
+                                    <p className="text-[10px] text-white/40 uppercase tracking-wider">Actual cost / unit</p>
+                                    <p className="text-sm font-bold text-white">
+                                      {unitCost > 0 ? formatCurrency(unitCost) : '—'}
+                                      {unitCost > 0 && !costRecorded && (
+                                        <span className="text-warning ml-1 text-xs" title="No cost recorded for this batch — showing product fallback cost">~ est.</span>
+                                      )}
+                                    </p>
+                                  </div>
+                                </div>
+                                <div className="text-right flex-shrink-0">
+                                  <p className="text-[10px] text-white/40 uppercase tracking-wider">Batch cost</p>
+                                  <p className="text-sm font-bold text-white tabular-nums">
+                                    {unitCost > 0 ? formatCurrency(batchCost) : '—'}
+                                  </p>
+                                </div>
+                              </div>
+                            )}
+
                             {/* Notes */}
                             {record.notes && (
                               <div className="mt-3">
@@ -351,15 +388,6 @@ function ActivityLogContent() {
                                 <>
                                   <span className="text-white/20">·</span>
                                   <span className="capitalize">{record.qualityGrade} grade</span>
-                                </>
-                              )}
-                              {!record.isMortalityLoss && record.actualCostPrice != null && (
-                                <>
-                                  <span className="text-white/20">·</span>
-                                  <span className="inline-flex items-center gap-1 text-white/60">
-                                    <DollarSign className="w-3 h-3 text-info" />
-                                    {formatCurrency(record.actualCostPrice)}/unit cost
-                                  </span>
                                 </>
                               )}
                             </div>
