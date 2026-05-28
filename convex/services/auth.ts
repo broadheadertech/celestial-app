@@ -18,7 +18,7 @@ async function sha256(data: string): Promise<string> {
   return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-async function hashPassword(password: string): Promise<string> {
+export async function hashPassword(password: string): Promise<string> {
   const salt = generateSalt();
   const hash = await sha256(salt + password);
   return `${salt}:${hash}`;

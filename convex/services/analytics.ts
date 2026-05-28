@@ -670,3 +670,184 @@ export const getProductPerformance = query({
     };
   },
 });
+
+/**
+ * Associate Performance — rolls up recognized sales by sales associate so you can
+ * see who's selling. Revenue/units/profit use the same recognition rules and FIFO
+ * batch cost as the P&L. Includes every registered associate (even with zero sales)
+ * plus an "Unattributed" bucket for sales with no associate stamped.
+ * windowDays omitted/0 = all time.
+ */
+export const getAssociatePerformance = query({
+  args: {
+    windowDays: v.optional(v.number()),
+  },
+  handler: async (ctx, { windowDays }) => {
+    const [orders, reservations, products, stockRecords, admins, superAdmins] = await Promise.all([
+      ctx.db.query("orders").collect(),
+      ctx.db.query("reservations").collect(),
+      ctx.db.query("products").collect(),
+      ctx.db.query("stockRecords").collect(),
+      ctx.db.query("users").withIndex("by_role", (q) => q.eq("role", "admin")).collect(),
+      ctx.db.query("users").withIndex("by_role", (q) => q.eq("role", "super_admin")).collect(),
+    ]);
+
+    const now = Date.now();
+    const DAY_MS = 24 * 60 * 60 * 1000;
+    const cutoff = windowDays && windowDays > 0 ? now - windowDays * DAY_MS : 0;
+    const inWindow = (ts: number) => ts >= cutoff;
+
+    const productMap = new Map(products.map((p) => [p._id as string, p]));
+    const fallbackCost = (p?: { movingAverageCost?: number; costPrice?: number }) =>
+      p?.movingAverageCost ?? p?.costPrice ?? 0;
+
+    // FIFO queues for per-line COGS (consume all recognized sales chronologically).
+    type Lot = { remaining: number; cost: number; received: number };
+    const fifoQueues = new Map<string, Lot[]>();
+    for (const r of stockRecords) {
+      if (r.isMortalityLoss || r.initialQty <= 0) continue;
+      const pid = r.productId as string;
+      const cost = r.actualCostPrice ?? fallbackCost(productMap.get(pid));
+      const arr = fifoQueues.get(pid) ?? [];
+      arr.push({ remaining: r.initialQty, cost, received: r.receivedDate });
+      fifoQueues.set(pid, arr);
+    }
+    for (const arr of fifoQueues.values()) arr.sort((a, b) => a.received - b.received);
+
+    const UNATTRIBUTED = "__unattributed__";
+
+    // Recognized sale lines with associate attribution, chronological for FIFO.
+    type Line = {
+      key: string; associateName: string | null; orderId: string;
+      productId: string; quantity: number; revenue: number; date: number;
+    };
+    const lines: Line[] = [];
+    for (const o of orders) {
+      if (o.status === "cancelled") continue;
+      if ((o.paymentStatus || "unpaid") === "unpaid" || o.paymentStatus === "refunded") continue;
+      const key = (o.salesAssociateId as string | undefined) || UNATTRIBUTED;
+      for (const item of o.items || []) {
+        lines.push({
+          key,
+          associateName: o.salesAssociateName ?? null,
+          orderId: o._id as string,
+          productId: item.productId as string,
+          quantity: item.quantity,
+          revenue: item.price * item.quantity,
+          date: o.createdAt,
+        });
+      }
+    }
+    for (const r of reservations) {
+      if (r.status !== "completed") continue;
+      if ((r.paymentStatus || "unpaid") === "unpaid" || r.paymentStatus === "refunded") continue;
+      const key = (r.salesAssociateId as string | undefined) || UNATTRIBUTED;
+      const items = r.items && r.items.length > 0
+        ? r.items.map((it) => ({ productId: it.productId as string, quantity: it.quantity, unit: it.reservedPrice }))
+        : (r.productId && r.quantity ? [{ productId: r.productId as string, quantity: r.quantity, unit: productMap.get(r.productId as string)?.price ?? 0 }] : []);
+      for (const it of items) {
+        lines.push({
+          key,
+          associateName: r.salesAssociateName ?? null,
+          orderId: r._id as string,
+          productId: it.productId,
+          quantity: it.quantity,
+          revenue: it.unit * it.quantity,
+          date: r.createdAt,
+        });
+      }
+    }
+    lines.sort((a, b) => a.date - b.date);
+
+    type Acc = { name: string | null; units: number; revenue: number; cogs: number; orderIds: Set<string>; lastSale: number };
+    const acc = new Map<string, Acc>();
+    const getAcc = (key: string) =>
+      acc.get(key) ?? acc.set(key, { name: null, units: 0, revenue: 0, cogs: 0, orderIds: new Set(), lastSale: 0 }).get(key)!;
+
+    for (const line of lines) {
+      // FIFO cost — always consume queue so in-window lines draw from correct lots.
+      const queue = fifoQueues.get(line.productId) ?? [];
+      let remaining = line.quantity;
+      let lineCost = 0;
+      while (remaining > 0 && queue.length > 0) {
+        const head = queue[0];
+        const take = Math.min(remaining, head.remaining);
+        lineCost += take * head.cost;
+        head.remaining -= take;
+        remaining -= take;
+        if (head.remaining <= 0) queue.shift();
+      }
+      if (remaining > 0) lineCost += remaining * fallbackCost(productMap.get(line.productId));
+
+      if (!inWindow(line.date)) continue;
+      const a = getAcc(line.key);
+      if (line.associateName) a.name = line.associateName;
+      a.units += line.quantity;
+      a.revenue += line.revenue;
+      a.cogs += lineCost;
+      a.orderIds.add(line.orderId);
+      if (line.date > a.lastSale) a.lastSale = line.date;
+    }
+
+    // Roster: every registered associate (admin/super_admin tagged), active flag, name.
+    const staff = [...admins, ...superAdmins];
+    const staffById = new Map(staff.map((u) => [u._id as string, u]));
+    const registeredIds = new Set(staff.filter((u) => u.isSalesAssociate === true).map((u) => u._id as string));
+
+    // Build rows: union of registered associates + anyone with attributed sales.
+    const keys = new Set<string>([...registeredIds, ...acc.keys()]);
+    const rows = Array.from(keys).map((key) => {
+      const a = acc.get(key);
+      const staffUser = staffById.get(key);
+      const isUnattributed = key === UNATTRIBUTED;
+      const name = isUnattributed
+        ? "Unattributed"
+        : (staffUser ? `${staffUser.firstName} ${staffUser.lastName}` : a?.name || "Former associate");
+      const revenue = a?.revenue ?? 0;
+      const cogs = a?.cogs ?? 0;
+      const grossProfit = revenue - cogs;
+      const orders = a?.orderIds.size ?? 0;
+      const commissionRate = staffUser?.commissionRate;
+      const commissionBasis = staffUser?.commissionBasis;
+      const commissionBase = commissionBasis === "profit" ? grossProfit : revenue;
+      const commissionEarned =
+        commissionRate !== undefined && commissionBasis !== undefined
+          ? Math.max(0, commissionBase) * (commissionRate / 100)
+          : 0;
+      return {
+        id: key,
+        name,
+        email: staffUser?.email ?? null,
+        role: staffUser?.role ?? null,
+        registered: registeredIds.has(key),     // currently tagged as sales associate
+        isStaff: !!staffUser,                    // still has a staff account
+        isUnattributed,
+        orders,
+        units: a?.units ?? 0,
+        revenue,
+        grossProfit,
+        margin: revenue > 0 ? (grossProfit / revenue) * 100 : 0,
+        avgOrderValue: orders > 0 ? revenue / orders : 0,
+        lastSale: a?.lastSale ?? 0,
+        commissionRate: commissionRate ?? null,
+        commissionBasis: commissionBasis ?? null,
+        commissionEarned,
+      };
+    });
+
+    rows.sort((x, y) => y.revenue - x.revenue);
+
+    const attributed = rows.filter((r) => !r.isUnattributed);
+    const summary = {
+      registeredCount: registeredIds.size,
+      sellingCount: attributed.filter((r) => r.orders > 0).length,
+      totalRevenue: rows.reduce((s, r) => s + r.revenue, 0),
+      attributedRevenue: attributed.reduce((s, r) => s + r.revenue, 0),
+      unattributedRevenue: rows.find((r) => r.isUnattributed)?.revenue ?? 0,
+      totalProfit: rows.reduce((s, r) => s + r.grossProfit, 0),
+      totalCommissions: attributed.reduce((s, r) => s + r.commissionEarned, 0),
+    };
+
+    return { rows, summary, windowDays: windowDays ?? 0 };
+  },
+});

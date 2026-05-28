@@ -18,6 +18,7 @@ import {
   Calendar,
   MessageCircle,
   Gauge,
+  Award,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/auth';
 import { useTheme } from '@/store/theme';
@@ -65,6 +66,12 @@ export default function AdminSidebar() {
           label: 'Product Performance',
           icon: Gauge,
           href: '/admin/product-performance',
+        },
+        {
+          id: 'associate-performance',
+          label: 'Associate Performance',
+          icon: Award,
+          href: '/admin/associate-performance',
         },
       ],
     },
@@ -125,6 +132,12 @@ export default function AdminSidebar() {
           label: 'Customers',
           icon: Users,
           href: '/admin/users',
+        },
+        {
+          id: 'associates',
+          label: 'Associates',
+          icon: Award,
+          href: '/admin/associates',
         },
       ],
     },

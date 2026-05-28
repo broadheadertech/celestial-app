@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "../_generated/server";
+import { hashPassword } from "./auth";
 
 // Admin Dashboard Analytics
 export const getDashboardStats = query({
@@ -1327,5 +1328,145 @@ export const getAnalyticsData = query({
       statusDistribution,
       topProducts: topProducts.filter(Boolean),
     };
+  },
+});
+
+// ==================== SALES ASSOCIATE REGISTRATION ====================
+
+/**
+ * Register a new sales associate. Creates an admin user account (so they can log in
+ * to the POS and have sales attributed to them) and tags them with isSalesAssociate.
+ * Commission rate + basis are stored alongside for the performance report.
+ */
+export const registerAssociate = mutation({
+  args: {
+    email: v.string(),
+    password: v.string(),
+    firstName: v.string(),
+    lastName: v.string(),
+    phone: v.optional(v.string()),
+    commissionRate: v.optional(v.number()),
+    commissionBasis: v.optional(v.union(v.literal("revenue"), v.literal("profit"))),
+    role: v.optional(v.union(v.literal("admin"), v.literal("super_admin"))),
+  },
+  handler: async (ctx, args) => {
+    const email = args.email.toLowerCase().trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      throw new Error("Please enter a valid email address");
+    }
+    if (!args.firstName.trim() || !args.lastName.trim()) {
+      throw new Error("First name and last name are required");
+    }
+    if (args.password.length < 8) {
+      throw new Error("Password must be at least 8 characters long");
+    }
+    if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(args.password)) {
+      throw new Error("Password must contain an uppercase letter, lowercase letter, and number");
+    }
+    if (args.phone && !/^\+?[\d\s\-()]{10,}$/.test(args.phone.replace(/\s/g, ""))) {
+      throw new Error("Please enter a valid phone number");
+    }
+    if (args.commissionRate !== undefined && (args.commissionRate < 0 || args.commissionRate > 100)) {
+      throw new Error("Commission rate must be between 0 and 100");
+    }
+
+    const existing = await ctx.db
+      .query("users")
+      .withIndex("by_email", (q) => q.eq("email", email))
+      .first();
+    if (existing) throw new Error("A user with this email already exists");
+
+    const passwordHash = await hashPassword(args.password);
+    const now = Date.now();
+    const userId = await ctx.db.insert("users", {
+      email,
+      firstName: args.firstName.trim(),
+      lastName: args.lastName.trim(),
+      phone: args.phone?.trim(),
+      passwordHash,
+      role: args.role ?? "admin",
+      isActive: true,
+      isSalesAssociate: true,
+      commissionRate: args.commissionRate,
+      commissionBasis: args.commissionBasis,
+      loginMethod: "email",
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    return { success: true, userId };
+  },
+});
+
+/**
+ * Update an existing associate's profile and commission settings. Patches only the
+ * fields provided. Toggling isSalesAssociate off effectively "unregisters" them
+ * (the user account stays — just removes them from the associate roster).
+ */
+export const updateAssociate = mutation({
+  args: {
+    userId: v.id("users"),
+    firstName: v.optional(v.string()),
+    lastName: v.optional(v.string()),
+    phone: v.optional(v.string()),
+    commissionRate: v.optional(v.number()),
+    commissionBasis: v.optional(v.union(v.literal("revenue"), v.literal("profit"))),
+    isSalesAssociate: v.optional(v.boolean()),
+    isActive: v.optional(v.boolean()),
+  },
+  handler: async (ctx, { userId, ...updates }) => {
+    const user = await ctx.db.get(userId);
+    if (!user) throw new Error("Associate not found");
+
+    if (updates.commissionRate !== undefined && (updates.commissionRate < 0 || updates.commissionRate > 100)) {
+      throw new Error("Commission rate must be between 0 and 100");
+    }
+    if (updates.firstName !== undefined && !updates.firstName.trim()) {
+      throw new Error("First name cannot be empty");
+    }
+    if (updates.lastName !== undefined && !updates.lastName.trim()) {
+      throw new Error("Last name cannot be empty");
+    }
+
+    const patch: Record<string, unknown> = { updatedAt: Date.now() };
+    if (updates.firstName !== undefined) patch.firstName = updates.firstName.trim();
+    if (updates.lastName !== undefined) patch.lastName = updates.lastName.trim();
+    if (updates.phone !== undefined) patch.phone = updates.phone.trim() || undefined;
+    if (updates.commissionRate !== undefined) patch.commissionRate = updates.commissionRate;
+    if (updates.commissionBasis !== undefined) patch.commissionBasis = updates.commissionBasis;
+    if (updates.isSalesAssociate !== undefined) patch.isSalesAssociate = updates.isSalesAssociate;
+    if (updates.isActive !== undefined) patch.isActive = updates.isActive;
+
+    await ctx.db.patch(userId, patch);
+    return { success: true };
+  },
+});
+
+/**
+ * List every registered sales associate (staff with isSalesAssociate = true),
+ * including commission settings. Used by the Associates management page.
+ */
+export const getAssociates = query({
+  args: {},
+  handler: async (ctx) => {
+    const [admins, superAdmins] = await Promise.all([
+      ctx.db.query("users").withIndex("by_role", (q) => q.eq("role", "admin")).collect(),
+      ctx.db.query("users").withIndex("by_role", (q) => q.eq("role", "super_admin")).collect(),
+    ]);
+    return [...admins, ...superAdmins]
+      .filter((u) => u.isSalesAssociate === true)
+      .map((u) => ({
+        _id: u._id,
+        firstName: u.firstName,
+        lastName: u.lastName,
+        email: u.email,
+        phone: u.phone,
+        role: u.role,
+        isActive: u.isActive !== false,
+        commissionRate: u.commissionRate,
+        commissionBasis: u.commissionBasis,
+        createdAt: u.createdAt,
+      }))
+      .sort((a, b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`));
   },
 });

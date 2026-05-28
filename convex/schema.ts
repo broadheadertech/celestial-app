@@ -13,6 +13,8 @@ export default defineSchema({
     isActive: v.optional(v.boolean()),
     isBanned: v.optional(v.boolean()),
     isSalesAssociate: v.optional(v.boolean()), // Tag staff as sales associate for incentive tracking
+    commissionRate: v.optional(v.number()), // % rate (e.g. 5 = 5%). Applied to commissionBasis.
+    commissionBasis: v.optional(v.union(v.literal("revenue"), v.literal("profit"))), // What the rate applies to
     // Facebook integration fields
     facebookId: v.optional(v.string()),
     profilePicture: v.optional(v.string()),
