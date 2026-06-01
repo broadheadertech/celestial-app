@@ -461,9 +461,11 @@ function getRelativeTime(timestamp: number): string {
  */
 export const getProductPerformance = query({
   args: {
-    velocityWindowDays: v.optional(v.number()), // window for velocity / "recent" sales
+    velocityWindowDays: v.optional(v.number()), // rolling window for velocity / "recent" sales
+    startDate: v.optional(v.number()),          // explicit range start (ms) — overrides rolling window
+    endDate: v.optional(v.number()),            // explicit range end (ms, inclusive)
   },
-  handler: async (ctx, { velocityWindowDays = 90 }) => {
+  handler: async (ctx, { velocityWindowDays = 90, startDate, endDate }) => {
     const [products, orders, reservations, stockRecords, categories] = await Promise.all([
       ctx.db.query("products").withIndex("by_active", (q) => q.eq("isActive", true)).collect(),
       ctx.db.query("orders").collect(),
@@ -474,7 +476,15 @@ export const getProductPerformance = query({
 
     const now = Date.now();
     const DAY_MS = 24 * 60 * 60 * 1000;
-    const windowCutoff = now - velocityWindowDays * DAY_MS;
+    // An explicit date range (a single day or any span) takes precedence over the
+    // rolling velocity window. Otherwise fall back to "last N days from now".
+    const hasRange = startDate !== undefined && endDate !== undefined;
+    const windowStart = hasRange ? startDate! : now - velocityWindowDays * DAY_MS;
+    const windowEnd = hasRange ? endDate! : now;
+    // Days spanned by the active window — used to normalize velocity (units/day).
+    const windowSpanDays = hasRange
+      ? Math.max(1, Math.round((windowEnd - windowStart) / DAY_MS))
+      : velocityWindowDays;
 
     const categoryMap = new Map(categories.map((c) => [c._id as string, c.name]));
     const productMap = new Map(products.map((p) => [p._id as string, p]));
@@ -577,7 +587,7 @@ export const getProductPerformance = query({
       }
       if (remaining > 0) lineCost += remaining * fallbackCost(productMap.get(sale.productId));
 
-      if (sale.date >= windowCutoff) {
+      if (sale.date >= windowStart && sale.date <= windowEnd) {
         a.unitsWindow += sale.quantity;
         a.revenueWindow += sale.revenue;
         a.cogsWindow += lineCost;
@@ -599,7 +609,7 @@ export const getProductPerformance = query({
       const currentStock = p.stock;
       const unitCost = p.movingAverageCost ?? p.costPrice ?? 0;
       const capitalTiedUp = currentStock * unitCost;
-      const velocity = unitsSold / velocityWindowDays; // windowed units/day
+      const velocity = unitsSold / windowSpanDays; // windowed units/day
       const lastSale = a?.lastSale ?? 0;
       const daysSinceLastSale = lastSale > 0 ? Math.floor((now - lastSale) / DAY_MS) : null;
       const oldestRcv = oldestActiveReceived.get(pid);
@@ -659,6 +669,10 @@ export const getProductPerformance = query({
     return {
       rows,
       velocityWindowDays,
+      windowStart,
+      windowEnd,
+      windowSpanDays,
+      isCustomRange: hasRange,
       summary: {
         productCount: rows.length,
         totalRevenue,

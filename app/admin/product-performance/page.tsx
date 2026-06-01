@@ -15,6 +15,7 @@ import {
   Gauge,
   AlertTriangle,
   Banknote,
+  Calendar,
 } from 'lucide-react';
 import Card from '@/components/ui/Card';
 import BottomNavbar from '@/components/common/BottomNavbar';
@@ -25,6 +26,11 @@ const fmt = (n: number) =>
 const fmtCompact = (n: number) =>
   `₱${n.toLocaleString('en-PH', { maximumFractionDigits: 0 })}`;
 const num = (n: number) => n.toLocaleString('en-PH', { maximumFractionDigits: 0 });
+
+// Local YYYY-MM-DD (for <input type="date"> values, avoids UTC off-by-one)
+const toDateStr = (d: Date) => d.toLocaleDateString('en-CA');
+const prettyDate = (s: string) =>
+  new Date(`${s}T00:00:00`).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
 
 type Lens = 'top' | 'profit' | 'velocity' | 'risk';
 
@@ -37,6 +43,44 @@ const LENSES: { id: Lens; label: string; short: string; icon: typeof Trophy; hin
 
 const WINDOWS = [7, 30, 90, 180];
 
+// Quick single-day / common-span presets for the custom date range.
+// Each `get()` is evaluated at click time so "today" stays current.
+const QUICK_RANGES: { label: string; get: () => { start: string; end: string } }[] = [
+  {
+    label: 'Today',
+    get: () => {
+      const d = toDateStr(new Date());
+      return { start: d, end: d };
+    },
+  },
+  {
+    label: 'Yesterday',
+    get: () => {
+      const y = new Date();
+      y.setDate(y.getDate() - 1);
+      const d = toDateStr(y);
+      return { start: d, end: d };
+    },
+  },
+  {
+    label: 'This month',
+    get: () => {
+      const now = new Date();
+      const first = new Date(now.getFullYear(), now.getMonth(), 1);
+      return { start: toDateStr(first), end: toDateStr(now) };
+    },
+  },
+  {
+    label: 'Last month',
+    get: () => {
+      const now = new Date();
+      const first = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const last = new Date(now.getFullYear(), now.getMonth(), 0);
+      return { start: toDateStr(first), end: toDateStr(last) };
+    },
+  },
+];
+
 const riskTheme = (score: number) => {
   if (score >= 60) return { text: 'text-error', bar: 'bg-error', chip: 'bg-error/10 text-error border-error/30', label: 'At risk' };
   if (score >= 30) return { text: 'text-warning', bar: 'bg-warning', chip: 'bg-warning/10 text-warning border-warning/30', label: 'Watch' };
@@ -48,8 +92,24 @@ function ProductPerformanceContent() {
   const [lens, setLens] = useState<Lens>('top');
   const [windowDays, setWindowDays] = useState(90);
   const [search, setSearch] = useState('');
+  const [range, setRange] = useState<{ start: string; end: string }>({ start: '', end: '' });
 
-  const data = useQuery(api.services.analytics.getProductPerformance, { velocityWindowDays: windowDays });
+  const today = toDateStr(new Date());
+  const rangeActive = !!(range.start && range.end);
+
+  const queryArgs = useMemo(() => {
+    if (range.start && range.end) {
+      // normalize so start ≤ end regardless of input order
+      const [lo, hi] = range.start <= range.end ? [range.start, range.end] : [range.end, range.start];
+      return {
+        startDate: new Date(`${lo}T00:00:00`).getTime(),
+        endDate: new Date(`${hi}T23:59:59.999`).getTime(),
+      };
+    }
+    return { velocityWindowDays: windowDays };
+  }, [range, windowDays]);
+
+  const data = useQuery(api.services.analytics.getProductPerformance, queryArgs);
   const isLoading = data === undefined;
 
   const rows = useMemo(() => {
@@ -135,38 +195,98 @@ function ProductPerformanceContent() {
           })}
         </div>
 
-        {/* Window + search */}
-        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 sm:items-center">
-          <div className="flex items-center gap-1.5 flex-shrink-0">
-            <span className="text-[11px] text-white/40 uppercase tracking-wider">Window</span>
-            <div className="inline-flex p-[3px] rounded-lg border border-white/10 bg-secondary/40">
-              {WINDOWS.map((w) => (
+        {/* Window + date range + search */}
+        <div className="space-y-2 sm:space-y-3">
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 sm:items-center">
+            {/* Rolling window presets */}
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              <span className="text-[11px] text-white/40 uppercase tracking-wider">Window</span>
+              <div className={`inline-flex p-[3px] rounded-lg border border-white/10 bg-secondary/40 transition-opacity ${rangeActive ? 'opacity-40' : ''}`}>
+                {WINDOWS.map((w) => (
+                  <button
+                    key={w}
+                    onClick={() => {
+                      setRange({ start: '', end: '' }); // preset clears any custom range
+                      setWindowDays(w);
+                    }}
+                    className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all ${
+                      !rangeActive && windowDays === w ? 'bg-primary text-white' : 'text-white/60 hover:text-white'
+                    }`}
+                  >
+                    {w}d
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Custom date range */}
+            <div className={`flex items-center gap-1.5 flex-shrink-0 rounded-lg border px-2 py-1.5 transition-colors ${rangeActive ? 'border-primary/50 bg-primary/10' : 'border-white/10 bg-secondary/40'}`}>
+              <Calendar className={`w-3.5 h-3.5 flex-shrink-0 ${rangeActive ? 'text-primary' : 'text-white/40'}`} />
+              <input
+                type="date"
+                value={range.start}
+                max={today}
+                onChange={(e) => setRange((r) => ({ start: e.target.value, end: r.end || e.target.value }))}
+                className="bg-transparent text-xs text-white outline-none [color-scheme:dark] w-[7.5rem]"
+                aria-label="From date"
+              />
+              <span className="text-white/30 text-xs">→</span>
+              <input
+                type="date"
+                value={range.end}
+                max={today}
+                onChange={(e) => setRange((r) => ({ start: r.start || e.target.value, end: e.target.value }))}
+                className="bg-transparent text-xs text-white outline-none [color-scheme:dark] w-[7.5rem]"
+                aria-label="To date"
+              />
+              {rangeActive && (
                 <button
-                  key={w}
-                  onClick={() => setWindowDays(w)}
-                  className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all ${
-                    windowDays === w ? 'bg-primary text-white' : 'text-white/60 hover:text-white'
-                  }`}
+                  onClick={() => setRange({ start: '', end: '' })}
+                  className="p-0.5 rounded hover:bg-white/10 flex-shrink-0"
+                  aria-label="Clear date range"
                 >
-                  {w}d
+                  <X className="w-3.5 h-3.5 text-white/60" />
                 </button>
-              ))}
+              )}
+            </div>
+
+            {/* Search */}
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40 pointer-events-none" />
+              <input
+                type="text"
+                placeholder="Search product or category..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full pl-10 pr-10 py-2.5 bg-secondary/40 border border-white/10 rounded-xl text-sm text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-primary/50"
+              />
+              {search && (
+                <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-white/10">
+                  <X className="w-3.5 h-3.5 text-white/60" />
+                </button>
+              )}
             </div>
           </div>
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40 pointer-events-none" />
-            <input
-              type="text"
-              placeholder="Search product or category..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-10 py-2.5 bg-secondary/40 border border-white/10 rounded-xl text-sm text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-primary/50"
-            />
-            {search && (
-              <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-white/10">
-                <X className="w-3.5 h-3.5 text-white/60" />
-              </button>
-            )}
+
+          {/* Quick date presets */}
+          <div className="flex gap-1.5 overflow-x-auto scrollbar-hide">
+            {QUICK_RANGES.map((q) => {
+              const r = q.get();
+              const active = range.start === r.start && range.end === r.end;
+              return (
+                <button
+                  key={q.label}
+                  onClick={() => setRange(r)}
+                  className={`flex-shrink-0 px-2.5 py-1 rounded-md text-[11px] font-medium border transition-all ${
+                    active
+                      ? 'bg-primary/20 border-primary/50 text-primary'
+                      : 'bg-secondary/40 border-white/10 text-white/60 hover:text-white hover:border-white/20'
+                  }`}
+                >
+                  {q.label}
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -305,8 +425,13 @@ function ProductPerformanceContent() {
             </div>
 
             <p className="text-[11px] text-white/40 text-center pt-1">
-              {rows.length} {rows.length === 1 ? 'product' : 'products'} · sold / revenue / profit are for the last{' '}
-              {windowDays} days (FIFO cost) · sell-through &amp; risk are lifetime/current
+              {rows.length} {rows.length === 1 ? 'product' : 'products'} · sold / revenue / profit are for{' '}
+              {rangeActive
+                ? range.start === range.end
+                  ? prettyDate(range.start)
+                  : `${prettyDate(range.start)} – ${prettyDate(range.end)}`
+                : `the last ${windowDays} days`}{' '}
+              (FIFO cost) · sell-through &amp; risk are lifetime/current
             </p>
           </>
         )}
