@@ -41,6 +41,17 @@ const fmtDate = (ts: number) =>
     year: 'numeric',
   });
 
+// Local YYYY-MM-DD (en-CA gives ISO-like format in the viewer's timezone, no UTC drift).
+const localDateStr = (d: Date) => d.toLocaleDateString('en-CA');
+// Month-to-date range: 1st of the current month → today. Used as the default date filter.
+const monthToDate = () => {
+  const now = new Date();
+  return {
+    from: localDateStr(new Date(now.getFullYear(), now.getMonth(), 1)),
+    to: localDateStr(now),
+  };
+};
+
 type ExpenseCategory = 'travel' | 'food' | 'supplies' | 'utilities' | 'rent' | 'salary' | 'maintenance' | 'marketing' | 'investor_remit' | 'mortality' | 'other';
 type PaymentMethod = 'cash' | 'gcash' | 'bank_transfer' | 'card';
 
@@ -88,8 +99,9 @@ function FinanceContent() {
   const [activeTab, setActiveTab] = useState<'pnl' | 'daily'>('pnl');
 
   // Date range filter (YYYY-MM-DD strings; converted to timestamps below).
-  const [dateFrom, setDateFrom] = useState<string>('');
-  const [dateTo, setDateTo] = useState<string>('');
+  // Defaults to month-to-date; Clear resets to all-time.
+  const [dateFrom, setDateFrom] = useState<string>(() => monthToDate().from);
+  const [dateTo, setDateTo] = useState<string>(() => monthToDate().to);
 
   const startTs = dateFrom ? new Date(dateFrom + 'T00:00:00').getTime() : undefined;
   const endTs = dateTo ? new Date(dateTo + 'T23:59:59.999').getTime() : undefined;

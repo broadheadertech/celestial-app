@@ -92,7 +92,11 @@ function ProductPerformanceContent() {
   const [lens, setLens] = useState<Lens>('top');
   const [windowDays, setWindowDays] = useState(90);
   const [search, setSearch] = useState('');
-  const [range, setRange] = useState<{ start: string; end: string }>({ start: '', end: '' });
+  // Default to month-to-date; clearing the range (✕) reverts to the rolling window presets.
+  const [range, setRange] = useState<{ start: string; end: string }>(() => {
+    const now = new Date();
+    return { start: toDateStr(new Date(now.getFullYear(), now.getMonth(), 1)), end: toDateStr(now) };
+  });
 
   const today = toDateStr(new Date());
   const rangeActive = !!(range.start && range.end);

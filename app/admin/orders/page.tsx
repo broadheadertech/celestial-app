@@ -269,8 +269,12 @@ function AdminOrdersContent() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [showFilters, setShowFilters] = useState(false);
-  const [dateFrom, setDateFrom] = useState<string>(''); // YYYY-MM-DD
-  const [dateTo, setDateTo] = useState<string>('');
+  // Default to month-to-date (1st of month → today); Clear resets to all-time.
+  const [dateFrom, setDateFrom] = useState<string>(() => {
+    const n = new Date();
+    return new Date(n.getFullYear(), n.getMonth(), 1).toLocaleDateString('en-CA');
+  }); // YYYY-MM-DD
+  const [dateTo, setDateTo] = useState<string>(() => new Date().toLocaleDateString('en-CA'));
   const [productFilterIds, setProductFilterIds] = useState<Set<string>>(new Set());
   const [productSearch, setProductSearch] = useState('');
   const [selectedItem, setSelectedItem] = useState<CombinedItem | null>(null);
