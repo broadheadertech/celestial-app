@@ -1572,8 +1572,16 @@ function DailyReportTab({ startDate, endDate }: { startDate?: number; endDate?: 
     endDate,
   });
   const [openDay, setOpenDay] = useState<OpenDay | null>(null);
+  const [sortDir, setSortDir] = useState<'desc' | 'asc'>('desc');
 
   const loading = report === undefined;
+
+  // Backend returns rows newest-first; flip for ascending without mutating the source.
+  const sortedRows = report
+    ? sortDir === 'desc'
+      ? report.rows
+      : [...report.rows].sort((a, b) => a.startMs - b.startMs)
+    : [];
 
   return (
     <div className="px-4 sm:px-6 py-4 sm:py-6 max-w-7xl mx-auto space-y-5">
@@ -1596,6 +1604,29 @@ function DailyReportTab({ startDate, endDate }: { startDate?: number; endDate?: 
               Icon={report.summary.netTotal >= 0 ? TrendingUp : TrendingDown}
             />
           </div>
+
+          {/* Sort order */}
+          {report.rows.length > 0 && (
+            <div className="flex items-center justify-end gap-2">
+              <span className="text-[11px] text-white/40 uppercase tracking-wider">Order by date</span>
+              <div className="inline-flex p-[3px] rounded-lg border border-white/10 bg-secondary/40">
+                {([
+                  { id: 'desc', label: 'Newest first' },
+                  { id: 'asc', label: 'Oldest first' },
+                ] as const).map((o) => (
+                  <button
+                    key={o.id}
+                    onClick={() => setSortDir(o.id)}
+                    className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all ${
+                      sortDir === o.id ? 'bg-primary text-white' : 'text-white/60 hover:text-white'
+                    }`}
+                  >
+                    {o.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {report.rows.length === 0 ? (
             <div className="text-center py-16 rounded-2xl border border-white/10 bg-secondary/30">
@@ -1620,7 +1651,7 @@ function DailyReportTab({ startDate, endDate }: { startDate?: number; endDate?: 
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-white/5">
-                      {report.rows.map((r) => (
+                      {sortedRows.map((r) => (
                         <tr
                           key={r.dateKey}
                           onClick={() => setOpenDay({ dateKey: r.dateKey, startMs: r.startMs, endMs: r.endMs })}
@@ -1643,7 +1674,7 @@ function DailyReportTab({ startDate, endDate }: { startDate?: number; endDate?: 
 
               {/* Mobile cards */}
               <div className="md:hidden space-y-2.5">
-                {report.rows.map((r) => (
+                {sortedRows.map((r) => (
                   <button
                     key={r.dateKey}
                     onClick={() => setOpenDay({ dateKey: r.dateKey, startMs: r.startMs, endMs: r.endMs })}
