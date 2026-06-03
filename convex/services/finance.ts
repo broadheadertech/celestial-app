@@ -173,6 +173,7 @@ export const createExpense = mutation({
     notes: v.optional(v.string()),
     receiptImage: v.optional(v.string()),
     fundingSource: v.optional(v.union(v.literal("coh"), v.literal("investment"))),
+    supplier: v.optional(v.string()),
     userId: v.optional(v.id("users")),
   },
   handler: async (ctx, args) => {
@@ -190,6 +191,7 @@ export const createExpense = mutation({
       notes: args.notes,
       receiptImage: args.receiptImage,
       fundingSource: args.fundingSource,
+      supplier: args.supplier?.trim() || undefined,
       createdBy: args.userId,
       createdAt: now,
       updatedAt: now,
@@ -233,6 +235,7 @@ export const updateExpense = mutation({
     date: v.optional(v.number()),
     notes: v.optional(v.string()),
     fundingSource: v.optional(v.union(v.literal("coh"), v.literal("investment"))),
+    supplier: v.optional(v.string()),
     userId: v.optional(v.id("users")),
   },
   handler: async (ctx, { id, userId, ...updates }) => {
@@ -705,11 +708,14 @@ export const getDailySalesReport = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, { tzOffsetMinutes = -480, startDate, endDate, limit = 370 }) => {
-    const [orders, reservations, expenses] = await Promise.all([
+    const [orders, reservations, expenses, cashAdjustments, openingRecord] = await Promise.all([
       ctx.db.query("orders").collect(),
       ctx.db.query("reservations").collect(),
       ctx.db.query("expenses").collect(),
+      ctx.db.query("cashAdjustments").collect(),
+      ctx.db.query("financialSettings").withIndex("by_key", (q) => q.eq("key", "opening_cash_balance")).first(),
     ]);
+    const openingBalance = openingRecord?.value || 0;
 
     const now = Date.now();
     const DAY_MS = 24 * 60 * 60 * 1000;
@@ -773,6 +779,30 @@ export const getDailySalesReport = query({
     for (let k = loDay; k <= hiDay; k++) dayKeys.add(k);
     for (const k of buckets.keys()) dayKeys.add(k); // include any out-of-bound days with data
 
+    // ── Running End-of-Day Cash on Hand ──
+    // Mirrors the Finance COH formula, accumulated over ALL history (not just the filtered
+    // window) so each day shows the real till balance at its close. Signed cash impacts:
+    //  + cash sales collected (orders paid by cash)   − cash operating expenses
+    //  − restock funded from the till                 ± cash adjustments (excl. investor injections)
+    const cashEvents: { date: number; amt: number }[] = [];
+    for (const o of orders) {
+      if (o.status === "cancelled" || o.paymentMethod !== "cash") continue;
+      const c = amountCollected(o);
+      if (c) cashEvents.push({ date: o.createdAt, amt: c });
+    }
+    for (const e of expenses) {
+      if (e.type === "restocking") {
+        if (e.fundingSource === "coh") cashEvents.push({ date: e.date, amt: -e.amount });
+      } else if (e.paymentMethod === "cash") {
+        cashEvents.push({ date: e.date, amt: -e.amount });
+      }
+    }
+    for (const a of cashAdjustments) {
+      if (a.type !== "injection") cashEvents.push({ date: a.date, amt: a.amount });
+    }
+    const eodCOH = (endMs: number) =>
+      openingBalance + cashEvents.reduce((s, ev) => (ev.date <= endMs ? s + ev.amt : s), 0);
+
     const rows = Array.from(dayKeys)
       .map((k) => {
         const b = buckets.get(k) ?? { sales: 0, expense: 0, transactions: 0, itemsSold: 0 };
@@ -786,6 +816,7 @@ export const getDailySalesReport = query({
           totalSales: b.sales,
           totalExpense: b.expense,
           netDaily: b.sales - b.expense,
+          eodCOH: eodCOH(endMs),
           transactions: b.transactions,
           itemsSold: b.itemsSold,
         };
@@ -1069,6 +1100,7 @@ export const getStockFlowDetail = query({
         amount: e.amount,
         source: e.fundingSource as "coh" | "investment",
         paymentMethod: e.paymentMethod,
+        supplier: e.supplier ?? null,
         date: e.date,
       }))
       .sort((a, b) => b.date - a.date);

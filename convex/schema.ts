@@ -422,6 +422,9 @@ export default defineSchema({
     // Cash on Hand (cash left the till to buy stock); "investment" is declaration-only (no balance moves).
     fundingSource: v.optional(v.union(v.literal("coh"), v.literal("investment"))),
 
+    // Supplier name — where the stock was bought from (mainly for restocking declarations).
+    supplier: v.optional(v.string()),
+
     receiptImage: v.optional(v.string()),
     notes: v.optional(v.string()),
     createdBy: v.optional(v.id("users")),

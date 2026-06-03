@@ -207,6 +207,7 @@ function FinanceContent() {
   const [formType, setFormType] = useState<'operational' | 'restocking'>('operational');
   // Funding source — only used for restock declarations (Till vs Investment).
   const [formFundingSource, setFormFundingSource] = useState<'coh' | 'investment' | null>(null);
+  const [formSupplier, setFormSupplier] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
@@ -232,6 +233,7 @@ function FinanceContent() {
         paymentMethod: formPaymentMethod,
         notes: formNotes || undefined,
         fundingSource: formType === 'restocking' ? (formFundingSource ?? undefined) : undefined,
+        supplier: formType === 'restocking' ? (formSupplier.trim() || undefined) : undefined,
         userId: user?._id as Id<"users"> | undefined,
       });
       setShowExpenseForm(false);
@@ -242,6 +244,7 @@ function FinanceContent() {
       setFormPaymentMethod('cash');
       setFormNotes('');
       setFormFundingSource(null);
+      setFormSupplier('');
     } catch (error) {
       alert(error instanceof Error ? error.message : 'Failed to add expense');
     } finally {
@@ -1543,6 +1546,20 @@ function FinanceContent() {
                   </div>
                 )}
 
+                {/* Supplier — only for a Restock declaration */}
+                {formType === 'restocking' && (
+                  <div>
+                    <label className="block text-xs text-white/60 mb-1.5">Supplier <span className="text-white/30">(optional)</span></label>
+                    <input
+                      type="text"
+                      value={formSupplier}
+                      onChange={(e) => setFormSupplier(e.target.value)}
+                      placeholder="e.g. Manila Aqua Supplier"
+                      className="w-full px-3 py-2.5 bg-background/60 border border-white/10 rounded-lg text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                  </div>
+                )}
+
                 <div>
                   <label className="block text-xs text-white/60 mb-1.5">Amount (â‚±)</label>
                   <input
@@ -1737,6 +1754,7 @@ function DailyReportTab({ startDate, endDate }: { startDate?: number; endDate?: 
                         <th className="text-right px-3 py-3">Total Sales</th>
                         <th className="text-right px-3 py-3">Total Expense</th>
                         <th className="text-right px-3 py-3">Total Daily</th>
+                        <th className="text-right px-3 py-3">EOD COH</th>
                         <th className="text-right px-5 py-3">Activity</th>
                         <th className="w-8" />
                       </tr>
@@ -1752,6 +1770,7 @@ function DailyReportTab({ startDate, endDate }: { startDate?: number; endDate?: 
                           <td className="px-3 py-3 text-right text-success font-semibold tabular-nums whitespace-nowrap">{fmt(r.totalSales)}</td>
                           <td className="px-3 py-3 text-right text-error tabular-nums whitespace-nowrap">{fmt(r.totalExpense)}</td>
                           <td className={`px-3 py-3 text-right font-bold tabular-nums whitespace-nowrap ${r.netDaily >= 0 ? 'text-success' : 'text-error'}`}>{fmt(r.netDaily)}</td>
+                          <td className={`px-3 py-3 text-right font-semibold tabular-nums whitespace-nowrap ${r.eodCOH >= 0 ? 'text-white' : 'text-error'}`}>{fmt(r.eodCOH)}</td>
                           <td className="px-5 py-3 text-right text-white/50 text-xs tabular-nums whitespace-nowrap">
                             {r.transactions} {r.transactions === 1 ? 'sale' : 'sales'} Â· {r.itemsSold} items
                           </td>
@@ -1789,14 +1808,17 @@ function DailyReportTab({ startDate, endDate }: { startDate?: number; endDate?: 
                         <p className={`text-sm font-bold tabular-nums ${r.netDaily >= 0 ? 'text-success' : 'text-error'}`}>{fmt(r.netDaily)}</p>
                       </div>
                     </div>
-                    <p className="text-[11px] text-white/40 mt-2">{r.transactions} {r.transactions === 1 ? 'sale' : 'sales'} Â· {r.itemsSold} items sold</p>
+                    <div className="flex items-center justify-between mt-2 pt-2 border-t border-white/5">
+                      <p className="text-[11px] text-white/40">{r.transactions} {r.transactions === 1 ? 'sale' : 'sales'} Â· {r.itemsSold} items</p>
+                      <p className="text-[11px] text-white/50">EOD COH <span className={`font-bold tabular-nums ${r.eodCOH >= 0 ? 'text-white' : 'text-error'}`}>{fmt(r.eodCOH)}</span></p>
+                    </div>
                   </button>
                 ))}
               </div>
 
               <p className="text-[11px] text-white/40 text-center pt-1">
                 {report.rows.length} {report.rows.length === 1 ? 'day' : 'days'} Â· tap a date to see the items sold Â·
-                sales = amount collected, expense = all expenses dated that day
+                sales = amount collected, expense = all expenses dated that day Â· EOD COH = running cash on hand at day&apos;s close
               </p>
             </>
           )}
@@ -2364,7 +2386,10 @@ function StockDayModal({ day, onClose }: { day: OpenDay; onClose: () => void }) 
                       </div>
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium text-white truncate">{it.description}</p>
-                        <p className="text-[11px] text-white/40 truncate capitalize">{it.paymentMethod.replace('_', ' ')}</p>
+                        <p className="text-[11px] text-white/40 truncate">
+                          {it.supplier ? <span className="text-white/60">{it.supplier} · </span> : null}
+                          <span className="capitalize">{it.paymentMethod.replace('_', ' ')}</span>
+                        </p>
                       </div>
                       <div className="text-right flex-shrink-0">
                         <p className="text-sm font-semibold text-white tabular-nums">{fmt(it.amount)}</p>
