@@ -24,6 +24,8 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   Edit2,
+  ChevronRight,
+  X,
 } from 'lucide-react';
 import BottomNavbar from '@/components/common/BottomNavbar';
 import SafeAreaProvider from '@/components/provider/SafeAreaProvider';
@@ -81,6 +83,9 @@ const paymentIcons: Record<string, React.ReactNode> = {
 function FinanceContent() {
   const router = useRouter();
   const { user } = useAuthStore();
+
+  // Top-level view: P&L overview vs the per-day General Report.
+  const [activeTab, setActiveTab] = useState<'pnl' | 'daily'>('pnl');
 
   // Date range filter (YYYY-MM-DD strings; converted to timestamps below).
   const [dateFrom, setDateFrom] = useState<string>('');
@@ -317,6 +322,26 @@ function FinanceContent() {
         </div>
       </div>
 
+      {/* Tabs */}
+      <div className="px-4 sm:px-6 pt-4 max-w-7xl mx-auto">
+        <div className="inline-flex p-1 rounded-xl border border-white/10 bg-secondary/40">
+          {([
+            { id: 'pnl', label: 'P&L Overview' },
+            { id: 'daily', label: 'General Report' },
+          ] as const).map((t) => (
+            <button
+              key={t.id}
+              onClick={() => setActiveTab(t.id)}
+              className={`px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all ${
+                activeTab === t.id ? 'bg-primary text-white shadow-md shadow-primary/20' : 'text-white/60 hover:text-white'
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Date Range Filter */}
       <div className="px-4 sm:px-6 pt-4 sm:pt-5 max-w-7xl mx-auto">
         <div
@@ -391,7 +416,7 @@ function FinanceContent() {
         </div>
       </div>
 
-      {isLoading ? (
+      {activeTab === 'pnl' && (isLoading ? (
         <div className="text-center py-20">
           <div className="w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin mx-auto mb-4" />
           <p className="text-sm text-white/60">Loading finance data...</p>
@@ -1139,6 +1164,10 @@ function FinanceContent() {
             )}
           </div>
         </div>
+      ))}
+
+      {activeTab === 'daily' && (
+        <DailyReportTab startDate={validStart} endDate={validEnd} />
       )}
 
       <BottomNavbar />
@@ -1519,6 +1548,270 @@ function FinanceContent() {
         </>
       )}
     </div>
+  );
+}
+
+/* ───────────────────────── GENERAL (DAILY) REPORT TAB ───────────────────────── */
+
+const dayLabel = (key: string) =>
+  new Date(key + 'T12:00:00').toLocaleDateString('en-PH', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+
+type OpenDay = { dateKey: string; startMs: number; endMs: number };
+
+function DailyReportTab({ startDate, endDate }: { startDate?: number; endDate?: number }) {
+  // Bucket days by the viewer's local timezone (Philippine time in practice).
+  const tzOffsetMinutes = new Date().getTimezoneOffset();
+  const report = useQuery(api.services.finance.getDailySalesReport, {
+    tzOffsetMinutes,
+    startDate,
+    endDate,
+  });
+  const [openDay, setOpenDay] = useState<OpenDay | null>(null);
+
+  const loading = report === undefined;
+
+  return (
+    <div className="px-4 sm:px-6 py-4 sm:py-6 max-w-7xl mx-auto space-y-5">
+      {loading ? (
+        <div className="text-center py-20">
+          <div className="w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-sm text-white/60">Building daily report...</p>
+        </div>
+      ) : (
+        <>
+          {/* Period summary */}
+          <div className="grid grid-cols-3 gap-2 sm:gap-3">
+            <DailyKpi label="Total Sales" value={fmt(report.summary.totalSales)} accent="text-success" bg="bg-success/10" Icon={Banknote} />
+            <DailyKpi label="Total Expense" value={fmt(report.summary.totalExpense)} accent="text-error" bg="bg-error/10" Icon={Receipt} />
+            <DailyKpi
+              label="Net Total"
+              value={fmt(report.summary.netTotal)}
+              accent={report.summary.netTotal >= 0 ? 'text-success' : 'text-error'}
+              bg={report.summary.netTotal >= 0 ? 'bg-success/10' : 'bg-error/10'}
+              Icon={report.summary.netTotal >= 0 ? TrendingUp : TrendingDown}
+            />
+          </div>
+
+          {report.rows.length === 0 ? (
+            <div className="text-center py-16 rounded-2xl border border-white/10 bg-secondary/30">
+              <Calendar className="w-12 h-12 text-white/20 mx-auto mb-3" />
+              <h3 className="text-base font-bold text-white mb-1">No sales recorded</h3>
+              <p className="text-xs text-white/60">No paid sales or expenses fall in this period.</p>
+            </div>
+          ) : (
+            <>
+              {/* Desktop table */}
+              <div className="hidden md:block">
+                <div className="bg-secondary/30 border border-white/10 rounded-xl overflow-hidden shadow-xl">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-white/10 bg-secondary/60 text-[10px] font-semibold text-white/40 uppercase tracking-wider">
+                        <th className="text-left px-5 py-3">Date</th>
+                        <th className="text-right px-3 py-3">Total Sales</th>
+                        <th className="text-right px-3 py-3">Total Expense</th>
+                        <th className="text-right px-3 py-3">Total Daily</th>
+                        <th className="text-right px-5 py-3">Activity</th>
+                        <th className="w-8" />
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/5">
+                      {report.rows.map((r) => (
+                        <tr
+                          key={r.dateKey}
+                          onClick={() => setOpenDay({ dateKey: r.dateKey, startMs: r.startMs, endMs: r.endMs })}
+                          className="hover:bg-white/[0.03] transition-colors cursor-pointer"
+                        >
+                          <td className="px-5 py-3 font-medium text-white whitespace-nowrap">{dayLabel(r.dateKey)}</td>
+                          <td className="px-3 py-3 text-right text-success font-semibold tabular-nums whitespace-nowrap">{fmt(r.totalSales)}</td>
+                          <td className="px-3 py-3 text-right text-error tabular-nums whitespace-nowrap">{fmt(r.totalExpense)}</td>
+                          <td className={`px-3 py-3 text-right font-bold tabular-nums whitespace-nowrap ${r.netDaily >= 0 ? 'text-success' : 'text-error'}`}>{fmt(r.netDaily)}</td>
+                          <td className="px-5 py-3 text-right text-white/50 text-xs tabular-nums whitespace-nowrap">
+                            {r.transactions} {r.transactions === 1 ? 'sale' : 'sales'} · {r.itemsSold} items
+                          </td>
+                          <td className="pr-3 text-right"><ChevronRight className="w-4 h-4 text-white/30 inline" /></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Mobile cards */}
+              <div className="md:hidden space-y-2.5">
+                {report.rows.map((r) => (
+                  <button
+                    key={r.dateKey}
+                    onClick={() => setOpenDay({ dateKey: r.dateKey, startMs: r.startMs, endMs: r.endMs })}
+                    className="w-full text-left rounded-xl border border-white/10 bg-secondary/40 p-3 active:scale-[0.99] transition-transform"
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="font-bold text-white text-sm">{dayLabel(r.dateKey)}</p>
+                      <ChevronRight className="w-4 h-4 text-white/30" />
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      <div>
+                        <p className="text-[10px] text-white/40 uppercase tracking-wider">Sales</p>
+                        <p className="text-sm font-semibold text-success tabular-nums">{fmt(r.totalSales)}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-white/40 uppercase tracking-wider">Expense</p>
+                        <p className="text-sm font-semibold text-error tabular-nums">{fmt(r.totalExpense)}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-white/40 uppercase tracking-wider">Daily</p>
+                        <p className={`text-sm font-bold tabular-nums ${r.netDaily >= 0 ? 'text-success' : 'text-error'}`}>{fmt(r.netDaily)}</p>
+                      </div>
+                    </div>
+                    <p className="text-[11px] text-white/40 mt-2">{r.transactions} {r.transactions === 1 ? 'sale' : 'sales'} · {r.itemsSold} items sold</p>
+                  </button>
+                ))}
+              </div>
+
+              <p className="text-[11px] text-white/40 text-center pt-1">
+                {report.rows.length} {report.rows.length === 1 ? 'day' : 'days'} · tap a date to see the items sold ·
+                sales = amount collected, expense = all expenses dated that day
+              </p>
+            </>
+          )}
+        </>
+      )}
+
+      {openDay && <DailyDetailModal day={openDay} onClose={() => setOpenDay(null)} />}
+    </div>
+  );
+}
+
+function DailyKpi({ label, value, accent, bg, Icon }: { label: string; value: string; accent: string; bg: string; Icon: typeof Banknote }) {
+  return (
+    <div className="bg-gradient-to-br from-secondary/60 to-secondary/30 rounded-xl p-3 sm:p-4 border border-white/10">
+      <div className="flex items-center justify-between mb-2">
+        <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg ${bg} flex items-center justify-center`}>
+          <Icon className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${accent}`} />
+        </div>
+        <span className="text-[9px] sm:text-[10px] font-medium text-white/40 uppercase tracking-wider truncate">{label}</span>
+      </div>
+      <p className={`text-base sm:text-xl lg:text-2xl font-bold tabular-nums truncate ${accent}`}>{value}</p>
+    </div>
+  );
+}
+
+function DailyDetailModal({ day, onClose }: { day: OpenDay; onClose: () => void }) {
+  const detail = useQuery(api.services.finance.getDailyReportDetail, {
+    startDate: day.startMs,
+    endDate: day.endMs,
+  });
+  const loading = detail === undefined;
+
+  return (
+    <>
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9998]" onClick={onClose} />
+      <div className="fixed bottom-0 left-0 right-0 sm:inset-0 sm:flex sm:items-center sm:justify-center z-[9999]">
+        <div
+          className="rounded-t-3xl sm:rounded-2xl shadow-2xl sm:w-full sm:max-w-lg sm:mx-4 max-h-[88vh] overflow-y-auto"
+          style={{ background: 'var(--secondary)', border: '1px solid var(--line)' }}
+        >
+          {/* Header */}
+          <div className="sticky top-0 z-10 flex items-center justify-between px-5 py-4 border-b border-white/10 bg-secondary/95 backdrop-blur-sm">
+            <div className="min-w-0">
+              <p className="text-[11px] text-white/50 uppercase tracking-wider">Daily Report</p>
+              <h3 className="text-base sm:text-lg font-bold text-white truncate">{dayLabel(day.dateKey)}</h3>
+            </div>
+            <button onClick={onClose} className="p-2 rounded-lg hover:bg-white/10 flex-shrink-0">
+              <X className="w-5 h-5 text-white/70" />
+            </button>
+          </div>
+
+          {loading ? (
+            <div className="text-center py-16">
+              <div className="w-10 h-10 border-4 border-primary/30 border-t-primary rounded-full animate-spin mx-auto mb-3" />
+              <p className="text-sm text-white/60">Loading items sold...</p>
+            </div>
+          ) : detail && (
+            <div className="p-5 space-y-5">
+              {/* Totals */}
+              <div className="grid grid-cols-3 gap-2">
+                <div className="rounded-lg bg-success/10 border border-success/20 p-2.5">
+                  <p className="text-[10px] text-white/50 uppercase tracking-wider">Sales</p>
+                  <p className="text-sm font-bold text-success tabular-nums">{fmt(detail.totals.totalSales)}</p>
+                </div>
+                <div className="rounded-lg bg-error/10 border border-error/20 p-2.5">
+                  <p className="text-[10px] text-white/50 uppercase tracking-wider">Expense</p>
+                  <p className="text-sm font-bold text-error tabular-nums">{fmt(detail.totals.totalExpense)}</p>
+                </div>
+                <div className={`rounded-lg border p-2.5 ${detail.totals.netDaily >= 0 ? 'bg-success/10 border-success/20' : 'bg-error/10 border-error/20'}`}>
+                  <p className="text-[10px] text-white/50 uppercase tracking-wider">Daily</p>
+                  <p className={`text-sm font-bold tabular-nums ${detail.totals.netDaily >= 0 ? 'text-success' : 'text-error'}`}>{fmt(detail.totals.netDaily)}</p>
+                </div>
+              </div>
+
+              {/* Items sold */}
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <Package className="w-4 h-4 text-primary" />
+                  <h4 className="text-sm font-semibold text-white">Items Sold</h4>
+                  <span className="text-xs text-white/40">· {detail.totals.unitsSold} units · profit {fmt(detail.totals.grossProfit)}</span>
+                </div>
+                {detail.items.length === 0 ? (
+                  <p className="text-xs text-white/50 py-3 text-center">No items sold this day.</p>
+                ) : (
+                  <div className="rounded-xl border border-white/10 overflow-hidden divide-y divide-white/5">
+                    {detail.items.map((it) => (
+                      <div key={it.id} className="flex items-center gap-3 p-2.5 bg-secondary/30">
+                        <div className="w-9 h-9 rounded-lg overflow-hidden bg-secondary border border-white/10 flex items-center justify-center flex-shrink-0">
+                          {it.image ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={it.image} alt={it.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <Package className="w-4 h-4 text-white/30" />
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-white truncate">{it.name}</p>
+                          <p className="text-[11px] text-white/40 truncate">{it.category} · {it.unitsSold} sold</p>
+                        </div>
+                        <div className="text-right flex-shrink-0">
+                          <p className="text-sm font-semibold text-white tabular-nums">{fmt(it.revenue)}</p>
+                          <p className={`text-[11px] tabular-nums ${it.grossProfit >= 0 ? 'text-success' : 'text-error'}`}>{fmt(it.grossProfit)} profit</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Expenses */}
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <Receipt className="w-4 h-4 text-error" />
+                  <h4 className="text-sm font-semibold text-white">Expenses</h4>
+                </div>
+                {detail.expenses.length === 0 ? (
+                  <p className="text-xs text-white/50 py-3 text-center">No expenses recorded this day.</p>
+                ) : (
+                  <div className="rounded-xl border border-white/10 overflow-hidden divide-y divide-white/5">
+                    {detail.expenses.map((e) => (
+                      <div key={e.id} className="flex items-center gap-3 p-2.5 bg-secondary/30">
+                        <span className="text-lg flex-shrink-0">{e.category ? (categoryIcons[e.category] || '📝') : (e.type === 'restocking' ? '📦' : '📝')}</span>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-white truncate">{e.description}</p>
+                          <p className="text-[11px] text-white/40 truncate capitalize">{e.type} · {e.paymentMethod.replace('_', ' ')}</p>
+                        </div>
+                        <p className="text-sm font-semibold text-error tabular-nums flex-shrink-0">{fmt(e.amount)}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </>
   );
 }
 

@@ -602,3 +602,259 @@ export const getFinancialSummary = query({
     };
   },
 });
+
+// Revenue actually collected on a transaction (shared rule with the P&L summary).
+// Unpaid/refunded = 0; partial = amountPaid; paid = amountPaid ?? totalAmount.
+function amountCollected(o: { paymentStatus?: string; amountPaid?: number; totalAmount?: number }) {
+  const status = o.paymentStatus || "unpaid";
+  if (status === "refunded" || status === "unpaid") return 0;
+  if (status === "partial") return o.amountPaid || 0;
+  return o.amountPaid ?? (o.totalAmount || 0);
+}
+
+/**
+ * General daily report — one row per calendar day:
+ *   Date · Total Sales (collected) · Total Expense (all) · Total Daily (sales − expense)
+ *
+ * "Sales" = revenue actually collected on non-cancelled orders + completed reservations
+ * (same recognition as the P&L). "Expense" = every expense dated that day (restocking +
+ * operational). Days are bucketed by the caller's timezone (tzOffsetMinutes from
+ * Date.getTimezoneOffset(); defaults to Philippine time, UTC+8). Each row carries the
+ * exact epoch [startMs, endMs] for that local day so the detail view can re-query precisely.
+ */
+export const getDailySalesReport = query({
+  args: {
+    tzOffsetMinutes: v.optional(v.number()), // Date.getTimezoneOffset(): minutes behind UTC (PH = -480)
+    startDate: v.optional(v.number()),
+    endDate: v.optional(v.number()),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, { tzOffsetMinutes = -480, startDate, endDate, limit = 120 }) => {
+    const [orders, reservations, expenses] = await Promise.all([
+      ctx.db.query("orders").collect(),
+      ctx.db.query("reservations").collect(),
+      ctx.db.query("expenses").collect(),
+    ]);
+
+    const DAY_MS = 24 * 60 * 60 * 1000;
+    const offMs = tzOffsetMinutes * 60 * 1000;
+    const inRange = (ts: number) => (!startDate || ts >= startDate) && (!endDate || ts <= endDate);
+    // Local-day index: shift by tz so day boundaries fall on local midnight.
+    const dayIndex = (ts: number) => Math.floor((ts - offMs) / DAY_MS);
+
+    type Bucket = { sales: number; expense: number; transactions: number; itemsSold: number };
+    const buckets = new Map<number, Bucket>();
+    const bucket = (k: number) =>
+      buckets.get(k) ?? buckets.set(k, { sales: 0, expense: 0, transactions: 0, itemsSold: 0 }).get(k)!;
+
+    for (const o of orders) {
+      if (o.status === "cancelled" || !inRange(o.createdAt)) continue;
+      const collected = amountCollected(o);
+      if (collected <= 0) continue;
+      const b = bucket(dayIndex(o.createdAt));
+      b.sales += collected;
+      b.transactions += 1;
+      for (const item of o.items || []) b.itemsSold += item.quantity;
+    }
+    for (const r of reservations) {
+      if (r.status !== "completed" || !inRange(r.createdAt)) continue;
+      const collected = amountCollected(r);
+      if (collected <= 0) continue;
+      const b = bucket(dayIndex(r.createdAt));
+      b.sales += collected;
+      b.transactions += 1;
+      if (r.items && r.items.length > 0) {
+        for (const item of r.items) b.itemsSold += item.quantity;
+      } else if (r.quantity) {
+        b.itemsSold += r.quantity;
+      }
+    }
+    for (const e of expenses) {
+      if (!inRange(e.date)) continue;
+      bucket(dayIndex(e.date)).expense += e.amount;
+    }
+
+    const rows = Array.from(buckets.entries())
+      .map(([k, b]) => {
+        const startMs = k * DAY_MS + offMs;       // real epoch of local midnight
+        const endMs = startMs + DAY_MS - 1;
+        const dateKey = new Date(k * DAY_MS).toISOString().slice(0, 10); // YYYY-MM-DD (local calendar)
+        return {
+          dateKey,
+          startMs,
+          endMs,
+          totalSales: b.sales,
+          totalExpense: b.expense,
+          netDaily: b.sales - b.expense,
+          transactions: b.transactions,
+          itemsSold: b.itemsSold,
+        };
+      })
+      .sort((a, b) => b.startMs - a.startMs)
+      .slice(0, limit);
+
+    const summary = {
+      dayCount: rows.length,
+      totalSales: rows.reduce((s, r) => s + r.totalSales, 0),
+      totalExpense: rows.reduce((s, r) => s + r.totalExpense, 0),
+      netTotal: rows.reduce((s, r) => s + r.netDaily, 0),
+    };
+
+    return { rows, summary };
+  },
+});
+
+/**
+ * Daily report detail — the items sold within an exact [startDate, endDate] window
+ * (pass a single day's startMs/endMs from getDailySalesReport), plus that day's
+ * expenses. Per-product units / revenue / FIFO gross profit use the same recognition
+ * and batch-costing as the P&L, so the detail ties out with the General Report row.
+ */
+export const getDailyReportDetail = query({
+  args: {
+    startDate: v.number(),
+    endDate: v.number(),
+  },
+  handler: async (ctx, { startDate, endDate }) => {
+    const [orders, reservations, expenses, products, stockRecords, categories] = await Promise.all([
+      ctx.db.query("orders").collect(),
+      ctx.db.query("reservations").collect(),
+      ctx.db.query("expenses").collect(),
+      ctx.db.query("products").collect(),
+      ctx.db.query("stockRecords").collect(),
+      ctx.db.query("categories").collect(),
+    ]);
+
+    const inRange = (ts: number) => ts >= startDate && ts <= endDate;
+    const categoryMap = new Map(categories.map((c) => [c._id as string, c.name]));
+    const productMap = new Map(products.map((p) => [p._id as string, p]));
+    const fallbackCost = (p?: { movingAverageCost?: number; costPrice?: number }) =>
+      p?.movingAverageCost ?? p?.costPrice ?? 0;
+
+    // FIFO purchase lots (exclude mortality write-offs), oldest received first.
+    type Lot = { remaining: number; cost: number; received: number };
+    const fifoQueues = new Map<string, Lot[]>();
+    for (const r of stockRecords) {
+      if (r.isMortalityLoss || r.initialQty <= 0) continue;
+      const pid = r.productId as string;
+      const cost = r.actualCostPrice ?? fallbackCost(productMap.get(pid));
+      const arr = fifoQueues.get(pid) ?? [];
+      arr.push({ remaining: r.initialQty, cost, received: r.receivedDate });
+      fifoQueues.set(pid, arr);
+    }
+    for (const arr of fifoQueues.values()) arr.sort((a, b) => a.received - b.received);
+
+    // Recognized sale lines (paid/partial orders + completed reservations), chronological.
+    type SaleLine = { productId: string; quantity: number; revenue: number; date: number };
+    const saleLines: SaleLine[] = [];
+    for (const o of orders) {
+      if (o.status === "cancelled") continue;
+      if ((o.paymentStatus || "unpaid") === "unpaid" || o.paymentStatus === "refunded") continue;
+      for (const item of o.items || []) {
+        saleLines.push({ productId: item.productId as string, quantity: item.quantity, revenue: item.price * item.quantity, date: o.createdAt });
+      }
+    }
+    for (const r of reservations) {
+      if (r.status !== "completed") continue;
+      if ((r.paymentStatus || "unpaid") === "unpaid" || r.paymentStatus === "refunded") continue;
+      if (r.items && r.items.length > 0) {
+        for (const item of r.items) {
+          saleLines.push({ productId: item.productId as string, quantity: item.quantity, revenue: item.reservedPrice * item.quantity, date: r.createdAt });
+        }
+      } else if (r.productId && r.quantity) {
+        const p = productMap.get(r.productId as string);
+        saleLines.push({ productId: r.productId as string, quantity: r.quantity, revenue: (p?.price ?? 0) * r.quantity, date: r.createdAt });
+      }
+    }
+    saleLines.sort((a, b) => a.date - b.date);
+
+    type Acc = { units: number; revenue: number; cogs: number };
+    const acc = new Map<string, Acc>();
+    const getAcc = (pid: string) => acc.get(pid) ?? acc.set(pid, { units: 0, revenue: 0, cogs: 0 }).get(pid)!;
+
+    for (const line of saleLines) {
+      // Always consume the queue (even out-of-range) so in-range lines draw correct lots.
+      const queue = fifoQueues.get(line.productId) ?? [];
+      let remaining = line.quantity;
+      let lineCost = 0;
+      while (remaining > 0 && queue.length > 0) {
+        const head = queue[0];
+        const take = Math.min(remaining, head.remaining);
+        lineCost += take * head.cost;
+        head.remaining -= take;
+        remaining -= take;
+        if (head.remaining <= 0) queue.shift();
+      }
+      if (remaining > 0) lineCost += remaining * fallbackCost(productMap.get(line.productId));
+
+      if (!inRange(line.date)) continue;
+      const a = getAcc(line.productId);
+      a.units += line.quantity;
+      a.revenue += line.revenue;
+      a.cogs += lineCost;
+    }
+
+    const items = Array.from(acc.entries())
+      .map(([pid, a]) => {
+        const p = productMap.get(pid);
+        const grossProfit = a.revenue - a.cogs;
+        return {
+          id: pid,
+          name: p?.name ?? "Unknown product",
+          image: p?.image || null,
+          category: p ? categoryMap.get(p.categoryId as string) || "Uncategorized" : "Uncategorized",
+          unitsSold: a.units,
+          revenue: a.revenue,
+          cogs: a.cogs,
+          grossProfit,
+          margin: a.revenue > 0 ? (grossProfit / a.revenue) * 100 : 0,
+        };
+      })
+      .sort((x, y) => y.revenue - x.revenue);
+
+    // Expenses dated within the day, newest first.
+    const dayExpenses = expenses
+      .filter((e) => inRange(e.date))
+      .sort((a, b) => b.date - a.date)
+      .map((e) => ({
+        id: e._id as string,
+        type: e.type,
+        category: e.category ?? null,
+        amount: e.amount,
+        description: e.description,
+        paymentMethod: e.paymentMethod,
+        date: e.date,
+      }));
+
+    // Headline sales = collected (ties out with the General Report row).
+    let totalCollected = 0;
+    for (const o of orders) {
+      if (o.status === "cancelled" || !inRange(o.createdAt)) continue;
+      totalCollected += amountCollected(o);
+    }
+    for (const r of reservations) {
+      if (r.status !== "completed" || !inRange(r.createdAt)) continue;
+      totalCollected += amountCollected(r);
+    }
+
+    const itemsRevenue = items.reduce((s, i) => s + i.revenue, 0);
+    const totalCogs = items.reduce((s, i) => s + i.cogs, 0);
+    const totalExpense = dayExpenses.reduce((s, e) => s + e.amount, 0);
+
+    return {
+      startDate,
+      endDate,
+      items,
+      expenses: dayExpenses,
+      totals: {
+        totalSales: totalCollected,
+        itemsRevenue,
+        unitsSold: items.reduce((s, i) => s + i.unitsSold, 0),
+        cogs: totalCogs,
+        grossProfit: itemsRevenue - totalCogs,
+        totalExpense,
+        netDaily: totalCollected - totalExpense,
+      },
+    };
+  },
+});
