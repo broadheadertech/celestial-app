@@ -499,12 +499,12 @@ function FinanceContent() {
                       +{fmt(summary.cashRevenue)}
                     </span>
                     <span style={{ color: 'var(--red-hi)' }}>
-                      âˆ’{fmt(summary.cashExpenses)}
+                      −{fmt(summary.cashExpenses)}
                     </span>
                     {/* Investor deposits (injections) are capital — audited in the Cash Flow tab,
                         not added to the operating till — so they're intentionally not shown here. */}
                     {(summary.cashWithdrawals ?? 0) > 0 && (
-                      <span style={{ color: 'var(--red-hi)' }}>âˆ’{fmt(summary.cashWithdrawals ?? 0)}</span>
+                      <span style={{ color: 'var(--red-hi)' }}>−{fmt(summary.cashWithdrawals ?? 0)}</span>
                     )}
                   </div>
                 </div>
@@ -547,7 +547,7 @@ function FinanceContent() {
                     {fmt(summary.grossProfit)}
                   </p>
                   <p className="text-[11px] mt-auto pt-2" style={{ color: 'var(--ink-3)' }}>
-                    Revenue {fmt(summary.totalRevenue)} âˆ’ COGS {fmt(summary.cogs)}
+                    Revenue {fmt(summary.totalRevenue)} − COGS {fmt(summary.cogs)}
                   </p>
                 </div>
 
@@ -602,7 +602,7 @@ function FinanceContent() {
                     </p>
                   )}
                   <p className="text-[11px] mt-auto pt-2" style={{ color: 'var(--ink-3)' }}>
-                    Gross {fmt(summary.grossProfit)} âˆ’ OpEx {fmt(summary.totalOperationalExpense)}
+                    Gross {fmt(summary.grossProfit)} − OpEx {fmt(summary.totalOperationalExpense)}
                   </p>
                 </div>
                   );
@@ -721,7 +721,7 @@ function FinanceContent() {
                           color: irNet >= 0 ? 'var(--jade)' : 'var(--red-hi)',
                         }}
                       >
-                        Net {irNet >= 0 ? '+' : 'âˆ’'}
+                        Net {irNet >= 0 ? '+' : '−'}
                         {fmt(Math.abs(irNet))}
                       </span>
                     )}
@@ -755,7 +755,7 @@ function FinanceContent() {
                         className="text-[20px] font-bold dc-mono leading-tight"
                         style={{ color: 'var(--red-hi)' }}
                       >
-                        âˆ’{fmt(remittance)}
+                        −{fmt(remittance)}
                       </p>
                       <p className="text-[10px] mt-0.5" style={{ color: 'var(--ink-4)' }}>
                         Investor remit category
@@ -819,7 +819,7 @@ function FinanceContent() {
                         className="text-[13px] font-mono-tabular font-bold text-right whitespace-nowrap"
                         style={{ color: positive ? 'var(--jade)' : 'var(--red-hi)' }}
                       >
-                        {positive ? '+' : 'âˆ’'}
+                        {positive ? '+' : '−'}
                         {fmt(Math.abs(a.amount))}
                       </span>
                       <button
@@ -848,7 +848,7 @@ function FinanceContent() {
                       (summary.cashAdjustmentsTotal ?? 0) >= 0 ? 'var(--jade)' : 'var(--red-hi)',
                   }}
                 >
-                  {(summary.cashAdjustmentsTotal ?? 0) >= 0 ? '+' : 'âˆ’'}
+                  {(summary.cashAdjustmentsTotal ?? 0) >= 0 ? '+' : '−'}
                   {fmt(Math.abs(summary.cashAdjustmentsTotal ?? 0))}
                 </span>
               </div>
@@ -885,25 +885,25 @@ function FinanceContent() {
                     Cost of Goods Sold
                     <span className="ml-1.5 text-[10px] uppercase tracking-wider text-white/40 border border-white/15 rounded px-1 py-0.5">FIFO</span>
                   </span>
-                  <span className="text-error font-semibold">âˆ’{fmt(summary.cogs)}</span>
+                  <span className="text-error font-semibold">−{fmt(summary.cogs)}</span>
                 </div>
 
                 {(summary.totalDiscountsGiven || 0) > 0 && (
                   <>
                     <div className="flex justify-between items-baseline text-sm pt-1">
                       <span className="text-white/70">Discounts Given</span>
-                      <span className="text-warning font-medium">âˆ’{fmt(summary.totalDiscountsGiven)}</span>
+                      <span className="text-warning font-medium">−{fmt(summary.totalDiscountsGiven)}</span>
                     </div>
                     {(summary.totalLineDiscounts || 0) > 0 && (
                       <div className="flex justify-between items-baseline text-xs">
                         <span className="text-white/50 pl-3">Line-item</span>
-                        <span className="text-white/70">âˆ’{fmt(summary.totalLineDiscounts)}</span>
+                        <span className="text-white/70">−{fmt(summary.totalLineDiscounts)}</span>
                       </div>
                     )}
                     {(summary.totalOrderDiscounts || 0) > 0 && (
                       <div className="flex justify-between items-baseline text-xs">
                         <span className="text-white/50 pl-3">Order-level</span>
-                        <span className="text-white/70">âˆ’{fmt(summary.totalOrderDiscounts)}</span>
+                        <span className="text-white/70">−{fmt(summary.totalOrderDiscounts)}</span>
                       </div>
                     )}
                     <p className="text-[10px] text-white/30 pl-3">(already reflected in Revenue)</p>
@@ -920,7 +920,7 @@ function FinanceContent() {
 
                 <div className="flex justify-between items-baseline text-sm">
                   <span className="text-white/70">Operational Expenses</span>
-                  <span className="text-error font-semibold">âˆ’{fmt(summary.totalOperationalExpense)}</span>
+                  <span className="text-error font-semibold">−{fmt(summary.totalOperationalExpense)}</span>
                 </div>
 
                 <div className="flex justify-between items-baseline py-2 border-t-2 border-white/20 mt-2">
@@ -1044,7 +1044,7 @@ function FinanceContent() {
                 {Object.entries(summary.operationalByCategory).map(([cat, amount]) => (
                   <div key={cat} className="bg-background/40 rounded-lg p-3 border border-white/5">
                     <div className="flex items-center gap-1.5 text-[10px] text-white/50 uppercase tracking-wider mb-1">
-                      <span>{categoryIcons[cat] || 'ðŸ“'}</span>
+                      <span>{categoryIcons[cat] || '📝'}</span>
                       <span>{categoryLabels[cat] || cat}</span>
                     </div>
                     <p className="text-sm font-bold text-white">{fmt(amount)}</p>
@@ -1114,7 +1114,7 @@ function FinanceContent() {
                                 ? 'bg-info/10 text-info border-info/30'
                                 : 'bg-warning/10 text-warning border-warning/30'
                             }`}>
-                              {e.type === 'restocking' ? 'ðŸ“¦ Restock' : `${categoryIcons[e.category || 'other']} ${categoryLabels[e.category || 'other'] || e.category || 'other'}`}
+                              {e.type === 'restocking' ? '📦 Restock' : `${categoryIcons[e.category || 'other']} ${categoryLabels[e.category || 'other'] || e.category || 'other'}`}
                             </span>
                           </td>
                           <td className="px-4 py-3 text-white max-w-xs truncate">{e.description}</td>
@@ -1151,7 +1151,7 @@ function FinanceContent() {
                             <span className={`px-1.5 py-0.5 rounded text-[9px] font-medium ${
                               e.type === 'restocking' ? 'bg-info/10 text-info' : 'bg-warning/10 text-warning'
                             }`}>
-                              {e.type === 'restocking' ? 'ðŸ“¦ Restock' : `${categoryIcons[e.category || 'other']} ${categoryLabels[e.category || 'other'] || e.category || 'other'}`}
+                              {e.type === 'restocking' ? '📦 Restock' : `${categoryIcons[e.category || 'other']} ${categoryLabels[e.category || 'other'] || e.category || 'other'}`}
                             </span>
                             <span className="text-[10px] text-white/40">{fmtDate(e.date)}</span>
                           </div>
@@ -1268,7 +1268,7 @@ function FinanceContent() {
                         color: 'var(--gold-deep)',
                       }}
                     >
-                      <span>âš </span>
+                      <span>⚠</span>
                       <span>
                         Adjustments edit COH outside normal sales/expense flow. Requires your
                         password + at least 10 characters of reason. Use a negative amount if the
@@ -1285,7 +1285,7 @@ function FinanceContent() {
                     step="0.01"
                     value={adjAmount}
                     onChange={(e) => setAdjAmount(e.target.value)}
-                    placeholder={adjType === 'correction' ? '+ or âˆ’ number' : '0.00'}
+                    placeholder={adjType === 'correction' ? '+ or − number' : '0.00'}
                     className="w-full px-3 py-2.5 rounded-lg border text-sm outline-none"
                     style={{
                       background: 'var(--bg-2)',
@@ -1336,7 +1336,7 @@ function FinanceContent() {
                       type="password"
                       value={adjPassword}
                       onChange={(e) => setAdjPassword(e.target.value)}
-                      placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
+                      placeholder="••••••••"
                       autoComplete="current-password"
                       className="w-full px-3 py-2.5 rounded-lg border text-sm outline-none"
                       style={{
@@ -1575,7 +1575,7 @@ function FinanceContent() {
   );
 }
 
-/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ GENERAL (DAILY) REPORT TAB â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ───────────────────────── GENERAL (DAILY) REPORT TAB ───────────────────────── */
 
 const dayLabel = (key: string) =>
   new Date(key + 'T12:00:00').toLocaleDateString('en-PH', {
@@ -1856,7 +1856,7 @@ function DailyDetailModal({ day, onClose }: { day: OpenDay; onClose: () => void 
                   <div className="rounded-xl border border-white/10 overflow-hidden divide-y divide-white/5">
                     {detail.expenses.map((e) => (
                       <div key={e.id} className="flex items-center gap-3 p-2.5 bg-secondary/30">
-                        <span className="text-lg flex-shrink-0">{e.category ? (categoryIcons[e.category] || 'ðŸ“') : (e.type === 'restocking' ? 'ðŸ“¦' : 'ðŸ“')}</span>
+                        <span className="text-lg flex-shrink-0">{e.category ? (categoryIcons[e.category] || '📝') : (e.type === 'restocking' ? '📦' : '📝')}</span>
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-medium text-white truncate">{e.description}</p>
                           <p className="text-[11px] text-white/40 truncate capitalize">{e.type} · {e.paymentMethod.replace('_', ' ')}</p>
@@ -1875,7 +1875,7 @@ function DailyDetailModal({ day, onClose }: { day: OpenDay; onClose: () => void 
   );
 }
 
-/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ CASH FLOW (INVESTOR / REMITTANCE) TAB â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ───────────────────────── CASH FLOW (INVESTOR / REMITTANCE) TAB ───────────────────────── */
 
 function CashFlowTab({ startDate, endDate }: { startDate?: number; endDate?: number }) {
   const tzOffsetMinutes = new Date().getTimezoneOffset();

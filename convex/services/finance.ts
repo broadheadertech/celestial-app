@@ -431,7 +431,7 @@ export const getFinancialSummary = query({
     const billedOrders = activeOrders.reduce((s, o) => s + (o.totalAmount || 0), 0);
     const billedReservations = completedReservations.reduce((s, r) => s + (r.totalAmount || 0), 0);
 
-    // Outstanding = billed âˆ’ paid (only unpaid/partial, excludes refunded)
+    // Outstanding = billed − paid (only unpaid/partial, excludes refunded)
     const outstandingOrders = activeOrders
       .filter(o => o.paymentStatus !== 'refunded')
       .reduce((s, o) => s + ((o.totalAmount || 0) - getAmountCollected(o)), 0);
@@ -463,7 +463,7 @@ export const getFinancialSummary = query({
       }
     }
 
-    // â”€â”€â”€ COGS via FIFO batch costing â”€â”€â”€
+    // ─── COGS via FIFO batch costing ───
     // Each sold unit is costed against the earliest-RECEIVED batch still holding
     // quantity, at that batch's actual acquisition cost (stockRecords.actualCostPrice).
     // Falls back to moving-average → basis cost for batches with no recorded cost,
@@ -592,13 +592,13 @@ export const getFinancialSummary = query({
       operationalByCategory[cat] = (operationalByCategory[cat] || 0) + e.amount;
     }
 
-    // Net Profit = Gross Profit âˆ’ Operational Expenses
+    // Net Profit = Gross Profit − Operational Expenses
     // (Restocking is already reflected in COGS via FIFO batch costing, so it's not
     //  subtracted again here — that would double-count the cost of inventory.)
     const netProfit = grossProfit - totalOperationalExpense;
     const netMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
 
-    // Cash on hand = opening + cash revenue âˆ’ cash OPERATIONAL expenses + cash adjustments (signed).
+    // Cash on hand = opening + cash revenue − cash OPERATIONAL expenses + cash adjustments (signed).
     // Restocking is excluded — inventory purchases don't reduce the operating till (audit-only).
     const cashRevenue = (revenueByPayment['cash'] || 0);
     // Operating cash expenses exclude restocking — a restock's COH impact is handled explicitly
@@ -608,7 +608,7 @@ export const getFinancialSummary = query({
       .reduce((s, e) => s + e.amount, 0);
     const filteredAdjustments = cashAdjustments.filter((a) => inRange(a.date));
     const cashAdjustmentsTotal = filteredAdjustments.reduce((s, a) => s + a.amount, 0);
-    // Break down for the UI (so we can show "+ injections" and "âˆ’ withdrawals" separately).
+    // Break down for the UI (so we can show "+ injections" and "− withdrawals" separately).
     const cashInjections = filteredAdjustments
       .filter((a) => a.amount > 0)
       .reduce((s, a) => s + a.amount, 0);
@@ -700,7 +700,7 @@ function amountCollected(o: { paymentStatus?: string; amountPaid?: number; total
 
 /**
  * General daily report — one row per calendar day:
- *   Date · Total Sales (collected) · Total Expense (all) · Total Daily (sales âˆ’ expense)
+ *   Date · Total Sales (collected) · Total Expense (all) · Total Daily (sales − expense)
  *
  * "Sales" = revenue actually collected on non-cancelled orders + completed reservations
  * (same recognition as the P&L). "Expense" = every expense dated that day (restocking +
