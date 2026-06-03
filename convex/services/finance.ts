@@ -515,6 +515,13 @@ export const getFinancialSummary = query({
     const totalOperationalExpense = operationalExpenses.reduce((s, e) => s + e.amount, 0);
     const totalExpenses = totalRestockingExpense + totalOperationalExpense;
 
+    // Total restock cost — AUDIT ONLY. Restocking is funded by capital and expensed through
+    // COGS (FIFO) as units sell, so it is never deducted from Cash on Hand or Net Profit here.
+    // Derived from the stock batches themselves (qty × actual/fallback cost), received in range.
+    const totalRestockCost = stockRecords
+      .filter((r) => !r.isMortalityLoss && r.isRestock && inRange(r.receivedDate))
+      .reduce((s, r) => s + r.initialQty * (r.actualCostPrice ?? fallbackCost(productMap.get(r.productId as string))), 0);
+
     // Operational expenses by category
     const operationalByCategory: Record<string, number> = {};
     for (const e of operationalExpenses) {
@@ -528,10 +535,11 @@ export const getFinancialSummary = query({
     const netProfit = grossProfit - totalOperationalExpense;
     const netMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
 
-    // Cash on hand = opening + cash revenue − cash expenses + cash adjustments (signed)
+    // Cash on hand = opening + cash revenue − cash OPERATIONAL expenses + cash adjustments (signed).
+    // Restocking is excluded — inventory purchases don't reduce the operating till (audit-only).
     const cashRevenue = (revenueByPayment['cash'] || 0);
     const cashExpenses = filteredExpenses
-      .filter(e => e.paymentMethod === 'cash')
+      .filter(e => e.paymentMethod === 'cash' && e.type !== 'restocking')
       .reduce((s, e) => s + e.amount, 0);
     const filteredAdjustments = cashAdjustments.filter((a) => inRange(a.date));
     const cashAdjustmentsTotal = filteredAdjustments.reduce((s, a) => s + a.amount, 0);
@@ -542,12 +550,18 @@ export const getFinancialSummary = query({
     const cashWithdrawals = filteredAdjustments
       .filter((a) => a.amount < 0)
       .reduce((s, a) => s + Math.abs(a.amount), 0);
-    const cashOnHand = openingBalance + cashRevenue - cashExpenses + cashAdjustmentsTotal;
+    // Investor deposits (injections) are CAPITAL — audited in the Cash Flow report but they
+    // do NOT inflate the operating till. Only remittances (withdrawals) and reconciling
+    // corrections move Cash on Hand.
+    const cashAdjustmentsEffect = filteredAdjustments
+      .filter((a) => a.type !== "injection")
+      .reduce((s, a) => s + a.amount, 0);
+    const cashOnHand = openingBalance + cashRevenue - cashExpenses + cashAdjustmentsEffect;
 
     // Digital (non-cash) balance
     const digitalRevenue = totalRevenue - cashRevenue;
     const digitalExpenses = filteredExpenses
-      .filter(e => e.paymentMethod !== 'cash')
+      .filter(e => e.paymentMethod !== 'cash' && e.type !== 'restocking')
       .reduce((s, e) => s + e.amount, 0);
     const digitalBalance = digitalRevenue - digitalExpenses;
 
@@ -583,6 +597,7 @@ export const getFinancialSummary = query({
       totalExpenses,
       totalRestockingExpense,
       totalOperationalExpense,
+      totalRestockCost, // audit only — not deducted anywhere
       operationalByCategory,
       restockingCount: restockingExpenses.length,
       operationalCount: operationalExpenses.length,
@@ -671,7 +686,8 @@ export const getDailySalesReport = query({
       }
     }
     for (const e of expenses) {
-      if (!inRange(e.date)) continue;
+      // Restocking is excluded — it's funded by capital, not an operating cash expense.
+      if (!inRange(e.date) || e.type === "restocking") continue;
       bucket(dayIndex(e.date)).expense += e.amount;
     }
 
@@ -835,9 +851,9 @@ export const getDailyReportDetail = query({
       })
       .sort((x, y) => y.revenue - x.revenue);
 
-    // Expenses dated within the day, newest first.
+    // Expenses dated within the day, newest first (operational only — restock is excluded).
     const dayExpenses = expenses
-      .filter((e) => inRange(e.date))
+      .filter((e) => inRange(e.date) && e.type !== "restocking")
       .sort((a, b) => b.date - a.date)
       .map((e) => ({
         id: e._id as string,

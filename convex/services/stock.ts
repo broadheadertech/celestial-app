@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query, MutationCtx } from "../_generated/server";
 import { Id } from "../_generated/dataModel";
-import { createRestockExpenseHelper, createInternalUseExpenseHelper, createMortalityExpenseHelper } from "./finance";
+import { createInternalUseExpenseHelper, createMortalityExpenseHelper } from "./finance";
 
 // ==================== HELPER FUNCTIONS (callable from other mutations) ====================
 
@@ -748,6 +748,15 @@ export const restockProduct = mutation({
     // No accumulation with previous batches. Each batch tracks its own remaining stock.
     const newTotalStock = product.stock + quantity;
 
+    // Audit label written onto the stock record — total amount paid for this restock batch.
+    // (Restock is audit-only; it does not create a finance expense or touch Cash on Hand.)
+    const restockTotalCost =
+      actualCostPrice !== undefined ? actualCostPrice * quantity : undefined;
+    const restockCostLabel =
+      restockTotalCost !== undefined
+        ? ` [Restock cost: ${quantity} × ₱${actualCostPrice!.toLocaleString("en-PH")} = ₱${restockTotalCost.toLocaleString("en-PH")}]`
+        : "";
+
     // Create NEW independent stock record for this restock
     const stockRecordId = await ctx.db.insert("stockRecords", {
       productId: productId,
@@ -778,7 +787,7 @@ export const restockProduct = mutation({
       qualityGrade: qualityGrade || (product.badge ? "premium" : "standard"),
 
       // Audit
-      notes: notes || `Restock batch: +${quantity} units received. Product: ${product.name}.`,
+      notes: (notes || `Restock batch: +${quantity} units received. Product: ${product.name}.`) + restockCostLabel,
       lastModifiedBy: userId,
       isRestock: true,
 
@@ -821,15 +830,11 @@ export const restockProduct = mutation({
       updatedAt: now,
     });
 
-    // Auto-create restocking expense at the actual cost when available
-    await createRestockExpenseHelper(ctx, {
-      productId,
-      stockRecordId,
-      quantity,
-      batchCode,
-      userId,
-      actualCostPrice,
-    });
+    // NOTE: Restocking intentionally does NOT create a finance expense and does NOT
+    // reduce Cash on Hand. Inventory purchases are funded separately (investor capital);
+    // each batch's cost is captured as actualCostPrice and expensed through COGS (FIFO)
+    // only when the units are sold — so it flows into gross & net profit, not the till.
+    // The restock audit trail lives on the stock record above (notes + actualCostPrice).
 
     return {
       success: true,

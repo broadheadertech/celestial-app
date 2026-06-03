@@ -95,8 +95,8 @@ function FinanceContent() {
   const router = useRouter();
   const { user } = useAuthStore();
 
-  // Top-level view: P&L overview vs the per-day General Report.
-  const [activeTab, setActiveTab] = useState<'pnl' | 'daily'>('pnl');
+  // Top-level view: P&L overview · per-day General Report · per-day Cash Flow (investor/remittance).
+  const [activeTab, setActiveTab] = useState<'pnl' | 'daily' | 'cashflow'>('pnl');
 
   // Date range filter (YYYY-MM-DD strings; converted to timestamps below).
   // Defaults to month-to-date; Clear resets to all-time.
@@ -340,6 +340,7 @@ function FinanceContent() {
           {([
             { id: 'pnl', label: 'P&L Overview' },
             { id: 'daily', label: 'General Report' },
+            { id: 'cashflow', label: 'Cash Flow' },
           ] as const).map((t) => (
             <button
               key={t.id}
@@ -499,9 +500,8 @@ function FinanceContent() {
                     <span style={{ color: 'var(--red-hi)' }}>
                       −{fmt(summary.cashExpenses)}
                     </span>
-                    {(summary.cashInjections ?? 0) > 0 && (
-                      <span style={{ color: 'var(--jade)' }}>+{fmt(summary.cashInjections ?? 0)}</span>
-                    )}
+                    {/* Investor deposits (injections) are capital — audited in the Cash Flow tab,
+                        not added to the operating till — so they're intentionally not shown here. */}
                     {(summary.cashWithdrawals ?? 0) > 0 && (
                       <span style={{ color: 'var(--red-hi)' }}>−{fmt(summary.cashWithdrawals ?? 0)}</span>
                     )}
@@ -1182,6 +1182,10 @@ function FinanceContent() {
         <DailyReportTab startDate={validStart} endDate={validEnd} />
       )}
 
+      {activeTab === 'cashflow' && (
+        <CashFlowTab startDate={validStart} endDate={validEnd} />
+      )}
+
       <BottomNavbar />
 
       {/* Cash Adjustment Modal */}
@@ -1850,6 +1854,227 @@ function DailyDetailModal({ day, onClose }: { day: OpenDay; onClose: () => void 
                   </div>
                 )}
               </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </>
+  );
+}
+
+/* ───────────────────────── CASH FLOW (INVESTOR / REMITTANCE) TAB ───────────────────────── */
+
+function CashFlowTab({ startDate, endDate }: { startDate?: number; endDate?: number }) {
+  const tzOffsetMinutes = new Date().getTimezoneOffset();
+  const report = useQuery(api.services.cashAdjustments.getCashAdjustmentReport, {
+    tzOffsetMinutes,
+    startDate,
+    endDate,
+  });
+  const [sortDir, setSortDir] = useState<'desc' | 'asc'>('asc');
+  const [openDay, setOpenDay] = useState<OpenDay | null>(null);
+
+  const loading = report === undefined;
+  const sortedRows = report
+    ? sortDir === 'desc'
+      ? report.rows
+      : [...report.rows].sort((a, b) => a.startMs - b.startMs)
+    : [];
+
+  return (
+    <div className="px-4 sm:px-6 py-4 sm:py-6 max-w-7xl mx-auto space-y-5">
+      {loading ? (
+        <div className="text-center py-20">
+          <div className="w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-sm text-white/60">Building cash flow report...</p>
+        </div>
+      ) : (
+        <>
+          {/* Period summary */}
+          <div className="grid grid-cols-3 gap-2 sm:gap-3">
+            <DailyKpi label="Investor In" value={fmt(report.summary.investorIn)} accent="text-success" bg="bg-success/10" Icon={ArrowUpRight} />
+            <DailyKpi label="Remittance Out" value={fmt(report.summary.remittanceOut)} accent="text-error" bg="bg-error/10" Icon={ArrowDownRight} />
+            <DailyKpi
+              label="Net Cash Moved"
+              value={fmt(report.summary.net)}
+              accent={report.summary.net >= 0 ? 'text-success' : 'text-error'}
+              bg={report.summary.net >= 0 ? 'bg-success/10' : 'bg-error/10'}
+              Icon={report.summary.net >= 0 ? TrendingUp : TrendingDown}
+            />
+          </div>
+
+          {/* Sort order */}
+          {report.rows.length > 0 && (
+            <div className="flex items-center justify-end gap-2">
+              <span className="text-[11px] text-white/40 uppercase tracking-wider">Order by date</span>
+              <div className="inline-flex p-[3px] rounded-lg border border-white/10 bg-secondary/40">
+                {([
+                  { id: 'desc', label: 'Newest first' },
+                  { id: 'asc', label: 'Oldest first' },
+                ] as const).map((o) => (
+                  <button
+                    key={o.id}
+                    onClick={() => setSortDir(o.id)}
+                    className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all ${
+                      sortDir === o.id ? 'bg-primary text-white' : 'text-white/60 hover:text-white'
+                    }`}
+                  >
+                    {o.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {report.rows.length === 0 ? (
+            <div className="text-center py-16 rounded-2xl border border-white/10 bg-secondary/30">
+              <Wallet className="w-12 h-12 text-white/20 mx-auto mb-3" />
+              <h3 className="text-base font-bold text-white mb-1">No cash movements</h3>
+              <p className="text-xs text-white/60">No investor injections or remittances fall in this period.</p>
+            </div>
+          ) : (
+            <>
+              {/* Desktop table */}
+              <div className="hidden md:block">
+                <div className="bg-secondary/30 border border-white/10 rounded-xl overflow-hidden shadow-xl">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-white/10 bg-secondary/60 text-[10px] font-semibold text-white/40 uppercase tracking-wider">
+                        <th className="text-left px-5 py-3">Date</th>
+                        <th className="text-right px-3 py-3">Investor In</th>
+                        <th className="text-right px-3 py-3">Remittance Out</th>
+                        <th className="text-right px-3 py-3">Net</th>
+                        <th className="text-right px-5 py-3">Entries</th>
+                        <th className="w-8" />
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/5">
+                      {sortedRows.map((r) => (
+                        <tr
+                          key={r.dateKey}
+                          onClick={() => setOpenDay({ dateKey: r.dateKey, startMs: r.startMs, endMs: r.endMs })}
+                          className="hover:bg-white/[0.03] transition-colors cursor-pointer"
+                        >
+                          <td className="px-5 py-3 font-medium text-white whitespace-nowrap">{dayLabel(r.dateKey)}</td>
+                          <td className="px-3 py-3 text-right text-success font-semibold tabular-nums whitespace-nowrap">{r.investorIn > 0 ? fmt(r.investorIn) : '—'}</td>
+                          <td className="px-3 py-3 text-right text-error tabular-nums whitespace-nowrap">{r.remittanceOut > 0 ? fmt(r.remittanceOut) : '—'}</td>
+                          <td className={`px-3 py-3 text-right font-bold tabular-nums whitespace-nowrap ${r.net >= 0 ? 'text-success' : 'text-error'}`}>{fmt(r.net)}</td>
+                          <td className="px-5 py-3 text-right text-white/50 text-xs tabular-nums whitespace-nowrap">{r.count} {r.count === 1 ? 'entry' : 'entries'}</td>
+                          <td className="pr-3 text-right"><ChevronRight className="w-4 h-4 text-white/30 inline" /></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Mobile cards */}
+              <div className="md:hidden space-y-2.5">
+                {sortedRows.map((r) => (
+                  <button
+                    key={r.dateKey}
+                    onClick={() => setOpenDay({ dateKey: r.dateKey, startMs: r.startMs, endMs: r.endMs })}
+                    className="w-full text-left rounded-xl border border-white/10 bg-secondary/40 p-3 active:scale-[0.99] transition-transform"
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="font-bold text-white text-sm">{dayLabel(r.dateKey)}</p>
+                      <ChevronRight className="w-4 h-4 text-white/30" />
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      <div>
+                        <p className="text-[10px] text-white/40 uppercase tracking-wider">Investor In</p>
+                        <p className="text-sm font-semibold text-success tabular-nums">{r.investorIn > 0 ? fmt(r.investorIn) : '—'}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-white/40 uppercase tracking-wider">Remit Out</p>
+                        <p className="text-sm font-semibold text-error tabular-nums">{r.remittanceOut > 0 ? fmt(r.remittanceOut) : '—'}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-white/40 uppercase tracking-wider">Net</p>
+                        <p className={`text-sm font-bold tabular-nums ${r.net >= 0 ? 'text-success' : 'text-error'}`}>{fmt(r.net)}</p>
+                      </div>
+                    </div>
+                    <p className="text-[11px] text-white/40 mt-2">{r.count} {r.count === 1 ? 'entry' : 'entries'}</p>
+                  </button>
+                ))}
+              </div>
+
+              <p className="text-[11px] text-white/40 text-center pt-1">
+                {report.rows.length} {report.rows.length === 1 ? 'day' : 'days'} · tap a date to see each injection / remittance ·
+                investor in = capital added, remittance out = released to partners
+              </p>
+            </>
+          )}
+        </>
+      )}
+
+      {openDay && <CashDayModal day={openDay} onClose={() => setOpenDay(null)} />}
+    </div>
+  );
+}
+
+function CashDayModal({ day, onClose }: { day: OpenDay; onClose: () => void }) {
+  const entries = useQuery(api.services.cashAdjustments.getCashAdjustments, {
+    startDate: day.startMs,
+    endDate: day.endMs,
+    limit: 200,
+  });
+  const loading = entries === undefined;
+
+  const meta: Record<string, { label: string; cls: string; sign: string }> = {
+    injection: { label: 'Investor In', cls: 'text-success', sign: '+' },
+    withdrawal: { label: 'Remittance', cls: 'text-error', sign: '' },
+    correction: { label: 'Correction', cls: 'text-warning', sign: '' },
+  };
+
+  return (
+    <>
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9998]" onClick={onClose} />
+      <div className="fixed bottom-0 left-0 right-0 sm:inset-0 sm:flex sm:items-center sm:justify-center z-[9999]">
+        <div
+          className="rounded-t-3xl sm:rounded-2xl shadow-2xl sm:w-full sm:max-w-lg sm:mx-4 max-h-[88vh] overflow-y-auto"
+          style={{ background: 'var(--secondary)', border: '1px solid var(--line)' }}
+        >
+          <div className="sticky top-0 z-10 flex items-center justify-between px-5 py-4 border-b border-white/10 bg-secondary/95 backdrop-blur-sm">
+            <div className="min-w-0">
+              <p className="text-[11px] text-white/50 uppercase tracking-wider">Cash Flow</p>
+              <h3 className="text-base sm:text-lg font-bold text-white truncate">{dayLabel(day.dateKey)}</h3>
+            </div>
+            <button onClick={onClose} className="p-2 rounded-lg hover:bg-white/10 flex-shrink-0">
+              <X className="w-5 h-5 text-white/70" />
+            </button>
+          </div>
+
+          {loading ? (
+            <div className="text-center py-16">
+              <div className="w-10 h-10 border-4 border-primary/30 border-t-primary rounded-full animate-spin mx-auto mb-3" />
+              <p className="text-sm text-white/60">Loading entries...</p>
+            </div>
+          ) : (
+            <div className="p-5">
+              {!entries || entries.length === 0 ? (
+                <p className="text-xs text-white/50 py-8 text-center">No cash adjustments recorded this day.</p>
+              ) : (
+                <div className="rounded-xl border border-white/10 overflow-hidden divide-y divide-white/5">
+                  {entries.map((e) => {
+                    const m = meta[e.type] || meta.correction;
+                    return (
+                      <div key={e._id} className="flex items-start gap-3 p-3 bg-secondary/30">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className={`text-[10px] font-bold uppercase tracking-wider ${m.cls}`}>{m.label}</span>
+                          </div>
+                          <p className="text-sm font-medium text-white truncate mt-0.5">{e.reason}</p>
+                          {e.notes && <p className="text-[11px] text-white/40 truncate">{e.notes}</p>}
+                        </div>
+                        <p className={`text-sm font-bold tabular-nums flex-shrink-0 ${m.cls}`}>
+                          {m.sign}{fmt(Math.abs(e.amount))}
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
         </div>
