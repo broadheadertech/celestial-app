@@ -1123,11 +1123,11 @@ function AdminProductsContent() {
           {/* Modal */}
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
             <div
-              className="bg-secondary/95 backdrop-blur-md border border-white/10 rounded-2xl shadow-2xl w-full max-w-md pointer-events-auto animate-in zoom-in-95 duration-200"
+              className="bg-secondary/95 backdrop-blur-md border border-white/10 rounded-2xl shadow-2xl w-full max-w-md pointer-events-auto animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh] overflow-hidden"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Header */}
-              <div className="px-6 py-4 border-b border-white/10">
+              <div className="px-6 py-4 border-b border-white/10 flex-shrink-0">
                 <div className="flex items-center justify-between">
                   <h2 className="text-xl font-bold text-white flex items-center gap-2">
                     <TrendingUp className="w-5 h-5 text-success" />
@@ -1148,7 +1148,7 @@ function AdminProductsContent() {
               </div>
 
               {/* Content */}
-              <div className="px-6 py-5 space-y-4">
+              <div className="px-6 py-5 space-y-4 overflow-y-auto flex-1">
                 {(() => {
                   const product = products?.find(p => p._id === restockProductId);
                   if (!product) return null;
@@ -1312,7 +1312,7 @@ function AdminProductsContent() {
               </div>
 
               {/* Actions */}
-              <div className="px-6 py-4 border-t border-white/10 flex gap-3">
+              <div className="px-6 py-4 border-t border-white/10 flex gap-3 flex-shrink-0">
                 <button
                   onClick={() => {
                     setShowRestockModal(false);

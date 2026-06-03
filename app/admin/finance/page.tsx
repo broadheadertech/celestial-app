@@ -43,7 +43,7 @@ const fmtDate = (ts: number) =>
 
 // Local YYYY-MM-DD (en-CA gives ISO-like format in the viewer's timezone, no UTC drift).
 const localDateStr = (d: Date) => d.toLocaleDateString('en-CA');
-// Month-to-date range: 1st of the current month â†’ today. Used as the default date filter.
+// Month-to-date range: 1st of the current month → today. Used as the default date filter.
 const monthToDate = () => {
   const now = new Date();
   return {
@@ -187,7 +187,7 @@ function FinanceContent() {
         : `${new Date(dateFrom + 'T12:00:00').toLocaleDateString('en-PH', {
             month: 'short',
             day: 'numeric',
-          })} â†’ ${new Date(dateTo + 'T12:00:00').toLocaleDateString('en-PH', {
+          })} → ${new Date(dateTo + 'T12:00:00').toLocaleDateString('en-PH', {
             month: 'short',
             day: 'numeric',
             year: 'numeric',
@@ -375,7 +375,7 @@ function FinanceContent() {
               className="px-3 py-2 rounded-md border text-xs sm:text-sm outline-none [color-scheme:dark] dc-mono"
               style={{ background: 'var(--bg-2)', borderColor: 'var(--line)', color: 'var(--ink)' }}
             />
-            <span className="text-xs" style={{ color: 'var(--ink-4)' }}>â†’</span>
+            <span className="text-xs" style={{ color: 'var(--ink-4)' }}>→</span>
             <input
               type="date"
               value={dateTo}
@@ -2176,6 +2176,7 @@ function StockFlowTab({ startDate, endDate }: { startDate?: number; endDate?: nu
                         <th className="text-right px-3 py-3">Via COH</th>
                         <th className="text-right px-3 py-3">Via Investment</th>
                         <th className="text-right px-3 py-3">Total</th>
+                        <th className="text-left px-3 py-3">Supplier</th>
                         <th className="text-right px-5 py-3">Entries</th>
                         <th className="w-8" />
                       </tr>
@@ -2191,6 +2192,7 @@ function StockFlowTab({ startDate, endDate }: { startDate?: number; endDate?: nu
                           <td className="px-3 py-3 text-right text-warning tabular-nums whitespace-nowrap">{r.viaCOH > 0 ? fmt(r.viaCOH) : '—'}</td>
                           <td className="px-3 py-3 text-right text-info tabular-nums whitespace-nowrap">{r.viaInvestment > 0 ? fmt(r.viaInvestment) : '—'}</td>
                           <td className="px-3 py-3 text-right text-white font-bold tabular-nums whitespace-nowrap">{r.total > 0 ? fmt(r.total) : '—'}</td>
+                          <td className="px-3 py-3 text-left text-white/60 text-xs truncate max-w-[180px]">{r.suppliers.length === 0 ? '—' : r.suppliers.length === 1 ? r.suppliers[0] : `${r.suppliers[0]} +${r.suppliers.length - 1}`}</td>
                           <td className="px-5 py-3 text-right text-white/50 text-xs tabular-nums whitespace-nowrap">{r.count} {r.count === 1 ? 'entry' : 'entries'}</td>
                           <td className="pr-3 text-right"><ChevronRight className="w-4 h-4 text-white/30 inline" /></td>
                         </tr>
@@ -2226,7 +2228,12 @@ function StockFlowTab({ startDate, endDate }: { startDate?: number; endDate?: nu
                         <p className="text-sm font-bold text-white tabular-nums">{r.total > 0 ? fmt(r.total) : '—'}</p>
                       </div>
                     </div>
-                    <p className="text-[11px] text-white/40 mt-2">{r.count} {r.count === 1 ? 'entry' : 'entries'}</p>
+                    <div className="flex items-center justify-between mt-2">
+                      <p className="text-[11px] text-white/40">{r.count} {r.count === 1 ? 'entry' : 'entries'}</p>
+                      {r.suppliers.length > 0 && (
+                        <p className="text-[11px] text-white/50 truncate max-w-[60%]">{r.suppliers.length === 1 ? r.suppliers[0] : `${r.suppliers[0]} +${r.suppliers.length - 1}`}</p>
+                      )}
+                    </div>
                   </button>
                 ))}
               </div>

@@ -466,7 +466,7 @@ export const getFinancialSummary = query({
     // â”€â”€â”€ COGS via FIFO batch costing â”€â”€â”€
     // Each sold unit is costed against the earliest-RECEIVED batch still holding
     // quantity, at that batch's actual acquisition cost (stockRecords.actualCostPrice).
-    // Falls back to moving-average â†’ basis cost for batches with no recorded cost,
+    // Falls back to moving-average → basis cost for batches with no recorded cost,
     // or for units sold beyond the recorded batch quantity. Counts only paid+partial
     // transactions (revenue-matched), excluding cancelled/unpaid/refunded.
     const fallbackCost = (p?: { movingAverageCost?: number; costPrice?: number }) =>
@@ -667,6 +667,9 @@ export const getFinancialSummary = query({
       restockFromCOH,         // reduced Cash on Hand
       restockFromInvestment,  // declaration-only (no balance moved)
       restockCount,
+      // Back-compat aliases for older deployed bundles (renamed fields).
+      totalRestockingExpense: totalRestockCost,
+      restockingCount: restockCount,
       operationalByCategory,
       operationalCount: operationalExpenses.length,
       // Net
@@ -764,10 +767,17 @@ export const getDailySalesReport = query({
       }
     }
     for (const e of expenses) {
-      // Restocking (auto type + manual "reroll" declarations) is excluded — it's inventory
-      // purchasing, not an operating expense.
+      // Restocking-type expenses are excluded here (inventory buying, not operating).
       if (!inRange(e.date) || e.type === "restocking") continue;
       bucket(dayIndex(e.date)).expense += e.amount;
+    }
+    // A restock funded from the Till is real cash out of the day — count it as a daily expense.
+    // (Investment-funded restock doesn't touch the till, so it's not counted here.)
+    for (const r of stockRecords) {
+      if (r.isRestock && !r.isMortalityLoss && r.fundingSource === "coh" && inRange(r.receivedDate)) {
+        const cost = r.initialQty * (r.actualCostPrice ?? fallbackUnitCost(r.productId as string));
+        if (cost) bucket(dayIndex(r.receivedDate)).expense += cost;
+      }
     }
 
     // Emit a row for EVERY day in the window — including zero-activity days — so the
@@ -961,19 +971,35 @@ export const getDailyReportDetail = query({
       })
       .sort((x, y) => y.revenue - x.revenue);
 
-    // Expenses dated within the day, newest first (operating only — restock & reroll excluded).
-    const dayExpenses = expenses
+    // Expenses dated within the day, newest first. Operating expenses, plus COH-funded
+    // restocks (real cash out of the till that day). Investment-funded restock is excluded.
+    const operatingDayExpenses = expenses
       .filter((e) => inRange(e.date) && e.type !== "restocking")
-      .sort((a, b) => b.date - a.date)
       .map((e) => ({
         id: e._id as string,
-        type: e.type,
+        type: e.type as string,
         category: e.category ?? null,
         amount: e.amount,
         description: e.description,
         paymentMethod: e.paymentMethod,
         date: e.date,
       }));
+    const cohRestockExpenses = stockRecords
+      .filter((r) => r.isRestock && !r.isMortalityLoss && r.fundingSource === "coh" && inRange(r.receivedDate))
+      .map((r) => {
+        const p = productMap.get(r.productId as string);
+        const unitCost = r.actualCostPrice ?? fallbackCost(p);
+        return {
+          id: r._id as string,
+          type: "restocking",
+          category: "restock" as string | null,
+          amount: r.initialQty * unitCost,
+          description: `Restock (Till): ${r.initialQty} × ${p?.name ?? "product"}${r.supplier ? ` · ${r.supplier}` : ""}`,
+          paymentMethod: "cash",
+          date: r.receivedDate,
+        };
+      });
+    const dayExpenses = [...operatingDayExpenses, ...cohRestockExpenses].sort((a, b) => b.date - a.date);
 
     // Headline sales = collected (ties out with the General Report row).
     let totalCollected = 0;
@@ -1044,10 +1070,10 @@ export const getStockFlowReport = query({
     );
     const batchCost = (r: any) => r.initialQty * (r.actualCostPrice ?? fallbackCost(r.productId as string));
 
-    type Bucket = { viaCOH: number; viaInvestment: number; count: number };
+    type Bucket = { viaCOH: number; viaInvestment: number; count: number; suppliers: Set<string> };
     const buckets = new Map<number, Bucket>();
     const bucket = (k: number) =>
-      buckets.get(k) ?? buckets.set(k, { viaCOH: 0, viaInvestment: 0, count: 0 }).get(k)!;
+      buckets.get(k) ?? buckets.set(k, { viaCOH: 0, viaInvestment: 0, count: 0, suppliers: new Set<string>() }).get(k)!;
 
     for (const r of batches) {
       if (!inRange(r.receivedDate)) continue;
@@ -1055,6 +1081,7 @@ export const getStockFlowReport = query({
       b.count += 1;
       if (r.fundingSource === "coh") b.viaCOH += batchCost(r);
       else b.viaInvestment += batchCost(r);
+      if (r.supplier && r.supplier.trim()) b.suppliers.add(r.supplier.trim());
     }
 
     // Gap-fill every day in the window (filtered range, else earliest restock → today).
@@ -1074,7 +1101,7 @@ export const getStockFlowReport = query({
 
     const rows = Array.from(dayKeys)
       .map((k) => {
-        const b = buckets.get(k) ?? { viaCOH: 0, viaInvestment: 0, count: 0 };
+        const b = buckets.get(k) ?? { viaCOH: 0, viaInvestment: 0, count: 0, suppliers: new Set<string>() };
         const startMs = k * DAY_MS + offMs;
         const endMs = startMs + DAY_MS - 1;
         const dateKey = new Date(k * DAY_MS).toISOString().slice(0, 10);
@@ -1086,6 +1113,7 @@ export const getStockFlowReport = query({
           viaInvestment: b.viaInvestment,
           total: b.viaCOH + b.viaInvestment,
           count: b.count,
+          suppliers: Array.from(b.suppliers),
         };
       })
       .sort((a, b) => b.startMs - a.startMs)
