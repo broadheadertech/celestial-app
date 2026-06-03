@@ -1584,7 +1584,7 @@ function DailyReportTab({ startDate, endDate }: { startDate?: number; endDate?: 
     endDate,
   });
   const [openDay, setOpenDay] = useState<OpenDay | null>(null);
-  const [sortDir, setSortDir] = useState<'desc' | 'asc'>('desc');
+  const [sortDir, setSortDir] = useState<'desc' | 'asc'>('asc');
 
   const loading = report === undefined;
 
