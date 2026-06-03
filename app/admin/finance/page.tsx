@@ -32,7 +32,7 @@ import SafeAreaProvider from '@/components/provider/SafeAreaProvider';
 import { useAuthStore } from '@/store/auth';
 
 const fmt = (amount: number) =>
-  `â‚±${amount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 const fmtDate = (ts: number) =>
   new Date(ts).toLocaleDateString('en-PH', {
@@ -56,17 +56,17 @@ type ExpenseCategory = 'travel' | 'food' | 'supplies' | 'utilities' | 'rent' | '
 type PaymentMethod = 'cash' | 'gcash' | 'bank_transfer' | 'card';
 
 const categoryIcons: Record<string, string> = {
-  travel: 'âœˆï¸',
-  food: 'ðŸ½ï¸',
-  supplies: 'ðŸ“¦',
-  utilities: 'âš¡',
-  rent: 'ðŸ ',
-  salary: 'ðŸ‘¥',
-  maintenance: 'ðŸ”§',
-  marketing: 'ðŸ“£',
+  travel: '✈️',
+  food: '🍽️',
+  supplies: '📦',
+  utilities: '⚡',
+  rent: '🏠',
+  salary: '👥',
+  maintenance: '🔧',
+  marketing: '📣',
   commissions: '💸',
-  mortality: 'ðŸ’€',
-  other: 'ðŸ“',
+  mortality: '💀',
+  other: '📝',
 };
 
 const categoryLabels: Record<string, string> = {
@@ -95,7 +95,7 @@ function FinanceContent() {
   const router = useRouter();
   const { user } = useAuthStore();
 
-  // Top-level view: P&L overview Â· per-day General Report Â· per-day Cash Flow (investor/remittance).
+  // Top-level view: P&L overview · per-day General Report · per-day Cash Flow (investor/remittance).
   const [activeTab, setActiveTab] = useState<'pnl' | 'daily' | 'cashflow' | 'stockflow'>('pnl');
 
   // Date range filter (YYYY-MM-DD strings; converted to timestamps below).
@@ -143,7 +143,7 @@ function FinanceContent() {
   const [showExpenseForm, setShowExpenseForm] = useState(false);
   const [expenseFilter, setExpenseFilter] = useState<'all' | 'restocking' | 'operational'>('all');
 
-  // Date range presets â€” set both ends in local time.
+  // Date range presets — set both ends in local time.
   const applyPreset = (preset: 'today' | 'last7' | 'last30' | 'month') => {
     const today = new Date();
     const fmt = (d: Date) => d.toISOString().slice(0, 10);
@@ -203,11 +203,6 @@ function FinanceContent() {
   const [formDescription, setFormDescription] = useState('');
   const [formPaymentMethod, setFormPaymentMethod] = useState<PaymentMethod>('cash');
   const [formNotes, setFormNotes] = useState('');
-  // Expense kind: a normal operating expense, or a "Restock" (inventory) declaration.
-  const [formType, setFormType] = useState<'operational' | 'restocking'>('operational');
-  // Funding source — only used for restock declarations (Till vs Investment).
-  const [formFundingSource, setFormFundingSource] = useState<'coh' | 'investment' | null>(null);
-  const [formSupplier, setFormSupplier] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
@@ -217,34 +212,23 @@ function FinanceContent() {
     const amount = parseFloat(formAmount);
     if (isNaN(amount) || amount <= 0) return;
 
-    // A restock declaration must say where the money came from.
-    if (formType === 'restocking' && !formFundingSource) {
-      alert('Choose where the restock money came from: Till (COH) or Investment.');
-      return;
-    }
-
     setIsSubmitting(true);
     try {
       await createExpense({
-        type: formType,
-        category: formType === 'operational' ? formCategory : undefined,
+        type: 'operational',
+        category: formCategory,
         amount,
         description: formDescription,
         paymentMethod: formPaymentMethod,
         notes: formNotes || undefined,
-        fundingSource: formType === 'restocking' ? (formFundingSource ?? undefined) : undefined,
-        supplier: formType === 'restocking' ? (formSupplier.trim() || undefined) : undefined,
         userId: user?._id as Id<"users"> | undefined,
       });
       setShowExpenseForm(false);
-      setFormType('operational');
       setFormCategory('supplies');
       setFormAmount('');
       setFormDescription('');
       setFormPaymentMethod('cash');
       setFormNotes('');
-      setFormFundingSource(null);
-      setFormSupplier('');
     } catch (error) {
       alert(error instanceof Error ? error.message : 'Failed to add expense');
     } finally {
@@ -323,7 +307,7 @@ function FinanceContent() {
               </button>
               <div className="min-w-0 flex-1">
                 <h1 className="text-lg sm:text-2xl font-bold text-white truncate">Finance</h1>
-                <p className="text-xs text-white/50 hidden sm:block">P&amp;L, cash flow &amp; expenses Â· <span style={{ color: isFiltered ? 'var(--red-hi)' : 'var(--ink-3)' }}>{filterLabel}</span></p>
+                <p className="text-xs text-white/50 hidden sm:block">P&amp;L, cash flow &amp; expenses · <span style={{ color: isFiltered ? 'var(--red-hi)' : 'var(--ink-3)' }}>{filterLabel}</span></p>
               </div>
             </div>
             <button
@@ -454,7 +438,7 @@ function FinanceContent() {
       ) : summary && (
         <div className="px-4 sm:px-6 py-4 sm:py-6 max-w-7xl mx-auto space-y-6">
 
-          {/* KPI strip â€” six headline cards */}
+          {/* KPI strip — six headline cards */}
           {(() => {
             const investment = summary.cashInjections ?? 0;
             const remittance = summary.cashWithdrawals ?? 0;
@@ -462,7 +446,7 @@ function FinanceContent() {
             const irBalanced = investment === 0 && remittance === 0;
             return (
               <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                {/* 1 Â· Cash on Hand â€” accent is jade if positive, red if negative (mirrors Net Profit) */}
+                {/* 1 · Cash on Hand — accent is jade if positive, red if negative (mirrors Net Profit) */}
                 {(() => {
                   const isPositive = summary.cashOnHand >= 0;
                   const accent = isPositive ? 'var(--jade)' : 'var(--red-hi)';
@@ -482,7 +466,7 @@ function FinanceContent() {
                         className="text-[10px] font-semibold uppercase tracking-wider"
                         style={{ color: `color-mix(in oklch, ${accent} 90%, transparent)` }}
                       >
-                        {isFiltered ? 'Cash flow Â· this period' : 'Cash on Hand'}
+                        {isFiltered ? 'Cash flow · this period' : 'Cash on Hand'}
                       </p>
                     </div>
                     <span
@@ -517,8 +501,8 @@ function FinanceContent() {
                     <span style={{ color: 'var(--red-hi)' }}>
                       âˆ’{fmt(summary.cashExpenses)}
                     </span>
-                    {/* Investor deposits (injections) are capital â€” audited in the Cash Flow tab,
-                        not added to the operating till â€” so they're intentionally not shown here. */}
+                    {/* Investor deposits (injections) are capital — audited in the Cash Flow tab,
+                        not added to the operating till — so they're intentionally not shown here. */}
                     {(summary.cashWithdrawals ?? 0) > 0 && (
                       <span style={{ color: 'var(--red-hi)' }}>âˆ’{fmt(summary.cashWithdrawals ?? 0)}</span>
                     )}
@@ -527,7 +511,7 @@ function FinanceContent() {
                   );
                 })()}
 
-                {/* 2 Â· Gross Profit */}
+                {/* 2 · Gross Profit */}
                 <div
                   className="rounded-2xl border p-5 flex flex-col min-h-[182px]"
                   style={{
@@ -567,7 +551,7 @@ function FinanceContent() {
                   </p>
                 </div>
 
-                {/* 3 Â· Net Profit â€” color tracks sign (jade if profit, red if loss) */}
+                {/* 3 · Net Profit — color tracks sign (jade if profit, red if loss) */}
                 {(() => {
                   const isProfit = summary.netProfit >= 0;
                   const accent = isProfit ? 'var(--jade)' : 'var(--red-hi)';
@@ -591,7 +575,7 @@ function FinanceContent() {
                         className="text-[10px] font-semibold uppercase tracking-wider"
                         style={{ color: `color-mix(in oklch, ${accent} 90%, transparent)` }}
                       >
-                        {isFiltered ? 'Net profit Â· this period' : 'Net Profit'}
+                        {isFiltered ? 'Net profit · this period' : 'Net Profit'}
                       </p>
                     </div>
                     <span
@@ -614,7 +598,7 @@ function FinanceContent() {
                     <p className="text-[11px] mt-1.5" style={{ color: 'var(--ink-3)' }}>
                       <span style={{ color: 'var(--ink-4)' }}>Right now: </span>
                       <span className="font-semibold dc-mono">{fmt(summaryAllTime.netProfit)}</span>
-                      <span style={{ color: 'var(--ink-4)' }}> Â· {summaryAllTime.netMargin}%</span>
+                      <span style={{ color: 'var(--ink-4)' }}> · {summaryAllTime.netMargin}%</span>
                     </p>
                   )}
                   <p className="text-[11px] mt-auto pt-2" style={{ color: 'var(--ink-3)' }}>
@@ -624,7 +608,7 @@ function FinanceContent() {
                   );
                 })()}
 
-                {/* 4 Â· Restock Expense */}
+                {/* 4 · Restock Expense */}
                 <div
                   className="rounded-2xl border p-5 flex flex-col min-h-[182px]"
                   style={{
@@ -650,24 +634,24 @@ function FinanceContent() {
                         color: 'var(--gold-deep)',
                       }}
                     >
-                      {summary.restockingCount ?? 0}
+                      {summary.restockCount ?? 0}
                     </span>
                   </div>
                   <p
                     className="text-[28px] font-bold dc-mono leading-tight"
                     style={{ color: 'var(--gold-deep)' }}
                   >
-                    {fmt(summary.totalRestockingExpense ?? 0)}
+                    {fmt(summary.totalRestockCost ?? 0)}
                   </p>
                   <p className="text-[11px] mt-auto pt-2 dc-mono" style={{ color: 'var(--ink-3)' }}>
-                    Till {fmt(summary.restockFromCOH ?? 0)} Â· Investment {fmt(summary.restockFromInvestment ?? 0)}
+                    Till {fmt(summary.restockFromCOH ?? 0)} · Investment {fmt(summary.restockFromInvestment ?? 0)}
                   </p>
                   <p className="text-[10px]" style={{ color: 'var(--ink-4)' }}>
-                    Till reduces COH Â· Investment is declaration-only Â· neither hits Net Profit
+                    Till reduces COH · Investment is declaration-only · neither hits Net Profit
                   </p>
                 </div>
 
-                {/* 5 Â· Operational Expense */}
+                {/* 5 · Operational Expense */}
                 <div
                   className="rounded-2xl border p-5 flex flex-col min-h-[182px]"
                   style={{
@@ -707,7 +691,7 @@ function FinanceContent() {
                   </p>
                 </div>
 
-                {/* 6 Â· Investment vs Remittance */}
+                {/* 6 · Investment vs Remittance */}
                 <div
                   className="rounded-2xl border p-5 flex flex-col min-h-[182px]"
                   style={{
@@ -828,7 +812,7 @@ function FinanceContent() {
                         <div className="text-[13px] font-semibold truncate">{a.reason}</div>
                         <div className="placard mt-0.5">
                           {a.type}
-                          {a.notes ? ` Â· ${a.notes}` : ''}
+                          {a.notes ? ` · ${a.notes}` : ''}
                         </div>
                       </div>
                       <span
@@ -855,7 +839,7 @@ function FinanceContent() {
                 style={{ borderColor: 'var(--line-soft)' }}
               >
                 <span style={{ color: 'var(--ink-3)' }}>
-                  Net adjustments {isFiltered ? 'Â· this period' : ''}
+                  Net adjustments {isFiltered ? '· this period' : ''}
                 </span>
                 <span
                   className="font-mono-tabular font-bold"
@@ -1010,7 +994,7 @@ function FinanceContent() {
                   <div className="flex items-baseline gap-2 mb-1">
                     <h3 className="text-sm font-semibold text-warning">Outstanding Payments</h3>
                     <span className="text-[10px] text-warning/70">
-                      {summary.unpaidCount} unpaid Â· {summary.partialCount} partial
+                      {summary.unpaidCount} unpaid · {summary.partialCount} partial
                     </span>
                   </div>
                   <p className="text-2xl font-bold text-warning">{fmt(summary.totalOutstanding)}</p>
@@ -1029,8 +1013,8 @@ function FinanceContent() {
                 <span className="text-xs text-white/50 uppercase tracking-wider font-semibold">Restocking</span>
                 <Package className="w-4 h-4 text-info" />
               </div>
-              <p className="text-2xl font-bold text-white">{fmt(summary.totalRestockingExpense)}</p>
-              <p className="text-[10px] text-white/40 mt-1">{summary.restockingCount} records</p>
+              <p className="text-2xl font-bold text-white">{fmt(summary.totalRestockCost)}</p>
+              <p className="text-[10px] text-white/40 mt-1">{summary.restockCount} batches</p>
             </div>
 
             <div className="bg-secondary/30 rounded-xl border border-white/10 p-4">
@@ -1249,7 +1233,7 @@ function FinanceContent() {
                     {([
                       { v: 'deposit' as const, label: 'Deposit', sub: 'Owner / float' },
                       { v: 'remit' as const, label: 'Remit', sub: 'Investor / draw' },
-                      { v: 'correction' as const, label: 'Adjust', sub: 'Reconcile Â· pw' },
+                      { v: 'correction' as const, label: 'Adjust', sub: 'Reconcile · pw' },
                     ]).map((opt) => {
                       const active = adjType === opt.v;
                       return (
@@ -1295,7 +1279,7 @@ function FinanceContent() {
                 </div>
 
                 <div>
-                  <p className="text-xs text-white/60 mb-1.5">Amount (â‚±)</p>
+                  <p className="text-xs text-white/60 mb-1.5">Amount (₱)</p>
                   <input
                     type="number"
                     step="0.01"
@@ -1326,10 +1310,10 @@ function FinanceContent() {
                     onChange={(e) => setAdjReason(e.target.value)}
                     placeholder={
                       adjType === 'deposit'
-                        ? 'e.g. Owner capital injection Â· Float top-up'
+                        ? 'e.g. Owner capital injection · Float top-up'
                         : adjType === 'remit'
-                        ? 'e.g. Investor remittance Â· Owner draw'
-                        : 'e.g. Cash count over by â‚±200 after morning recount'
+                        ? 'e.g. Investor remittance · Owner draw'
+                        : 'e.g. Cash count over by ₱200 after morning recount'
                     }
                     className="w-full px-3 py-2.5 rounded-lg border text-sm outline-none"
                     style={{
@@ -1416,7 +1400,7 @@ function FinanceContent() {
                       color: 'oklch(0.99 0 0)',
                     }}
                   >
-                    {isAdjusting ? 'Recordingâ€¦' : 'Record adjustment'}
+                    {isAdjusting ? 'Recording…' : 'Record adjustment'}
                   </button>
                 </div>
               </div>
@@ -1438,7 +1422,7 @@ function FinanceContent() {
           >
             <h3 className="text-lg font-bold text-white mb-2">Remove adjustment?</h3>
             <p className="text-sm text-white/70 mb-5">
-              This deletes the row entirely â€” COH will recompute without it. No history is kept.
+              This deletes the row entirely — COH will recompute without it. No history is kept.
             </p>
             <div className="flex gap-3">
               <button
@@ -1469,32 +1453,10 @@ function FinanceContent() {
               <div className="flex justify-center pt-2 pb-3 sm:hidden">
                 <div className="w-12 h-1.5 bg-white/20 rounded-full" />
               </div>
-              <h3 className="text-lg font-bold text-white mb-1">{formType === 'restocking' ? 'Add Restock' : 'Add Operational Expense'}</h3>
-              <p className="text-xs text-white/50 mb-5">{formType === 'restocking' ? 'Declare inventory buying and where the money came from.' : 'Track travel, food, supplies, utilities, etc.'}</p>
+              <h3 className="text-lg font-bold text-white mb-1">Add Operational Expense</h3>
+              <p className="text-xs text-white/50 mb-5">Track travel, food, supplies, utilities, salary, commissions, etc.</p>
 
               <div className="space-y-3">
-                {/* Kind: operating expense vs restock declaration */}
-                <div>
-                  <label className="block text-xs text-white/60 mb-1.5">Kind</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    {([
-                      { id: 'operational', label: 'Operational' },
-                      { id: 'restocking', label: 'Restock / Reroll' },
-                    ] as const).map((k) => (
-                      <button
-                        key={k.id}
-                        onClick={() => setFormType(k.id)}
-                        className={`px-3 py-2 rounded-lg text-xs font-semibold border transition-all ${
-                          formType === k.id ? 'bg-primary border-primary text-white' : 'bg-background/60 border-white/10 text-white/70'
-                        }`}
-                      >
-                        {k.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {formType === 'operational' && (
                 <div>
                   <label className="block text-xs text-white/60 mb-1.5">Category</label>
                   <div className="grid grid-cols-3 gap-2">
@@ -1513,55 +1475,9 @@ function FinanceContent() {
                     ))}
                   </div>
                 </div>
-                )}
-
-                {/* Funding source — only for a Restock declaration */}
-                {formType === 'restocking' && (
-                  <div>
-                    <label className="block text-xs text-white/60 mb-1.5">
-                      Funded from <span className="text-error">*</span>
-                    </label>
-                    <div className="grid grid-cols-2 gap-2">
-                      {([
-                        { id: 'coh', label: 'Till (COH)', hint: 'deducts cash on hand' },
-                        { id: 'investment', label: 'Investment', hint: 'declaration only' },
-                      ] as const).map((s) => (
-                        <button
-                          key={s.id}
-                          onClick={() => setFormFundingSource(s.id)}
-                          className={`px-3 py-2 rounded-lg text-xs font-medium border transition-all flex flex-col items-center ${
-                            formFundingSource === s.id
-                              ? 'bg-primary border-primary text-white'
-                              : 'bg-background/60 border-white/10 text-white/70'
-                          }`}
-                        >
-                          <span>{s.label}</span>
-                          <span className="text-[10px] opacity-70">{s.hint}</span>
-                        </button>
-                      ))}
-                    </div>
-                    <p className="text-[11px] text-white/40 mt-1">
-                      Either way this won&apos;t reduce Net Profit (the cost hits profit via COGS when sold).
-                    </p>
-                  </div>
-                )}
-
-                {/* Supplier — only for a Restock declaration */}
-                {formType === 'restocking' && (
-                  <div>
-                    <label className="block text-xs text-white/60 mb-1.5">Supplier <span className="text-white/30">(optional)</span></label>
-                    <input
-                      type="text"
-                      value={formSupplier}
-                      onChange={(e) => setFormSupplier(e.target.value)}
-                      placeholder="e.g. Manila Aqua Supplier"
-                      className="w-full px-3 py-2.5 bg-background/60 border border-white/10 rounded-lg text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-primary"
-                    />
-                  </div>
-                )}
 
                 <div>
-                  <label className="block text-xs text-white/60 mb-1.5">Amount (â‚±)</label>
+                  <label className="block text-xs text-white/60 mb-1.5">Amount (₱)</label>
                   <input
                     type="number"
                     value={formAmount}
@@ -1772,7 +1688,7 @@ function DailyReportTab({ startDate, endDate }: { startDate?: number; endDate?: 
                           <td className={`px-3 py-3 text-right font-bold tabular-nums whitespace-nowrap ${r.netDaily >= 0 ? 'text-success' : 'text-error'}`}>{fmt(r.netDaily)}</td>
                           <td className={`px-3 py-3 text-right font-semibold tabular-nums whitespace-nowrap ${r.eodCOH >= 0 ? 'text-white' : 'text-error'}`}>{fmt(r.eodCOH)}</td>
                           <td className="px-5 py-3 text-right text-white/50 text-xs tabular-nums whitespace-nowrap">
-                            {r.transactions} {r.transactions === 1 ? 'sale' : 'sales'} Â· {r.itemsSold} items
+                            {r.transactions} {r.transactions === 1 ? 'sale' : 'sales'} · {r.itemsSold} items
                           </td>
                           <td className="pr-3 text-right"><ChevronRight className="w-4 h-4 text-white/30 inline" /></td>
                         </tr>
@@ -1809,7 +1725,7 @@ function DailyReportTab({ startDate, endDate }: { startDate?: number; endDate?: 
                       </div>
                     </div>
                     <div className="flex items-center justify-between mt-2 pt-2 border-t border-white/5">
-                      <p className="text-[11px] text-white/40">{r.transactions} {r.transactions === 1 ? 'sale' : 'sales'} Â· {r.itemsSold} items</p>
+                      <p className="text-[11px] text-white/40">{r.transactions} {r.transactions === 1 ? 'sale' : 'sales'} · {r.itemsSold} items</p>
                       <p className="text-[11px] text-white/50">EOD COH <span className={`font-bold tabular-nums ${r.eodCOH >= 0 ? 'text-white' : 'text-error'}`}>{fmt(r.eodCOH)}</span></p>
                     </div>
                   </button>
@@ -1817,8 +1733,8 @@ function DailyReportTab({ startDate, endDate }: { startDate?: number; endDate?: 
               </div>
 
               <p className="text-[11px] text-white/40 text-center pt-1">
-                {report.rows.length} {report.rows.length === 1 ? 'day' : 'days'} Â· tap a date to see the items sold Â·
-                sales = amount collected, expense = all expenses dated that day Â· EOD COH = running cash on hand at day&apos;s close
+                {report.rows.length} {report.rows.length === 1 ? 'day' : 'days'} · tap a date to see the items sold ·
+                sales = amount collected, expense = all expenses dated that day · EOD COH = running cash on hand at day&apos;s close
               </p>
             </>
           )}
@@ -1898,7 +1814,7 @@ function DailyDetailModal({ day, onClose }: { day: OpenDay; onClose: () => void 
                 <div className="flex items-center gap-2 mb-2">
                   <Package className="w-4 h-4 text-primary" />
                   <h4 className="text-sm font-semibold text-white">Items Sold</h4>
-                  <span className="text-xs text-white/40">Â· {detail.totals.unitsSold} units Â· profit {fmt(detail.totals.grossProfit)}</span>
+                  <span className="text-xs text-white/40">· {detail.totals.unitsSold} units · profit {fmt(detail.totals.grossProfit)}</span>
                 </div>
                 {detail.items.length === 0 ? (
                   <p className="text-xs text-white/50 py-3 text-center">No items sold this day.</p>
@@ -1916,7 +1832,7 @@ function DailyDetailModal({ day, onClose }: { day: OpenDay; onClose: () => void 
                         </div>
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-medium text-white truncate">{it.name}</p>
-                          <p className="text-[11px] text-white/40 truncate">{it.category} Â· {it.unitsSold} sold</p>
+                          <p className="text-[11px] text-white/40 truncate">{it.category} · {it.unitsSold} sold</p>
                         </div>
                         <div className="text-right flex-shrink-0">
                           <p className="text-sm font-semibold text-white tabular-nums">{fmt(it.revenue)}</p>
@@ -1943,7 +1859,7 @@ function DailyDetailModal({ day, onClose }: { day: OpenDay; onClose: () => void 
                         <span className="text-lg flex-shrink-0">{e.category ? (categoryIcons[e.category] || 'ðŸ“') : (e.type === 'restocking' ? 'ðŸ“¦' : 'ðŸ“')}</span>
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-medium text-white truncate">{e.description}</p>
-                          <p className="text-[11px] text-white/40 truncate capitalize">{e.type} Â· {e.paymentMethod.replace('_', ' ')}</p>
+                          <p className="text-[11px] text-white/40 truncate capitalize">{e.type} · {e.paymentMethod.replace('_', ' ')}</p>
                         </div>
                         <p className="text-sm font-semibold text-error tabular-nums flex-shrink-0">{fmt(e.amount)}</p>
                       </div>
@@ -2053,8 +1969,8 @@ function CashFlowTab({ startDate, endDate }: { startDate?: number; endDate?: num
                           className="hover:bg-white/[0.03] transition-colors cursor-pointer"
                         >
                           <td className="px-5 py-3 font-medium text-white whitespace-nowrap">{dayLabel(r.dateKey)}</td>
-                          <td className="px-3 py-3 text-right text-success font-semibold tabular-nums whitespace-nowrap">{r.investorIn > 0 ? fmt(r.investorIn) : 'â€”'}</td>
-                          <td className="px-3 py-3 text-right text-error tabular-nums whitespace-nowrap">{r.remittanceOut > 0 ? fmt(r.remittanceOut) : 'â€”'}</td>
+                          <td className="px-3 py-3 text-right text-success font-semibold tabular-nums whitespace-nowrap">{r.investorIn > 0 ? fmt(r.investorIn) : '—'}</td>
+                          <td className="px-3 py-3 text-right text-error tabular-nums whitespace-nowrap">{r.remittanceOut > 0 ? fmt(r.remittanceOut) : '—'}</td>
                           <td className={`px-3 py-3 text-right font-bold tabular-nums whitespace-nowrap ${r.net >= 0 ? 'text-success' : 'text-error'}`}>{fmt(r.net)}</td>
                           <td className="px-5 py-3 text-right text-white/50 text-xs tabular-nums whitespace-nowrap">{r.count} {r.count === 1 ? 'entry' : 'entries'}</td>
                           <td className="pr-3 text-right"><ChevronRight className="w-4 h-4 text-white/30 inline" /></td>
@@ -2080,11 +1996,11 @@ function CashFlowTab({ startDate, endDate }: { startDate?: number; endDate?: num
                     <div className="grid grid-cols-3 gap-2">
                       <div>
                         <p className="text-[10px] text-white/40 uppercase tracking-wider">Investor In</p>
-                        <p className="text-sm font-semibold text-success tabular-nums">{r.investorIn > 0 ? fmt(r.investorIn) : 'â€”'}</p>
+                        <p className="text-sm font-semibold text-success tabular-nums">{r.investorIn > 0 ? fmt(r.investorIn) : '—'}</p>
                       </div>
                       <div>
                         <p className="text-[10px] text-white/40 uppercase tracking-wider">Remit Out</p>
-                        <p className="text-sm font-semibold text-error tabular-nums">{r.remittanceOut > 0 ? fmt(r.remittanceOut) : 'â€”'}</p>
+                        <p className="text-sm font-semibold text-error tabular-nums">{r.remittanceOut > 0 ? fmt(r.remittanceOut) : '—'}</p>
                       </div>
                       <div>
                         <p className="text-[10px] text-white/40 uppercase tracking-wider">Net</p>
@@ -2097,7 +2013,7 @@ function CashFlowTab({ startDate, endDate }: { startDate?: number; endDate?: num
               </div>
 
               <p className="text-[11px] text-white/40 text-center pt-1">
-                {report.rows.length} {report.rows.length === 1 ? 'day' : 'days'} Â· tap a date to see each injection / remittance Â·
+                {report.rows.length} {report.rows.length === 1 ? 'day' : 'days'} · tap a date to see each injection / remittance ·
                 investor in = capital added, remittance out = released to partners
               </p>
             </>
@@ -2385,10 +2301,10 @@ function StockDayModal({ day, onClose }: { day: OpenDay; onClose: () => void }) 
                         <Package className={`w-4 h-4 ${it.source === 'coh' ? 'text-warning' : 'text-info'}`} />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium text-white truncate">{it.description}</p>
+                        <p className="text-sm font-medium text-white truncate">{it.productName}</p>
                         <p className="text-[11px] text-white/40 truncate">
-                          {it.supplier ? <span className="text-white/60">{it.supplier} · </span> : null}
-                          <span className="capitalize">{it.paymentMethod.replace('_', ' ')}</span>
+                          {it.quantity} × {fmt(it.unitCost)}
+                          {it.supplier ? <span className="text-white/60"> · {it.supplier}</span> : null}
                         </p>
                       </div>
                       <div className="text-right flex-shrink-0">

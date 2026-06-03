@@ -304,6 +304,11 @@ export default defineSchema({
     // Per-batch acquisition cost. When this batch is received, this is the cost paid.
     // Drives P&L COGS via product.movingAverageCost; falls back to product.costPrice if unset.
     actualCostPrice: v.optional(v.number()),
+
+    // Restock declaration (set on restock batches): which wallet funded this batch and from whom.
+    // "coh" deducts from Cash on Hand; "investment" is declaration-only. Powers the Stock Flow report.
+    fundingSource: v.optional(v.union(v.literal("coh"), v.literal("investment"))),
+    supplier: v.optional(v.string()),
     
     // Location tracking
     tankNumber: v.optional(v.string()), // Tank number if applicable

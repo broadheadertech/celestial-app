@@ -675,8 +675,12 @@ export const restockProduct = mutation({
     // Actual per-unit cost for this batch (the price paid to acquire it). If unset,
     // falls back to product.costPrice and the moving-average is left untouched.
     actualCostPrice: v.optional(v.number()),
+    // Where the restock money came from ("coh" deducts Cash on Hand; "investment" is declaration-only)
+    // and the supplier it was bought from. Power the Stock Flow report.
+    fundingSource: v.optional(v.union(v.literal("coh"), v.literal("investment"))),
+    supplier: v.optional(v.string()),
   },
-  handler: async (ctx, { productId, quantity, notes, qualityGrade, userId, actualCostPrice }) => {
+  handler: async (ctx, { productId, quantity, notes, qualityGrade, userId, actualCostPrice, fundingSource, supplier }) => {
     if (quantity <= 0) {
       throw new Error("Quantity must be greater than 0");
     }
@@ -775,6 +779,10 @@ export const restockProduct = mutation({
       // Per-batch acquisition cost (the actual buying cost for this shipment)
       actualCostPrice: actualCostPrice,
 
+      // Restock declaration: funding source + supplier (for the Stock Flow report & COH).
+      fundingSource: fundingSource,
+      supplier: supplier?.trim() || undefined,
+
       // Location
       tankNumber: product.tankNumber,
 
@@ -841,11 +849,11 @@ export const restockProduct = mutation({
       actorId: userId,
       action: "stock.restock",
       category: "inventory",
-      summary: `Restocked ${quantity} × ${product.name} (batch ${batchCode})${restockTotalCost !== undefined ? ` — cost ₱${restockTotalCost.toLocaleString("en-PH")}` : ""}`,
+      summary: `Restocked ${quantity} × ${product.name} (batch ${batchCode})${restockTotalCost !== undefined ? ` — cost ₱${restockTotalCost.toLocaleString("en-PH")}` : ""}${fundingSource ? ` · from ${fundingSource === "coh" ? "Till" : "Investment"}` : ""}${supplier ? ` · ${supplier}` : ""}`,
       entityTable: "stockRecords",
       entityId: stockRecordId,
       amount: restockTotalCost,
-      metadata: { productId, quantity, actualCostPrice, batchCode },
+      metadata: { productId, quantity, actualCostPrice, batchCode, fundingSource, supplier: supplier?.trim() || undefined },
     });
 
     return {
@@ -1476,6 +1484,48 @@ export const adjustStock = mutation({
       status: newStatus,
       quantityChange,
     };
+  },
+});
+
+// Delete a single stock batch — removes the stock record, its movements, and the units it
+// still contributes to product stock. Used to undo a mistaken restock. Audited.
+export const deleteStockBatch = mutation({
+  args: {
+    stockRecordId: v.id("stockRecords"),
+    userId: v.optional(v.id("users")),
+  },
+  handler: async (ctx, { stockRecordId, userId }) => {
+    const rec = await ctx.db.get(stockRecordId);
+    if (!rec) throw new Error("Stock record not found");
+
+    const product = await ctx.db.get(rec.productId);
+    if (product) {
+      const dec = Math.max(0, rec.currentQty);
+      await ctx.db.patch(rec.productId, {
+        stock: Math.max(0, product.stock - dec),
+        updatedAt: Date.now(),
+      });
+    }
+
+    const movements = await ctx.db
+      .query("stockMovements")
+      .withIndex("by_stock_record", (q) => q.eq("stockRecordId", stockRecordId))
+      .collect();
+    for (const m of movements) await ctx.db.delete(m._id);
+
+    await ctx.db.delete(stockRecordId);
+
+    await recordAudit(ctx, {
+      actorId: userId,
+      action: "stock.delete_batch",
+      category: "inventory",
+      summary: `Deleted stock batch ${rec.batchCode} (${product?.name ?? "unknown"}) — removed ${rec.currentQty} units`,
+      entityTable: "stockRecords",
+      entityId: stockRecordId,
+      metadata: { productId: rec.productId, batchCode: rec.batchCode, removedUnits: rec.currentQty },
+    });
+
+    return { success: true, productId: rec.productId, removedUnits: rec.currentQty, batchCode: rec.batchCode };
   },
 });
 

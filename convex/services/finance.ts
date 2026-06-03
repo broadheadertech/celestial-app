@@ -3,14 +3,14 @@ import { mutation, query, MutationCtx } from "../_generated/server";
 import { Id } from "../_generated/dataModel";
 import { recordAudit } from "./audit";
 
-const peso = (n: number) => `â‚±${n.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const peso = (n: number) => `₱${n.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 // ==================== HELPER (callable from other mutations) ====================
 
 /**
- * Create an internal-use expense â€” called from logInternalUse mutation.
- * Amount = product.costPrice Ã— quantity. Payment method is always "internal"
- * (doesn't affect cash-on-hand â€” no cash actually leaves your hand).
+ * Create an internal-use expense — called from logInternalUse mutation.
+ * Amount = product.costPrice × quantity. Payment method is always "internal"
+ * (doesn't affect cash-on-hand — no cash actually leaves your hand).
  */
 export async function createInternalUseExpenseHelper(
   ctx: MutationCtx,
@@ -38,7 +38,7 @@ export async function createInternalUseExpenseHelper(
     type: "operational",
     category: "supplies",
     amount: totalCost,
-    description: `Internal use${reasonLabel}: ${quantity} Ã— ${product.name}`,
+    description: `Internal use${reasonLabel}: ${quantity} × ${product.name}`,
     paymentMethod: "internal",
     date: now,
     productId,
@@ -54,10 +54,10 @@ export async function createInternalUseExpenseHelper(
 }
 
 /**
- * Create a mortality (inventory write-off) expense â€” called from recordMortalityLossByProduct.
- * Amount = product.costPrice Ã— quantity. Payment method is "internal" (no cash leaves the till).
+ * Create a mortality (inventory write-off) expense — called from recordMortalityLossByProduct.
+ * Amount = product.costPrice × quantity. Payment method is "internal" (no cash leaves the till).
  * Returns null if costPrice is missing or zero, so old products without cost data don't block
- * mortality recording â€” they just won't show up on the P&L until costPrice is set.
+ * mortality recording — they just won't show up on the P&L until costPrice is set.
  */
 export async function createMortalityExpenseHelper(
   ctx: MutationCtx,
@@ -82,7 +82,7 @@ export async function createMortalityExpenseHelper(
     type: "operational",
     category: "mortality",
     amount: totalCost,
-    description: `Mortality write-off: ${quantity} Ã— ${product.name}`,
+    description: `Mortality write-off: ${quantity} × ${product.name}`,
     paymentMethod: "internal",
     date: now,
     productId,
@@ -97,8 +97,8 @@ export async function createMortalityExpenseHelper(
 }
 
 /**
- * Create a restocking expense â€” called from restockProduct mutation.
- * Amount = (actualCostPrice ?? product.costPrice) Ã— quantity. Defaults to cash payment.
+ * Create a restocking expense — called from restockProduct mutation.
+ * Amount = (actualCostPrice ?? product.costPrice) × quantity. Defaults to cash payment.
  * actualCostPrice is the price actually paid for THIS batch and trumps the product's base costPrice.
  */
 export async function createRestockExpenseHelper(
@@ -128,8 +128,8 @@ export async function createRestockExpenseHelper(
 
   const now = Date.now();
   const description = actualCostPrice !== undefined
-    ? `Restock: ${quantity} Ã— ${product.name} (${batchCode}) @ â‚±${unitCost.toLocaleString('en-PH')}/unit`
-    : `Restock: ${quantity} Ã— ${product.name} (${batchCode})`;
+    ? `Restock: ${quantity} × ${product.name} (${batchCode}) @ ₱${unitCost.toLocaleString('en-PH')}/unit`
+    : `Restock: ${quantity} × ${product.name} (${batchCode})`;
   const id = await ctx.db.insert("expenses", {
     type: "restocking",
     amount: totalCost,
@@ -201,7 +201,7 @@ export const createExpense = mutation({
       actorId: args.userId,
       action: "expense.create",
       category: "finance",
-      summary: `Added ${args.type} expense ${peso(args.amount)} â€” ${args.description.trim()}`,
+      summary: `Added ${args.type} expense ${peso(args.amount)} — ${args.description.trim()}`,
       entityTable: "expenses",
       entityId: id,
       amount: args.amount,
@@ -248,7 +248,7 @@ export const updateExpense = mutation({
       actorId: userId,
       action: "expense.update",
       category: "finance",
-      summary: `Edited expense â€” ${updates.description ?? expense.description}${updates.amount !== undefined ? ` (now ${peso(updates.amount)})` : ""}`,
+      summary: `Edited expense — ${updates.description ?? expense.description}${updates.amount !== undefined ? ` (now ${peso(updates.amount)})` : ""}`,
       entityTable: "expenses",
       entityId: id,
       amount: updates.amount ?? expense.amount,
@@ -270,7 +270,7 @@ export const deleteExpense = mutation({
       actorId: userId,
       action: "expense.delete",
       category: "finance",
-      summary: `Deleted ${expense.type} expense ${peso(expense.amount)} â€” ${expense.description}`,
+      summary: `Deleted ${expense.type} expense ${peso(expense.amount)} — ${expense.description}`,
       entityTable: "expenses",
       entityId: id,
       amount: expense.amount,
@@ -415,7 +415,7 @@ export const getFinancialSummary = query({
       const status = o.paymentStatus || 'unpaid';
       if (status === 'refunded' || status === 'unpaid') return 0;
       if (status === 'partial') return o.amountPaid || 0;
-      // 'paid' â€” if amountPaid set, use that; otherwise full totalAmount
+      // 'paid' — if amountPaid set, use that; otherwise full totalAmount
       return o.amountPaid ?? (o.totalAmount || 0);
     };
 
@@ -522,7 +522,7 @@ export const getFinancialSummary = query({
         if (head.remaining <= 0) queue.shift();
       }
       if (remaining > 0) {
-        // Queue exhausted (sold beyond recorded lots) â€” cost the remainder at fallback.
+        // Queue exhausted (sold beyond recorded lots) — cost the remainder at fallback.
         lineCost += remaining * fallbackCost(productMap.get(sale.productId));
       }
       if (sale.inRange) cogs += lineCost;
@@ -531,7 +531,7 @@ export const getFinancialSummary = query({
     const grossProfit = totalRevenue - cogs;
     const grossMargin = totalRevenue > 0 ? (grossProfit / totalRevenue) * 100 : 0;
 
-    // Total discounts given â€” line-level + order-level across paid/partial transactions
+    // Total discounts given — line-level + order-level across paid/partial transactions
     const discountedOrders = activeOrders.filter(o => o.paymentStatus !== 'unpaid' && o.paymentStatus !== 'refunded');
     let totalLineDiscounts = 0;
     let totalOrderDiscounts = 0;
@@ -558,27 +558,32 @@ export const getFinancialSummary = query({
     }
     const totalDiscountsGiven = totalLineDiscounts + totalOrderDiscounts;
 
-    // Expenses breakdown
+    // Expenses breakdown — operating expenses only. Restock is NOT a P&L expense (it's inventory
+    // buying; the cost hits profit via COGS when it sells), so it's handled separately below.
     const filteredExpenses = expenses.filter(e => inRange(e.date));
-    // Restocking expenses are inventory-buying declarations. They reduce Cash on Hand only when
-    // funded from the till (handled below), and are NOT P&L operating expenses — the inventory
-    // cost hits profit through COGS when it sells. Operating expenses are the rest.
-    const restockingExpenses = filteredExpenses.filter(e => e.type === 'restocking');
     const operationalExpenses = filteredExpenses.filter(e => e.type === 'operational');
-
-    const totalRestockingExpense = restockingExpenses.reduce((s, e) => s + e.amount, 0);
     const totalOperationalExpense = operationalExpenses.reduce((s, e) => s + e.amount, 0);
-    // Restock split by declared funding source.
-    const restockFromCOH = restockingExpenses.filter(e => e.fundingSource === 'coh').reduce((s, e) => s + e.amount, 0);
-    const restockFromInvestment = restockingExpenses.filter(e => e.fundingSource === 'investment').reduce((s, e) => s + e.amount, 0);
-    const totalExpenses = totalRestockingExpense + totalOperationalExpense;
+    const totalExpenses = totalOperationalExpense;
 
-    // Total restock cost â€” AUDIT ONLY. Restocking is funded by capital and expensed through
-    // COGS (FIFO) as units sell, so it is never deducted from Cash on Hand or Net Profit here.
-    // Derived from the stock batches themselves (qty Ã— actual/fallback cost), received in range.
-    const totalRestockCost = stockRecords
-      .filter((r) => !r.isMortalityLoss && r.isRestock && inRange(r.receivedDate))
-      .reduce((s, r) => s + r.initialQty * (r.actualCostPrice ?? fallbackCost(productMap.get(r.productId as string))), 0);
+    // Restock — declared on stock batches received in range, split by funding source.
+    // COH-funded reduces Cash on Hand (below); investment-funded is declaration-only. Never P&L.
+    const batchCost = (r: { initialQty: number; actualCostPrice?: number; productId: string }) =>
+      r.initialQty * (r.actualCostPrice ?? fallbackCost(productMap.get(r.productId)));
+    const restockBatches = stockRecords.filter(
+      (r) =>
+        !r.isMortalityLoss &&
+        r.isRestock &&
+        inRange(r.receivedDate) &&
+        (r.fundingSource === "coh" || r.fundingSource === "investment"),
+    );
+    const totalRestockCost = restockBatches.reduce((s, r) => s + batchCost(r as any), 0);
+    const restockFromCOH = restockBatches
+      .filter((r) => r.fundingSource === "coh")
+      .reduce((s, r) => s + batchCost(r as any), 0);
+    const restockFromInvestment = restockBatches
+      .filter((r) => r.fundingSource === "investment")
+      .reduce((s, r) => s + batchCost(r as any), 0);
+    const restockCount = restockBatches.length;
 
     // Operational expenses by category
     const operationalByCategory: Record<string, number> = {};
@@ -589,12 +594,12 @@ export const getFinancialSummary = query({
 
     // Net Profit = Gross Profit âˆ’ Operational Expenses
     // (Restocking is already reflected in COGS via FIFO batch costing, so it's not
-    //  subtracted again here â€” that would double-count the cost of inventory.)
+    //  subtracted again here — that would double-count the cost of inventory.)
     const netProfit = grossProfit - totalOperationalExpense;
     const netMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
 
     // Cash on hand = opening + cash revenue âˆ’ cash OPERATIONAL expenses + cash adjustments (signed).
-    // Restocking is excluded â€” inventory purchases don't reduce the operating till (audit-only).
+    // Restocking is excluded — inventory purchases don't reduce the operating till (audit-only).
     const cashRevenue = (revenueByPayment['cash'] || 0);
     // Operating cash expenses exclude restocking — a restock's COH impact is handled explicitly
     // below by funding source (COH-funded reduces the till; investment-funded does not).
@@ -610,7 +615,7 @@ export const getFinancialSummary = query({
     const cashWithdrawals = filteredAdjustments
       .filter((a) => a.amount < 0)
       .reduce((s, a) => s + Math.abs(a.amount), 0);
-    // Investor deposits (injections) are CAPITAL â€” audited in the Cash Flow report but they
+    // Investor deposits (injections) are CAPITAL — audited in the Cash Flow report but they
     // do NOT inflate the operating till. Only remittances (withdrawals) and reconciling
     // corrections move Cash on Hand.
     const cashAdjustmentsEffect = filteredAdjustments
@@ -633,7 +638,7 @@ export const getFinancialSummary = query({
       orderRevenue,
       reservationRevenue,
       revenueByPayment,
-      // Billed (total owed â€” paid + unpaid)
+      // Billed (total owed — paid + unpaid)
       billedOrders,
       billedReservations,
       // Outstanding (unpaid)
@@ -656,13 +661,13 @@ export const getFinancialSummary = query({
       totalOrderDiscounts,
       // Expenses
       totalExpenses,
-      totalRestockingExpense,
       totalOperationalExpense,
-      restockFromCOH,        // reduced Cash on Hand
-      restockFromInvestment, // declaration-only (no balance moved)
-      totalRestockCost, // audit only â€” not deducted anywhere
+      // Restock (from stock batches)
+      totalRestockCost,       // total restock spend
+      restockFromCOH,         // reduced Cash on Hand
+      restockFromInvestment,  // declaration-only (no balance moved)
+      restockCount,
       operationalByCategory,
-      restockingCount: restockingExpenses.length,
       operationalCount: operationalExpenses.length,
       // Net
       netProfit,
@@ -691,8 +696,8 @@ function amountCollected(o: { paymentStatus?: string; amountPaid?: number; total
 }
 
 /**
- * General daily report â€” one row per calendar day:
- *   Date Â· Total Sales (collected) Â· Total Expense (all) Â· Total Daily (sales âˆ’ expense)
+ * General daily report — one row per calendar day:
+ *   Date · Total Sales (collected) · Total Expense (all) · Total Daily (sales âˆ’ expense)
  *
  * "Sales" = revenue actually collected on non-cancelled orders + completed reservations
  * (same recognition as the P&L). "Expense" = every expense dated that day (restocking +
@@ -708,14 +713,21 @@ export const getDailySalesReport = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, { tzOffsetMinutes = -480, startDate, endDate, limit = 370 }) => {
-    const [orders, reservations, expenses, cashAdjustments, openingRecord] = await Promise.all([
+    const [orders, reservations, expenses, cashAdjustments, openingRecord, stockRecords, products] = await Promise.all([
       ctx.db.query("orders").collect(),
       ctx.db.query("reservations").collect(),
       ctx.db.query("expenses").collect(),
       ctx.db.query("cashAdjustments").collect(),
       ctx.db.query("financialSettings").withIndex("by_key", (q) => q.eq("key", "opening_cash_balance")).first(),
+      ctx.db.query("stockRecords").collect(),
+      ctx.db.query("products").collect(),
     ]);
     const openingBalance = openingRecord?.value || 0;
+    const productMap = new Map(products.map((p) => [p._id as string, p]));
+    const fallbackUnitCost = (pid: string) => {
+      const p = productMap.get(pid);
+      return p?.movingAverageCost ?? p?.costPrice ?? 0;
+    };
 
     const now = Date.now();
     const DAY_MS = 24 * 60 * 60 * 1000;
@@ -758,7 +770,7 @@ export const getDailySalesReport = query({
       bucket(dayIndex(e.date)).expense += e.amount;
     }
 
-    // Emit a row for EVERY day in the window â€” including zero-activity days â€” so the
+    // Emit a row for EVERY day in the window — including zero-activity days — so the
     // report reads like a continuous end-of-day log. Bounds: the filtered range if set,
     // otherwise from the earliest record to today. Future days are never enumerated.
     let loTs = startDate;
@@ -791,10 +803,16 @@ export const getDailySalesReport = query({
       if (c) cashEvents.push({ date: o.createdAt, amt: c });
     }
     for (const e of expenses) {
-      if (e.type === "restocking") {
-        if (e.fundingSource === "coh") cashEvents.push({ date: e.date, amt: -e.amount });
-      } else if (e.paymentMethod === "cash") {
+      // Operating cash expenses only (restock is a stock batch, handled below).
+      if (e.type !== "restocking" && e.paymentMethod === "cash") {
         cashEvents.push({ date: e.date, amt: -e.amount });
+      }
+    }
+    for (const r of stockRecords) {
+      // Restock funded from the Till reduces COH; investment-funded does not.
+      if (r.isRestock && !r.isMortalityLoss && r.fundingSource === "coh") {
+        const cost = r.initialQty * (r.actualCostPrice ?? fallbackUnitCost(r.productId as string));
+        if (cost) cashEvents.push({ date: r.receivedDate, amt: -cost });
       }
     }
     for (const a of cashAdjustments) {
@@ -836,7 +854,7 @@ export const getDailySalesReport = query({
 });
 
 /**
- * Daily report detail â€” the items sold within an exact [startDate, endDate] window
+ * Daily report detail — the items sold within an exact [startDate, endDate] window
  * (pass a single day's startMs/endMs from getDailySalesReport), plus that day's
  * expenses. Per-product units / revenue / FIFO gross profit use the same recognition
  * and batch-costing as the P&L, so the detail ties out with the General Report row.
@@ -1004,7 +1022,15 @@ export const getStockFlowReport = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, { tzOffsetMinutes = -480, startDate, endDate, limit = 370 }) => {
-    const expenses = await ctx.db.query("expenses").collect();
+    const [stockRecords, products] = await Promise.all([
+      ctx.db.query("stockRecords").collect(),
+      ctx.db.query("products").collect(),
+    ]);
+    const productMap = new Map(products.map((p) => [p._id as string, p]));
+    const fallbackCost = (pid: string) => {
+      const p = productMap.get(pid);
+      return p?.movingAverageCost ?? p?.costPrice ?? 0;
+    };
 
     const now = Date.now();
     const DAY_MS = 24 * 60 * 60 * 1000;
@@ -1012,29 +1038,30 @@ export const getStockFlowReport = query({
     const inRange = (ts: number) => (!startDate || ts >= startDate) && (!endDate || ts <= endDate);
     const dayIndex = (ts: number) => Math.floor((ts - offMs) / DAY_MS);
 
-    // Tagged restocking declarations only.
-    const reroll = expenses.filter(
-      (e) => e.type === "restocking" && (e.fundingSource === "coh" || e.fundingSource === "investment"),
+    // Tagged restock batches only.
+    const batches = stockRecords.filter(
+      (r) => r.isRestock && !r.isMortalityLoss && (r.fundingSource === "coh" || r.fundingSource === "investment"),
     );
+    const batchCost = (r: any) => r.initialQty * (r.actualCostPrice ?? fallbackCost(r.productId as string));
 
     type Bucket = { viaCOH: number; viaInvestment: number; count: number };
     const buckets = new Map<number, Bucket>();
     const bucket = (k: number) =>
       buckets.get(k) ?? buckets.set(k, { viaCOH: 0, viaInvestment: 0, count: 0 }).get(k)!;
 
-    for (const e of reroll) {
-      if (!inRange(e.date)) continue;
-      const b = bucket(dayIndex(e.date));
+    for (const r of batches) {
+      if (!inRange(r.receivedDate)) continue;
+      const b = bucket(dayIndex(r.receivedDate));
       b.count += 1;
-      if (e.fundingSource === "coh") b.viaCOH += e.amount;
-      else b.viaInvestment += e.amount;
+      if (r.fundingSource === "coh") b.viaCOH += batchCost(r);
+      else b.viaInvestment += batchCost(r);
     }
 
-    // Gap-fill every day in the window (filtered range, else earliest reroll → today).
+    // Gap-fill every day in the window (filtered range, else earliest restock → today).
     let loTs = startDate;
     if (loTs === undefined) {
       let earliest = Infinity;
-      for (const e of reroll) earliest = Math.min(earliest, e.date);
+      for (const r of batches) earliest = Math.min(earliest, r.receivedDate);
       loTs = Number.isFinite(earliest) ? earliest : now;
     }
     let hiTs = endDate ?? now;
@@ -1076,7 +1103,7 @@ export const getStockFlowReport = query({
 });
 
 /**
- * Stock Flow detail — the individual reroll declarations in a day window, for the drilldown.
+ * Stock Flow detail — the individual restock batches in a day window, for the drilldown.
  */
 export const getStockFlowDetail = query({
   args: {
@@ -1084,25 +1111,42 @@ export const getStockFlowDetail = query({
     endDate: v.number(),
   },
   handler: async (ctx, { startDate, endDate }) => {
-    const expenses = await ctx.db.query("expenses").collect();
+    const [stockRecords, products] = await Promise.all([
+      ctx.db.query("stockRecords").collect(),
+      ctx.db.query("products").collect(),
+    ]);
+    const productMap = new Map(products.map((p) => [p._id as string, p]));
+    const fallbackCost = (pid: string) => {
+      const p = productMap.get(pid);
+      return p?.movingAverageCost ?? p?.costPrice ?? 0;
+    };
     const inRange = (ts: number) => ts >= startDate && ts <= endDate;
 
-    const items = expenses
+    const items = stockRecords
       .filter(
-        (e) =>
-          e.type === "restocking" &&
-          (e.fundingSource === "coh" || e.fundingSource === "investment") &&
-          inRange(e.date),
+        (r) =>
+          r.isRestock &&
+          !r.isMortalityLoss &&
+          (r.fundingSource === "coh" || r.fundingSource === "investment") &&
+          inRange(r.receivedDate),
       )
-      .map((e) => ({
-        id: e._id as string,
-        description: e.description,
-        amount: e.amount,
-        source: e.fundingSource as "coh" | "investment",
-        paymentMethod: e.paymentMethod,
-        supplier: e.supplier ?? null,
-        date: e.date,
-      }))
+      .map((r) => {
+        const p = productMap.get(r.productId as string);
+        const unitCost = r.actualCostPrice ?? fallbackCost(r.productId as string);
+        return {
+          id: r._id as string,
+          description: `${r.initialQty} × ${p?.name ?? "Unknown product"}`,
+          productName: p?.name ?? "Unknown product",
+          image: p?.image || null,
+          quantity: r.initialQty,
+          unitCost,
+          amount: r.initialQty * unitCost,
+          source: r.fundingSource as "coh" | "investment",
+          supplier: r.supplier ?? null,
+          batchCode: r.batchCode,
+          date: r.receivedDate,
+        };
+      })
       .sort((a, b) => b.date - a.date);
 
     const viaCOH = items.filter((i) => i.source === "coh").reduce((s, i) => s + i.amount, 0);

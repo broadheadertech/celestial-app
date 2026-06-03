@@ -66,6 +66,8 @@ function InventoryContent() {
   const [restockActualCost, setRestockActualCost] = useState('');
   const [restockNotes, setRestockNotes] = useState('');
   const [restockQuality, setRestockQuality] = useState<'premium' | 'standard' | 'budget'>('standard');
+  const [restockSource, setRestockSource] = useState<'coh' | 'investment' | null>(null);
+  const [restockSupplier, setRestockSupplier] = useState('');
   const [isRestocking, setIsRestocking] = useState(false);
 
   // Adjust Stock modal state
@@ -272,6 +274,11 @@ function InventoryContent() {
     }
     const actualCostPrice = actualCostNum;
 
+    if (!restockSource) {
+      alert('Choose where the restock money came from: Till (COH) or Investment.');
+      return;
+    }
+
     setIsRestocking(true);
     try {
       const result = await restockProduct({
@@ -280,6 +287,8 @@ function InventoryContent() {
         notes: restockNotes || undefined,
         qualityGrade: restockQuality,
         actualCostPrice,
+        fundingSource: restockSource,
+        supplier: restockSupplier.trim() || undefined,
         userId: actingUser?._id as Id<'users'> | undefined,
       });
 
@@ -289,6 +298,8 @@ function InventoryContent() {
       setRestockActualCost('');
       setRestockNotes('');
       setRestockQuality('standard');
+      setRestockSource(null);
+      setRestockSupplier('');
 
       const macMsg = result?.movingAverageCost !== undefined
         ? ` · MAC now ₱${result.movingAverageCost.toLocaleString('en-PH', { maximumFractionDigits: 2 })}`
@@ -1264,13 +1275,49 @@ function InventoryContent() {
                   </div>
                 </div>
 
+                {/* Funded from — required */}
+                <div>
+                  <label className="block text-sm font-medium text-white mb-1.5">Funded from <span className="text-error">*</span></label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {([
+                      { id: 'coh', label: 'Till (COH)', hint: 'deducts cash on hand' },
+                      { id: 'investment', label: 'Investment', hint: 'declaration only' },
+                    ] as const).map((s) => (
+                      <button
+                        key={s.id}
+                        onClick={() => setRestockSource(s.id)}
+                        className={`px-3 py-2 rounded-lg text-xs sm:text-sm font-medium border transition-all active:scale-95 flex flex-col items-center ${
+                          restockSource === s.id
+                            ? 'bg-primary border-primary text-white'
+                            : 'bg-background/60 border-white/10 text-white/70 hover:border-primary/30'
+                        }`}
+                      >
+                        <span>{s.label}</span>
+                        <span className="text-[10px] opacity-70">{s.hint}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Supplier — optional */}
+                <div>
+                  <label className="block text-sm font-medium text-white mb-1.5">Supplier <span className="text-white/40 font-normal">(optional)</span></label>
+                  <input
+                    type="text"
+                    value={restockSupplier}
+                    onChange={(e) => setRestockSupplier(e.target.value)}
+                    placeholder="e.g. Manila Aqua Supplier"
+                    className="w-full px-3 py-3 bg-background/60 border border-white/10 rounded-lg text-sm text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+
                 {/* Notes */}
                 <div>
                   <label className="block text-sm font-medium text-white mb-1.5">Notes (optional)</label>
                   <textarea
                     value={restockNotes}
                     onChange={(e) => setRestockNotes(e.target.value)}
-                    placeholder="Supplier name, batch details..."
+                    placeholder="Batch details..."
                     rows={2}
                     className="w-full px-3 py-3 bg-background/60 border border-white/10 rounded-lg text-sm text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-primary resize-none"
                   />
@@ -1292,6 +1339,7 @@ function InventoryContent() {
                       restockActualCost.trim() === '' ||
                       isNaN(parseFloat(restockActualCost)) ||
                       parseFloat(restockActualCost) < 0 ||
+                      !restockSource ||
                       isRestocking
                     }
                     className="flex-1 px-4 py-3 bg-primary text-white rounded-xl font-medium hover:bg-primary/90 active:scale-95 transition-all touch-manipulation disabled:opacity-50 disabled:cursor-not-allowed"

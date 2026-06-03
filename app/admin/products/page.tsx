@@ -189,6 +189,8 @@ function AdminProductsContent() {
   const [restockProductId, setRestockProductId] = useState<string | null>(null);
   const [restockQuantity, setRestockQuantity] = useState('');
   const [restockCost, setRestockCost] = useState('');
+  const [restockSource, setRestockSource] = useState<'coh' | 'investment' | null>(null);
+  const [restockSupplier, setRestockSupplier] = useState('');
 
   // Mortality loss modal state
   const [showMortalityModal, setShowMortalityModal] = useState(false);
@@ -431,6 +433,11 @@ function AdminProductsContent() {
       actualCostPrice = parsedCost;
     }
 
+    if (!restockSource) {
+      alert('Choose where the restock money came from: Till (COH) or Investment.');
+      return;
+    }
+
     try {
       // Create a new stock record for this restock (1-to-many relationship)
       const result = await restockProduct({
@@ -438,6 +445,8 @@ function AdminProductsContent() {
         quantity: quantity,
         notes: `Admin restock - Added ${quantity} units`,
         actualCostPrice,
+        fundingSource: restockSource,
+        supplier: restockSupplier.trim() || undefined,
         userId: actingUser?._id as any,
       });
 
@@ -446,6 +455,8 @@ function AdminProductsContent() {
       setRestockProductId(null);
       setRestockQuantity('');
       setRestockCost('');
+      setRestockSource(null);
+      setRestockSupplier('');
 
       alert(`${result.message}\nNew batch code: ${result.batchCode}\nTotal stock: ${result.newTotalStock} units`);
     } catch (error) {
@@ -1254,6 +1265,47 @@ function AdminProductsContent() {
                           </p>
                         )}
                       </div>
+
+                      {/* Funded from — required */}
+                      <div>
+                        <label className="block text-sm font-medium text-white mb-2">
+                          Funded from <span className="text-error">*</span>
+                        </label>
+                        <div className="grid grid-cols-2 gap-2">
+                          {([
+                            { id: 'coh', label: 'Till (COH)', hint: 'deducts cash on hand' },
+                            { id: 'investment', label: 'Investment', hint: 'declaration only' },
+                          ] as const).map((s) => (
+                            <button
+                              key={s.id}
+                              type="button"
+                              onClick={() => setRestockSource(s.id)}
+                              className={`px-3 py-2.5 rounded-lg text-sm font-medium border transition-all flex flex-col items-center ${
+                                restockSource === s.id
+                                  ? 'bg-primary border-primary text-white'
+                                  : 'bg-secondary border-white/10 text-white/70 hover:border-primary/30'
+                              }`}
+                            >
+                              <span>{s.label}</span>
+                              <span className="text-[10px] opacity-70">{s.hint}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Supplier — optional */}
+                      <div>
+                        <label className="block text-sm font-medium text-white mb-2">
+                          Supplier <span className="text-white/40 font-normal">(optional)</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={restockSupplier}
+                          onChange={(e) => setRestockSupplier(e.target.value)}
+                          placeholder="e.g. Manila Aqua Supplier"
+                          className="w-full px-4 py-3 bg-secondary border border-white/10 rounded-lg text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-primary"
+                        />
+                      </div>
                     </>
                   );
                 })()}
@@ -1267,6 +1319,8 @@ function AdminProductsContent() {
                     setRestockProductId(null);
                     setRestockQuantity('');
                     setRestockCost('');
+                    setRestockSource(null);
+                    setRestockSupplier('');
                   }}
                   className="flex-1 px-4 py-2.5 bg-secondary/60 hover:bg-white/10 border border-white/10 rounded-lg text-white font-medium transition-all"
                 >
@@ -1274,7 +1328,7 @@ function AdminProductsContent() {
                 </button>
                 <button
                   onClick={handleRestock}
-                  disabled={!restockQuantity || parseInt(restockQuantity) <= 0}
+                  disabled={!restockQuantity || parseInt(restockQuantity) <= 0 || !restockSource}
                   className="flex-1 px-4 py-2.5 bg-success hover:bg-success/90 disabled:bg-success/50 disabled:cursor-not-allowed rounded-lg text-white font-medium transition-all"
                 >
                   Add Stock
