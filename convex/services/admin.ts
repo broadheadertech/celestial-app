@@ -1470,3 +1470,74 @@ export const getAssociates = query({
       .sort((a, b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`));
   },
 });
+
+/**
+ * ⚠️ DESTRUCTIVE — one-time "start fresh" reset.
+ * Wipes all sales (orders, reservations), inventory records (stockRecords,
+ * stockMovements), financials (expenses, cashAdjustments) and notifications,
+ * then resets every product's stock to 0 and clears its moving-average cost.
+ * The product/category catalog and their fish/tank specs are kept.
+ *
+ * Batched + idempotent: deletes up to `max` docs per call and returns `done:false`
+ * if more work remains — call again until `done:true`. Requires confirm:"RESET".
+ */
+export const resetStoreData = mutation({
+  args: {
+    confirm: v.string(),
+    max: v.optional(v.number()),
+  },
+  handler: async (ctx, { confirm, max = 4000 }) => {
+    if (confirm !== "RESET") {
+      throw new Error('Refusing to reset: call with confirm:"RESET" to proceed.');
+    }
+
+    const tables = [
+      "orders",
+      "reservations",
+      "stockRecords",
+      "stockMovements",
+      "expenses",
+      "cashAdjustments",
+      "notifications",
+    ] as const;
+
+    let ops = 0;
+    const deleted: Record<string, number> = {};
+
+    for (const t of tables) {
+      if (ops >= max) {
+        return { done: false, ops, deleted, productsReset: 0 };
+      }
+      const docs = await ctx.db.query(t).take(max - ops);
+      for (const d of docs) {
+        await ctx.db.delete(d._id);
+        ops++;
+      }
+      deleted[t] = docs.length;
+    }
+
+    if (ops >= max) {
+      return { done: false, ops, deleted, productsReset: 0 };
+    }
+
+    // All wipe tables drained — reset product stock/cost (catalog is small).
+    const now = Date.now();
+    let productsReset = 0;
+    const products = await ctx.db.query("products").take(max - ops);
+    for (const p of products) {
+      if (p.stock !== 0 || p.movingAverageCost !== undefined) {
+        await ctx.db.patch(p._id, { stock: 0, movingAverageCost: undefined, updatedAt: now });
+        productsReset++;
+      }
+      ops++;
+    }
+
+    // Are there still products needing reset (beyond this batch)?
+    const allProducts = await ctx.db.query("products").collect();
+    const remainingNeedingReset = allProducts.some(
+      (p) => p.stock !== 0 || p.movingAverageCost !== undefined
+    );
+
+    return { done: !remainingNeedingReset, ops, deleted, productsReset };
+  },
+});

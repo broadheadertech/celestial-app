@@ -629,13 +629,14 @@ export const getDailySalesReport = query({
     endDate: v.optional(v.number()),
     limit: v.optional(v.number()),
   },
-  handler: async (ctx, { tzOffsetMinutes = -480, startDate, endDate, limit = 120 }) => {
+  handler: async (ctx, { tzOffsetMinutes = -480, startDate, endDate, limit = 370 }) => {
     const [orders, reservations, expenses] = await Promise.all([
       ctx.db.query("orders").collect(),
       ctx.db.query("reservations").collect(),
       ctx.db.query("expenses").collect(),
     ]);
 
+    const now = Date.now();
     const DAY_MS = 24 * 60 * 60 * 1000;
     const offMs = tzOffsetMinutes * 60 * 1000;
     const inRange = (ts: number) => (!startDate || ts >= startDate) && (!endDate || ts <= endDate);
@@ -674,8 +675,30 @@ export const getDailySalesReport = query({
       bucket(dayIndex(e.date)).expense += e.amount;
     }
 
-    const rows = Array.from(buckets.entries())
-      .map(([k, b]) => {
+    // Emit a row for EVERY day in the window — including zero-activity days — so the
+    // report reads like a continuous end-of-day log. Bounds: the filtered range if set,
+    // otherwise from the earliest record to today. Future days are never enumerated.
+    let loTs = startDate;
+    if (loTs === undefined) {
+      let earliest = Infinity;
+      for (const o of orders) earliest = Math.min(earliest, o.createdAt);
+      for (const r of reservations) earliest = Math.min(earliest, r.createdAt);
+      for (const e of expenses) earliest = Math.min(earliest, e.date);
+      loTs = Number.isFinite(earliest) ? earliest : now;
+    }
+    let hiTs = endDate ?? now;
+    if (hiTs > now) hiTs = now; // don't list future empty days
+
+    const loDay = dayIndex(loTs);
+    const hiDay = dayIndex(hiTs);
+
+    const dayKeys = new Set<number>();
+    for (let k = loDay; k <= hiDay; k++) dayKeys.add(k);
+    for (const k of buckets.keys()) dayKeys.add(k); // include any out-of-bound days with data
+
+    const rows = Array.from(dayKeys)
+      .map((k) => {
+        const b = buckets.get(k) ?? { sales: 0, expense: 0, transactions: 0, itemsSold: 0 };
         const startMs = k * DAY_MS + offMs;       // real epoch of local midnight
         const endMs = startMs + DAY_MS - 1;
         const dateKey = new Date(k * DAY_MS).toISOString().slice(0, 10); // YYYY-MM-DD (local calendar)
