@@ -19,6 +19,7 @@ import type * as seed from "../seed.js";
 import type * as services_admin from "../services/admin.js";
 import type * as services_aiInsights from "../services/aiInsights.js";
 import type * as services_analytics from "../services/analytics.js";
+import type * as services_audit from "../services/audit.js";
 import type * as services_auth from "../services/auth.js";
 import type * as services_cart from "../services/cart.js";
 import type * as services_cashAdjustments from "../services/cashAdjustments.js";
@@ -52,6 +53,7 @@ declare const fullApi: ApiFromModules<{
   "services/admin": typeof services_admin;
   "services/aiInsights": typeof services_aiInsights;
   "services/analytics": typeof services_analytics;
+  "services/audit": typeof services_audit;
   "services/auth": typeof services_auth;
   "services/cart": typeof services_cart;
   "services/cashAdjustments": typeof services_cashAdjustments;

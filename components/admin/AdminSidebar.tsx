@@ -19,6 +19,7 @@ import {
   MessageCircle,
   Gauge,
   Award,
+  ScrollText,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/auth';
 import { useTheme } from '@/store/theme';
@@ -167,6 +168,12 @@ export default function AdminSidebar() {
           icon: Sliders,
           href: '/admin/app-settings',
           superAdminOnly: true,
+        },
+        {
+          id: 'audit-log',
+          label: 'Audit Log',
+          icon: ScrollText,
+          href: '/admin/audit-log',
         },
         {
           id: 'marketing',

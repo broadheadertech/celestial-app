@@ -1,6 +1,7 @@
 import { query, mutation } from "../_generated/server";
 import { v } from "convex/values";
 import { recordSaleHelper, restoreStockHelper } from "./stock";
+import { recordAudit } from "./audit";
 
 // Get user's orders
 export const getUserOrders = query({
@@ -451,6 +452,17 @@ export const adminCreateOrder = mutation({
       salesAssociateName,
       createdAt: now,
       updatedAt: now,
+    });
+
+    await recordAudit(ctx, {
+      actorId: salesAssociateId,
+      action: "order.create",
+      category: "sales",
+      summary: `POS sale ${generateOrderCode(orderId)} — ${orderItems.length} item${orderItems.length === 1 ? "" : "s"}, ₱${totalAmount.toLocaleString("en-PH")}${customerName ? ` · ${customerName}` : ""}`,
+      entityTable: "orders",
+      entityId: orderId,
+      amount: totalAmount,
+      metadata: { itemCount: orderItems.length, paymentMethod, salesAssociateName },
     });
 
     return {

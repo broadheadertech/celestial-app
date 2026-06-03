@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "../_generated/server";
+import { recordAudit } from "./audit";
 
 // Get all products
 export const getProducts = query({
@@ -527,6 +528,7 @@ export const updateProduct = mutation({
       v.literal("A"),
     )),
     isActive: v.optional(v.boolean()),
+    userId: v.optional(v.id("users")), // acting admin (for audit)
 
     // Category-specific data (optional)
     fishData: v.optional(v.object({
@@ -558,8 +560,8 @@ export const updateProduct = mutation({
   },
 
   handler: async (ctx, args) => {
-    const { productId, fishData, tankData, ...updates } = args;
-    
+    const { productId, fishData, tankData, userId: actorId, ...updates } = args;
+
     // Fetch the existing product
     const product = await ctx.db.get(productId);
     if (!product) {
@@ -855,6 +857,20 @@ export const updateProduct = mutation({
         }
       }
       
+      const changedFields = Object.keys(updateData).filter((k) => k !== "updatedAt");
+      if (fishData) changedFields.push("fishData");
+      if (tankData) changedFields.push("tankData");
+      await recordAudit(ctx, {
+        actorId,
+        action: "product.update",
+        category: "inventory",
+        summary: `Updated product "${product.name}"${changedFields.length ? ` — ${changedFields.join(", ")}` : ""}`,
+        entityTable: "products",
+        entityId: productId,
+        amount: updates.price,
+        metadata: { changedFields, before: { price: product.price, stock: product.stock, isActive: product.isActive } },
+      });
+
       return {
         ...updatedProduct,
         ...relatedData,

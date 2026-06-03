@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "../_generated/server";
+import { recordAudit } from "./audit";
 
 const DEFAULTS = {
   siteName: "Dragon Cave Inventory",
@@ -39,8 +40,10 @@ export const updateAppSettings = mutation({
     notifyNewOrders: v.optional(v.boolean()),
     notifyNewUsers: v.optional(v.boolean()),
     lowStockThreshold: v.optional(v.number()),
+    userId: v.optional(v.id("users")),
   },
-  handler: async (ctx, updates) => {
+  handler: async (ctx, args) => {
+    const { userId: actorId, ...updates } = args;
     const now = Date.now();
     const existing = await ctx.db.query("appSettings").first();
 
@@ -49,10 +52,20 @@ export const updateAppSettings = mutation({
         ...DEFAULTS,
         ...updates,
         updatedAt: now,
+        updatedBy: actorId,
       });
     } else {
-      await ctx.db.patch(existing._id, { ...updates, updatedAt: now });
+      await ctx.db.patch(existing._id, { ...updates, updatedAt: now, updatedBy: actorId });
     }
+
+    await recordAudit(ctx, {
+      actorId,
+      action: "settings.update",
+      category: "settings",
+      summary: `Updated app settings — ${Object.keys(updates).join(", ") || "no fields"}`,
+      entityTable: "appSettings",
+      metadata: { changes: updates },
+    });
     return { success: true };
   },
 });

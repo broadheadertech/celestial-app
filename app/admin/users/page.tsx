@@ -169,7 +169,7 @@ function AdminUsersContent() {
 
   const handleToggleSA = async (userId: string) => {
     try {
-      const result = await toggleSalesAssociate({ userId: userId as Id<"users"> });
+      const result = await toggleSalesAssociate({ userId: userId as Id<"users">, actorId: currentUser?._id as Id<'users'> | undefined });
       showConfirmation(
         result.isSalesAssociate ? 'Sales Associate Enabled' : 'Sales Associate Removed',
         `${result.name} is ${result.isSalesAssociate ? 'now' : 'no longer'} a sales associate.`,
@@ -263,6 +263,7 @@ function AdminUsersContent() {
       await toggleUserStatus({
         userId: userId as Id<'users'>,
         isActive: !currentStatus,
+        actorId: currentUser?._id as Id<'users'> | undefined,
       });
       showConfirmation('Success', `User ${!currentStatus ? 'activated' : 'deactivated'} successfully!`, 'success');
     } catch (error) {
@@ -276,6 +277,7 @@ function AdminUsersContent() {
       await updateUserRole({
         userId: userId as Id<'users'>,
         role: 'admin',
+        actorId: currentUser?._id as Id<'users'> | undefined,
       });
       showConfirmation('Success', 'User promoted to admin successfully!', 'success');
     } catch (error) {
@@ -289,6 +291,7 @@ function AdminUsersContent() {
       await updateUserRole({
         userId: userId as Id<'users'>,
         role: 'client',
+        actorId: currentUser?._id as Id<'users'> | undefined,
       });
       showConfirmation('Success', 'User demoted to client successfully!', 'success');
     } catch (error) {
@@ -299,7 +302,7 @@ function AdminUsersContent() {
 
   const handleBanUser = async (userId: string) => {
     try {
-      await banUser({ userId: userId as Id<'users'> });
+      await banUser({ userId: userId as Id<'users'>, actorId: currentUser?._id as Id<'users'> | undefined });
       showConfirmation('Banned', 'User has been banned.', 'success');
     } catch (error) {
       showConfirmation('Error', error instanceof Error ? error.message : 'Failed to ban user', 'error');
@@ -309,7 +312,7 @@ function AdminUsersContent() {
 
   const handleUnbanUser = async (userId: string) => {
     try {
-      await unbanUser({ userId: userId as Id<'users'> });
+      await unbanUser({ userId: userId as Id<'users'>, actorId: currentUser?._id as Id<'users'> | undefined });
       showConfirmation('Unbanned', 'User has been unbanned.', 'success');
     } catch (error) {
       showConfirmation('Error', error instanceof Error ? error.message : 'Failed to unban user', 'error');

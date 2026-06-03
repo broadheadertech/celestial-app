@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "../_generated/server";
 import { hashPassword } from "./auth";
+import { recordAudit } from "./audit";
 
 // Admin Dashboard Analytics
 export const getDashboardStats = query({
@@ -325,10 +326,13 @@ export const createProduct = mutation({
     productStatus: v.optional(v.string()),
     lifespan: v.optional(v.string()),
     tankNumber: v.optional(v.string()),
+    userId: v.optional(v.id("users")), // acting admin (for audit) — excluded from the product doc
   },
   handler: async (ctx, args) => {
     const now = Date.now();
-    
+    // Keep the actor out of the product document spread.
+    const { userId: actorId, ...productFields } = args;
+
     // Generate batch code: BATCH-YYYYMMDD-RANDOM
     const generateBatchCode = () => {
       const date = new Date(now);
@@ -384,7 +388,7 @@ export const createProduct = mutation({
     
     // Create product
     const productId = await ctx.db.insert("products", {
-      ...args,
+      ...productFields,
       rating: 0,
       reviews: 0,
       originalPrice: args.originalPrice || args.price,
@@ -441,6 +445,17 @@ export const createProduct = mutation({
       quantityChange: args.stock,
       quantityAfter: args.stock,
       createdAt: now,
+    });
+
+    await recordAudit(ctx, {
+      actorId,
+      action: "product.create",
+      category: "inventory",
+      summary: `Created product "${args.name}" @ ₱${args.price.toLocaleString("en-PH")} (stock ${args.stock})`,
+      entityTable: "products",
+      entityId: productId,
+      amount: args.price,
+      metadata: { categoryId: args.categoryId, initialStock: args.stock },
     });
 
     return productId;
@@ -505,8 +520,9 @@ export const deleteProduct = mutation({
   args: {
     id: v.id("products"),
     forceDelete: v.optional(v.boolean()), // bypass history guard + cascade orders/reservations/expenses
+    userId: v.optional(v.id("users")),
   },
-  handler: async (ctx, { id, forceDelete }) => {
+  handler: async (ctx, { id, forceDelete, userId }) => {
     const product = await ctx.db.get(id);
     if (!product) {
       throw new Error("Product not found");
@@ -531,6 +547,14 @@ export const deleteProduct = mutation({
         await ctx.db.patch(id, {
           isActive: false,
           updatedAt: Date.now(),
+        });
+        await recordAudit(ctx, {
+          actorId: userId,
+          action: "product.deactivate",
+          category: "inventory",
+          summary: `Deactivated product "${product.name}" (has ${hasOrders ? "order" : "reservation"} history)`,
+          entityTable: "products",
+          entityId: id,
         });
         return {
           success: true,
@@ -650,6 +674,16 @@ export const deleteProduct = mutation({
       if (deletedReservations || trimmedReservations) parts.push(`${deletedReservations} reservation${deletedReservations === 1 ? '' : 's'} deleted, ${trimmedReservations} trimmed`);
       if (deletedExpenses) parts.push(`${deletedExpenses} expense${deletedExpenses === 1 ? '' : 's'}`);
     }
+
+    await recordAudit(ctx, {
+      actorId: userId,
+      action: forceDelete ? "product.force_delete" : "product.delete",
+      category: "inventory",
+      summary: `${forceDelete ? "Force-deleted" : "Deleted"} product "${product.name}" (${parts.join(", ")})`,
+      entityTable: "products",
+      entityId: id,
+      metadata: { forceDelete: forceDelete ?? false, deletedBatches, deletedOrders, deletedReservations, deletedExpenses },
+    });
 
     return {
       success: true,
@@ -907,8 +941,9 @@ export const getStaffUsers = query({
 export const toggleSalesAssociate = mutation({
   args: {
     userId: v.id("users"),
+    actorId: v.optional(v.id("users")),
   },
-  handler: async (ctx, { userId }) => {
+  handler: async (ctx, { userId, actorId }) => {
     const user = await ctx.db.get(userId);
     if (!user) throw new Error("User not found");
 
@@ -916,6 +951,15 @@ export const toggleSalesAssociate = mutation({
     await ctx.db.patch(userId, {
       isSalesAssociate: newValue,
       updatedAt: Date.now(),
+    });
+
+    await recordAudit(ctx, {
+      actorId,
+      action: "user.toggle_sales_associate",
+      category: "users",
+      summary: `${newValue ? "Tagged" : "Untagged"} ${user.firstName} ${user.lastName} as sales associate`,
+      entityTable: "users",
+      entityId: userId,
     });
 
     return {
@@ -971,18 +1015,30 @@ export const updateUserRole = mutation({
   args: {
     userId: v.id("users"),
     role: v.union(v.literal("admin"), v.literal("client")),
+    actorId: v.optional(v.id("users")),
   },
-  handler: async (ctx, { userId, role }) => {
+  handler: async (ctx, { userId, role, actorId }) => {
     const user = await ctx.db.get(userId);
     if (!user) {
       throw new Error("User not found");
     }
-    
-    await ctx.db.patch(userId, { 
+
+    const prevRole = user.role;
+    await ctx.db.patch(userId, {
       role,
       updatedAt: Date.now(),
     });
-    
+
+    await recordAudit(ctx, {
+      actorId,
+      action: "user.role_change",
+      category: "users",
+      summary: `Changed ${user.firstName} ${user.lastName}'s role: ${prevRole} → ${role}`,
+      entityTable: "users",
+      entityId: userId,
+      metadata: { from: prevRole, to: role },
+    });
+
     return { success: true };
   },
 });
@@ -991,18 +1047,28 @@ export const toggleUserStatus = mutation({
   args: {
     userId: v.id("users"),
     isActive: v.boolean(),
+    actorId: v.optional(v.id("users")),
   },
-  handler: async (ctx, { userId, isActive }) => {
+  handler: async (ctx, { userId, isActive, actorId }) => {
     const user = await ctx.db.get(userId);
     if (!user) {
       throw new Error("User not found");
     }
-    
-    await ctx.db.patch(userId, { 
+
+    await ctx.db.patch(userId, {
       isActive,
       updatedAt: Date.now(),
     });
-    
+
+    await recordAudit(ctx, {
+      actorId,
+      action: "user.status",
+      category: "users",
+      summary: `${isActive ? "Activated" : "Deactivated"} account ${user.firstName} ${user.lastName}`,
+      entityTable: "users",
+      entityId: userId,
+    });
+
     return { success: true };
   },
 });
@@ -1033,8 +1099,9 @@ export const deleteUser = mutation({
 export const banUser = mutation({
   args: {
     userId: v.id("users"),
+    actorId: v.optional(v.id("users")),
   },
-  handler: async (ctx, { userId }) => {
+  handler: async (ctx, { userId, actorId }) => {
     const user = await ctx.db.get(userId);
     if (!user) throw new Error("User not found");
     if (user.role === "super_admin") throw new Error("Cannot ban super admin accounts");
@@ -1044,6 +1111,15 @@ export const banUser = mutation({
       isActive: false,
       updatedAt: Date.now(),
     });
+
+    await recordAudit(ctx, {
+      actorId,
+      action: "user.ban",
+      category: "users",
+      summary: `Banned ${user.firstName} ${user.lastName} (${user.email})`,
+      entityTable: "users",
+      entityId: userId,
+    });
     return { success: true };
   },
 });
@@ -1051,8 +1127,9 @@ export const banUser = mutation({
 export const unbanUser = mutation({
   args: {
     userId: v.id("users"),
+    actorId: v.optional(v.id("users")),
   },
-  handler: async (ctx, { userId }) => {
+  handler: async (ctx, { userId, actorId }) => {
     const user = await ctx.db.get(userId);
     if (!user) throw new Error("User not found");
 
@@ -1060,6 +1137,15 @@ export const unbanUser = mutation({
       isBanned: false,
       isActive: true,
       updatedAt: Date.now(),
+    });
+
+    await recordAudit(ctx, {
+      actorId,
+      action: "user.unban",
+      category: "users",
+      summary: `Unbanned ${user.firstName} ${user.lastName} (${user.email})`,
+      entityTable: "users",
+      entityId: userId,
     });
     return { success: true };
   },
@@ -1485,8 +1571,9 @@ export const resetStoreData = mutation({
   args: {
     confirm: v.string(),
     max: v.optional(v.number()),
+    userId: v.optional(v.id("users")),
   },
-  handler: async (ctx, { confirm, max = 4000 }) => {
+  handler: async (ctx, { confirm, max = 4000, userId }) => {
     if (confirm !== "RESET") {
       throw new Error('Refusing to reset: call with confirm:"RESET" to proceed.');
     }
@@ -1537,6 +1624,17 @@ export const resetStoreData = mutation({
     const remainingNeedingReset = allProducts.some(
       (p) => p.stock !== 0 || p.movingAverageCost !== undefined
     );
+
+    if (!remainingNeedingReset) {
+      const totalDeleted = Object.values(deleted).reduce((s, n) => s + n, 0);
+      await recordAudit(ctx, {
+        actorId: userId,
+        action: "system.reset_store_data",
+        category: "system",
+        summary: `Reset store data — wiped ${totalDeleted} record${totalDeleted === 1 ? "" : "s"} (sales, inventory, financials, notifications); reset product stock`,
+        metadata: { deleted },
+      });
+    }
 
     return { done: !remainingNeedingReset, ops, deleted, productsReset };
   },

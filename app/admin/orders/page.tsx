@@ -31,6 +31,7 @@ import SafeAreaProvider from '@/components/provider/SafeAreaProvider';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { Id } from '@/convex/_generated/dataModel';
+import { useAuthStore } from '@/store/auth';
 import { SMSConfirmationModal } from '@/components/modal/SMSConfirmationModal';
 import { getSMSMessageForStatus } from '@/lib/sms';
 import OrderReceipt from '@/components/admin/OrderReceipt';
@@ -265,6 +266,7 @@ function DesktopDropdown({
 function AdminOrdersContent() {
   const router = useRouter();
   const { width } = useWindowSize();
+  const { user: actingUser } = useAuthStore();
   const isMobile = width < 640;
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
@@ -480,7 +482,7 @@ function AdminOrdersContent() {
   const handlePaymentUpdate = async (item: CombinedItem, paymentStatus: 'unpaid' | 'partial' | 'paid' | 'refunded', amountPaid?: number) => {
     try {
       if (item.type === 'order') {
-        await updateOrderPayment({ orderId: item._id as Id<'orders'>, paymentStatus, amountPaid });
+        await updateOrderPayment({ orderId: item._id as Id<'orders'>, paymentStatus, amountPaid, userId: actingUser?._id as Id<'users'> | undefined });
       } else {
         await updateReservationPayment({ reservationId: item._id as Id<'reservations'>, paymentStatus, amountPaid });
       }

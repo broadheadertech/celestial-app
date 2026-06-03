@@ -29,6 +29,7 @@ import { useRouter } from 'next/navigation';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { Id } from '@/convex/_generated/dataModel';
+import { useAuthStore } from '@/store/auth';
 import Card from '@/components/ui/Card';
 import BottomNavbar from '@/components/common/BottomNavbar';
 import SafeAreaProvider from '@/components/provider/SafeAreaProvider';
@@ -92,6 +93,7 @@ function InventoryContent() {
   const adjustStock = useMutation(api.services.stock.adjustStock);
   const deleteProductMutation = useMutation(api.services.admin.deleteProduct);
   const cleanupOrphans = useMutation(api.services.admin.cleanupOrphanedRecords);
+  const { user: actingUser } = useAuthStore();
 
   // Orphan detection — stockRecords whose product lookup failed during enrichment
   // (productName comes back undefined when ctx.db.get(productId) returns null).
@@ -278,6 +280,7 @@ function InventoryContent() {
         notes: restockNotes || undefined,
         qualityGrade: restockQuality,
         actualCostPrice,
+        userId: actingUser?._id as Id<'users'> | undefined,
       });
 
       setShowAddBatch(false);
@@ -305,6 +308,7 @@ function InventoryContent() {
     try {
       const result = await deleteProductMutation({
         id: deleteCandidate.productId as Id<"products">,
+        userId: actingUser?._id as Id<'users'> | undefined,
       });
       setDeleteCandidate(null);
       showSuccess(result?.message || 'Product deleted');
@@ -328,6 +332,7 @@ function InventoryContent() {
         stockRecordId: adjustRecordId as Id<"stockRecords">,
         quantityChange,
         reason: adjustReason,
+        userId: actingUser?._id as Id<'users'> | undefined,
       });
 
       setShowAdjustModal(false);

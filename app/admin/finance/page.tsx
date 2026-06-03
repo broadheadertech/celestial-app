@@ -32,7 +32,7 @@ import SafeAreaProvider from '@/components/provider/SafeAreaProvider';
 import { useAuthStore } from '@/store/auth';
 
 const fmt = (amount: number) =>
-  `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  `â‚±${amount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 const fmtDate = (ts: number) =>
   new Date(ts).toLocaleDateString('en-PH', {
@@ -43,7 +43,7 @@ const fmtDate = (ts: number) =>
 
 // Local YYYY-MM-DD (en-CA gives ISO-like format in the viewer's timezone, no UTC drift).
 const localDateStr = (d: Date) => d.toLocaleDateString('en-CA');
-// Month-to-date range: 1st of the current month → today. Used as the default date filter.
+// Month-to-date range: 1st of the current month â†’ today. Used as the default date filter.
 const monthToDate = () => {
   const now = new Date();
   return {
@@ -52,21 +52,21 @@ const monthToDate = () => {
   };
 };
 
-type ExpenseCategory = 'travel' | 'food' | 'supplies' | 'utilities' | 'rent' | 'salary' | 'maintenance' | 'marketing' | 'investor_remit' | 'mortality' | 'other';
+type ExpenseCategory = 'travel' | 'food' | 'supplies' | 'utilities' | 'rent' | 'salary' | 'maintenance' | 'marketing' | 'commissions' | 'mortality' | 'other';
 type PaymentMethod = 'cash' | 'gcash' | 'bank_transfer' | 'card';
 
 const categoryIcons: Record<string, string> = {
-  travel: '✈️',
-  food: '🍽️',
-  supplies: '📦',
-  utilities: '⚡',
-  rent: '🏠',
-  salary: '👥',
-  maintenance: '🔧',
-  marketing: '📣',
-  investor_remit: '💼',
-  mortality: '💀',
-  other: '📝',
+  travel: 'âœˆï¸',
+  food: 'ðŸ½ï¸',
+  supplies: 'ðŸ“¦',
+  utilities: 'âš¡',
+  rent: 'ðŸ ',
+  salary: 'ðŸ‘¥',
+  maintenance: 'ðŸ”§',
+  marketing: 'ðŸ“£',
+  commissions: '💸',
+  mortality: 'ðŸ’€',
+  other: 'ðŸ“',
 };
 
 const categoryLabels: Record<string, string> = {
@@ -78,7 +78,7 @@ const categoryLabels: Record<string, string> = {
   salary: 'salary',
   maintenance: 'maintenance',
   marketing: 'marketing',
-  investor_remit: 'investor remit',
+  commissions: 'commissions',
   mortality: 'mortality',
   other: 'other',
 };
@@ -95,8 +95,8 @@ function FinanceContent() {
   const router = useRouter();
   const { user } = useAuthStore();
 
-  // Top-level view: P&L overview · per-day General Report · per-day Cash Flow (investor/remittance).
-  const [activeTab, setActiveTab] = useState<'pnl' | 'daily' | 'cashflow'>('pnl');
+  // Top-level view: P&L overview Â· per-day General Report Â· per-day Cash Flow (investor/remittance).
+  const [activeTab, setActiveTab] = useState<'pnl' | 'daily' | 'cashflow' | 'stockflow'>('pnl');
 
   // Date range filter (YYYY-MM-DD strings; converted to timestamps below).
   // Defaults to month-to-date; Clear resets to all-time.
@@ -143,7 +143,7 @@ function FinanceContent() {
   const [showExpenseForm, setShowExpenseForm] = useState(false);
   const [expenseFilter, setExpenseFilter] = useState<'all' | 'restocking' | 'operational'>('all');
 
-  // Date range presets — set both ends in local time.
+  // Date range presets â€” set both ends in local time.
   const applyPreset = (preset: 'today' | 'last7' | 'last30' | 'month') => {
     const today = new Date();
     const fmt = (d: Date) => d.toISOString().slice(0, 10);
@@ -187,7 +187,7 @@ function FinanceContent() {
         : `${new Date(dateFrom + 'T12:00:00').toLocaleDateString('en-PH', {
             month: 'short',
             day: 'numeric',
-          })} → ${new Date(dateTo + 'T12:00:00').toLocaleDateString('en-PH', {
+          })} â†’ ${new Date(dateTo + 'T12:00:00').toLocaleDateString('en-PH', {
             month: 'short',
             day: 'numeric',
             year: 'numeric',
@@ -203,6 +203,10 @@ function FinanceContent() {
   const [formDescription, setFormDescription] = useState('');
   const [formPaymentMethod, setFormPaymentMethod] = useState<PaymentMethod>('cash');
   const [formNotes, setFormNotes] = useState('');
+  // Expense kind: a normal operating expense, or a "Restock" (inventory) declaration.
+  const [formType, setFormType] = useState<'operational' | 'restocking'>('operational');
+  // Funding source — only used for restock declarations (Till vs Investment).
+  const [formFundingSource, setFormFundingSource] = useState<'coh' | 'investment' | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
@@ -212,23 +216,32 @@ function FinanceContent() {
     const amount = parseFloat(formAmount);
     if (isNaN(amount) || amount <= 0) return;
 
+    // A restock declaration must say where the money came from.
+    if (formType === 'restocking' && !formFundingSource) {
+      alert('Choose where the restock money came from: Till (COH) or Investment.');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       await createExpense({
-        type: 'operational',
-        category: formCategory,
+        type: formType,
+        category: formType === 'operational' ? formCategory : undefined,
         amount,
         description: formDescription,
         paymentMethod: formPaymentMethod,
         notes: formNotes || undefined,
+        fundingSource: formType === 'restocking' ? (formFundingSource ?? undefined) : undefined,
         userId: user?._id as Id<"users"> | undefined,
       });
       setShowExpenseForm(false);
+      setFormType('operational');
       setFormCategory('supplies');
       setFormAmount('');
       setFormDescription('');
       setFormPaymentMethod('cash');
       setFormNotes('');
+      setFormFundingSource(null);
     } catch (error) {
       alert(error instanceof Error ? error.message : 'Failed to add expense');
     } finally {
@@ -270,7 +283,7 @@ function FinanceContent() {
 
   const handleDeleteAdjustment = async (id: string) => {
     try {
-      await deleteCashAdjustment({ id: id as Id<'cashAdjustments'> });
+      await deleteCashAdjustment({ id: id as Id<'cashAdjustments'>, userId: user?._id as Id<'users'> | undefined });
       setAdjConfirmDelete(null);
     } catch (e) {
       alert(e instanceof Error ? e.message : 'Failed to delete');
@@ -279,7 +292,7 @@ function FinanceContent() {
 
   const handleDeleteExpense = async (id: string) => {
     try {
-      await deleteExpense({ id: id as Id<"expenses"> });
+      await deleteExpense({ id: id as Id<"expenses">, userId: user?._id as Id<'users'> | undefined });
       setConfirmDelete(null);
     } catch (error) {
       alert(error instanceof Error ? error.message : 'Failed to delete');
@@ -307,7 +320,7 @@ function FinanceContent() {
               </button>
               <div className="min-w-0 flex-1">
                 <h1 className="text-lg sm:text-2xl font-bold text-white truncate">Finance</h1>
-                <p className="text-xs text-white/50 hidden sm:block">P&amp;L, cash flow &amp; expenses · <span style={{ color: isFiltered ? 'var(--red-hi)' : 'var(--ink-3)' }}>{filterLabel}</span></p>
+                <p className="text-xs text-white/50 hidden sm:block">P&amp;L, cash flow &amp; expenses Â· <span style={{ color: isFiltered ? 'var(--red-hi)' : 'var(--ink-3)' }}>{filterLabel}</span></p>
               </div>
             </div>
             <button
@@ -341,6 +354,7 @@ function FinanceContent() {
             { id: 'pnl', label: 'P&L Overview' },
             { id: 'daily', label: 'General Report' },
             { id: 'cashflow', label: 'Cash Flow' },
+            { id: 'stockflow', label: 'Stock Flow' },
           ] as const).map((t) => (
             <button
               key={t.id}
@@ -374,7 +388,7 @@ function FinanceContent() {
               className="px-3 py-2 rounded-md border text-xs sm:text-sm outline-none [color-scheme:dark] dc-mono"
               style={{ background: 'var(--bg-2)', borderColor: 'var(--line)', color: 'var(--ink)' }}
             />
-            <span className="text-xs" style={{ color: 'var(--ink-4)' }}>→</span>
+            <span className="text-xs" style={{ color: 'var(--ink-4)' }}>â†’</span>
             <input
               type="date"
               value={dateTo}
@@ -437,15 +451,15 @@ function FinanceContent() {
       ) : summary && (
         <div className="px-4 sm:px-6 py-4 sm:py-6 max-w-7xl mx-auto space-y-6">
 
-          {/* KPI strip — six headline cards */}
+          {/* KPI strip â€” six headline cards */}
           {(() => {
             const investment = summary.cashInjections ?? 0;
-            const remittance = summary.operationalByCategory?.investor_remit ?? 0;
+            const remittance = summary.cashWithdrawals ?? 0;
             const irNet = investment - remittance;
             const irBalanced = investment === 0 && remittance === 0;
             return (
               <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                {/* 1 · Cash on Hand — accent is jade if positive, red if negative (mirrors Net Profit) */}
+                {/* 1 Â· Cash on Hand â€” accent is jade if positive, red if negative (mirrors Net Profit) */}
                 {(() => {
                   const isPositive = summary.cashOnHand >= 0;
                   const accent = isPositive ? 'var(--jade)' : 'var(--red-hi)';
@@ -465,7 +479,7 @@ function FinanceContent() {
                         className="text-[10px] font-semibold uppercase tracking-wider"
                         style={{ color: `color-mix(in oklch, ${accent} 90%, transparent)` }}
                       >
-                        {isFiltered ? 'Cash flow · this period' : 'Cash on Hand'}
+                        {isFiltered ? 'Cash flow Â· this period' : 'Cash on Hand'}
                       </p>
                     </div>
                     <span
@@ -498,19 +512,19 @@ function FinanceContent() {
                       +{fmt(summary.cashRevenue)}
                     </span>
                     <span style={{ color: 'var(--red-hi)' }}>
-                      −{fmt(summary.cashExpenses)}
+                      âˆ’{fmt(summary.cashExpenses)}
                     </span>
-                    {/* Investor deposits (injections) are capital — audited in the Cash Flow tab,
-                        not added to the operating till — so they're intentionally not shown here. */}
+                    {/* Investor deposits (injections) are capital â€” audited in the Cash Flow tab,
+                        not added to the operating till â€” so they're intentionally not shown here. */}
                     {(summary.cashWithdrawals ?? 0) > 0 && (
-                      <span style={{ color: 'var(--red-hi)' }}>−{fmt(summary.cashWithdrawals ?? 0)}</span>
+                      <span style={{ color: 'var(--red-hi)' }}>âˆ’{fmt(summary.cashWithdrawals ?? 0)}</span>
                     )}
                   </div>
                 </div>
                   );
                 })()}
 
-                {/* 2 · Gross Profit */}
+                {/* 2 Â· Gross Profit */}
                 <div
                   className="rounded-2xl border p-5 flex flex-col min-h-[182px]"
                   style={{
@@ -546,11 +560,11 @@ function FinanceContent() {
                     {fmt(summary.grossProfit)}
                   </p>
                   <p className="text-[11px] mt-auto pt-2" style={{ color: 'var(--ink-3)' }}>
-                    Revenue {fmt(summary.totalRevenue)} − COGS {fmt(summary.cogs)}
+                    Revenue {fmt(summary.totalRevenue)} âˆ’ COGS {fmt(summary.cogs)}
                   </p>
                 </div>
 
-                {/* 3 · Net Profit — color tracks sign (jade if profit, red if loss) */}
+                {/* 3 Â· Net Profit â€” color tracks sign (jade if profit, red if loss) */}
                 {(() => {
                   const isProfit = summary.netProfit >= 0;
                   const accent = isProfit ? 'var(--jade)' : 'var(--red-hi)';
@@ -574,7 +588,7 @@ function FinanceContent() {
                         className="text-[10px] font-semibold uppercase tracking-wider"
                         style={{ color: `color-mix(in oklch, ${accent} 90%, transparent)` }}
                       >
-                        {isFiltered ? 'Net profit · this period' : 'Net Profit'}
+                        {isFiltered ? 'Net profit Â· this period' : 'Net Profit'}
                       </p>
                     </div>
                     <span
@@ -597,17 +611,17 @@ function FinanceContent() {
                     <p className="text-[11px] mt-1.5" style={{ color: 'var(--ink-3)' }}>
                       <span style={{ color: 'var(--ink-4)' }}>Right now: </span>
                       <span className="font-semibold dc-mono">{fmt(summaryAllTime.netProfit)}</span>
-                      <span style={{ color: 'var(--ink-4)' }}> · {summaryAllTime.netMargin}%</span>
+                      <span style={{ color: 'var(--ink-4)' }}> Â· {summaryAllTime.netMargin}%</span>
                     </p>
                   )}
                   <p className="text-[11px] mt-auto pt-2" style={{ color: 'var(--ink-3)' }}>
-                    Gross {fmt(summary.grossProfit)} − OpEx {fmt(summary.totalOperationalExpense)}
+                    Gross {fmt(summary.grossProfit)} âˆ’ OpEx {fmt(summary.totalOperationalExpense)}
                   </p>
                 </div>
                   );
                 })()}
 
-                {/* 4 · Restock Expense */}
+                {/* 4 Â· Restock Expense */}
                 <div
                   className="rounded-2xl border p-5 flex flex-col min-h-[182px]"
                   style={{
@@ -633,21 +647,24 @@ function FinanceContent() {
                         color: 'var(--gold-deep)',
                       }}
                     >
-                      {summary.restockingCount}
+                      {summary.restockingCount ?? 0}
                     </span>
                   </div>
                   <p
                     className="text-[28px] font-bold dc-mono leading-tight"
                     style={{ color: 'var(--gold-deep)' }}
                   >
-                    {fmt(summary.totalRestockingExpense)}
+                    {fmt(summary.totalRestockingExpense ?? 0)}
                   </p>
-                  <p className="text-[11px] mt-auto pt-2" style={{ color: 'var(--ink-3)' }}>
-                    Paid for incoming batches{isFiltered ? ' · this period' : ' (lifetime)'}
+                  <p className="text-[11px] mt-auto pt-2 dc-mono" style={{ color: 'var(--ink-3)' }}>
+                    Till {fmt(summary.restockFromCOH ?? 0)} Â· Investment {fmt(summary.restockFromInvestment ?? 0)}
+                  </p>
+                  <p className="text-[10px]" style={{ color: 'var(--ink-4)' }}>
+                    Till reduces COH Â· Investment is declaration-only Â· neither hits Net Profit
                   </p>
                 </div>
 
-                {/* 5 · Operational Expense */}
+                {/* 5 Â· Operational Expense */}
                 <div
                   className="rounded-2xl border p-5 flex flex-col min-h-[182px]"
                   style={{
@@ -687,7 +704,7 @@ function FinanceContent() {
                   </p>
                 </div>
 
-                {/* 6 · Investment vs Remittance */}
+                {/* 6 Â· Investment vs Remittance */}
                 <div
                   className="rounded-2xl border p-5 flex flex-col min-h-[182px]"
                   style={{
@@ -717,7 +734,7 @@ function FinanceContent() {
                           color: irNet >= 0 ? 'var(--jade)' : 'var(--red-hi)',
                         }}
                       >
-                        Net {irNet >= 0 ? '+' : '−'}
+                        Net {irNet >= 0 ? '+' : 'âˆ’'}
                         {fmt(Math.abs(irNet))}
                       </span>
                     )}
@@ -751,7 +768,7 @@ function FinanceContent() {
                         className="text-[20px] font-bold dc-mono leading-tight"
                         style={{ color: 'var(--red-hi)' }}
                       >
-                        −{fmt(remittance)}
+                        âˆ’{fmt(remittance)}
                       </p>
                       <p className="text-[10px] mt-0.5" style={{ color: 'var(--ink-4)' }}>
                         Investor remit category
@@ -808,14 +825,14 @@ function FinanceContent() {
                         <div className="text-[13px] font-semibold truncate">{a.reason}</div>
                         <div className="placard mt-0.5">
                           {a.type}
-                          {a.notes ? ` · ${a.notes}` : ''}
+                          {a.notes ? ` Â· ${a.notes}` : ''}
                         </div>
                       </div>
                       <span
                         className="text-[13px] font-mono-tabular font-bold text-right whitespace-nowrap"
                         style={{ color: positive ? 'var(--jade)' : 'var(--red-hi)' }}
                       >
-                        {positive ? '+' : '−'}
+                        {positive ? '+' : 'âˆ’'}
                         {fmt(Math.abs(a.amount))}
                       </span>
                       <button
@@ -835,7 +852,7 @@ function FinanceContent() {
                 style={{ borderColor: 'var(--line-soft)' }}
               >
                 <span style={{ color: 'var(--ink-3)' }}>
-                  Net adjustments {isFiltered ? '· this period' : ''}
+                  Net adjustments {isFiltered ? 'Â· this period' : ''}
                 </span>
                 <span
                   className="font-mono-tabular font-bold"
@@ -844,7 +861,7 @@ function FinanceContent() {
                       (summary.cashAdjustmentsTotal ?? 0) >= 0 ? 'var(--jade)' : 'var(--red-hi)',
                   }}
                 >
-                  {(summary.cashAdjustmentsTotal ?? 0) >= 0 ? '+' : '−'}
+                  {(summary.cashAdjustmentsTotal ?? 0) >= 0 ? '+' : 'âˆ’'}
                   {fmt(Math.abs(summary.cashAdjustmentsTotal ?? 0))}
                 </span>
               </div>
@@ -881,25 +898,25 @@ function FinanceContent() {
                     Cost of Goods Sold
                     <span className="ml-1.5 text-[10px] uppercase tracking-wider text-white/40 border border-white/15 rounded px-1 py-0.5">FIFO</span>
                   </span>
-                  <span className="text-error font-semibold">−{fmt(summary.cogs)}</span>
+                  <span className="text-error font-semibold">âˆ’{fmt(summary.cogs)}</span>
                 </div>
 
                 {(summary.totalDiscountsGiven || 0) > 0 && (
                   <>
                     <div className="flex justify-between items-baseline text-sm pt-1">
                       <span className="text-white/70">Discounts Given</span>
-                      <span className="text-warning font-medium">−{fmt(summary.totalDiscountsGiven)}</span>
+                      <span className="text-warning font-medium">âˆ’{fmt(summary.totalDiscountsGiven)}</span>
                     </div>
                     {(summary.totalLineDiscounts || 0) > 0 && (
                       <div className="flex justify-between items-baseline text-xs">
                         <span className="text-white/50 pl-3">Line-item</span>
-                        <span className="text-white/70">−{fmt(summary.totalLineDiscounts)}</span>
+                        <span className="text-white/70">âˆ’{fmt(summary.totalLineDiscounts)}</span>
                       </div>
                     )}
                     {(summary.totalOrderDiscounts || 0) > 0 && (
                       <div className="flex justify-between items-baseline text-xs">
                         <span className="text-white/50 pl-3">Order-level</span>
-                        <span className="text-white/70">−{fmt(summary.totalOrderDiscounts)}</span>
+                        <span className="text-white/70">âˆ’{fmt(summary.totalOrderDiscounts)}</span>
                       </div>
                     )}
                     <p className="text-[10px] text-white/30 pl-3">(already reflected in Revenue)</p>
@@ -916,7 +933,7 @@ function FinanceContent() {
 
                 <div className="flex justify-between items-baseline text-sm">
                   <span className="text-white/70">Operational Expenses</span>
-                  <span className="text-error font-semibold">−{fmt(summary.totalOperationalExpense)}</span>
+                  <span className="text-error font-semibold">âˆ’{fmt(summary.totalOperationalExpense)}</span>
                 </div>
 
                 <div className="flex justify-between items-baseline py-2 border-t-2 border-white/20 mt-2">
@@ -990,7 +1007,7 @@ function FinanceContent() {
                   <div className="flex items-baseline gap-2 mb-1">
                     <h3 className="text-sm font-semibold text-warning">Outstanding Payments</h3>
                     <span className="text-[10px] text-warning/70">
-                      {summary.unpaidCount} unpaid · {summary.partialCount} partial
+                      {summary.unpaidCount} unpaid Â· {summary.partialCount} partial
                     </span>
                   </div>
                   <p className="text-2xl font-bold text-warning">{fmt(summary.totalOutstanding)}</p>
@@ -1040,7 +1057,7 @@ function FinanceContent() {
                 {Object.entries(summary.operationalByCategory).map(([cat, amount]) => (
                   <div key={cat} className="bg-background/40 rounded-lg p-3 border border-white/5">
                     <div className="flex items-center gap-1.5 text-[10px] text-white/50 uppercase tracking-wider mb-1">
-                      <span>{categoryIcons[cat] || '📝'}</span>
+                      <span>{categoryIcons[cat] || 'ðŸ“'}</span>
                       <span>{categoryLabels[cat] || cat}</span>
                     </div>
                     <p className="text-sm font-bold text-white">{fmt(amount)}</p>
@@ -1110,7 +1127,7 @@ function FinanceContent() {
                                 ? 'bg-info/10 text-info border-info/30'
                                 : 'bg-warning/10 text-warning border-warning/30'
                             }`}>
-                              {e.type === 'restocking' ? '📦 Restock' : `${categoryIcons[e.category || 'other']} ${categoryLabels[e.category || 'other'] || e.category || 'other'}`}
+                              {e.type === 'restocking' ? 'ðŸ“¦ Restock' : `${categoryIcons[e.category || 'other']} ${categoryLabels[e.category || 'other'] || e.category || 'other'}`}
                             </span>
                           </td>
                           <td className="px-4 py-3 text-white max-w-xs truncate">{e.description}</td>
@@ -1147,7 +1164,7 @@ function FinanceContent() {
                             <span className={`px-1.5 py-0.5 rounded text-[9px] font-medium ${
                               e.type === 'restocking' ? 'bg-info/10 text-info' : 'bg-warning/10 text-warning'
                             }`}>
-                              {e.type === 'restocking' ? '📦 Restock' : `${categoryIcons[e.category || 'other']} ${categoryLabels[e.category || 'other'] || e.category || 'other'}`}
+                              {e.type === 'restocking' ? 'ðŸ“¦ Restock' : `${categoryIcons[e.category || 'other']} ${categoryLabels[e.category || 'other'] || e.category || 'other'}`}
                             </span>
                             <span className="text-[10px] text-white/40">{fmtDate(e.date)}</span>
                           </div>
@@ -1184,6 +1201,10 @@ function FinanceContent() {
 
       {activeTab === 'cashflow' && (
         <CashFlowTab startDate={validStart} endDate={validEnd} />
+      )}
+
+      {activeTab === 'stockflow' && (
+        <StockFlowTab startDate={validStart} endDate={validEnd} />
       )}
 
       <BottomNavbar />
@@ -1225,7 +1246,7 @@ function FinanceContent() {
                     {([
                       { v: 'deposit' as const, label: 'Deposit', sub: 'Owner / float' },
                       { v: 'remit' as const, label: 'Remit', sub: 'Investor / draw' },
-                      { v: 'correction' as const, label: 'Adjust', sub: 'Reconcile · pw' },
+                      { v: 'correction' as const, label: 'Adjust', sub: 'Reconcile Â· pw' },
                     ]).map((opt) => {
                       const active = adjType === opt.v;
                       return (
@@ -1260,7 +1281,7 @@ function FinanceContent() {
                         color: 'var(--gold-deep)',
                       }}
                     >
-                      <span>⚠</span>
+                      <span>âš </span>
                       <span>
                         Adjustments edit COH outside normal sales/expense flow. Requires your
                         password + at least 10 characters of reason. Use a negative amount if the
@@ -1271,13 +1292,13 @@ function FinanceContent() {
                 </div>
 
                 <div>
-                  <p className="text-xs text-white/60 mb-1.5">Amount (₱)</p>
+                  <p className="text-xs text-white/60 mb-1.5">Amount (â‚±)</p>
                   <input
                     type="number"
                     step="0.01"
                     value={adjAmount}
                     onChange={(e) => setAdjAmount(e.target.value)}
-                    placeholder={adjType === 'correction' ? '+ or − number' : '0.00'}
+                    placeholder={adjType === 'correction' ? '+ or âˆ’ number' : '0.00'}
                     className="w-full px-3 py-2.5 rounded-lg border text-sm outline-none"
                     style={{
                       background: 'var(--bg-2)',
@@ -1302,10 +1323,10 @@ function FinanceContent() {
                     onChange={(e) => setAdjReason(e.target.value)}
                     placeholder={
                       adjType === 'deposit'
-                        ? 'e.g. Owner capital injection · Float top-up'
+                        ? 'e.g. Owner capital injection Â· Float top-up'
                         : adjType === 'remit'
-                        ? 'e.g. Investor remittance · Owner draw'
-                        : 'e.g. Cash count over by ₱200 after morning recount'
+                        ? 'e.g. Investor remittance Â· Owner draw'
+                        : 'e.g. Cash count over by â‚±200 after morning recount'
                     }
                     className="w-full px-3 py-2.5 rounded-lg border text-sm outline-none"
                     style={{
@@ -1328,7 +1349,7 @@ function FinanceContent() {
                       type="password"
                       value={adjPassword}
                       onChange={(e) => setAdjPassword(e.target.value)}
-                      placeholder="••••••••"
+                      placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
                       autoComplete="current-password"
                       className="w-full px-3 py-2.5 rounded-lg border text-sm outline-none"
                       style={{
@@ -1392,7 +1413,7 @@ function FinanceContent() {
                       color: 'oklch(0.99 0 0)',
                     }}
                   >
-                    {isAdjusting ? 'Recording…' : 'Record adjustment'}
+                    {isAdjusting ? 'Recordingâ€¦' : 'Record adjustment'}
                   </button>
                 </div>
               </div>
@@ -1414,7 +1435,7 @@ function FinanceContent() {
           >
             <h3 className="text-lg font-bold text-white mb-2">Remove adjustment?</h3>
             <p className="text-sm text-white/70 mb-5">
-              This deletes the row entirely — COH will recompute without it. No history is kept.
+              This deletes the row entirely â€” COH will recompute without it. No history is kept.
             </p>
             <div className="flex gap-3">
               <button
@@ -1445,14 +1466,36 @@ function FinanceContent() {
               <div className="flex justify-center pt-2 pb-3 sm:hidden">
                 <div className="w-12 h-1.5 bg-white/20 rounded-full" />
               </div>
-              <h3 className="text-lg font-bold text-white mb-1">Add Operational Expense</h3>
-              <p className="text-xs text-white/50 mb-5">Track travel, food, supplies, utilities, etc.</p>
+              <h3 className="text-lg font-bold text-white mb-1">{formType === 'restocking' ? 'Add Restock' : 'Add Operational Expense'}</h3>
+              <p className="text-xs text-white/50 mb-5">{formType === 'restocking' ? 'Declare inventory buying and where the money came from.' : 'Track travel, food, supplies, utilities, etc.'}</p>
 
               <div className="space-y-3">
+                {/* Kind: operating expense vs restock declaration */}
+                <div>
+                  <label className="block text-xs text-white/60 mb-1.5">Kind</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {([
+                      { id: 'operational', label: 'Operational' },
+                      { id: 'restocking', label: 'Restock / Reroll' },
+                    ] as const).map((k) => (
+                      <button
+                        key={k.id}
+                        onClick={() => setFormType(k.id)}
+                        className={`px-3 py-2 rounded-lg text-xs font-semibold border transition-all ${
+                          formType === k.id ? 'bg-primary border-primary text-white' : 'bg-background/60 border-white/10 text-white/70'
+                        }`}
+                      >
+                        {k.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {formType === 'operational' && (
                 <div>
                   <label className="block text-xs text-white/60 mb-1.5">Category</label>
                   <div className="grid grid-cols-3 gap-2">
-                    {(['travel', 'food', 'supplies', 'utilities', 'rent', 'salary', 'maintenance', 'marketing', 'investor_remit', 'other'] as ExpenseCategory[]).map((cat) => (
+                    {(['travel', 'food', 'supplies', 'utilities', 'rent', 'salary', 'maintenance', 'marketing', 'commissions', 'other'] as ExpenseCategory[]).map((cat) => (
                       <button
                         key={cat}
                         onClick={() => setFormCategory(cat)}
@@ -1467,9 +1510,41 @@ function FinanceContent() {
                     ))}
                   </div>
                 </div>
+                )}
+
+                {/* Funding source — only for a Restock declaration */}
+                {formType === 'restocking' && (
+                  <div>
+                    <label className="block text-xs text-white/60 mb-1.5">
+                      Funded from <span className="text-error">*</span>
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {([
+                        { id: 'coh', label: 'Till (COH)', hint: 'deducts cash on hand' },
+                        { id: 'investment', label: 'Investment', hint: 'declaration only' },
+                      ] as const).map((s) => (
+                        <button
+                          key={s.id}
+                          onClick={() => setFormFundingSource(s.id)}
+                          className={`px-3 py-2 rounded-lg text-xs font-medium border transition-all flex flex-col items-center ${
+                            formFundingSource === s.id
+                              ? 'bg-primary border-primary text-white'
+                              : 'bg-background/60 border-white/10 text-white/70'
+                          }`}
+                        >
+                          <span>{s.label}</span>
+                          <span className="text-[10px] opacity-70">{s.hint}</span>
+                        </button>
+                      ))}
+                    </div>
+                    <p className="text-[11px] text-white/40 mt-1">
+                      Either way this won&apos;t reduce Net Profit (the cost hits profit via COGS when sold).
+                    </p>
+                  </div>
+                )}
 
                 <div>
-                  <label className="block text-xs text-white/60 mb-1.5">Amount (₱)</label>
+                  <label className="block text-xs text-white/60 mb-1.5">Amount (â‚±)</label>
                   <input
                     type="number"
                     value={formAmount}
@@ -1567,7 +1642,7 @@ function FinanceContent() {
   );
 }
 
-/* ───────────────────────── GENERAL (DAILY) REPORT TAB ───────────────────────── */
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ GENERAL (DAILY) REPORT TAB â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 const dayLabel = (key: string) =>
   new Date(key + 'T12:00:00').toLocaleDateString('en-PH', {
@@ -1678,7 +1753,7 @@ function DailyReportTab({ startDate, endDate }: { startDate?: number; endDate?: 
                           <td className="px-3 py-3 text-right text-error tabular-nums whitespace-nowrap">{fmt(r.totalExpense)}</td>
                           <td className={`px-3 py-3 text-right font-bold tabular-nums whitespace-nowrap ${r.netDaily >= 0 ? 'text-success' : 'text-error'}`}>{fmt(r.netDaily)}</td>
                           <td className="px-5 py-3 text-right text-white/50 text-xs tabular-nums whitespace-nowrap">
-                            {r.transactions} {r.transactions === 1 ? 'sale' : 'sales'} · {r.itemsSold} items
+                            {r.transactions} {r.transactions === 1 ? 'sale' : 'sales'} Â· {r.itemsSold} items
                           </td>
                           <td className="pr-3 text-right"><ChevronRight className="w-4 h-4 text-white/30 inline" /></td>
                         </tr>
@@ -1714,13 +1789,13 @@ function DailyReportTab({ startDate, endDate }: { startDate?: number; endDate?: 
                         <p className={`text-sm font-bold tabular-nums ${r.netDaily >= 0 ? 'text-success' : 'text-error'}`}>{fmt(r.netDaily)}</p>
                       </div>
                     </div>
-                    <p className="text-[11px] text-white/40 mt-2">{r.transactions} {r.transactions === 1 ? 'sale' : 'sales'} · {r.itemsSold} items sold</p>
+                    <p className="text-[11px] text-white/40 mt-2">{r.transactions} {r.transactions === 1 ? 'sale' : 'sales'} Â· {r.itemsSold} items sold</p>
                   </button>
                 ))}
               </div>
 
               <p className="text-[11px] text-white/40 text-center pt-1">
-                {report.rows.length} {report.rows.length === 1 ? 'day' : 'days'} · tap a date to see the items sold ·
+                {report.rows.length} {report.rows.length === 1 ? 'day' : 'days'} Â· tap a date to see the items sold Â·
                 sales = amount collected, expense = all expenses dated that day
               </p>
             </>
@@ -1801,7 +1876,7 @@ function DailyDetailModal({ day, onClose }: { day: OpenDay; onClose: () => void 
                 <div className="flex items-center gap-2 mb-2">
                   <Package className="w-4 h-4 text-primary" />
                   <h4 className="text-sm font-semibold text-white">Items Sold</h4>
-                  <span className="text-xs text-white/40">· {detail.totals.unitsSold} units · profit {fmt(detail.totals.grossProfit)}</span>
+                  <span className="text-xs text-white/40">Â· {detail.totals.unitsSold} units Â· profit {fmt(detail.totals.grossProfit)}</span>
                 </div>
                 {detail.items.length === 0 ? (
                   <p className="text-xs text-white/50 py-3 text-center">No items sold this day.</p>
@@ -1819,7 +1894,7 @@ function DailyDetailModal({ day, onClose }: { day: OpenDay; onClose: () => void 
                         </div>
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-medium text-white truncate">{it.name}</p>
-                          <p className="text-[11px] text-white/40 truncate">{it.category} · {it.unitsSold} sold</p>
+                          <p className="text-[11px] text-white/40 truncate">{it.category} Â· {it.unitsSold} sold</p>
                         </div>
                         <div className="text-right flex-shrink-0">
                           <p className="text-sm font-semibold text-white tabular-nums">{fmt(it.revenue)}</p>
@@ -1843,10 +1918,10 @@ function DailyDetailModal({ day, onClose }: { day: OpenDay; onClose: () => void 
                   <div className="rounded-xl border border-white/10 overflow-hidden divide-y divide-white/5">
                     {detail.expenses.map((e) => (
                       <div key={e.id} className="flex items-center gap-3 p-2.5 bg-secondary/30">
-                        <span className="text-lg flex-shrink-0">{e.category ? (categoryIcons[e.category] || '📝') : (e.type === 'restocking' ? '📦' : '📝')}</span>
+                        <span className="text-lg flex-shrink-0">{e.category ? (categoryIcons[e.category] || 'ðŸ“') : (e.type === 'restocking' ? 'ðŸ“¦' : 'ðŸ“')}</span>
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-medium text-white truncate">{e.description}</p>
-                          <p className="text-[11px] text-white/40 truncate capitalize">{e.type} · {e.paymentMethod.replace('_', ' ')}</p>
+                          <p className="text-[11px] text-white/40 truncate capitalize">{e.type} Â· {e.paymentMethod.replace('_', ' ')}</p>
                         </div>
                         <p className="text-sm font-semibold text-error tabular-nums flex-shrink-0">{fmt(e.amount)}</p>
                       </div>
@@ -1862,7 +1937,7 @@ function DailyDetailModal({ day, onClose }: { day: OpenDay; onClose: () => void 
   );
 }
 
-/* ───────────────────────── CASH FLOW (INVESTOR / REMITTANCE) TAB ───────────────────────── */
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ CASH FLOW (INVESTOR / REMITTANCE) TAB â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 function CashFlowTab({ startDate, endDate }: { startDate?: number; endDate?: number }) {
   const tzOffsetMinutes = new Date().getTimezoneOffset();
@@ -1956,8 +2031,8 @@ function CashFlowTab({ startDate, endDate }: { startDate?: number; endDate?: num
                           className="hover:bg-white/[0.03] transition-colors cursor-pointer"
                         >
                           <td className="px-5 py-3 font-medium text-white whitespace-nowrap">{dayLabel(r.dateKey)}</td>
-                          <td className="px-3 py-3 text-right text-success font-semibold tabular-nums whitespace-nowrap">{r.investorIn > 0 ? fmt(r.investorIn) : '—'}</td>
-                          <td className="px-3 py-3 text-right text-error tabular-nums whitespace-nowrap">{r.remittanceOut > 0 ? fmt(r.remittanceOut) : '—'}</td>
+                          <td className="px-3 py-3 text-right text-success font-semibold tabular-nums whitespace-nowrap">{r.investorIn > 0 ? fmt(r.investorIn) : 'â€”'}</td>
+                          <td className="px-3 py-3 text-right text-error tabular-nums whitespace-nowrap">{r.remittanceOut > 0 ? fmt(r.remittanceOut) : 'â€”'}</td>
                           <td className={`px-3 py-3 text-right font-bold tabular-nums whitespace-nowrap ${r.net >= 0 ? 'text-success' : 'text-error'}`}>{fmt(r.net)}</td>
                           <td className="px-5 py-3 text-right text-white/50 text-xs tabular-nums whitespace-nowrap">{r.count} {r.count === 1 ? 'entry' : 'entries'}</td>
                           <td className="pr-3 text-right"><ChevronRight className="w-4 h-4 text-white/30 inline" /></td>
@@ -1983,11 +2058,11 @@ function CashFlowTab({ startDate, endDate }: { startDate?: number; endDate?: num
                     <div className="grid grid-cols-3 gap-2">
                       <div>
                         <p className="text-[10px] text-white/40 uppercase tracking-wider">Investor In</p>
-                        <p className="text-sm font-semibold text-success tabular-nums">{r.investorIn > 0 ? fmt(r.investorIn) : '—'}</p>
+                        <p className="text-sm font-semibold text-success tabular-nums">{r.investorIn > 0 ? fmt(r.investorIn) : 'â€”'}</p>
                       </div>
                       <div>
                         <p className="text-[10px] text-white/40 uppercase tracking-wider">Remit Out</p>
-                        <p className="text-sm font-semibold text-error tabular-nums">{r.remittanceOut > 0 ? fmt(r.remittanceOut) : '—'}</p>
+                        <p className="text-sm font-semibold text-error tabular-nums">{r.remittanceOut > 0 ? fmt(r.remittanceOut) : 'â€”'}</p>
                       </div>
                       <div>
                         <p className="text-[10px] text-white/40 uppercase tracking-wider">Net</p>
@@ -2000,7 +2075,7 @@ function CashFlowTab({ startDate, endDate }: { startDate?: number; endDate?: num
               </div>
 
               <p className="text-[11px] text-white/40 text-center pt-1">
-                {report.rows.length} {report.rows.length === 1 ? 'day' : 'days'} · tap a date to see each injection / remittance ·
+                {report.rows.length} {report.rows.length === 1 ? 'day' : 'days'} Â· tap a date to see each injection / remittance Â·
                 investor in = capital added, remittance out = released to partners
               </p>
             </>
@@ -2073,6 +2148,232 @@ function CashDayModal({ day, onClose }: { day: OpenDay; onClose: () => void }) {
                       </div>
                     );
                   })}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </>
+  );
+}
+
+/* ───────────────────────── STOCK FLOW TAB ───────────────────────── */
+
+function StockFlowTab({ startDate, endDate }: { startDate?: number; endDate?: number }) {
+  const tzOffsetMinutes = new Date().getTimezoneOffset();
+  const report = useQuery(api.services.finance.getStockFlowReport, {
+    tzOffsetMinutes,
+    startDate,
+    endDate,
+  });
+  const [sortDir, setSortDir] = useState<'desc' | 'asc'>('asc');
+  const [openDay, setOpenDay] = useState<OpenDay | null>(null);
+
+  const loading = report === undefined;
+  const sortedRows = report
+    ? sortDir === 'desc'
+      ? report.rows
+      : [...report.rows].sort((a, b) => a.startMs - b.startMs)
+    : [];
+
+  return (
+    <div className="px-4 sm:px-6 py-4 sm:py-6 max-w-7xl mx-auto space-y-5">
+      {loading ? (
+        <div className="text-center py-20">
+          <div className="w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-sm text-white/60">Building stock flow report...</p>
+        </div>
+      ) : (
+        <>
+          {/* Period summary */}
+          <div className="grid grid-cols-3 gap-2 sm:gap-3">
+            <DailyKpi label="Via COH" value={fmt(report.summary.viaCOH)} accent="text-warning" bg="bg-warning/10" Icon={Wallet} />
+            <DailyKpi label="Via Investment" value={fmt(report.summary.viaInvestment)} accent="text-info" bg="bg-info/10" Icon={Building2} />
+            <DailyKpi label="Total Stocked" value={fmt(report.summary.total)} accent="text-primary" bg="bg-primary/10" Icon={Package} />
+          </div>
+
+          <p className="text-[11px] text-white/40 text-center -mt-1">
+            Declared via the Restock / Reroll expense. COH-funded reduces Cash on Hand; investment-funded is declaration-only.
+          </p>
+
+          {/* Sort order */}
+          {report.rows.length > 0 && (
+            <div className="flex items-center justify-end gap-2">
+              <span className="text-[11px] text-white/40 uppercase tracking-wider">Order by date</span>
+              <div className="inline-flex p-[3px] rounded-lg border border-white/10 bg-secondary/40">
+                {([
+                  { id: 'desc', label: 'Newest first' },
+                  { id: 'asc', label: 'Oldest first' },
+                ] as const).map((o) => (
+                  <button
+                    key={o.id}
+                    onClick={() => setSortDir(o.id)}
+                    className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all ${
+                      sortDir === o.id ? 'bg-primary text-white' : 'text-white/60 hover:text-white'
+                    }`}
+                  >
+                    {o.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {report.rows.length === 0 ? (
+            <div className="text-center py-16 rounded-2xl border border-white/10 bg-secondary/30">
+              <Package className="w-12 h-12 text-white/20 mx-auto mb-3" />
+              <h3 className="text-base font-bold text-white mb-1">No stock declared</h3>
+              <p className="text-xs text-white/60">Restock / Reroll expenses (Till or Investment) will appear here.</p>
+            </div>
+          ) : (
+            <>
+              {/* Desktop table */}
+              <div className="hidden md:block">
+                <div className="bg-secondary/30 border border-white/10 rounded-xl overflow-hidden shadow-xl">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-white/10 bg-secondary/60 text-[10px] font-semibold text-white/40 uppercase tracking-wider">
+                        <th className="text-left px-5 py-3">Date</th>
+                        <th className="text-right px-3 py-3">Via COH</th>
+                        <th className="text-right px-3 py-3">Via Investment</th>
+                        <th className="text-right px-3 py-3">Total</th>
+                        <th className="text-right px-5 py-3">Entries</th>
+                        <th className="w-8" />
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/5">
+                      {sortedRows.map((r) => (
+                        <tr
+                          key={r.dateKey}
+                          onClick={() => setOpenDay({ dateKey: r.dateKey, startMs: r.startMs, endMs: r.endMs })}
+                          className="hover:bg-white/[0.03] transition-colors cursor-pointer"
+                        >
+                          <td className="px-5 py-3 font-medium text-white whitespace-nowrap">{dayLabel(r.dateKey)}</td>
+                          <td className="px-3 py-3 text-right text-warning tabular-nums whitespace-nowrap">{r.viaCOH > 0 ? fmt(r.viaCOH) : '—'}</td>
+                          <td className="px-3 py-3 text-right text-info tabular-nums whitespace-nowrap">{r.viaInvestment > 0 ? fmt(r.viaInvestment) : '—'}</td>
+                          <td className="px-3 py-3 text-right text-white font-bold tabular-nums whitespace-nowrap">{r.total > 0 ? fmt(r.total) : '—'}</td>
+                          <td className="px-5 py-3 text-right text-white/50 text-xs tabular-nums whitespace-nowrap">{r.count} {r.count === 1 ? 'entry' : 'entries'}</td>
+                          <td className="pr-3 text-right"><ChevronRight className="w-4 h-4 text-white/30 inline" /></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Mobile cards */}
+              <div className="md:hidden space-y-2.5">
+                {sortedRows.map((r) => (
+                  <button
+                    key={r.dateKey}
+                    onClick={() => setOpenDay({ dateKey: r.dateKey, startMs: r.startMs, endMs: r.endMs })}
+                    className="w-full text-left rounded-xl border border-white/10 bg-secondary/40 p-3 active:scale-[0.99] transition-transform"
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="font-bold text-white text-sm">{dayLabel(r.dateKey)}</p>
+                      <ChevronRight className="w-4 h-4 text-white/30" />
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      <div>
+                        <p className="text-[10px] text-white/40 uppercase tracking-wider">COH</p>
+                        <p className="text-sm font-semibold text-warning tabular-nums">{r.viaCOH > 0 ? fmt(r.viaCOH) : '—'}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-white/40 uppercase tracking-wider">Investment</p>
+                        <p className="text-sm font-semibold text-info tabular-nums">{r.viaInvestment > 0 ? fmt(r.viaInvestment) : '—'}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-white/40 uppercase tracking-wider">Total</p>
+                        <p className="text-sm font-bold text-white tabular-nums">{r.total > 0 ? fmt(r.total) : '—'}</p>
+                      </div>
+                    </div>
+                    <p className="text-[11px] text-white/40 mt-2">{r.count} {r.count === 1 ? 'entry' : 'entries'}</p>
+                  </button>
+                ))}
+              </div>
+
+              <p className="text-[11px] text-white/40 text-center pt-1">
+                {report.rows.length} {report.rows.length === 1 ? 'day' : 'days'} · tap a date to see each declaration
+              </p>
+            </>
+          )}
+        </>
+      )}
+
+      {openDay && <StockDayModal day={openDay} onClose={() => setOpenDay(null)} />}
+    </div>
+  );
+}
+
+function StockDayModal({ day, onClose }: { day: OpenDay; onClose: () => void }) {
+  const detail = useQuery(api.services.finance.getStockFlowDetail, {
+    startDate: day.startMs,
+    endDate: day.endMs,
+  });
+  const loading = detail === undefined;
+
+  return (
+    <>
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9998]" onClick={onClose} />
+      <div className="fixed bottom-0 left-0 right-0 sm:inset-0 sm:flex sm:items-center sm:justify-center z-[9999]">
+        <div
+          className="rounded-t-3xl sm:rounded-2xl shadow-2xl sm:w-full sm:max-w-lg sm:mx-4 max-h-[88vh] overflow-y-auto"
+          style={{ background: 'var(--secondary)', border: '1px solid var(--line)' }}
+        >
+          <div className="sticky top-0 z-10 flex items-center justify-between px-5 py-4 border-b border-white/10 bg-secondary/95 backdrop-blur-sm">
+            <div className="min-w-0">
+              <p className="text-[11px] text-white/50 uppercase tracking-wider">Stock Flow</p>
+              <h3 className="text-base sm:text-lg font-bold text-white truncate">{dayLabel(day.dateKey)}</h3>
+            </div>
+            <button onClick={onClose} className="p-2 rounded-lg hover:bg-white/10 flex-shrink-0">
+              <X className="w-5 h-5 text-white/70" />
+            </button>
+          </div>
+
+          {loading ? (
+            <div className="text-center py-16">
+              <div className="w-10 h-10 border-4 border-primary/30 border-t-primary rounded-full animate-spin mx-auto mb-3" />
+              <p className="text-sm text-white/60">Loading declarations...</p>
+            </div>
+          ) : detail && (
+            <div className="p-5 space-y-4">
+              <div className="grid grid-cols-3 gap-2">
+                <div className="rounded-lg bg-warning/10 border border-warning/20 p-2.5">
+                  <p className="text-[10px] text-white/50 uppercase tracking-wider">Via COH</p>
+                  <p className="text-sm font-bold text-warning tabular-nums">{fmt(detail.totals.viaCOH)}</p>
+                </div>
+                <div className="rounded-lg bg-info/10 border border-info/20 p-2.5">
+                  <p className="text-[10px] text-white/50 uppercase tracking-wider">Via Investment</p>
+                  <p className="text-sm font-bold text-info tabular-nums">{fmt(detail.totals.viaInvestment)}</p>
+                </div>
+                <div className="rounded-lg bg-primary/10 border border-primary/20 p-2.5">
+                  <p className="text-[10px] text-white/50 uppercase tracking-wider">Total</p>
+                  <p className="text-sm font-bold text-primary tabular-nums">{fmt(detail.totals.total)}</p>
+                </div>
+              </div>
+
+              {detail.items.length === 0 ? (
+                <p className="text-xs text-white/50 py-8 text-center">No declarations this day.</p>
+              ) : (
+                <div className="rounded-xl border border-white/10 overflow-hidden divide-y divide-white/5">
+                  {detail.items.map((it) => (
+                    <div key={it.id} className="flex items-center gap-3 p-2.5 bg-secondary/30">
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${it.source === 'coh' ? 'bg-warning/10' : 'bg-info/10'}`}>
+                        <Package className={`w-4 h-4 ${it.source === 'coh' ? 'text-warning' : 'text-info'}`} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-white truncate">{it.description}</p>
+                        <p className="text-[11px] text-white/40 truncate capitalize">{it.paymentMethod.replace('_', ' ')}</p>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <p className="text-sm font-semibold text-white tabular-nums">{fmt(it.amount)}</p>
+                        <span className={`text-[10px] font-semibold uppercase ${it.source === 'coh' ? 'text-warning' : 'text-info'}`}>
+                          {it.source === 'coh' ? 'Till' : 'Investment'}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>

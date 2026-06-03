@@ -1,5 +1,8 @@
 import { v } from "convex/values";
 import { mutation, query } from "../_generated/server";
+import { recordAudit } from "./audit";
+
+const peso = (n: number) => `₱${n.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 // Password verifier — mirrors convex/services/auth.ts so corrections can require re-auth.
 async function sha256(data: string): Promise<string> {
@@ -115,6 +118,19 @@ export const createCashAdjustment = mutation({
       createdBy: userId,
       createdAt: now,
       updatedAt: now,
+    });
+
+    const label =
+      normalized === "deposit" ? "Investor deposit" : normalized === "remit" ? "Remittance released" : "Cash correction";
+    await recordAudit(ctx, {
+      actorId: userId,
+      action: `cash.${normalized}`,
+      category: "finance",
+      summary: `${label} ${peso(Math.abs(signedAmount))} — ${reason.trim()}`,
+      entityTable: "cashAdjustments",
+      entityId: id,
+      amount: signedAmount,
+      metadata: { type: normalized, notes: notes?.trim() || undefined },
     });
 
     return { success: true, id, signedAmount };
@@ -233,13 +249,24 @@ export const getCashAdjustmentReport = query({
   },
 });
 
-// Delete an adjustment (mistakes happen). Audit trail removed too — keep a notes log if you need history.
+// Delete an adjustment (mistakes happen). The deletion itself is recorded in the audit log.
 export const deleteCashAdjustment = mutation({
-  args: { id: v.id("cashAdjustments") },
-  handler: async (ctx, { id }) => {
+  args: { id: v.id("cashAdjustments"), userId: v.optional(v.id("users")) },
+  handler: async (ctx, { id, userId }) => {
     const row = await ctx.db.get(id);
     if (!row) throw new Error("Adjustment not found");
     await ctx.db.delete(id);
+
+    await recordAudit(ctx, {
+      actorId: userId,
+      action: "cash.delete",
+      category: "finance",
+      summary: `Deleted cash ${row.type} ${peso(Math.abs(row.amount))} — ${row.reason}`,
+      entityTable: "cashAdjustments",
+      entityId: id,
+      amount: row.amount,
+      metadata: { deleted: { type: row.type, amount: row.amount, reason: row.reason } },
+    });
     return { success: true };
   },
 });

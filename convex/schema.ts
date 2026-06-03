@@ -395,7 +395,7 @@ export default defineSchema({
       v.literal("salary"),
       v.literal("maintenance"),
       v.literal("marketing"),
-      v.literal("investor_remit"), // Cash remittance to investors (capital distribution)
+      v.literal("commissions"),     // Sales-associate commission payouts (a real operating expense)
       v.literal("mortality"),       // Inventory write-off for dead/damaged stock (no cash leaves)
       v.literal("other"),
     )),
@@ -417,6 +417,10 @@ export default defineSchema({
       v.literal("loss_prevention"), // quarantine, prophylactic use
       v.literal("other"),
     )),
+
+    // Funding source — only meaningful for type = "restocking" declarations. "coh" deducts from
+    // Cash on Hand (cash left the till to buy stock); "investment" is declaration-only (no balance moves).
+    fundingSource: v.optional(v.union(v.literal("coh"), v.literal("investment"))),
 
     receiptImage: v.optional(v.string()),
     notes: v.optional(v.string()),
@@ -501,6 +505,32 @@ export default defineSchema({
     .index("by_date", ["date"])
     .index("by_status", ["status"])
     .index("by_user", ["userId"]),
+
+  // Admin audit trail — an append-only log of every meaningful admin action,
+  // categorized so it can be filtered/grouped in the settings activity log.
+  auditLogs: defineTable({
+    actorId: v.optional(v.id("users")),   // who did it (may be absent for system tasks)
+    actorName: v.optional(v.string()),    // snapshot of the actor's name at action time
+    actorRole: v.optional(v.string()),    // snapshot of the actor's role at action time
+    action: v.string(),                   // machine key, e.g. "expense.create", "stock.restock"
+    category: v.union(
+      v.literal("finance"),
+      v.literal("inventory"),
+      v.literal("sales"),
+      v.literal("users"),
+      v.literal("settings"),
+      v.literal("system"),
+    ),
+    summary: v.string(),                  // human-readable one-line description
+    entityTable: v.optional(v.string()),  // affected table (e.g. "expenses")
+    entityId: v.optional(v.string()),     // affected document id
+    amount: v.optional(v.number()),       // peso amount when relevant (finance/sales)
+    metadata: v.optional(v.any()),        // extra context / before-after snapshots
+    createdAt: v.number(),
+  })
+    .index("by_created", ["createdAt"])
+    .index("by_category", ["category"])
+    .index("by_actor", ["actorId"]),
 
   // Application-wide settings (singleton; always use first row)
   appSettings: defineTable({

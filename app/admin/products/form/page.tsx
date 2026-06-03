@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { api } from '@/convex/_generated/api';
 import { Id } from '@/convex/_generated/dataModel';
+import { useAuthStore } from '@/store/auth';
 import ConfirmationModal from '@/components/ui/ConfirmationModal';
 import SafeAreaProvider from '@/components/provider/SafeAreaProvider';
 
@@ -119,6 +120,7 @@ interface ProductFormProps {
 export function ProductFormContentInner({ editProductId, onSuccess, isDrawer }: ProductFormProps = {}) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { user } = useAuthStore();
   const productId = editProductId !== undefined ? editProductId : searchParams.get('id');
   const isEditing = !!productId;
 
@@ -425,6 +427,7 @@ export function ProductFormContentInner({ editProductId, onSuccess, isDrawer }: 
         lifespan: formData.lifespan || undefined,
         grade: formData.grade || undefined,
         isActive: formData.status === 'active',
+        userId: user?._id as Id<'users'> | undefined,
       };
 
       let savedProductId: any;

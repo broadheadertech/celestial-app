@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { mutation, query, MutationCtx } from "../_generated/server";
 import { Id } from "../_generated/dataModel";
 import { createInternalUseExpenseHelper, createMortalityExpenseHelper } from "./finance";
+import { recordAudit } from "./audit";
 
 // ==================== HELPER FUNCTIONS (callable from other mutations) ====================
 
@@ -836,6 +837,17 @@ export const restockProduct = mutation({
     // only when the units are sold — so it flows into gross & net profit, not the till.
     // The restock audit trail lives on the stock record above (notes + actualCostPrice).
 
+    await recordAudit(ctx, {
+      actorId: userId,
+      action: "stock.restock",
+      category: "inventory",
+      summary: `Restocked ${quantity} × ${product.name} (batch ${batchCode})${restockTotalCost !== undefined ? ` — cost ₱${restockTotalCost.toLocaleString("en-PH")}` : ""}`,
+      entityTable: "stockRecords",
+      entityId: stockRecordId,
+      amount: restockTotalCost,
+      metadata: { productId, quantity, actualCostPrice, batchCode },
+    });
+
     return {
       success: true,
       stockRecordId,
@@ -951,6 +963,18 @@ export const logInternalUse = mutation({
     });
 
     const unitCostUsed = product.movingAverageCost ?? product.costPrice;
+
+    await recordAudit(ctx, {
+      actorId: userId,
+      action: "stock.internal_use",
+      category: "inventory",
+      summary: `Logged internal use: ${quantity} × ${product.name}${internalUseCategory ? ` (${internalUseCategory.replace("_", " ")})` : ""}`,
+      entityTable: "products",
+      entityId: productId,
+      amount: unitCostUsed * quantity,
+      metadata: { quantity, internalUseCategory, newTotalStock },
+    });
+
     return {
       success: true,
       quantityUsed: quantity,
@@ -1350,6 +1374,16 @@ export const processReturn = mutation({
       }
     }
 
+    await recordAudit(ctx, {
+      actorId: userId,
+      action: "stock.return",
+      category: "inventory",
+      summary: `Processed return: ${quantity} units (batch ${stockRecord.batchCode})${restockable ? " — restocked" : " — not restocked"}`,
+      entityTable: "stockRecords",
+      entityId: stockRecordId,
+      metadata: { quantity, restockable, productId: stockRecord.productId },
+    });
+
     return {
       success: true,
       currentQty: newCurrentQty,
@@ -1425,6 +1459,16 @@ export const adjustStock = mutation({
         updatedAt: now,
       });
     }
+
+    await recordAudit(ctx, {
+      actorId: userId,
+      action: "stock.adjust",
+      category: "inventory",
+      summary: `Stock adjustment ${quantityChange > 0 ? "+" : ""}${quantityChange} (batch ${stockRecord.batchCode}) — ${reason}`,
+      entityTable: "stockRecords",
+      entityId: stockRecordId,
+      metadata: { quantityChange, reason, productId: stockRecord.productId },
+    });
 
     return {
       success: true,
@@ -1744,6 +1788,17 @@ export const recordMortalityLossByProduct = mutation({
     });
     const mortalityUnitCost = product.movingAverageCost ?? product.costPrice ?? 0;
     const expenseAmount = mortalityUnitCost * quantity;
+
+    await recordAudit(ctx, {
+      actorId: userId,
+      action: "stock.mortality",
+      category: "inventory",
+      summary: `Recorded mortality loss: ${quantity} × ${product.name}${expenseId ? ` — write-off ₱${expenseAmount.toLocaleString("en-PH")}` : ""}`,
+      entityTable: "stockRecords",
+      entityId: mortalityRecordId,
+      amount: expenseId ? expenseAmount : undefined,
+      metadata: { productId, quantity, affectedBatches },
+    });
 
     return {
       success: true,

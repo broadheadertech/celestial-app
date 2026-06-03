@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
+import { Id } from '@/convex/_generated/dataModel';
 import {
   ArrowLeft,
   Settings as SettingsIcon,
@@ -105,6 +106,7 @@ export default function AppSettingsPage() {
         notifyNewOrders: form.notifyNewOrders,
         notifyNewUsers: form.notifyNewUsers,
         lowStockThreshold: form.lowStockThreshold,
+        userId: user?._id as Id<'users'> | undefined,
       });
       setDirty(false);
       setSaveStatus('success');

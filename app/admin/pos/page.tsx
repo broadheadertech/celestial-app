@@ -32,6 +32,7 @@ import {
 import OrderReceipt from '@/components/admin/OrderReceipt';
 import BottomNavbar from '@/components/common/BottomNavbar';
 import SafeAreaProvider from '@/components/provider/SafeAreaProvider';
+import { useAuthStore } from '@/store/auth';
 
 /* ─────────── HELPERS ─────────── */
 const fmt = (amount: number) =>
@@ -80,6 +81,7 @@ const lineDiscAmt = (l: CartLine) => {
 /* ──────────────────────── PAGE ──────────────────────── */
 function PosPageContent() {
   const router = useRouter();
+  const { user: posUser } = useAuthStore();
 
   // Mode
   const [mode, setMode] = useState<Mode>('sale');
@@ -435,6 +437,7 @@ function PosPageContent() {
       await updateOrderPayment({
         orderId: orderId as Id<'orders'>,
         paymentStatus: 'refunded',
+        userId: posUser?._id as Id<'users'> | undefined,
       });
       setRefundConfirm(null);
       alert('Refund posted. Order marked as refunded.');

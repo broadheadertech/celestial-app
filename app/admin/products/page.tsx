@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { useAuthStore } from '@/store/auth';
 import {
   ArrowLeft,
   Plus,
@@ -213,6 +214,7 @@ function AdminProductsContent() {
   const recordMortalityLoss = useMutation(api.services.stock.recordMortalityLossByProduct);
   const logInternalUse = useMutation(api.services.stock.logInternalUse);
   const deleteProductMutation = useMutation(api.services.admin.deleteProduct);
+  const { user: actingUser } = useAuthStore();
 
   // Delete confirmation state
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
@@ -436,6 +438,7 @@ function AdminProductsContent() {
         quantity: quantity,
         notes: `Admin restock - Added ${quantity} units`,
         actualCostPrice,
+        userId: actingUser?._id as any,
       });
 
       // Close modal and reset
@@ -475,6 +478,7 @@ function AdminProductsContent() {
         quantity,
         notes: internalUseNotes.trim() || undefined,
         internalUseCategory: internalUseReason,
+        userId: actingUser?._id as any,
       });
       setShowInternalUseModal(false);
       setInternalUseProductId(null);
@@ -519,6 +523,7 @@ function AdminProductsContent() {
         productId: mortalityProductId as any,
         quantity: quantity,
         notes: `🪦 Mortality Loss - ${product.name}\nTank: ${product.tankNumber || 'N/A'}\nSKU: ${product.sku || 'N/A'}\nQuantity Lost: ${quantity} units\nRecorded: ${new Date().toLocaleString()}`,
+        userId: actingUser?._id as any,
       });
 
       // Close modal and reset
@@ -1792,7 +1797,7 @@ function AdminProductsContent() {
                 <button onClick={async () => {
                   setIsDeleting(true);
                   try {
-                    const result = await deleteProductMutation({ id: deleteConfirm.id as any });
+                    const result = await deleteProductMutation({ id: deleteConfirm.id as any, userId: actingUser?._id as any });
                     setSuccessMessage(result?.message || 'Product deleted successfully');
                     setDeleteConfirm(null);
                     setTimeout(() => setSuccessMessage(''), 3000);

@@ -19,6 +19,7 @@ import {
   Save,
   RefreshCw,
   ChevronRight,
+  ScrollText,
   CheckCircle,
   AlertTriangle,
   Mail,
@@ -758,6 +759,24 @@ function AdminSettingsContent() {
                   </p>
                   <p className="text-xs text-white/60 truncate">
                     View and manage products
+                  </p>
+                </div>
+                <ChevronRight className="w-4 h-4 text-white/40 group-hover:text-white/60 transition-colors flex-shrink-0" />
+              </button>
+
+              <button
+                onClick={() => router.push("/admin/audit-log")}
+                className="flex items-center gap-3 p-3 sm:p-4 bg-white/5 rounded-xl hover:bg-white/10 active:bg-white/15 active:scale-[0.98] transition-all border border-transparent hover:border-white/10 group sm:col-span-2"
+              >
+                <div className="p-2 bg-primary/10 rounded-lg group-hover:bg-primary/20 transition-colors flex-shrink-0">
+                  <ScrollText className="w-4 h-4 text-primary" />
+                </div>
+                <div className="text-left flex-1 min-w-0">
+                  <p className="text-sm font-medium text-white truncate">
+                    Audit Log
+                  </p>
+                  <p className="text-xs text-white/60 truncate">
+                    Trail of every admin action, by category
                   </p>
                 </div>
                 <ChevronRight className="w-4 h-4 text-white/40 group-hover:text-white/60 transition-colors flex-shrink-0" />
