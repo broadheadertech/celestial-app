@@ -893,14 +893,18 @@ export const createReservation = mutation({
     items: v.array(v.object({
       productId: v.id("products"),
       quantity: v.number(),
-      reservedPrice: v.number(),
+      reservedPrice: v.number(), // Final unit price (post line-item discount)
+      originalPrice: v.optional(v.number()), // Unit list price before discount
+      discount: v.optional(v.number()), // Per-unit discount amount (₱)
     })),
+    subtotal: v.optional(v.number()), // Sum of (price × qty) before order-level discount
+    orderDiscount: v.optional(v.number()), // Order-wide discount amount (₱)
     totalAmount: v.number(),
     totalQuantity: v.number(),
     reservationDate: v.optional(v.number()),
     notes: v.optional(v.string()),
   },
-  handler: async (ctx, { userId, guestId, guestInfo, items, totalAmount, totalQuantity, reservationDate, notes }) => {
+  handler: async (ctx, { userId, guestId, guestInfo, items, subtotal, orderDiscount, totalAmount, totalQuantity, reservationDate, notes }) => {
     if (!userId && !guestId) {
       throw new Error("Either userId or guestId must be provided");
     }
@@ -965,6 +969,8 @@ export const createReservation = mutation({
       guestId,
       guestInfo,
       items,
+      ...(subtotal !== undefined ? { subtotal } : {}),
+      ...(orderDiscount && orderDiscount > 0 ? { orderDiscount } : {}),
       totalAmount,
       totalQuantity,
       reservationDate: reservationDateTime,

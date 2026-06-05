@@ -202,7 +202,8 @@ function PosPageContent() {
   const rawOrderDisc =
     orderDiscType === 'percent' ? subtotal * (orderDiscValue / 100) : orderDiscValue;
   const orderDiscount = Math.max(0, Math.min(rawOrderDisc, subtotal));
-  const tipNumber = parseFloat(tip) || 0;
+  // Tip applies to sales only; a reservation's value is just items minus discounts.
+  const tipNumber = mode === 'reserve' ? 0 : (parseFloat(tip) || 0);
   const total = subtotal - orderDiscount + tipNumber;
 
   const paid = tenders.reduce((s, t) => s + (parseFloat(t.amount) || 0), 0);
@@ -408,8 +409,12 @@ function PosPageContent() {
         items: cart.map((l) => ({
           productId: l.productId as Id<'products'>,
           quantity: l.quantity,
-          reservedPrice: l.price - (lineDiscAmt(l) / l.quantity),
+          reservedPrice: l.price - (lineDiscAmt(l) / l.quantity), // post line-discount unit price
+          originalPrice: l.price,
+          ...(lineDiscAmt(l) > 0 ? { discount: lineDiscAmt(l) / l.quantity } : {}),
         })),
+        subtotal,
+        ...(orderDiscount > 0 ? { orderDiscount } : {}),
         totalAmount: total,
         totalQuantity: cart.reduce((s, l) => s + l.quantity, 0),
         notes: `Reserved via POS · balance ${fmt(reservationBalance)} due at pickup ${pickupDate} ${pickupTime}`,
@@ -1105,10 +1110,10 @@ function CartPanel(props: any) {
           )}
         </div>
 
-        {/* Sale-only: order discount + tip */}
-        {!isReservation && cart.length > 0 && (
+        {/* Order discount (sale + reservation) · tip (sale only) */}
+        {cart.length > 0 && (
           <div
-            className="p-3 rounded-[12px] border grid grid-cols-2 gap-2.5"
+            className={`p-3 rounded-[12px] border grid gap-2.5 ${isReservation ? 'grid-cols-1' : 'grid-cols-2'}`}
             style={{ background: 'var(--surface)', borderColor: 'var(--line)' }}
           >
             <div>
@@ -1147,22 +1152,24 @@ function CartPanel(props: any) {
                 />
               </div>
             </div>
-            <div>
-              <p className="label-eyebrow mb-1.5">Service / Tip</p>
-              <input
-                type="number"
-                min="0"
-                value={tip}
-                onChange={(e) => setTip(e.target.value)}
-                placeholder="0"
-                className="w-full px-2 py-1.5 rounded-md border text-[12px] outline-none dc-mono"
-                style={{
-                  background: 'var(--bg-2)',
-                  borderColor: 'var(--line)',
-                  color: 'var(--ink)',
-                }}
-              />
-            </div>
+            {!isReservation && (
+              <div>
+                <p className="label-eyebrow mb-1.5">Service / Tip</p>
+                <input
+                  type="number"
+                  min="0"
+                  value={tip}
+                  onChange={(e) => setTip(e.target.value)}
+                  placeholder="0"
+                  className="w-full px-2 py-1.5 rounded-md border text-[12px] outline-none dc-mono"
+                  style={{
+                    background: 'var(--bg-2)',
+                    borderColor: 'var(--line)',
+                    color: 'var(--ink)',
+                  }}
+                />
+              </div>
+            )}
           </div>
         )}
 
