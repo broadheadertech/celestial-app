@@ -240,6 +240,38 @@ export default defineSchema({
     .index("by_reservation_code", ["reservationCode"])
     .index("by_product", ["productId"]), // Legacy index for single-item reservations
 
+  // Reservation payments ledger — one row per payment event against a reservation
+  // (downpayment, walk-in partial payment, balance settlement at pickup, or refund).
+  // This is the single source of truth for "how much has actually been collected and when".
+  // amountPaid/paymentStatus on the reservation are caches recomputed from this ledger.
+  // Only method === "cash" rows move Cash on Hand, and each moves it at its own `date`.
+  reservationPayments: defineTable({
+    reservationId: v.id("reservations"),
+    amount: v.number(),            // peso amount taken in THIS payment (positive; refunds are negative)
+    method: v.union(
+      v.literal("cash"),
+      v.literal("gcash"),
+      v.literal("card"),
+      v.literal("bank_transfer"),
+      v.literal("other"),
+    ),
+    // Why/what this entry represents — for the payment-flow timeline.
+    kind: v.optional(v.union(
+      v.literal("downpayment"), // first deposit, usually taken in POS at reservation time
+      v.literal("partial"),     // a top-up payment made any time after
+      v.literal("full"),        // settles the entire balance in one go
+      v.literal("refund"),      // money returned to the customer (negative amount)
+      v.literal("legacy"),      // backfilled from a pre-ledger amountPaid (method unknown)
+    )),
+    note: v.optional(v.string()),
+    date: v.number(),              // when the money actually changed hands (drives COH timing)
+    recordedBy: v.optional(v.id("users")),
+    recordedByName: v.optional(v.string()), // snapshot of who took the payment
+    createdAt: v.number(),
+  })
+    .index("by_reservation", ["reservationId"])
+    .index("by_date", ["date"]),
+
   notifications: defineTable({
     title: v.string(),
     message: v.string(),

@@ -763,6 +763,63 @@ function FinanceContent() {
                     </div>
                   </div>
                 </div>
+
+                {/* 7 · Reservation Collections — lifetime collected vs total to collect */}
+                {(() => {
+                  const collected = summary.collectionsCollected ?? 0;
+                  const toCollect = summary.collectionsToCollect ?? 0;
+                  const outstanding = summary.collectionsOutstanding ?? 0;
+                  const rate = parseFloat(String(summary.collectionsRate ?? '0'));
+                  const pct = Math.min(100, Math.max(0, rate));
+                  return (
+                    <div
+                      className="rounded-2xl border p-5 flex flex-col min-h-[182px] sm:col-span-2 lg:col-span-1"
+                      style={{
+                        background:
+                          'linear-gradient(135deg, color-mix(in oklch, var(--jade) 14%, transparent), color-mix(in oklch, var(--jade) 3%, transparent))',
+                        borderColor: 'color-mix(in oklch, var(--jade) 24%, transparent)',
+                      }}
+                    >
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <Receipt className="w-4 h-4" style={{ color: 'var(--jade)' }} />
+                          <p
+                            className="text-[10px] font-semibold uppercase tracking-wider"
+                            style={{ color: 'color-mix(in oklch, var(--jade) 90%, transparent)' }}
+                          >
+                            Reservation Collections
+                          </p>
+                        </div>
+                        <span
+                          className="px-2 py-0.5 rounded-full text-[10px] font-semibold dc-mono"
+                          style={{
+                            background: 'color-mix(in oklch, var(--jade) 18%, transparent)',
+                            color: 'var(--jade)',
+                          }}
+                        >
+                          {pct.toFixed(0)}%
+                        </span>
+                      </div>
+                      <p className="text-[28px] font-bold dc-mono leading-tight" style={{ color: 'var(--jade)' }}>
+                        {fmt(collected)}
+                      </p>
+                      <p className="text-[11px] mt-0.5" style={{ color: 'var(--ink-3)' }}>
+                        collected of <span className="font-semibold dc-mono">{fmt(toCollect)}</span> to collect
+                      </p>
+                      <div className="mt-3 w-full h-2 rounded-full overflow-hidden" style={{ background: 'var(--line-soft)' }}>
+                        <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: 'var(--jade)' }} />
+                      </div>
+                      <div className="mt-auto pt-2.5 flex items-center justify-between text-[11px]">
+                        <span style={{ color: 'var(--ink-4)' }}>
+                          {summary.collectionsCount ?? 0} reservations
+                        </span>
+                        <span style={{ color: outstanding > 0 ? 'var(--gold-deep)' : 'var(--jade)' }}>
+                          {outstanding > 0 ? `${fmt(outstanding)} outstanding` : 'Fully collected'}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             );
           })()}

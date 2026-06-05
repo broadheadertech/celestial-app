@@ -299,6 +299,7 @@ function AdminOrdersContent() {
   // Partial payment modal
   const [partialPaymentItem, setPartialPaymentItem] = useState<CombinedItem | null>(null);
   const [partialAmount, setPartialAmount] = useState('');
+  const [partialMethod, setPartialMethod] = useState<'cash' | 'gcash' | 'card' | 'bank_transfer' | 'other'>('cash');
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
 
   const ordersQuery = useQuery(api.services.orders.getAllOrdersAdmin, {});
@@ -313,6 +314,7 @@ function AdminOrdersContent() {
   const releaseReservation = useMutation(api.services.reservations.releaseReservation);
   const updateOrderPayment = useMutation(api.services.payments.updateOrderPayment);
   const updateReservationPayment = useMutation(api.services.payments.updateReservationPayment);
+  const addReservationPayment = useMutation(api.services.reservationPayments.addReservationPayment);
   const assignOrderSA = useMutation(api.services.admin.assignOrderSalesAssociate);
   const assignReservationSA = useMutation(api.services.admin.assignReservationSalesAssociate);
   const staffUsers = useQuery(api.services.admin.getStaffUsers, {});
@@ -479,13 +481,42 @@ function AdminOrdersContent() {
     });
   };
 
-  const handlePaymentUpdate = async (item: CombinedItem, paymentStatus: 'unpaid' | 'partial' | 'paid' | 'refunded', amountPaid?: number) => {
+  // amountArg semantics differ by type:
+  //  • order        → cumulative total paid (legacy updateOrderPayment behavior)
+  //  • reservation  → an INCREMENTAL payment ("amount received now") routed to the ledger,
+  //                   so the cash lands in Cash on Hand at this moment and shows in the flow.
+  const handlePaymentUpdate = async (
+    item: CombinedItem,
+    paymentStatus: 'unpaid' | 'partial' | 'paid' | 'refunded',
+    amountArg?: number,
+    method: 'cash' | 'gcash' | 'card' | 'bank_transfer' | 'other' = 'cash',
+  ) => {
     try {
       if (item.type === 'order') {
-        await updateOrderPayment({ orderId: item._id as Id<'orders'>, paymentStatus, amountPaid, userId: actingUser?._id as Id<'users'> | undefined });
-      } else {
-        await updateReservationPayment({ reservationId: item._id as Id<'reservations'>, paymentStatus, amountPaid });
+        await updateOrderPayment({ orderId: item._id as Id<'orders'>, paymentStatus, amountPaid: amountArg, userId: actingUser?._id as Id<'users'> | undefined });
+        return;
       }
+
+      // Reservations: money in (partial/paid) flows through the payment ledger.
+      if (paymentStatus === 'partial' || paymentStatus === 'paid') {
+        const total = item.totalAmount || 0;
+        const already = item.amountPaid || 0;
+        const increment = paymentStatus === 'paid' ? Math.max(0, total - already) : (amountArg || 0);
+        if (increment > 0) {
+          await addReservationPayment({
+            reservationId: item._id as Id<'reservations'>,
+            amount: increment,
+            method,
+            kind: paymentStatus === 'paid' ? 'full' : 'partial',
+            userId: actingUser?._id as Id<'users'> | undefined,
+          });
+        }
+        return;
+      }
+
+      // unpaid / refunded — admin override on the cached status. To reverse collected cash,
+      // delete the individual ledger entries on the reservation detail page.
+      await updateReservationPayment({ reservationId: item._id as Id<'reservations'>, paymentStatus, amountPaid: amountArg });
     } catch (error) {
       alert(error instanceof Error ? error.message : 'Failed to update payment');
     }
@@ -497,9 +528,10 @@ function AdminOrdersContent() {
     if (isNaN(amount) || amount <= 0) return;
     setIsProcessingPayment(true);
     try {
-      await handlePaymentUpdate(partialPaymentItem, 'partial', amount);
+      await handlePaymentUpdate(partialPaymentItem, 'partial', amount, partialMethod);
       setPartialPaymentItem(null);
       setPartialAmount('');
+      setPartialMethod('cash');
     } finally {
       setIsProcessingPayment(false);
     }
@@ -1285,32 +1317,91 @@ function AdminOrdersContent() {
             <div className="bg-secondary border border-white/10 rounded-2xl shadow-2xl p-6 w-full max-w-sm">
               <h3 className="text-lg font-bold text-white mb-1">Record Partial Payment</h3>
               <p className="text-xs text-white/50 mb-4">{partialPaymentItem.code}</p>
-              <div className="bg-white/5 rounded-lg p-3 mb-4 border border-white/10">
-                <div className="flex justify-between text-xs mb-1">
-                  <span className="text-white/60">Total Amount</span>
-                  <span className="text-white font-semibold">{formatCurrency(partialPaymentItem.totalAmount || 0)}</span>
-                </div>
-                {partialPaymentItem.amountPaid !== undefined && partialPaymentItem.amountPaid > 0 && (
-                  <div className="flex justify-between text-xs">
-                    <span className="text-white/60">Already Paid</span>
-                    <span className="text-success font-semibold">{formatCurrency(partialPaymentItem.amountPaid)}</span>
-                  </div>
-                )}
-              </div>
-              <label className="block text-xs text-white/60 mb-1.5">Total Amount Paid (₱)</label>
-              <input
-                type="number"
-                value={partialAmount}
-                onChange={(e) => setPartialAmount(e.target.value)}
-                placeholder="e.g. 500"
-                min="0"
-                step="0.01"
-                max={partialPaymentItem.totalAmount || undefined}
-                className="w-full px-3 py-2.5 bg-background/60 border border-white/10 rounded-lg text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-primary mb-2"
-              />
-              <p className="text-[10px] text-white/40 mb-4">
-                Enter the cumulative amount paid so far. Must be less than {formatCurrency(partialPaymentItem.totalAmount || 0)}.
-              </p>
+              {(() => {
+                const total = partialPaymentItem.totalAmount || 0;
+                const already = partialPaymentItem.amountPaid || 0;
+                const balance = Math.max(0, total - already);
+                const isReservation = partialPaymentItem.type === 'reservation';
+                return (
+                  <>
+                    <div className="bg-white/5 rounded-lg p-3 mb-4 border border-white/10">
+                      <div className="flex justify-between text-xs mb-1">
+                        <span className="text-white/60">Total Amount</span>
+                        <span className="text-white font-semibold">{formatCurrency(total)}</span>
+                      </div>
+                      {already > 0 && (
+                        <div className="flex justify-between text-xs mb-1">
+                          <span className="text-white/60">Already Paid</span>
+                          <span className="text-success font-semibold">{formatCurrency(already)}</span>
+                        </div>
+                      )}
+                      {isReservation && (
+                        <div className="flex justify-between text-xs">
+                          <span className="text-white/60">Balance</span>
+                          <span className="text-warning font-semibold">{formatCurrency(balance)}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {isReservation ? (
+                      <>
+                        <label className="block text-xs text-white/60 mb-1.5">Amount received now (₱)</label>
+                        <input
+                          type="number"
+                          value={partialAmount}
+                          onChange={(e) => setPartialAmount(e.target.value)}
+                          placeholder="e.g. 300"
+                          min="0"
+                          step="0.01"
+                          max={balance || undefined}
+                          className="w-full px-3 py-2.5 bg-background/60 border border-white/10 rounded-lg text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-primary mb-1.5"
+                        />
+                        {balance > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => setPartialAmount(String(balance))}
+                            className="text-[11px] text-primary hover:underline mb-3"
+                          >
+                            Pay full balance ({formatCurrency(balance)})
+                          </button>
+                        )}
+                        <label className="block text-xs text-white/60 mb-1.5">Method</label>
+                        <select
+                          value={partialMethod}
+                          onChange={(e) => setPartialMethod(e.target.value as typeof partialMethod)}
+                          className="w-full px-3 py-2.5 bg-background/60 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-primary mb-2"
+                        >
+                          <option value="cash">Cash</option>
+                          <option value="gcash">GCash</option>
+                          <option value="card">Card</option>
+                          <option value="bank_transfer">Bank Transfer</option>
+                          <option value="other">Other</option>
+                        </select>
+                        <p className="text-[10px] text-white/40 mb-4">
+                          Adds one incremental payment to the reservation. Only cash adds to Cash on Hand.
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <label className="block text-xs text-white/60 mb-1.5">Total Amount Paid (₱)</label>
+                        <input
+                          type="number"
+                          value={partialAmount}
+                          onChange={(e) => setPartialAmount(e.target.value)}
+                          placeholder="e.g. 500"
+                          min="0"
+                          step="0.01"
+                          max={total || undefined}
+                          className="w-full px-3 py-2.5 bg-background/60 border border-white/10 rounded-lg text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-primary mb-2"
+                        />
+                        <p className="text-[10px] text-white/40 mb-4">
+                          Enter the cumulative amount paid so far. Must be less than {formatCurrency(total)}.
+                        </p>
+                      </>
+                    )}
+                  </>
+                );
+              })()}
               <div className="flex gap-3">
                 <button onClick={() => setPartialPaymentItem(null)} disabled={isProcessingPayment} className="flex-1 px-4 py-3 bg-secondary border border-white/10 text-white rounded-xl font-medium hover:bg-white/10 disabled:opacity-50">
                   Cancel

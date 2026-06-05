@@ -140,6 +140,7 @@ function PosPageContent() {
   const adminCreateOrder = useMutation(api.services.orders.adminCreateOrder);
   const acknowledgeOrder = useMutation(api.services.orders.acknowledgeOrder);
   const createReservation = useMutation(api.services.reservations.createReservation);
+  const addReservationPayment = useMutation(api.services.reservationPayments.addReservationPayment);
   const updateOrderPayment = useMutation(api.services.payments.updateOrderPayment);
 
   // ─── Categories ───
@@ -392,7 +393,7 @@ function PosPageContent() {
           }
         : undefined;
 
-      await createReservation({
+      const reservationRes = await createReservation({
         userId: selectedUserId ? (selectedUserId as Id<'users'>) : undefined,
         guestId: !selectedUserId ? `walkin-${Date.now()}` : undefined,
         guestInfo,
@@ -403,9 +404,23 @@ function PosPageContent() {
         })),
         totalAmount: total,
         totalQuantity: cart.reduce((s, l) => s + l.quantity, 0),
-        notes: `Deposit ${fmt(reservationDeposit)} · balance ${fmt(reservationBalance)} due at pickup ${pickupDate} ${pickupTime}`,
+        notes: `Reserved via POS · balance ${fmt(reservationBalance)} due at pickup ${pickupDate} ${pickupTime}`,
       });
-      alert(`Reservation confirmed. Take ${fmt(reservationDeposit)} deposit now.`);
+
+      // Record the downpayment as a real ledger entry so it lands in Cash on Hand now
+      // (cash deposit at the counter). Further partials are added from the reservation detail page.
+      if (reservationDeposit > 0 && reservationRes?.reservationId) {
+        await addReservationPayment({
+          reservationId: reservationRes.reservationId as Id<'reservations'>,
+          amount: reservationDeposit,
+          method: 'cash',
+          kind: 'downpayment',
+          note: 'POS downpayment',
+          userId: posUser?._id as Id<'users'> | undefined,
+        });
+      }
+
+      alert(`Reservation confirmed. Took ${fmt(reservationDeposit)} deposit.`);
       clearSale();
       setMode('sale');
     } catch (e) {

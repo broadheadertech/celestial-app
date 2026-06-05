@@ -31,6 +31,7 @@ import type * as services_notifications from "../services/notifications.js";
 import type * as services_orders from "../services/orders.js";
 import type * as services_payments from "../services/payments.js";
 import type * as services_products from "../services/products.js";
+import type * as services_reservationPayments from "../services/reservationPayments.js";
 import type * as services_reservations from "../services/reservations.js";
 import type * as services_settings from "../services/settings.js";
 import type * as services_stock from "../services/stock.js";
@@ -65,6 +66,7 @@ declare const fullApi: ApiFromModules<{
   "services/orders": typeof services_orders;
   "services/payments": typeof services_payments;
   "services/products": typeof services_products;
+  "services/reservationPayments": typeof services_reservationPayments;
   "services/reservations": typeof services_reservations;
   "services/settings": typeof services_settings;
   "services/stock": typeof services_stock;

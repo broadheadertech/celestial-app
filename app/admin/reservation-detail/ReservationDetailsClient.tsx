@@ -21,7 +21,11 @@ import {
   Printer,
   Send,
   MoreVertical,
-  Loader
+  Loader,
+  Wallet,
+  Plus,
+  Trash2,
+  Banknote
 } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
@@ -32,7 +36,23 @@ import SafeAreaProvider from '@/components/provider/SafeAreaProvider';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { Id } from '@/convex/_generated/dataModel';
+import { useAuthStore } from '@/store/auth';
 import { getSMSMessageForStatus, type SMSMessageData } from '@/lib/sms';
+
+const paymentMethodLabels: Record<string, string> = {
+  cash: 'Cash',
+  gcash: 'GCash',
+  card: 'Card',
+  bank_transfer: 'Bank Transfer',
+  other: 'Other',
+};
+const paymentKindLabels: Record<string, string> = {
+  downpayment: 'Downpayment',
+  partial: 'Partial payment',
+  full: 'Full settlement',
+  refund: 'Refund',
+  legacy: 'Recorded payment',
+};
 
 // Status options for the modal
 const statusOptions = [
@@ -83,6 +103,68 @@ function ReservationDetailsContent() {
   // Mutations for updating reservation status
   const updateReservationStatus = useMutation(api.services.reservations.updateReservationStatus);
   const markReservationReadyForPickup = useMutation(api.services.reservations.markReservationReadyForPickup);
+
+  // ── Payment flow (downpayment + partial payments ledger) ──
+  const { user: adminUser } = useAuthStore();
+  const payments = useQuery(
+    api.services.reservationPayments.getReservationPayments,
+    reservationId ? { reservationId: reservationId as Id<'reservations'> } : 'skip',
+  );
+  const addReservationPayment = useMutation(api.services.reservationPayments.addReservationPayment);
+  const deleteReservationPayment = useMutation(api.services.reservationPayments.deleteReservationPayment);
+
+  const [showAddPayment, setShowAddPayment] = useState(false);
+  const [payAmount, setPayAmount] = useState('');
+  const [payMethod, setPayMethod] = useState<'cash' | 'gcash' | 'card' | 'bank_transfer' | 'other'>('cash');
+  const [payNote, setPayNote] = useState('');
+  const [isRecordingPayment, setIsRecordingPayment] = useState(false);
+
+  const handleAddPayment = async () => {
+    if (!reservation) return;
+    const amount = parseFloat(payAmount);
+    if (isNaN(amount) || amount <= 0) {
+      showConfirmation('Invalid Amount', 'Enter a payment amount greater than 0.', 'warning');
+      return;
+    }
+    setIsRecordingPayment(true);
+    try {
+      const res = await addReservationPayment({
+        reservationId: reservation._id as Id<'reservations'>,
+        amount,
+        method: payMethod,
+        note: payNote || undefined,
+        userId: adminUser?._id ? (adminUser._id as Id<'users'>) : undefined,
+      });
+      setPayAmount('');
+      setPayNote('');
+      setShowAddPayment(false);
+      showConfirmation(
+        'Payment Recorded',
+        res.balance && res.balance > 0
+          ? `Recorded ${formatCurrency(amount)}. Remaining balance ${formatCurrency(res.balance)}.`
+          : `Recorded ${formatCurrency(amount)}. Reservation fully paid.`,
+        'success',
+      );
+    } catch (e) {
+      showConfirmation('Error', e instanceof Error ? e.message : 'Could not record payment.', 'error');
+    } finally {
+      setIsRecordingPayment(false);
+    }
+  };
+
+  const handleDeletePayment = async (paymentId: Id<'reservationPayments'>) => {
+    setIsRecordingPayment(true);
+    try {
+      await deleteReservationPayment({
+        paymentId,
+        userId: adminUser?._id ? (adminUser._id as Id<'users'>) : undefined,
+      });
+    } catch (e) {
+      showConfirmation('Error', e instanceof Error ? e.message : 'Could not remove payment.', 'error');
+    } finally {
+      setIsRecordingPayment(false);
+    }
+  };
 
   // Set default pickup date and time when modal opens
   useEffect(() => {
@@ -569,6 +651,175 @@ function ReservationDetailsContent() {
               </div>
             </div>
           </div>
+        </Card>
+
+        {/* Payment Flow */}
+        <Card className="p-4 sm:p-6 mb-3 sm:mb-6">
+          <div className="flex items-center justify-between gap-3 mb-4 sm:mb-6">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="p-2 sm:p-3 bg-primary/20 rounded-lg sm:rounded-xl shrink-0">
+                <Wallet className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h3 className="text-lg font-bold text-white">Payment Flow</h3>
+                <p className="text-sm text-muted">Downpayment & partial payments over time</p>
+              </div>
+            </div>
+            {reservation.status !== 'cancelled' && (payments?.balance ?? 1) > 0 && (
+              <Button onClick={() => setShowAddPayment((v) => !v)} variant="primary" size="sm" className="shrink-0">
+                <Plus className="w-4 h-4 mr-1.5" />
+                Add Payment
+              </Button>
+            )}
+          </div>
+
+          {/* Paid / Balance summary */}
+          {(() => {
+            const total = payments?.total ?? reservation.totalAmount ?? 0;
+            const paid = payments?.paid ?? 0;
+            const balance = payments?.balance ?? total;
+            const pct = total > 0 ? Math.min(100, Math.max(0, (paid / total) * 100)) : 0;
+            return (
+              <>
+                <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-3">
+                  <div className="bg-white/5 rounded-lg p-3 border border-white/10">
+                    <p className="text-[11px] text-muted mb-1">Total</p>
+                    <p className="text-sm sm:text-base font-bold text-white">{formatCurrency(total)}</p>
+                  </div>
+                  <div className="bg-success/10 rounded-lg p-3 border border-success/20">
+                    <p className="text-[11px] text-muted mb-1">Collected</p>
+                    <p className="text-sm sm:text-base font-bold text-success">{formatCurrency(paid)}</p>
+                  </div>
+                  <div className="bg-warning/10 rounded-lg p-3 border border-warning/20">
+                    <p className="text-[11px] text-muted mb-1">Balance</p>
+                    <p className="text-sm sm:text-base font-bold text-warning">{formatCurrency(balance)}</p>
+                  </div>
+                </div>
+                <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden mb-1">
+                  <div className="h-full bg-success rounded-full transition-all" style={{ width: `${pct}%` }} />
+                </div>
+                <p className="text-[11px] text-muted text-right mb-4">{pct.toFixed(0)}% collected</p>
+              </>
+            );
+          })()}
+
+          {/* Add payment form */}
+          {showAddPayment && (
+            <div className="bg-secondary/40 rounded-xl border border-white/10 p-4 mb-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs text-muted mb-1.5">Amount received now (₱)</label>
+                  <input
+                    type="number"
+                    value={payAmount}
+                    onChange={(e) => setPayAmount(e.target.value)}
+                    placeholder="e.g. 300"
+                    min="0"
+                    step="0.01"
+                    className="w-full px-3 py-2.5 bg-background/60 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-primary text-sm"
+                  />
+                  {(payments?.balance ?? 0) > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setPayAmount(String(payments?.balance ?? ''))}
+                      className="mt-1.5 text-[11px] text-primary hover:underline"
+                    >
+                      Pay full balance ({formatCurrency(payments?.balance ?? 0)})
+                    </button>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-xs text-muted mb-1.5">Method</label>
+                  <select
+                    value={payMethod}
+                    onChange={(e) => setPayMethod(e.target.value as typeof payMethod)}
+                    className="w-full px-3 py-2.5 bg-background/60 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-primary text-sm"
+                  >
+                    <option value="cash">Cash</option>
+                    <option value="gcash">GCash</option>
+                    <option value="card">Card</option>
+                    <option value="bank_transfer">Bank Transfer</option>
+                    <option value="other">Other</option>
+                  </select>
+                  <p className="mt-1.5 text-[10px] text-muted">Only cash adds to Cash on Hand.</p>
+                </div>
+              </div>
+              <div className="mt-3">
+                <Input value={payNote} onChange={setPayNote} placeholder="Note (optional)" />
+              </div>
+              <div className="flex gap-2 mt-3">
+                <Button onClick={() => setShowAddPayment(false)} variant="outline" size="sm" className="flex-1">
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleAddPayment}
+                  disabled={isRecordingPayment || !payAmount}
+                  loading={isRecordingPayment}
+                  size="sm"
+                  className="flex-1"
+                >
+                  Record Payment
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Payment timeline */}
+          {payments === undefined ? (
+            <div className="py-6 text-center text-muted text-sm">
+              <Loader className="w-5 h-5 animate-spin mx-auto mb-2" />
+              Loading payments…
+            </div>
+          ) : payments.timeline.length === 0 ? (
+            <div className="py-6 text-center">
+              <Banknote className="w-8 h-8 text-muted/40 mx-auto mb-2" />
+              <p className="text-sm text-muted">No payments recorded yet.</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {payments.timeline
+                .slice()
+                .reverse()
+                .map((p) => (
+                  <div
+                    key={p._id}
+                    className="flex items-center gap-3 bg-white/5 rounded-lg border border-white/10 p-3"
+                  >
+                    <div className={`p-2 rounded-lg shrink-0 ${p.amount < 0 ? 'bg-error/20' : 'bg-success/20'}`}>
+                      <Banknote className={`w-4 h-4 ${p.amount < 0 ? 'text-error' : 'text-success'}`} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-semibold text-white">{formatCurrency(p.amount)}</span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/10 text-muted">
+                          {paymentMethodLabels[p.method] || p.method}
+                        </span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/15 text-primary">
+                          {paymentKindLabels[p.kind || 'partial'] || 'Payment'}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-muted mt-0.5">
+                        {formatDate(p.date)}
+                        {p.recordedByName ? ` · ${p.recordedByName}` : ''}
+                        {p.note ? ` · ${p.note}` : ''}
+                      </p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-[10px] text-muted">Balance after</p>
+                      <p className="text-xs font-medium text-white">{formatCurrency(p.runningBalance)}</p>
+                    </div>
+                    <button
+                      onClick={() => handleDeletePayment(p._id as Id<'reservationPayments'>)}
+                      disabled={isRecordingPayment}
+                      title="Remove this payment"
+                      className="p-1.5 rounded-lg text-muted hover:text-error hover:bg-error/10 transition-colors shrink-0 disabled:opacity-50"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+            </div>
+          )}
         </Card>
 
         {/* Basic Info */}

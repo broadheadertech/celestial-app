@@ -389,7 +389,7 @@ export const getFinancialSummary = query({
     endDate: v.optional(v.number()),
   },
   handler: async (ctx, { startDate, endDate }) => {
-    const [orders, reservations, expenses, openingBalanceRecord, products, cashAdjustments, stockRecords] =
+    const [orders, reservations, expenses, openingBalanceRecord, products, cashAdjustments, stockRecords, reservationPayments] =
       await Promise.all([
         ctx.db.query("orders").collect(),
         ctx.db.query("reservations").collect(),
@@ -401,6 +401,7 @@ export const getFinancialSummary = query({
         ctx.db.query("products").collect(),
         ctx.db.query("cashAdjustments").collect(),
         ctx.db.query("stockRecords").collect(),
+        ctx.db.query("reservationPayments").collect(),
       ]);
 
     const openingBalance = openingBalanceRecord?.value || 0;
@@ -621,8 +622,27 @@ export const getFinancialSummary = query({
     const cashAdjustmentsEffect = filteredAdjustments
       .filter((a) => a.type !== "injection")
       .reduce((s, a) => s + a.amount, 0);
+    // Reservation cash collected (deposits + partials + balance settlements) from the
+    // payment ledger, recognized at each payment's own date. Only cash-method entries
+    // move the till; refund entries are negative and net themselves out. This is the
+    // money that reservation revenueByPayment['reservation'] never accounted for, so it's
+    // added as its own COH term (kept out of cashRevenue to preserve the digital/cash split).
+    const reservationCashCollected = reservationPayments
+      .filter((p) => p.method === "cash" && inRange(p.date))
+      .reduce((s, p) => s + p.amount, 0);
+
     // COH-funded restock reduces the till; investment-funded restock is declaration-only.
-    const cashOnHand = openingBalance + cashRevenue - cashExpenses - restockFromCOH + cashAdjustmentsEffect;
+    const cashOnHand = openingBalance + cashRevenue + reservationCashCollected - cashExpenses - restockFromCOH + cashAdjustmentsEffect;
+
+    // ─── Reservation collections (lifetime, all non-cancelled) ───
+    // Powers the P&L "Reservation Collections" card: total money actually collected vs
+    // total money owed across every reservation that wasn't cancelled. amountPaid is the
+    // cached ledger sum, so this counts every payment method (not just cash).
+    const collectionReservations = reservations.filter((r) => r.status !== "cancelled");
+    const collectionsCollected = collectionReservations.reduce((s, r) => s + (r.amountPaid || 0), 0);
+    const collectionsToCollect = collectionReservations.reduce((s, r) => s + (r.totalAmount || 0), 0);
+    const collectionsOutstanding = Math.max(0, collectionsToCollect - collectionsCollected);
+    const collectionsRate = collectionsToCollect > 0 ? (collectionsCollected / collectionsToCollect) * 100 : 0;
 
     // Digital (non-cash) balance
     const digitalRevenue = totalRevenue - cashRevenue;
@@ -678,8 +698,15 @@ export const getFinancialSummary = query({
       // Cash flow
       cashOnHand,
       cashRevenue,
+      reservationCashCollected,
       cashExpenses,
       cashAdjustmentsTotal,
+      // Reservation collections (lifetime, all non-cancelled) — for the P&L collections card
+      collectionsCollected,
+      collectionsToCollect,
+      collectionsOutstanding,
+      collectionsRate: collectionsRate.toFixed(1),
+      collectionsCount: collectionReservations.length,
       cashInjections,
       cashWithdrawals,
       digitalBalance,
@@ -716,7 +743,7 @@ export const getDailySalesReport = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, { tzOffsetMinutes = -480, startDate, endDate, limit = 370 }) => {
-    const [orders, reservations, expenses, cashAdjustments, openingRecord, stockRecords, products] = await Promise.all([
+    const [orders, reservations, expenses, cashAdjustments, openingRecord, stockRecords, products, reservationPayments] = await Promise.all([
       ctx.db.query("orders").collect(),
       ctx.db.query("reservations").collect(),
       ctx.db.query("expenses").collect(),
@@ -724,6 +751,7 @@ export const getDailySalesReport = query({
       ctx.db.query("financialSettings").withIndex("by_key", (q) => q.eq("key", "opening_cash_balance")).first(),
       ctx.db.query("stockRecords").collect(),
       ctx.db.query("products").collect(),
+      ctx.db.query("reservationPayments").collect(),
     ]);
     const openingBalance = openingRecord?.value || 0;
     const productMap = new Map(products.map((p) => [p._id as string, p]));
@@ -827,6 +855,11 @@ export const getDailySalesReport = query({
     }
     for (const a of cashAdjustments) {
       if (a.type !== "injection") cashEvents.push({ date: a.date, amt: a.amount });
+    }
+    // Reservation cash payments (deposits/partials/balance) land in the till at their own
+    // payment date — independent of when the reservation completes. Cash method only.
+    for (const p of reservationPayments) {
+      if (p.method === "cash") cashEvents.push({ date: p.date, amt: p.amount });
     }
     const eodCOH = (endMs: number) =>
       openingBalance + cashEvents.reduce((s, ev) => (ev.date <= endMs ? s + ev.amt : s), 0);
