@@ -1216,3 +1216,135 @@ export const getStockFlowDetail = query({
     return { startDate, endDate, items, totals: { viaCOH, viaInvestment, total: viaCOH + viaInvestment } };
   },
 });
+
+/**
+ * Collections Flow — per-day report of money collected on reservations from the
+ * reservationPayments ledger, split into Downpayments (first deposits, usually taken in
+ * POS at reservation time) vs Follow-up payments (later partials + balance settlements).
+ * Mirrors the Cash/Stock flow reports: timezone-aware day buckets, zero-activity days
+ * gap-filled, each row carries the exact [startMs, endMs] for the drilldown. The `cash`
+ * figure is the portion that moved Cash on Hand that day.
+ */
+export const getCollectionsFlowReport = query({
+  args: {
+    tzOffsetMinutes: v.optional(v.number()),
+    startDate: v.optional(v.number()),
+    endDate: v.optional(v.number()),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, { tzOffsetMinutes = -480, startDate, endDate, limit = 370 }) => {
+    const payments = await ctx.db.query("reservationPayments").collect();
+
+    const now = Date.now();
+    const DAY_MS = 24 * 60 * 60 * 1000;
+    const offMs = tzOffsetMinutes * 60 * 1000;
+    const inRange = (ts: number) => (!startDate || ts >= startDate) && (!endDate || ts <= endDate);
+    const dayIndex = (ts: number) => Math.floor((ts - offMs) / DAY_MS);
+
+    type Bucket = { downpayment: number; followup: number; cash: number; count: number };
+    const buckets = new Map<number, Bucket>();
+    const bucket = (k: number) =>
+      buckets.get(k) ?? buckets.set(k, { downpayment: 0, followup: 0, cash: 0, count: 0 }).get(k)!;
+
+    for (const p of payments) {
+      if (!inRange(p.date)) continue;
+      const b = bucket(dayIndex(p.date));
+      if (p.kind === "downpayment") b.downpayment += p.amount;
+      else b.followup += p.amount; // partial / full / legacy / refund(negative)
+      if (p.method === "cash") b.cash += p.amount;
+      b.count += 1;
+    }
+
+    // Gap-fill every day in the window (filtered range, else earliest payment → today).
+    let loTs = startDate;
+    if (loTs === undefined) {
+      let earliest = Infinity;
+      for (const p of payments) earliest = Math.min(earliest, p.date);
+      loTs = Number.isFinite(earliest) ? earliest : now;
+    }
+    let hiTs = endDate ?? now;
+    if (hiTs > now) hiTs = now;
+    const loDay = dayIndex(loTs);
+    const hiDay = dayIndex(hiTs);
+    const dayKeys = new Set<number>();
+    for (let k = loDay; k <= hiDay; k++) dayKeys.add(k);
+    for (const k of buckets.keys()) dayKeys.add(k);
+
+    const rows = Array.from(dayKeys)
+      .map((k) => {
+        const b = buckets.get(k) ?? { downpayment: 0, followup: 0, cash: 0, count: 0 };
+        const startMs = k * DAY_MS + offMs;
+        const endMs = startMs + DAY_MS - 1;
+        const dateKey = new Date(k * DAY_MS).toISOString().slice(0, 10);
+        return {
+          dateKey,
+          startMs,
+          endMs,
+          downpayment: b.downpayment,
+          followup: b.followup,
+          cash: b.cash,
+          total: b.downpayment + b.followup,
+          count: b.count,
+        };
+      })
+      .sort((a, b) => b.startMs - a.startMs)
+      .slice(0, limit);
+
+    const summary = {
+      dayCount: rows.length,
+      downpayment: rows.reduce((s, r) => s + r.downpayment, 0),
+      followup: rows.reduce((s, r) => s + r.followup, 0),
+      cash: rows.reduce((s, r) => s + r.cash, 0),
+      total: rows.reduce((s, r) => s + r.total, 0),
+    };
+
+    return { rows, summary };
+  },
+});
+
+/**
+ * Collections Flow detail — the individual reservation payments in a day window, enriched
+ * with the reservation code + customer name, for the drilldown.
+ */
+export const getCollectionsFlowDetail = query({
+  args: {
+    startDate: v.number(),
+    endDate: v.number(),
+  },
+  handler: async (ctx, { startDate, endDate }) => {
+    const all = await ctx.db.query("reservationPayments").collect();
+    const inRange = (ts: number) => ts >= startDate && ts <= endDate;
+    const scoped = all.filter((p) => inRange(p.date)).sort((a, b) => b.date - a.date);
+
+    const items = await Promise.all(
+      scoped.map(async (p) => {
+        const r = await ctx.db.get(p.reservationId);
+        let customer = "Unknown customer";
+        if (r?.guestInfo?.name) {
+          customer = r.guestInfo.name;
+        } else if (r?.userId && typeof r.userId !== "string") {
+          const u = await ctx.db.get(r.userId);
+          if (u) customer = `${u.firstName} ${u.lastName}`.trim();
+        }
+        return {
+          id: p._id as string,
+          reservationId: p.reservationId as string,
+          reservationCode: r?.reservationCode ?? `RES-${(p.reservationId as string).slice(-6).toUpperCase()}`,
+          customer,
+          amount: p.amount,
+          method: p.method,
+          kind: p.kind ?? "partial",
+          note: p.note ?? null,
+          date: p.date,
+          recordedByName: p.recordedByName ?? null,
+        };
+      }),
+    );
+
+    const downpayment = items.filter((i) => i.kind === "downpayment").reduce((s, i) => s + i.amount, 0);
+    const followup = items.filter((i) => i.kind !== "downpayment").reduce((s, i) => s + i.amount, 0);
+    const cash = items.filter((i) => i.method === "cash").reduce((s, i) => s + i.amount, 0);
+
+    return { startDate, endDate, items, totals: { downpayment, followup, cash, total: downpayment + followup } };
+  },
+});

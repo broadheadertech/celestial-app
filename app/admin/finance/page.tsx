@@ -96,7 +96,7 @@ function FinanceContent() {
   const { user } = useAuthStore();
 
   // Top-level view: P&L overview · per-day General Report · per-day Cash Flow (investor/remittance).
-  const [activeTab, setActiveTab] = useState<'pnl' | 'daily' | 'cashflow' | 'stockflow'>('pnl');
+  const [activeTab, setActiveTab] = useState<'pnl' | 'daily' | 'cashflow' | 'stockflow' | 'collections'>('pnl');
 
   // Date range filter (YYYY-MM-DD strings; converted to timestamps below).
   // Defaults to month-to-date; Clear resets to all-time.
@@ -341,6 +341,7 @@ function FinanceContent() {
             { id: 'pnl', label: 'P&L Overview' },
             { id: 'daily', label: 'General Report' },
             { id: 'cashflow', label: 'Cash Flow' },
+            { id: 'collections', label: 'Collections' },
             { id: 'stockflow', label: 'Stock Flow' },
           ] as const).map((t) => (
             <button
@@ -1245,6 +1246,10 @@ function FinanceContent() {
 
       {activeTab === 'cashflow' && (
         <CashFlowTab startDate={validStart} endDate={validEnd} />
+      )}
+
+      {activeTab === 'collections' && (
+        <CollectionsFlowTab startDate={validStart} endDate={validEnd} />
       )}
 
       {activeTab === 'stockflow' && (
@@ -2376,6 +2381,256 @@ function StockDayModal({ day, onClose }: { day: OpenDay; onClose: () => void }) 
                         <span className={`text-[10px] font-semibold uppercase ${it.source === 'coh' ? 'text-warning' : 'text-info'}`}>
                           {it.source === 'coh' ? 'Till' : 'Investment'}
                         </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </>
+  );
+}
+
+/* ───────────────────────── COLLECTIONS FLOW TAB ───────────────────────── */
+
+const collMethodLabels: Record<string, string> = {
+  cash: 'Cash',
+  gcash: 'GCash',
+  card: 'Card',
+  bank_transfer: 'Bank',
+  other: 'Other',
+};
+const collKindLabels: Record<string, string> = {
+  downpayment: 'Downpayment',
+  partial: 'Partial',
+  full: 'Full',
+  refund: 'Refund',
+  legacy: 'Recorded',
+};
+
+function CollectionsFlowTab({ startDate, endDate }: { startDate?: number; endDate?: number }) {
+  const tzOffsetMinutes = new Date().getTimezoneOffset();
+  const report = useQuery(api.services.finance.getCollectionsFlowReport, {
+    tzOffsetMinutes,
+    startDate,
+    endDate,
+  });
+  const [sortDir, setSortDir] = useState<'desc' | 'asc'>('asc');
+  const [openDay, setOpenDay] = useState<OpenDay | null>(null);
+
+  const loading = report === undefined;
+  const sortedRows = report
+    ? sortDir === 'desc'
+      ? report.rows
+      : [...report.rows].sort((a, b) => a.startMs - b.startMs)
+    : [];
+
+  return (
+    <div className="px-4 sm:px-6 py-4 sm:py-6 max-w-7xl mx-auto space-y-5">
+      {loading ? (
+        <div className="text-center py-20">
+          <div className="w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-sm text-white/60">Building collections flow report...</p>
+        </div>
+      ) : (
+        <>
+          {/* Period summary */}
+          <div className="grid grid-cols-3 gap-2 sm:gap-3">
+            <DailyKpi label="Downpayments" value={fmt(report.summary.downpayment)} accent="text-primary" bg="bg-primary/10" Icon={Receipt} />
+            <DailyKpi label="Follow-up" value={fmt(report.summary.followup)} accent="text-info" bg="bg-info/10" Icon={Banknote} />
+            <DailyKpi label="Total Collected" value={fmt(report.summary.total)} accent="text-success" bg="bg-success/10" Icon={Wallet} />
+          </div>
+
+          <p className="text-[11px] text-white/40 text-center -mt-1">
+            Reservation payments by the day they were received. {fmt(report.summary.cash)} of this was cash (adds to Cash on Hand).
+          </p>
+
+          {/* Sort order */}
+          {report.rows.length > 0 && (
+            <div className="flex items-center justify-end gap-2">
+              <span className="text-[11px] text-white/40 uppercase tracking-wider">Order by date</span>
+              <div className="inline-flex p-[3px] rounded-lg border border-white/10 bg-secondary/40">
+                {([
+                  { id: 'desc', label: 'Newest first' },
+                  { id: 'asc', label: 'Oldest first' },
+                ] as const).map((o) => (
+                  <button
+                    key={o.id}
+                    onClick={() => setSortDir(o.id)}
+                    className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all ${
+                      sortDir === o.id ? 'bg-primary text-white' : 'text-white/60 hover:text-white'
+                    }`}
+                  >
+                    {o.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {report.rows.length === 0 ? (
+            <div className="text-center py-16 rounded-2xl border border-white/10 bg-secondary/30">
+              <Receipt className="w-12 h-12 text-white/20 mx-auto mb-3" />
+              <h3 className="text-base font-bold text-white mb-1">No collections yet</h3>
+              <p className="text-xs text-white/60">Reservation downpayments and partial payments will appear here.</p>
+            </div>
+          ) : (
+            <>
+              {/* Desktop table */}
+              <div className="hidden md:block">
+                <div className="bg-secondary/30 border border-white/10 rounded-xl overflow-hidden shadow-xl">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-white/10 bg-secondary/60 text-[10px] font-semibold text-white/40 uppercase tracking-wider">
+                        <th className="text-left px-5 py-3">Date</th>
+                        <th className="text-right px-3 py-3">Downpayment</th>
+                        <th className="text-right px-3 py-3">Follow-up</th>
+                        <th className="text-right px-3 py-3">Total</th>
+                        <th className="text-right px-3 py-3">Cash</th>
+                        <th className="text-right px-5 py-3">Payments</th>
+                        <th className="w-8" />
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/5">
+                      {sortedRows.map((r) => (
+                        <tr
+                          key={r.dateKey}
+                          onClick={() => setOpenDay({ dateKey: r.dateKey, startMs: r.startMs, endMs: r.endMs })}
+                          className="hover:bg-white/[0.03] transition-colors cursor-pointer"
+                        >
+                          <td className="px-5 py-3 font-medium text-white whitespace-nowrap">{dayLabel(r.dateKey)}</td>
+                          <td className="px-3 py-3 text-right text-primary tabular-nums whitespace-nowrap">{r.downpayment !== 0 ? fmt(r.downpayment) : '—'}</td>
+                          <td className="px-3 py-3 text-right text-info tabular-nums whitespace-nowrap">{r.followup !== 0 ? fmt(r.followup) : '—'}</td>
+                          <td className="px-3 py-3 text-right text-white font-bold tabular-nums whitespace-nowrap">{r.total !== 0 ? fmt(r.total) : '—'}</td>
+                          <td className="px-3 py-3 text-right text-success/80 tabular-nums whitespace-nowrap">{r.cash !== 0 ? fmt(r.cash) : '—'}</td>
+                          <td className="px-5 py-3 text-right text-white/50 text-xs tabular-nums whitespace-nowrap">{r.count} {r.count === 1 ? 'payment' : 'payments'}</td>
+                          <td className="pr-3 text-right"><ChevronRight className="w-4 h-4 text-white/30 inline" /></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Mobile cards */}
+              <div className="md:hidden space-y-2.5">
+                {sortedRows.map((r) => (
+                  <button
+                    key={r.dateKey}
+                    onClick={() => setOpenDay({ dateKey: r.dateKey, startMs: r.startMs, endMs: r.endMs })}
+                    className="w-full text-left rounded-xl border border-white/10 bg-secondary/40 p-3 active:scale-[0.99] transition-transform"
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="font-bold text-white text-sm">{dayLabel(r.dateKey)}</p>
+                      <ChevronRight className="w-4 h-4 text-white/30" />
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      <div>
+                        <p className="text-[10px] text-white/40 uppercase tracking-wider">Down</p>
+                        <p className="text-sm font-semibold text-primary tabular-nums">{r.downpayment !== 0 ? fmt(r.downpayment) : '—'}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-white/40 uppercase tracking-wider">Follow-up</p>
+                        <p className="text-sm font-semibold text-info tabular-nums">{r.followup !== 0 ? fmt(r.followup) : '—'}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-white/40 uppercase tracking-wider">Total</p>
+                        <p className="text-sm font-bold text-white tabular-nums">{r.total !== 0 ? fmt(r.total) : '—'}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between mt-2">
+                      <p className="text-[11px] text-white/40">{r.count} {r.count === 1 ? 'payment' : 'payments'}</p>
+                      {r.cash !== 0 && <p className="text-[11px] text-success/70">{fmt(r.cash)} cash</p>}
+                    </div>
+                  </button>
+                ))}
+              </div>
+
+              <p className="text-[11px] text-white/40 text-center pt-1">
+                {report.rows.length} {report.rows.length === 1 ? 'day' : 'days'} · tap a date to see each payment
+              </p>
+            </>
+          )}
+        </>
+      )}
+
+      {openDay && <CollectionsDayModal day={openDay} onClose={() => setOpenDay(null)} />}
+    </div>
+  );
+}
+
+function CollectionsDayModal({ day, onClose }: { day: OpenDay; onClose: () => void }) {
+  const detail = useQuery(api.services.finance.getCollectionsFlowDetail, {
+    startDate: day.startMs,
+    endDate: day.endMs,
+  });
+  const loading = detail === undefined;
+
+  return (
+    <>
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9998]" onClick={onClose} />
+      <div className="fixed bottom-0 left-0 right-0 sm:inset-0 sm:flex sm:items-center sm:justify-center z-[9999]">
+        <div
+          className="rounded-t-3xl sm:rounded-2xl shadow-2xl sm:w-full sm:max-w-lg sm:mx-4 max-h-[88vh] overflow-y-auto"
+          style={{ background: 'var(--secondary)', border: '1px solid var(--line)' }}
+        >
+          <div className="sticky top-0 z-10 flex items-center justify-between px-5 py-4 border-b border-white/10 bg-secondary/95 backdrop-blur-sm">
+            <div className="min-w-0">
+              <p className="text-[11px] text-white/50 uppercase tracking-wider">Collections</p>
+              <h3 className="text-base sm:text-lg font-bold text-white truncate">{dayLabel(day.dateKey)}</h3>
+            </div>
+            <button onClick={onClose} className="p-2 rounded-lg hover:bg-white/10 flex-shrink-0">
+              <X className="w-5 h-5 text-white/70" />
+            </button>
+          </div>
+
+          {loading ? (
+            <div className="text-center py-16">
+              <div className="w-10 h-10 border-4 border-primary/30 border-t-primary rounded-full animate-spin mx-auto mb-3" />
+              <p className="text-sm text-white/60">Loading payments...</p>
+            </div>
+          ) : detail && (
+            <div className="p-5 space-y-4">
+              <div className="grid grid-cols-3 gap-2">
+                <div className="rounded-lg bg-primary/10 border border-primary/20 p-2.5">
+                  <p className="text-[10px] text-white/50 uppercase tracking-wider">Downpayment</p>
+                  <p className="text-sm font-bold text-primary tabular-nums">{fmt(detail.totals.downpayment)}</p>
+                </div>
+                <div className="rounded-lg bg-info/10 border border-info/20 p-2.5">
+                  <p className="text-[10px] text-white/50 uppercase tracking-wider">Follow-up</p>
+                  <p className="text-sm font-bold text-info tabular-nums">{fmt(detail.totals.followup)}</p>
+                </div>
+                <div className="rounded-lg bg-success/10 border border-success/20 p-2.5">
+                  <p className="text-[10px] text-white/50 uppercase tracking-wider">Total</p>
+                  <p className="text-sm font-bold text-success tabular-nums">{fmt(detail.totals.total)}</p>
+                </div>
+              </div>
+
+              {detail.items.length === 0 ? (
+                <p className="text-xs text-white/50 py-8 text-center">No payments this day.</p>
+              ) : (
+                <div className="rounded-xl border border-white/10 overflow-hidden divide-y divide-white/5">
+                  {detail.items.map((it) => (
+                    <div key={it.id} className="flex items-center gap-3 p-2.5 bg-secondary/30">
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${it.amount < 0 ? 'bg-error/10' : 'bg-success/10'}`}>
+                        <Banknote className={`w-4 h-4 ${it.amount < 0 ? 'text-error' : 'text-success'}`} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-white truncate">{it.reservationCode}</p>
+                        <p className="text-[11px] text-white/40 truncate">
+                          {it.customer}
+                          {it.recordedByName ? <span className="text-white/30"> · {it.recordedByName}</span> : null}
+                        </p>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <p className="text-sm font-semibold text-white tabular-nums">{fmt(it.amount)}</p>
+                        <div className="flex items-center gap-1 justify-end">
+                          <span className="text-[9px] px-1 py-0.5 rounded bg-white/10 text-white/60">{collMethodLabels[it.method] || it.method}</span>
+                          <span className="text-[9px] px-1 py-0.5 rounded bg-primary/15 text-primary">{collKindLabels[it.kind] || it.kind}</span>
+                        </div>
                       </div>
                     </div>
                   ))}
