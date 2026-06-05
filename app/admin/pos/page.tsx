@@ -115,6 +115,8 @@ function PosPageContent() {
   });
   const [pickupTime, setPickupTime] = useState('14:00');
   const [reservationDepositRatio, setReservationDepositRatio] = useState(0.2);
+  // Exact downpayment override. When non-empty & valid, it wins over the percentage preset.
+  const [reservationDepositInput, setReservationDepositInput] = useState('');
 
   // Line discount modal
   const [editLine, setEditLine] = useState<string | null>(null);
@@ -286,6 +288,7 @@ function PosPageContent() {
     setSalesAssociateId('');
     setSalesAssociateName('');
     setTenders([{ method: 'cash', amount: '' }]);
+    setReservationDepositInput('');
   };
 
   const openLineDiscount = (l: CartLine) => {
@@ -374,7 +377,12 @@ function PosPageContent() {
   };
 
   // ─── Reservation commit ───
-  const reservationDeposit = Math.round(total * reservationDepositRatio);
+  // Deposit = the exact amount typed (clamped to total) when provided, else the percentage preset.
+  const reservationDepositExact = parseFloat(reservationDepositInput);
+  const reservationDepositIsExact = !isNaN(reservationDepositExact) && reservationDepositInput.trim() !== '';
+  const reservationDeposit = reservationDepositIsExact
+    ? Math.max(0, Math.min(reservationDepositExact, total))
+    : Math.round(total * reservationDepositRatio);
   const reservationBalance = total - reservationDeposit;
 
   const canReserve =
@@ -743,6 +751,9 @@ function PosPageContent() {
               setPickupTime={setPickupTime}
               reservationDepositRatio={reservationDepositRatio}
               setReservationDepositRatio={setReservationDepositRatio}
+              reservationDepositInput={reservationDepositInput}
+              setReservationDepositInput={setReservationDepositInput}
+              reservationDepositIsExact={reservationDepositIsExact}
               reservationDeposit={reservationDeposit}
               reservationBalance={reservationBalance}
               onReserve={handleReserve}
@@ -944,6 +955,9 @@ function CartPanel(props: any) {
     setPickupTime,
     reservationDepositRatio,
     setReservationDepositRatio,
+    reservationDepositInput,
+    setReservationDepositInput,
+    reservationDepositIsExact,
     reservationDeposit,
     reservationBalance,
     onReserve,
@@ -1233,30 +1247,57 @@ function CartPanel(props: any) {
             <div>
               <p className="label-eyebrow mb-1">Deposit</p>
               <div className="flex gap-1.5">
-                {[0.2, 0.3, 0.5, 1].map((r) => (
-                  <button
-                    key={r}
-                    onClick={() => setReservationDepositRatio(r)}
-                    className="flex-1 px-2 py-1.5 rounded-md border text-[11px] font-bold transition-all"
-                    style={{
-                      borderColor:
-                        Math.abs(reservationDepositRatio - r) < 0.01
-                          ? 'var(--red)'
-                          : 'var(--line)',
-                      background:
-                        Math.abs(reservationDepositRatio - r) < 0.01
-                          ? 'var(--red-wash)'
-                          : 'var(--surface-2)',
-                      color:
-                        Math.abs(reservationDepositRatio - r) < 0.01
-                          ? 'var(--red-hi)'
-                          : 'var(--ink-2)',
-                    }}
-                  >
-                    {r === 1 ? 'Full' : `${Math.round(r * 100)}%`}
-                  </button>
-                ))}
+                {[0.2, 0.3, 0.5, 1].map((r) => {
+                  const active = !reservationDepositIsExact && Math.abs(reservationDepositRatio - r) < 0.01;
+                  return (
+                    <button
+                      key={r}
+                      onClick={() => {
+                        setReservationDepositRatio(r);
+                        setReservationDepositInput(''); // revert to percentage mode
+                      }}
+                      className="flex-1 px-2 py-1.5 rounded-md border text-[11px] font-bold transition-all"
+                      style={{
+                        borderColor: active ? 'var(--red)' : 'var(--line)',
+                        background: active ? 'var(--red-wash)' : 'var(--surface-2)',
+                        color: active ? 'var(--red-hi)' : 'var(--ink-2)',
+                      }}
+                    >
+                      {r === 1 ? 'Full' : `${Math.round(r * 100)}%`}
+                    </button>
+                  );
+                })}
               </div>
+              {/* Exact amount override — wins over the percentage when filled in */}
+              <div className="relative mt-1.5">
+                <span
+                  className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[12px] dc-mono"
+                  style={{ color: 'var(--ink-4)' }}
+                >
+                  ₱
+                </span>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  min="0"
+                  step="0.01"
+                  max={total || undefined}
+                  value={reservationDepositInput}
+                  onChange={(e) => setReservationDepositInput(e.target.value)}
+                  placeholder="Exact deposit amount"
+                  className="w-full pl-6 pr-2 py-2 rounded-md border text-[12px] outline-none"
+                  style={{
+                    background: 'var(--bg-2)',
+                    borderColor: reservationDepositIsExact ? 'var(--red)' : 'var(--line)',
+                    color: 'var(--ink)',
+                  }}
+                />
+              </div>
+              <p className="text-[10px] mt-1" style={{ color: 'var(--ink-4)' }}>
+                {reservationDepositIsExact
+                  ? 'Using exact amount'
+                  : 'Using percentage preset · type an amount to override'}
+              </p>
             </div>
             <div className="flex flex-col gap-1 pt-2 border-t" style={{ borderColor: 'var(--line-soft)' }}>
               {[
