@@ -8,6 +8,7 @@ import {
   notifyReservationReadyForPickup
 } from './notifications';
 import { reserveStockHelper, releaseReservedStockHelper } from './stock';
+import { recordAudit } from './audit';
 
 // Helper function to generate unique reservation codes
 function generateReservationCode(): string {
@@ -256,21 +257,7 @@ export const getReservations = query({
             items: itemsWithProducts,
           };
         }
-        // Handle legacy single-item format
-        else if (reservation.productId) {
-          const product = await ctx.db.get(reservation.productId);
-          return {
-            ...reservation,
-            product,
-            items: [{
-              productId: reservation.productId,
-              quantity: reservation.quantity || 1,
-              reservedPrice: product?.price || 0,
-              product,
-            }],
-          };
-        }
-        
+
         // Empty reservation (should not happen but handle gracefully)
         return {
           ...reservation,
@@ -324,16 +311,6 @@ export const getReservationByCode = query({
           };
         })
       );
-    }
-    // Handle legacy single-item format
-    else if (reservation.productId) {
-      const product = await ctx.db.get(reservation.productId);
-      itemsWithProducts = [{
-        productId: reservation.productId,
-        quantity: reservation.quantity || 1,
-        reservedPrice: product?.price || 0,
-        product,
-      }];
     }
 
     return {
@@ -398,20 +375,6 @@ export const cancelReservation = mutation({
           });
         }
       }
-    } else if (reservation.productId) {
-      // Legacy single-item format
-      const product = await ctx.db.get(reservation.productId);
-      if (product) {
-        const qty = reservation.quantity || 1;
-        await ctx.db.patch(reservation.productId, {
-          stock: product.stock + qty,
-          updatedAt: Date.now(),
-        });
-        await releaseReservedStockHelper(ctx, {
-          productId: reservation.productId,
-          quantity: qty,
-        });
-      }
     }
 
     // Update reservation status
@@ -434,17 +397,13 @@ export const cancelReservation = mutation({
       }
     }
     
-    let itemsText;
+    let itemsText = 'items';
     if (reservation.items && reservation.items.length > 0) {
-      // New multi-item format
-      itemsText = reservation.items.length === 1 
+      itemsText = reservation.items.length === 1
         ? `${reservation.items[0].quantity}x product`
         : `${reservation.items.length} items (${reservation.totalQuantity || reservation.items.reduce((sum, item) => sum + item.quantity, 0)} total)`;
-    } else {
-      // Legacy single-item format
-      itemsText = `${reservation.quantity || 1}x product`;
     }
-    
+
     await notifyReservationStatusChanged(ctx, {
       reservationId: reservation.reservationCode || reservation._id.toString(),
       customerName,
@@ -470,15 +429,6 @@ export const cancelReservation = mutation({
             };
           })
         );
-      } else if (updatedReservation.productId) {
-        // Legacy single-item format
-        const product = await ctx.db.get(updatedReservation.productId);
-        itemsWithProducts = [{
-          productId: updatedReservation.productId,
-          quantity: updatedReservation.quantity || 1,
-          reservedPrice: product?.price || 0,
-          product,
-        }];
       }
 
       return {
@@ -552,11 +502,6 @@ export const markReservationReadyForPickup = mutation({
       } else {
         productName = `${reservation.items.length} items`;
       }
-    } else if (reservation.productId) {
-      // Legacy single-item reservation
-      const product = await ctx.db.get(reservation.productId);
-      productName = product?.name || 'Product';
-      totalQuantity = reservation.quantity || 1;
     }
 
     // Create customer notification with push notification
@@ -631,20 +576,6 @@ export const updateReservationStatus = mutation({
             });
           }
         }
-      } else if (reservation.productId) {
-        // Legacy single-item format
-        const product = await ctx.db.get(reservation.productId);
-        if (product) {
-          const qty = reservation.quantity || 1;
-          await ctx.db.patch(reservation.productId, {
-            stock: product.stock + qty,
-            updatedAt: now,
-          });
-          await releaseReservedStockHelper(ctx, {
-            productId: reservation.productId,
-            quantity: qty,
-          });
-        }
       }
     }
 
@@ -672,20 +603,15 @@ export const updateReservationStatus = mutation({
         }
       }
       
-      let itemsText;
-      let totalQuantity = 1;
+      let itemsText = 'items';
+      let totalQuantity = reservation.totalQuantity || 1;
       if (reservation.items && reservation.items.length > 0) {
-        // New multi-item format
         totalQuantity = reservation.totalQuantity || reservation.items.reduce((sum, item) => sum + item.quantity, 0);
-        itemsText = reservation.items.length === 1 
+        itemsText = reservation.items.length === 1
           ? `${reservation.items[0].quantity}x product`
           : `${reservation.items.length} items (${totalQuantity} total)`;
-      } else {
-        // Legacy single-item format
-        totalQuantity = reservation.quantity || 1;
-        itemsText = `${totalQuantity}x product`;
       }
-      
+
       await notifyReservationStatusChanged(ctx, {
         reservationId: reservation.reservationCode || reservation._id.toString(),
         customerName,
@@ -728,16 +654,6 @@ export const getReservationByIdAdmin = query({
         })
       );
     }
-    // Handle legacy single-item format
-    else if (reservation.productId) {
-      const product = await ctx.db.get(reservation.productId);
-      itemsWithProducts = [{
-        productId: reservation.productId,
-        quantity: reservation.quantity || 1,
-        reservedPrice: product?.price || 0,
-        product,
-      }];
-    }
 
     let user = null;
     if (reservation.userId) {
@@ -762,7 +678,7 @@ export const getReservationByIdAdmin = query({
       items: itemsWithProducts,
       // Keep backward compatibility - use first product for main display
       product: itemsWithProducts[0]?.product || null,
-      quantity: reservation.totalQuantity || reservation.quantity || itemsWithProducts.reduce((sum, item) => sum + item.quantity, 0),
+      quantity: reservation.totalQuantity || itemsWithProducts.reduce((sum, item) => sum + item.quantity, 0),
       user: user ? {
         id: user._id,
         firstName: user.firstName,
@@ -804,16 +720,6 @@ export const getAllReservationsAdmin = query({
             })
           );
         }
-        // Handle legacy single-item format
-        else if (reservation.productId) {
-          const product = await ctx.db.get(reservation.productId);
-          itemsWithProducts = [{
-            productId: reservation.productId,
-            quantity: reservation.quantity || 1,
-            reservedPrice: product?.price || 0,
-            product,
-          }];
-        }
 
         let user = null;
         if (reservation.userId) {
@@ -838,7 +744,7 @@ export const getAllReservationsAdmin = query({
           items: itemsWithProducts,
           // Keep backward compatibility - use first product for main display
           product: itemsWithProducts[0]?.product || null,
-          quantity: reservation.totalQuantity || reservation.quantity || itemsWithProducts.reduce((sum, item) => sum + item.quantity, 0),
+          quantity: reservation.totalQuantity || itemsWithProducts.reduce((sum, item) => sum + item.quantity, 0),
           user: user ? {
             id: user._id,
             firstName: user.firstName,
@@ -1064,20 +970,6 @@ export const cleanupExpiredReservations = mutation({
             });
           }
         }
-      } else if (reservation.productId) {
-        // Legacy single-item format
-        const product = await ctx.db.get(reservation.productId);
-        if (product) {
-          const qty = reservation.quantity || 1;
-          await ctx.db.patch(reservation.productId, {
-            stock: product.stock + qty,
-            updatedAt: now,
-          });
-          await releaseReservedStockHelper(ctx, {
-            productId: reservation.productId,
-            quantity: qty,
-          });
-        }
       }
 
       // Update reservation status
@@ -1232,5 +1124,63 @@ export const releaseReservation = mutation({
       createdAt: reservation.createdAt,
       notes: reservation.notes,
     };
+  },
+});
+
+/**
+ * One-time migration: convert any legacy single-item reservation (which stored a top-level
+ * `productId` + `quantity` instead of the `items[]` array) into the multi-item shape, then
+ * strip the legacy fields so the schema can drop them. Idempotent — reservations that already
+ * use items[] and have no legacy fields are skipped. Legacy fields are read via a cast because
+ * they no longer exist on the typed schema.
+ *
+ * RUN THIS BEFORE deploying the schema change that removes `productId`/`quantity`, otherwise
+ * Convex will reject existing documents that still carry those fields.
+ */
+export const migrateLegacyReservations = mutation({
+  args: { userId: v.optional(v.id("users")) },
+  handler: async (ctx, { userId }) => {
+    const reservations = await ctx.db.query("reservations").collect();
+    let migrated = 0;
+    let skipped = 0;
+
+    for (const r of reservations) {
+      const legacyProductId = (r as any).productId as string | undefined;
+      const legacyQuantity = (r as any).quantity as number | undefined;
+
+      // Nothing legacy on this doc → leave it alone.
+      if (!legacyProductId && legacyQuantity === undefined) {
+        skipped++;
+        continue;
+      }
+
+      const hasItems = Array.isArray(r.items) && r.items.length > 0;
+      const patch: any = { productId: undefined, quantity: undefined, updatedAt: Date.now() };
+
+      // Only synthesize items[] when it's missing AND we have a legacy product.
+      if (!hasItems && legacyProductId) {
+        const product = await ctx.db.get(legacyProductId as any);
+        const qty = legacyQuantity || 1;
+        const unitPrice =
+          r.totalAmount && qty ? r.totalAmount / qty : ((product as any)?.price || 0);
+        patch.items = [{ productId: legacyProductId, quantity: qty, reservedPrice: unitPrice }];
+        if (r.totalAmount === undefined) patch.totalAmount = unitPrice * qty;
+        if (r.totalQuantity === undefined) patch.totalQuantity = qty;
+      }
+
+      await ctx.db.patch(r._id, patch);
+      migrated++;
+    }
+
+    await recordAudit(ctx, {
+      actorId: userId,
+      action: "reservation.migrate_legacy",
+      category: "system",
+      summary: `Migrated ${migrated} legacy single-item reservation(s) to items[] and cleared legacy fields`,
+      entityTable: "reservations",
+      metadata: { migrated, skipped },
+    });
+
+    return { success: true, migrated, skipped };
   },
 });

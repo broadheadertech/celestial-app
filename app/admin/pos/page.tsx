@@ -117,6 +117,8 @@ function PosPageContent() {
   const [reservationDepositRatio, setReservationDepositRatio] = useState(0.2);
   // Exact downpayment override. When non-empty & valid, it wins over the percentage preset.
   const [reservationDepositInput, setReservationDepositInput] = useState('');
+  // How the downpayment is being taken (cash hits Cash on Hand; others tracked separately).
+  const [reservationDepositMethod, setReservationDepositMethod] = useState<'cash' | 'gcash' | 'card' | 'bank_transfer' | 'other'>('cash');
 
   // Line discount modal
   const [editLine, setEditLine] = useState<string | null>(null);
@@ -290,6 +292,7 @@ function PosPageContent() {
     setSalesAssociateName('');
     setTenders([{ method: 'cash', amount: '' }]);
     setReservationDepositInput('');
+    setReservationDepositMethod('cash');
   };
 
   const openLineDiscount = (l: CartLine) => {
@@ -426,9 +429,9 @@ function PosPageContent() {
         await addReservationPayment({
           reservationId: reservationRes.reservationId as Id<'reservations'>,
           amount: reservationDeposit,
-          method: 'cash',
+          method: reservationDepositMethod,
           kind: 'downpayment',
-          note: 'POS downpayment',
+          note: `POS downpayment (${reservationDepositMethod})`,
           userId: posUser?._id as Id<'users'> | undefined,
         });
       }
@@ -758,6 +761,8 @@ function PosPageContent() {
               setReservationDepositRatio={setReservationDepositRatio}
               reservationDepositInput={reservationDepositInput}
               setReservationDepositInput={setReservationDepositInput}
+              reservationDepositMethod={reservationDepositMethod}
+              setReservationDepositMethod={setReservationDepositMethod}
               reservationDepositIsExact={reservationDepositIsExact}
               reservationDeposit={reservationDeposit}
               reservationBalance={reservationBalance}
@@ -962,6 +967,8 @@ function CartPanel(props: any) {
     setReservationDepositRatio,
     reservationDepositInput,
     setReservationDepositInput,
+    reservationDepositMethod,
+    setReservationDepositMethod,
     reservationDepositIsExact,
     reservationDeposit,
     reservationBalance,
@@ -1305,6 +1312,29 @@ function CartPanel(props: any) {
                   ? 'Using exact amount'
                   : 'Using percentage preset · type an amount to override'}
               </p>
+              {/* Downpayment method */}
+              <div className="mt-2">
+                <p className="label-eyebrow mb-1">Paid via</p>
+                <div className="flex gap-1.5 flex-wrap">
+                  {(['cash', 'gcash', 'card', 'bank_transfer', 'other'] as const).map((m) => {
+                    const active = reservationDepositMethod === m;
+                    return (
+                      <button
+                        key={m}
+                        onClick={() => setReservationDepositMethod(m)}
+                        className="px-2.5 py-1.5 rounded-md border text-[11px] font-bold capitalize transition-all"
+                        style={{
+                          borderColor: active ? 'var(--red)' : 'var(--line)',
+                          background: active ? 'var(--red-wash)' : 'var(--surface-2)',
+                          color: active ? 'var(--red-hi)' : 'var(--ink-2)',
+                        }}
+                      >
+                        {m === 'bank_transfer' ? 'Bank' : m === 'gcash' ? 'GCash' : m}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
             <div className="flex flex-col gap-1 pt-2 border-t" style={{ borderColor: 'var(--line-soft)' }}>
               {[

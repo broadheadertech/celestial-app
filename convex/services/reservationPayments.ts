@@ -187,6 +187,107 @@ export const deleteReservationPayment = mutation({
 });
 
 /**
+ * Refund money already collected on a reservation by writing a NEGATIVE ledger entry.
+ * This keeps the ledger the single source of truth: the refund reverses Cash on Hand
+ * (when method is cash) at its own date and shows in the payment-flow timeline. Defaults
+ * to refunding the full amount currently paid; pass `amount` for a partial refund.
+ */
+export const refundReservationPayment = mutation({
+  args: {
+    reservationId: v.id("reservations"),
+    amount: v.optional(v.number()), // default = full current amountPaid
+    method: v.optional(methodValidator),
+    note: v.optional(v.string()),
+    userId: v.optional(v.id("users")),
+  },
+  handler: async (ctx, { reservationId, amount, method, note, userId }) => {
+    const reservation = await ctx.db.get(reservationId);
+    if (!reservation) throw new Error("Reservation not found");
+
+    const currentPaid = reservation.amountPaid || 0;
+    const refundAmount = amount !== undefined ? amount : currentPaid;
+    if (!Number.isFinite(refundAmount) || refundAmount <= 0) {
+      throw new Error("Nothing to refund");
+    }
+    if (refundAmount > currentPaid + 0.01) {
+      throw new Error(`Refund ${peso(refundAmount)} exceeds amount paid ${peso(currentPaid)}.`);
+    }
+
+    const m = method || "cash";
+    const now = Date.now();
+    let recordedByName: string | undefined;
+    if (userId) {
+      const u = await ctx.db.get(userId);
+      if (u) recordedByName = `${u.firstName} ${u.lastName}`.trim();
+    }
+
+    const id = await ctx.db.insert("reservationPayments", {
+      reservationId,
+      amount: -Math.abs(refundAmount), // negative = money returned to the customer
+      method: m,
+      kind: "refund",
+      note: note?.trim() || `Refund (${m})`,
+      date: now,
+      recordedBy: userId,
+      recordedByName,
+      createdAt: now,
+    });
+
+    const cache = await recomputeReservationPaymentCache(ctx, reservationId);
+
+    await recordAudit(ctx, {
+      actorId: userId,
+      action: "reservation.refund",
+      category: "sales",
+      summary: `Reservation ${reservation.reservationCode || "#" + (reservationId as string).slice(-6)} refund ${peso(refundAmount)} (${m})`,
+      entityTable: "reservationPayments",
+      entityId: id,
+      amount: -Math.abs(refundAmount),
+      metadata: { reservationId, method: m },
+    });
+
+    return { success: true, amountPaid: cache?.amountPaid ?? 0, paymentStatus: cache?.paymentStatus };
+  },
+});
+
+/**
+ * Reset a reservation's payments to none — for correcting erroneously-recorded payments
+ * ("mark unpaid"). Deletes every ledger entry (so any cash they represented leaves Cash
+ * on Hand) and recomputes the cache back to unpaid. This is a correction, NOT a refund:
+ * use refundReservationPayment when money was actually returned to the customer.
+ */
+export const clearReservationPayments = mutation({
+  args: {
+    reservationId: v.id("reservations"),
+    userId: v.optional(v.id("users")),
+  },
+  handler: async (ctx, { reservationId, userId }) => {
+    const reservation = await ctx.db.get(reservationId);
+    if (!reservation) throw new Error("Reservation not found");
+
+    const entries = await ctx.db
+      .query("reservationPayments")
+      .withIndex("by_reservation", (q) => q.eq("reservationId", reservationId))
+      .collect();
+    for (const e of entries) await ctx.db.delete(e._id);
+
+    await recomputeReservationPaymentCache(ctx, reservationId);
+
+    await recordAudit(ctx, {
+      actorId: userId,
+      action: "reservation.payment.clear",
+      category: "sales",
+      summary: `Reservation ${reservation.reservationCode || "#" + (reservationId as string).slice(-6)} payments cleared (${entries.length} removed) → unpaid`,
+      entityTable: "reservations",
+      entityId: reservationId as string,
+      metadata: { reservationId, removed: entries.length },
+    });
+
+    return { success: true, removed: entries.length };
+  },
+});
+
+/**
  * One-time backfill: for every non-cancelled reservation that has a cached amountPaid
  * but no ledger entries yet, create a single "legacy" entry so the payment-flow view
  * and audit history are consistent. Method is "other" so it does NOT retroactively

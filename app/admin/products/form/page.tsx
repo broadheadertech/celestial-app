@@ -210,7 +210,9 @@ export function ProductFormContentInner({ editProductId, onSuccess, isDrawer }: 
         description: existingProduct.description || '',
         price: existingProduct.price.toString(),
         costPrice: existingProduct.costPrice?.toString() || '',
-        originalPrice: existingProduct.originalPrice?.toString() || existingProduct.price.toString(),
+        // Blank when there's no real discount (matches the "Leave blank if no discount" hint);
+        // pre-filling it with the selling price made price increases trip the compare-at check.
+        originalPrice: existingProduct.originalPrice?.toString() || '',
         categoryId: existingProduct.categoryId,
         category: category?.name || '',
         image: existingProduct.image,

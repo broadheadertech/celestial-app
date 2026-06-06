@@ -313,8 +313,9 @@ function AdminOrdersContent() {
   const acknowledgeReservation = useMutation(api.services.reservations.acknowledgeReservation);
   const releaseReservation = useMutation(api.services.reservations.releaseReservation);
   const updateOrderPayment = useMutation(api.services.payments.updateOrderPayment);
-  const updateReservationPayment = useMutation(api.services.payments.updateReservationPayment);
   const addReservationPayment = useMutation(api.services.reservationPayments.addReservationPayment);
+  const refundReservationPayment = useMutation(api.services.reservationPayments.refundReservationPayment);
+  const clearReservationPayments = useMutation(api.services.reservationPayments.clearReservationPayments);
   const assignOrderSA = useMutation(api.services.admin.assignOrderSalesAssociate);
   const assignReservationSA = useMutation(api.services.admin.assignReservationSalesAssociate);
   const staffUsers = useQuery(api.services.admin.getStaffUsers, {});
@@ -497,7 +498,8 @@ function AdminOrdersContent() {
         return;
       }
 
-      // Reservations: money in (partial/paid) flows through the payment ledger.
+      // Reservations: ALL payment state changes flow through the ledger, so the cached
+      // amountPaid/paymentStatus can never diverge from real money movements.
       if (paymentStatus === 'partial' || paymentStatus === 'paid') {
         const total = item.totalAmount || 0;
         const already = item.amountPaid || 0;
@@ -514,9 +516,23 @@ function AdminOrdersContent() {
         return;
       }
 
-      // unpaid / refunded — admin override on the cached status. To reverse collected cash,
-      // delete the individual ledger entries on the reservation detail page.
-      await updateReservationPayment({ reservationId: item._id as Id<'reservations'>, paymentStatus, amountPaid: amountArg });
+      if (paymentStatus === 'refunded') {
+        // Reverse the collected cash with a negative ledger entry (money returned).
+        if ((item.amountPaid || 0) > 0) {
+          await refundReservationPayment({
+            reservationId: item._id as Id<'reservations'>,
+            method,
+            userId: actingUser?._id as Id<'users'> | undefined,
+          });
+        }
+        return;
+      }
+
+      // unpaid — correction: wipe the ledger back to no payments (cash leaves COH).
+      await clearReservationPayments({
+        reservationId: item._id as Id<'reservations'>,
+        userId: actingUser?._id as Id<'users'> | undefined,
+      });
     } catch (error) {
       alert(error instanceof Error ? error.message : 'Failed to update payment');
     }

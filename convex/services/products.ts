@@ -239,9 +239,10 @@ export const createProduct = mutation({
       throw new Error("Price must be greater than 0");
     }
 
-    if (args.originalPrice && args.originalPrice <= args.price) {
-      throw new Error("Original price must be greater than current price");
-    }
+    // Only keep "original price" when it's a real compare-at (strictly above the selling
+    // price); otherwise there's no discount, so ignore it rather than rejecting the product.
+    const normalizedOriginalPrice =
+      args.originalPrice && args.originalPrice > args.price ? args.originalPrice : undefined;
 
     if (args.stock < 0) {
       throw new Error("Stock cannot be negative");
@@ -387,7 +388,7 @@ export const createProduct = mutation({
         name: args.name.trim(),
         description: args.description?.trim(),
         price: args.price,
-        originalPrice: args.originalPrice,
+        originalPrice: normalizedOriginalPrice,
         categoryId: args.categoryId,
         image: args.image,
         images: args.images || [],
@@ -579,12 +580,13 @@ export const updateProduct = mutation({
       }
     }
     
-    // Validate price relationship
+    // "Original price" is a compare-at anchor used only to SHOW a discount, so it's only
+    // meaningful when it sits ABOVE the selling price. A normal price increase can push the
+    // new price to/above a stale originalPrice — rather than blocking the update, we drop the
+    // now-meaningless anchor so the product simply has no discount. (Cleared in the patch below.)
     const finalPrice = updates.price ?? product.price;
     const finalOriginalPrice = updates.originalPrice ?? product.originalPrice;
-    if (finalOriginalPrice && finalPrice > finalOriginalPrice) {
-      throw new Error("Current price cannot be greater than original price");
-    }
+    const clearStaleDiscount = finalOriginalPrice !== undefined && finalPrice >= finalOriginalPrice;
     
     if (updates.stock !== undefined && updates.stock < 0) {
       throw new Error("Stock cannot be negative");
@@ -745,7 +747,9 @@ export const updateProduct = mutation({
       // Add other fields directly
       if (updates.price !== undefined) updateData.price = updates.price;
       if (updates.costPrice !== undefined) updateData.costPrice = updates.costPrice;
-      if (updates.originalPrice !== undefined) updateData.originalPrice = updates.originalPrice;
+      // Clear a stale compare-at price (no discount) — otherwise honor an explicit one.
+      if (clearStaleDiscount) updateData.originalPrice = undefined;
+      else if (updates.originalPrice !== undefined) updateData.originalPrice = updates.originalPrice;
       if (updates.categoryId !== undefined) updateData.categoryId = updates.categoryId;
       if (updates.image !== undefined) updateData.image = updates.image;
       if (updates.images !== undefined) updateData.images = updates.images;

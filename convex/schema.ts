@@ -204,9 +204,11 @@ export default defineSchema({
     totalAmount: v.optional(v.number()), // Total amount for all items - Optional for backward compatibility
     totalQuantity: v.optional(v.number()), // Total quantity of all items - Optional for backward compatibility
 
-    // Legacy single-item fields - Keep for backward compatibility
-    productId: v.optional(v.id("products")), // Legacy single product ID
-    quantity: v.optional(v.number()), // Legacy single quantity
+    // DEPRECATED legacy single-item fields. No code reads these anymore; they remain only so
+    // existing documents validate until `migrateLegacyReservations` has cleared them, after
+    // which this block (and these fields) can be deleted in a follow-up narrowing deploy.
+    productId: v.optional(v.id("products")),
+    quantity: v.optional(v.number()),
 
     reservationDate: v.number(),
     expiryDate: v.number(),
@@ -237,8 +239,7 @@ export default defineSchema({
     .index("by_guest", ["guestId"])
     .index("by_status", ["status"])
     .index("by_expiry", ["expiryDate"])
-    .index("by_reservation_code", ["reservationCode"])
-    .index("by_product", ["productId"]), // Legacy index for single-item reservations
+    .index("by_reservation_code", ["reservationCode"]),
 
   // Reservation payments ledger — one row per payment event against a reservation
   // (downpayment, walk-in partial payment, balance settlement at pickup, or refund).
