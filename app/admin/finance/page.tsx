@@ -43,12 +43,13 @@ const fmtDate = (ts: number) =>
 
 // Local YYYY-MM-DD (en-CA gives ISO-like format in the viewer's timezone, no UTC drift).
 const localDateStr = (d: Date) => d.toLocaleDateString('en-CA');
-// Month-to-date range: 1st of the current month → today. Used as the default date filter.
-const monthToDate = () => {
+// Current-month range: 1st → last day of the current month. Used as the default date filter.
+// (Date(y, m+1, 0) rolls to the last day of month m.)
+const currentMonthRange = () => {
   const now = new Date();
   return {
     from: localDateStr(new Date(now.getFullYear(), now.getMonth(), 1)),
-    to: localDateStr(now),
+    to: localDateStr(new Date(now.getFullYear(), now.getMonth() + 1, 0)),
   };
 };
 
@@ -99,9 +100,9 @@ function FinanceContent() {
   const [activeTab, setActiveTab] = useState<'pnl' | 'daily' | 'cashflow' | 'stockflow' | 'collections'>('pnl');
 
   // Date range filter (YYYY-MM-DD strings; converted to timestamps below).
-  // Defaults to month-to-date; Clear resets to all-time.
-  const [dateFrom, setDateFrom] = useState<string>(() => monthToDate().from);
-  const [dateTo, setDateTo] = useState<string>(() => monthToDate().to);
+  // Defaults to the full current month (1st → last day); Clear resets to all-time.
+  const [dateFrom, setDateFrom] = useState<string>(() => currentMonthRange().from);
+  const [dateTo, setDateTo] = useState<string>(() => currentMonthRange().to);
 
   const startTs = dateFrom ? new Date(dateFrom + 'T00:00:00').getTime() : undefined;
   const endTs = dateTo ? new Date(dateTo + 'T23:59:59.999').getTime() : undefined;
@@ -169,8 +170,9 @@ function FinanceContent() {
     }
     if (preset === 'month') {
       const start = new Date(today.getFullYear(), today.getMonth(), 1);
+      const end = new Date(today.getFullYear(), today.getMonth() + 1, 0); // last day of month
       setDateFrom(fmt(start));
-      setDateTo(todayStr);
+      setDateTo(fmt(end));
       return;
     }
   };
@@ -1679,7 +1681,13 @@ function DailyReportTab({ startDate, endDate }: { startDate?: number; endDate?: 
       ) : (
         <>
           {/* Period summary */}
-          <div className="grid grid-cols-3 gap-2 sm:gap-3">
+          {(() => {
+            // Cash on Hand = the running till balance at the close of the most recent day in view
+            // (rows are newest-first). This is NOT a monthly sum — for the current month it reads as
+            // "cash right now"; for a past month, "cash at that month's end".
+            const latest = report.rows[0];
+            return (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
             <DailyKpi label="Total Sales" value={fmt(report.summary.totalSales)} accent="text-success" bg="bg-success/10" Icon={Banknote} />
             <DailyKpi label="Total Expense" value={fmt(report.summary.totalExpense)} accent="text-error" bg="bg-error/10" Icon={Receipt} />
             <DailyKpi
@@ -1689,7 +1697,17 @@ function DailyReportTab({ startDate, endDate }: { startDate?: number; endDate?: 
               bg={report.summary.netTotal >= 0 ? 'bg-success/10' : 'bg-error/10'}
               Icon={report.summary.netTotal >= 0 ? TrendingUp : TrendingDown}
             />
+            <DailyKpi
+              label="Cash on Hand"
+              value={fmt(latest?.eodCOH ?? 0)}
+              sub={latest ? `at ${dayLabel(latest.dateKey)} close` : undefined}
+              accent={(latest?.eodCOH ?? 0) >= 0 ? 'text-white' : 'text-error'}
+              bg="bg-info/10"
+              Icon={Wallet}
+            />
           </div>
+            );
+          })()}
 
           {/* Sort order */}
           {report.rows.length > 0 && (
@@ -1808,7 +1826,7 @@ function DailyReportTab({ startDate, endDate }: { startDate?: number; endDate?: 
   );
 }
 
-function DailyKpi({ label, value, accent, bg, Icon }: { label: string; value: string; accent: string; bg: string; Icon: typeof Banknote }) {
+function DailyKpi({ label, value, accent, bg, Icon, sub }: { label: string; value: string; accent: string; bg: string; Icon: typeof Banknote; sub?: string }) {
   return (
     <div className="bg-gradient-to-br from-secondary/60 to-secondary/30 rounded-xl p-3 sm:p-4 border border-white/10">
       <div className="flex items-center justify-between mb-2">
@@ -1818,6 +1836,7 @@ function DailyKpi({ label, value, accent, bg, Icon }: { label: string; value: st
         <span className="text-[9px] sm:text-[10px] font-medium text-white/40 uppercase tracking-wider truncate">{label}</span>
       </div>
       <p className={`text-base sm:text-xl lg:text-2xl font-bold tabular-nums truncate ${accent}`}>{value}</p>
+      {sub && <p className="text-[10px] text-white/40 mt-0.5 truncate">{sub}</p>}
     </div>
   );
 }
