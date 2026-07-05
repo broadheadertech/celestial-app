@@ -1434,6 +1434,8 @@ export const registerAssociate = mutation({
     commissionRate: v.optional(v.number()),
     commissionBasis: v.optional(v.union(v.literal("revenue"), v.literal("profit"))),
     role: v.optional(v.union(v.literal("admin"), v.literal("super_admin"))),
+    position: v.optional(v.string()),
+    profilePicture: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const email = args.email.toLowerCase().trim();
@@ -1475,6 +1477,8 @@ export const registerAssociate = mutation({
       isSalesAssociate: true,
       commissionRate: args.commissionRate,
       commissionBasis: args.commissionBasis,
+      position: args.position?.trim() || undefined,
+      profilePicture: args.profilePicture || undefined,
       loginMethod: "email",
       createdAt: now,
       updatedAt: now,
@@ -1499,6 +1503,8 @@ export const updateAssociate = mutation({
     commissionBasis: v.optional(v.union(v.literal("revenue"), v.literal("profit"))),
     isSalesAssociate: v.optional(v.boolean()),
     isActive: v.optional(v.boolean()),
+    position: v.optional(v.string()),
+    profilePicture: v.optional(v.string()),
   },
   handler: async (ctx, { userId, ...updates }) => {
     const user = await ctx.db.get(userId);
@@ -1522,6 +1528,8 @@ export const updateAssociate = mutation({
     if (updates.commissionBasis !== undefined) patch.commissionBasis = updates.commissionBasis;
     if (updates.isSalesAssociate !== undefined) patch.isSalesAssociate = updates.isSalesAssociate;
     if (updates.isActive !== undefined) patch.isActive = updates.isActive;
+    if (updates.position !== undefined) patch.position = updates.position.trim() || undefined;
+    if (updates.profilePicture !== undefined) patch.profilePicture = updates.profilePicture || undefined;
 
     await ctx.db.patch(userId, patch);
     return { success: true };
@@ -1551,6 +1559,8 @@ export const getAssociates = query({
         isActive: u.isActive !== false,
         commissionRate: u.commissionRate,
         commissionBasis: u.commissionBasis,
+        position: u.position,
+        profilePicture: u.profilePicture,
         createdAt: u.createdAt,
       }))
       .sort((a, b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`));

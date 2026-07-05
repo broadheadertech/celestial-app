@@ -20,6 +20,8 @@ import {
   Mail,
   Phone,
   Shield,
+  Camera,
+  Briefcase,
 } from 'lucide-react';
 import Card from '@/components/ui/Card';
 import BottomNavbar from '@/components/common/BottomNavbar';
@@ -27,6 +29,9 @@ import SafeAreaProvider from '@/components/provider/SafeAreaProvider';
 
 type Basis = 'revenue' | 'profit';
 type Role = 'admin' | 'super_admin';
+
+// Job titles shown on associate profiles + (later) the org chart. Not access roles.
+const POSITIONS = ['Founder', 'Executive Assistant', 'Sales Manager', 'Aquaman', 'Associate', 'Staff'] as const;
 
 interface Associate {
   _id: Id<'users'>;
@@ -38,6 +43,8 @@ interface Associate {
   isActive: boolean;
   commissionRate?: number;
   commissionBasis?: Basis;
+  position?: string;
+  profilePicture?: string;
   createdAt: number;
 }
 
@@ -186,13 +193,24 @@ function AssociateCard({ associate, onEdit }: { associate: Associate; onEdit: ()
   return (
     <div className={`rounded-xl border p-4 transition-colors ${associate.isActive ? 'bg-secondary/30 border-white/10 hover:border-white/20' : 'bg-secondary/20 border-white/5 opacity-70'}`}>
       <div className="flex items-start gap-3">
-        <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-sm font-bold flex-shrink-0 ${associate.isActive ? 'bg-primary/15 text-primary border border-primary/30' : 'bg-white/5 text-white/40 border border-white/10'}`}>
-          {initials || <Users className="w-5 h-5" />}
+        <div className={`w-12 h-12 rounded-xl overflow-hidden flex items-center justify-center text-sm font-bold flex-shrink-0 ${associate.isActive ? 'bg-primary/15 text-primary border border-primary/30' : 'bg-white/5 text-white/40 border border-white/10'}`}>
+          {associate.profilePicture ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={associate.profilePicture} alt={fullName} className="w-full h-full object-cover" />
+          ) : (
+            initials || <Users className="w-5 h-5" />
+          )}
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
               <h3 className="font-bold text-white text-sm sm:text-base truncate">{fullName}</h3>
+              {associate.position && (
+                <div className="flex items-center gap-1.5 text-[11px] font-semibold text-primary/90 truncate mb-0.5">
+                  <Briefcase className="w-3 h-3 flex-shrink-0" />
+                  <span className="truncate">{associate.position}</span>
+                </div>
+              )}
               <div className="flex items-center gap-1.5 text-[11px] text-white/50 truncate">
                 <Mail className="w-3 h-3 flex-shrink-0" />
                 <span className="truncate">{associate.email}</span>
@@ -250,6 +268,8 @@ function RegisterModal({ onClose }: { onClose: () => void }) {
   const [rate, setRate] = useState('');
   const [basis, setBasis] = useState<Basis>('revenue');
   const [role, setRole] = useState<Role>('admin');
+  const [position, setPosition] = useState('');
+  const [profilePicture, setProfilePicture] = useState<string | undefined>(undefined);
   const [submitting, setSubmitting] = useState(false);
 
   const canSubmit =
@@ -272,6 +292,8 @@ function RegisterModal({ onClose }: { onClose: () => void }) {
         commissionRate: rateNum,
         commissionBasis: rateNum !== undefined ? basis : undefined,
         role,
+        position: position || undefined,
+        profilePicture,
       });
       onClose();
     } catch (e) {
@@ -284,6 +306,7 @@ function RegisterModal({ onClose }: { onClose: () => void }) {
   return (
     <Modal title="Register Sales Associate" onClose={onClose}>
       <div className="space-y-3">
+        <AvatarPicker value={profilePicture} onChange={setProfilePicture} name={`${firstName} ${lastName}`} />
         <div className="grid grid-cols-2 gap-3">
           <Field label="First name *">
             <input value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="Maria" className={inputCls} />
@@ -292,6 +315,7 @@ function RegisterModal({ onClose }: { onClose: () => void }) {
             <input value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="Santos" className={inputCls} />
           </Field>
         </div>
+        <PositionSelect value={position} onChange={setPosition} />
         <Field label="Email *">
           <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="maria@celestial.ph" className={inputCls} />
         </Field>
@@ -385,6 +409,8 @@ function EditModal({ associate, onClose }: { associate: Associate; onClose: () =
   const [basis, setBasis] = useState<Basis>(associate.commissionBasis || 'revenue');
   const [isActive, setIsActive] = useState(associate.isActive);
   const [isSalesAssociate, setIsSalesAssociate] = useState(true);
+  const [position, setPosition] = useState(associate.position || '');
+  const [profilePicture, setProfilePicture] = useState<string | undefined>(associate.profilePicture);
   const [submitting, setSubmitting] = useState(false);
 
   const handleSave = async () => {
@@ -403,6 +429,8 @@ function EditModal({ associate, onClose }: { associate: Associate; onClose: () =
         commissionBasis: rateNum !== undefined ? basis : undefined,
         isActive,
         isSalesAssociate,
+        position: position.trim(),
+        profilePicture: profilePicture ?? '',
       });
       onClose();
     } catch (e) {
@@ -415,6 +443,7 @@ function EditModal({ associate, onClose }: { associate: Associate; onClose: () =
   return (
     <Modal title={`Edit ${associate.firstName} ${associate.lastName}`} onClose={onClose}>
       <div className="space-y-3">
+        <AvatarPicker value={profilePicture} onChange={setProfilePicture} name={`${firstName} ${lastName}`} />
         <div className="grid grid-cols-2 gap-3">
           <Field label="First name">
             <input value={firstName} onChange={(e) => setFirstName(e.target.value)} className={inputCls} />
@@ -423,6 +452,7 @@ function EditModal({ associate, onClose }: { associate: Associate; onClose: () =
             <input value={lastName} onChange={(e) => setLastName(e.target.value)} className={inputCls} />
           </Field>
         </div>
+        <PositionSelect value={position} onChange={setPosition} />
         <Field label="Email (read-only)">
           <input value={associate.email} readOnly className={inputCls + ' opacity-60 cursor-not-allowed'} />
         </Field>
@@ -508,6 +538,93 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       <p className="block text-[11px] font-medium text-white/70 mb-1.5">{label}</p>
       {children}
     </div>
+  );
+}
+
+// Profile photo picker — uploads to Convex Storage and returns the public URL.
+function AvatarPicker({ value, onChange, name }: { value?: string; onChange: (url: string | undefined) => void; name: string }) {
+  const generateUploadUrl = useMutation(api.files.generateUploadUrl);
+  const getFileUrl = useMutation(api.files.getFileUrl);
+  const [uploading, setUploading] = useState(false);
+
+  const initials = name.trim()
+    ? name.trim().split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase()
+    : '';
+
+  const pick = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+      setUploading(true);
+      try {
+        const uploadUrl = await generateUploadUrl();
+        const res = await fetch(uploadUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': file.type },
+          body: file,
+        });
+        if (!res.ok) throw new Error(`Upload failed: ${res.statusText}`);
+        const { storageId } = await res.json();
+        const url = await getFileUrl({ storageId });
+        if (!url) throw new Error('Failed to get image URL');
+        onChange(url);
+      } catch (err) {
+        alert(err instanceof Error ? err.message : 'Image upload failed');
+      } finally {
+        setUploading(false);
+      }
+    };
+    input.click();
+  };
+
+  return (
+    <div className="flex items-center gap-3">
+      <div className="w-16 h-16 rounded-2xl overflow-hidden flex items-center justify-center flex-shrink-0 bg-primary/15 border border-primary/30">
+        {value ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={value} alt="Profile" className="w-full h-full object-cover" />
+        ) : (
+          <span className="text-lg font-bold text-primary">{initials || <Users className="w-6 h-6" />}</span>
+        )}
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <button
+          type="button"
+          onClick={pick}
+          disabled={uploading}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs font-semibold text-white/80 hover:bg-white/10 active:scale-95 transition-all disabled:opacity-50"
+        >
+          <Camera className="w-3.5 h-3.5" />
+          {uploading ? 'Uploading...' : value ? 'Change photo' : 'Upload photo'}
+        </button>
+        {value && !uploading && (
+          <button
+            type="button"
+            onClick={() => onChange(undefined)}
+            className="text-[11px] text-error/80 hover:text-error text-left"
+          >
+            Remove photo
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Job-title dropdown shared by the register + edit forms.
+function PositionSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <Field label="Position">
+      <select value={value} onChange={(e) => onChange(e.target.value)} className={inputCls}>
+        <option value="">— Select position —</option>
+        {POSITIONS.map((p) => (
+          <option key={p} value={p}>{p}</option>
+        ))}
+      </select>
+    </Field>
   );
 }
 
