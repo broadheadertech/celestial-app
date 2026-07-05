@@ -904,7 +904,7 @@ export const adminCreateCustomer = mutation({
   },
 });
 
-// Get staff users (admin + super_admin) for sales associate selection
+// Get staff users (admin + super_admin + associate) for sales associate selection
 export const getStaffUsers = query({
   args: {
     salesAssociatesOnly: v.optional(v.boolean()),
@@ -920,7 +920,12 @@ export const getStaffUsers = query({
       .withIndex("by_role", (q) => q.eq("role", "super_admin"))
       .collect();
 
-    let staff = [...admins, ...superAdmins].filter(u => u.isActive !== false);
+    const associates = await ctx.db
+      .query("users")
+      .withIndex("by_role", (q) => q.eq("role", "associate"))
+      .collect();
+
+    let staff = [...admins, ...superAdmins, ...associates].filter(u => u.isActive !== false);
 
     if (salesAssociatesOnly) {
       staff = staff.filter(u => u.isSalesAssociate === true);
@@ -1433,7 +1438,7 @@ export const registerAssociate = mutation({
     phone: v.optional(v.string()),
     commissionRate: v.optional(v.number()),
     commissionBasis: v.optional(v.union(v.literal("revenue"), v.literal("profit"))),
-    role: v.optional(v.union(v.literal("admin"), v.literal("super_admin"))),
+    role: v.optional(v.union(v.literal("admin"), v.literal("super_admin"), v.literal("associate"))),
     position: v.optional(v.string()),
     profilePicture: v.optional(v.string()),
   },
@@ -1543,11 +1548,12 @@ export const updateAssociate = mutation({
 export const getAssociates = query({
   args: {},
   handler: async (ctx) => {
-    const [admins, superAdmins] = await Promise.all([
+    const [admins, superAdmins, associates] = await Promise.all([
       ctx.db.query("users").withIndex("by_role", (q) => q.eq("role", "admin")).collect(),
       ctx.db.query("users").withIndex("by_role", (q) => q.eq("role", "super_admin")).collect(),
+      ctx.db.query("users").withIndex("by_role", (q) => q.eq("role", "associate")).collect(),
     ]);
-    return [...admins, ...superAdmins]
+    return [...admins, ...superAdmins, ...associates]
       .filter((u) => u.isSalesAssociate === true)
       .map((u) => ({
         _id: u._id,

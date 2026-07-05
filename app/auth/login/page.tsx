@@ -43,6 +43,8 @@ function LoginContent() {
       // If user is authenticated, redirect to appropriate dashboard
       if (isAuthenticated && user && !hasRedirected) {
         const role = user.role;
+        // Associates land on the client app for now; their dedicated performance/KPI
+        // view (e.g. /associate/dashboard) will replace this branch once it's built.
         const path = role === 'admin' || role === 'super_admin'
           ? '/admin/dashboard'
           : '/client/dashboard';

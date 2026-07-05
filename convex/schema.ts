@@ -9,7 +9,7 @@ export default defineSchema({
     phone: v.optional(v.string()),
     address: v.optional(v.string()),
     passwordHash: v.optional(v.string()), // Optional for Facebook users
-    role: v.union(v.literal("client"), v.literal("admin"), v.literal("super_admin")),
+    role: v.union(v.literal("client"), v.literal("admin"), v.literal("super_admin"), v.literal("associate")),
     isActive: v.optional(v.boolean()),
     isBanned: v.optional(v.boolean()),
     isSalesAssociate: v.optional(v.boolean()), // Tag staff as sales associate for incentive tracking

@@ -96,6 +96,12 @@ export const useIsClient = () => {
   return user?.role === 'client';
 };
 
+// Sales associate role — a limited login for staff whose own performance/KPI app is planned.
+export const useIsAssociate = () => {
+  const user = useAuthStore((state) => state.user);
+  return user?.role === 'associate';
+};
+
 export const useCurrentUser = () => {
   return useAuthStore((state) => state.user);
 };

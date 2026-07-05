@@ -28,7 +28,7 @@ import BottomNavbar from '@/components/common/BottomNavbar';
 import SafeAreaProvider from '@/components/provider/SafeAreaProvider';
 
 type Basis = 'revenue' | 'profit';
-type Role = 'admin' | 'super_admin';
+type Role = 'admin' | 'super_admin' | 'associate';
 
 // Job titles shown on associate profiles + (later) the org chart. Not access roles.
 const POSITIONS = ['Founder', 'Executive Assistant', 'Sales Manager', 'Aquaman', 'Associate', 'Staff'] as const;
@@ -39,7 +39,7 @@ interface Associate {
   lastName: string;
   email: string;
   phone?: string;
-  role: 'admin' | 'super_admin' | 'client';
+  role: 'admin' | 'super_admin' | 'client' | 'associate';
   isActive: boolean;
   commissionRate?: number;
   commissionBasis?: Basis;
@@ -238,7 +238,7 @@ function AssociateCard({ associate, onEdit }: { associate: Associate; onEdit: ()
             </span>
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase bg-white/5 text-white/60 border border-white/10">
               <Shield className="w-2.5 h-2.5" />
-              {associate.role === 'super_admin' ? 'Super Admin' : 'Admin'}
+              {associate.role === 'super_admin' ? 'Super Admin' : associate.role === 'associate' ? 'Associate' : 'Admin'}
             </span>
             {associate.commissionRate !== undefined && associate.commissionBasis ? (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase bg-warning/10 text-warning border border-warning/30">
@@ -369,7 +369,7 @@ function RegisterModal({ onClose }: { onClose: () => void }) {
         <div>
           <p className="block text-[11px] font-medium text-white/70 mb-1.5">Role</p>
           <div className="inline-flex w-full p-[3px] rounded-lg border border-white/10 bg-background/40">
-            {([{ v: 'admin' as Role, label: 'Admin' }, { v: 'super_admin' as Role, label: 'Super Admin' }]).map((o) => (
+            {([{ v: 'associate' as Role, label: 'Associate' }, { v: 'admin' as Role, label: 'Admin' }, { v: 'super_admin' as Role, label: 'Super Admin' }]).map((o) => (
               <button
                 key={o.v}
                 type="button"
@@ -380,7 +380,7 @@ function RegisterModal({ onClose }: { onClose: () => void }) {
               </button>
             ))}
           </div>
-          <p className="text-[10px] text-white/40 mt-1.5">Associates get a login. Admin role can use POS + manage inventory; Super Admin adds user management.</p>
+          <p className="text-[10px] text-white/40 mt-1.5">All get a login. Associate = limited role for sales staff (their own performance app is coming); Admin can use POS + manage inventory; Super Admin adds user management.</p>
         </div>
       </div>
 
