@@ -10,6 +10,7 @@ import { useTheme } from '@/store/theme';
 
 const NAV_LINKS = [
   { href: '/catalog', label: 'Catalog' },
+  { href: '/cave', label: 'The Cave' },
   { href: '/shop', label: 'Shop' },
   { href: '/journal', label: 'Journal' },
   { href: '/about', label: 'About' },

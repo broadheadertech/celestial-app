@@ -511,6 +511,8 @@ body {
   transition: transform 0.24s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.24s;
 }
 .lift-card:hover { transform: translateY(-3px); }
+.lift-card .dc-sil { transition: transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.lift-card:hover .dc-sil { transform: translate(-50%, -50%) scale(1.06) !important; }
 
 /* Animated underline link */
 .a-link {
