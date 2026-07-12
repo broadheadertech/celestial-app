@@ -14,7 +14,7 @@ interface ThemeStore {
 export const useTheme = create<ThemeStore>()(
   persist(
     (set, get) => ({
-      theme: 'dark',
+      theme: 'light',
       setTheme: (theme) => {
         set({ theme });
         if (typeof document !== 'undefined') {

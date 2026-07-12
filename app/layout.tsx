@@ -28,13 +28,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" data-theme="dark">
+    <html lang="en" data-theme="light">
       <head>
         <link rel="icon" href="/favicon.ico" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
-          href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,700;12..96,800&family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600;700&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,700;12..96,800&family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600;700&family=Noto+Serif+Display:ital,opsz,wght@0,10..72,400;0,10..72,500;0,10..72,600;0,10..72,700;0,10..72,800;1,10..72,400;1,10..72,500;1,10..72,600&family=Noto+Serif+TC:wght@500;700;900&display=swap"
           rel="stylesheet"
         />
         {/* Apply persisted theme before paint to avoid flash */}
@@ -43,7 +43,7 @@ export default function RootLayout({
             __html: `
               try {
                 var saved = JSON.parse(localStorage.getItem('dragons-cave-theme') || 'null');
-                var theme = (saved && saved.state && saved.state.theme) || 'dark';
+                var theme = (saved && saved.state && saved.state.theme) || 'light';
                 document.documentElement.dataset.theme = theme;
               } catch (e) {}
             `,

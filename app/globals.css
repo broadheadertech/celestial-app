@@ -398,6 +398,26 @@ body {
   font-variation-settings: "opsz" 96, "wght" 600;
   color: var(--red);
 }
+
+/* Storefront reads in the imported Dragon's Cave design voice:
+   Noto Serif Display for the big editorial headings (admin keeps Bricolage). */
+.storefront .display,
+.storefront .display-xl,
+.storefront .display-xxl,
+.storefront .italic-flourish {
+  font-family: "Noto Serif Display", Georgia, "Times New Roman", serif !important;
+}
+.storefront .display { letter-spacing: -0.015em; }
+.storefront .display-xl,
+.storefront .display-xxl {
+  letter-spacing: -0.02em;
+  line-height: 0.94;
+}
+.storefront .italic-flourish {
+  font-style: italic;
+  letter-spacing: -0.01em;
+}
+
 .placard {
   font-family: "Geist Mono", monospace;
   font-size: 10.5px;
