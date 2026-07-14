@@ -1,535 +1,175 @@
-'use client';
+/* eslint-disable @next/next/no-img-element -- verbatim design port uses the design's <img> assets */
+
+/**
+ * Specimen — verbatim port of `dragons-cave-specimen.dc.html` (content only).
+ * Static "Chili Super Red" detail (the design's single specimen).
+ * Header / footer / styles come from the (site) layout.
+ */
 
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { Suspense, useMemo, useState } from 'react';
-import { ArrowRight, Heart, Share2, ChevronLeft, Check } from 'lucide-react';
-import { useQuery, useMutation } from 'convex/react';
-import { api } from '@/convex/_generated/api';
-import { Id } from '@/convex/_generated/dataModel';
-import { GradeBadge, SpecimenPlate, pickPalette } from '@/components/site/ArowanaSilhouette';
-import { useSiteCart } from '@/store/siteCart';
-import { useAuthStore } from '@/store/auth';
 
-const fmt = (n: number) =>
-  `₱${n.toLocaleString('en-PH', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+const mono = "'Geist Mono', monospace";
+const serif = "'Noto Serif Display', serif";
 
-const isLiveCategoryName = (name?: string) => {
-  const n = (name || '').toLowerCase();
-  return (
-    n.includes('fish') ||
-    n.includes('arowana') ||
-    n.includes('crossback') ||
-    n.includes('red') ||
-    n.includes('silver') ||
-    n.includes('jardini') ||
-    n.includes('pearl')
-  );
-};
+const WA_ENQUIRE = 'https://wa.me/639172345678?text=Hi%20Dragon%27s%20Cave%20%E2%80%94%20I%27d%20like%20to%20enquire%20about%20the%20Chili%20Super%20Red%20%28%23SR-118%2C%20Tank%20VII%29.%20Is%20it%20still%20available%3F';
+const WA_VIDEO = 'https://wa.me/639172345678?text=Hi%20Dragon%27s%20Cave%20%E2%80%94%20could%20you%20send%20the%20full%20video%20of%20the%20Chili%20Super%20Red%20%28%23SR-118%29%3F';
 
-function SpecimenContent() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const id = searchParams?.get('id') || '';
-
-  const productRaw = useQuery(
-    api.services.products.getProduct,
-    id ? { productId: id as Id<'products'> } : 'skip',
-  );
-  // getProduct returns a discriminated union over every table due to db.get typing.
-  // Cast to a permissive shape since we know the productId targets the products table.
-  const product = productRaw as unknown as {
-    _id: string;
-    name: string;
-    description?: string;
-    price: number;
-    originalPrice?: number;
-    stock: number;
-    image?: string;
-    sku?: string | number;
-    categoryId: string;
-    categoryName?: string;
-    tankNumber?: string;
-    certificate?: string;
-    productStatus?: string;
-    lifespan?: string;
-    batchCode?: string;
-    grade?: 'S' | 'AAA' | 'AA' | 'A';
-    createdAt: number;
-  } | null | undefined;
-  const allProducts = useQuery(api.services.admin.getAllProductsAdmin, {});
-
-  const add = useSiteCart((s) => s.add);
-  const setOpen = useSiteCart((s) => s.setOpen);
-  const cartItems = useSiteCart((s) => s.items);
-
-  const { user } = useAuthStore();
-  const isWishlisted = useQuery(
-    api.services.wishlist.isInWishlist,
-    user && id
-      ? { userId: user._id as Id<'users'>, productId: id as Id<'products'> }
-      : 'skip',
-  );
-  const toggleWishlist = useMutation(api.services.wishlist.toggleWishlist);
-  const handleWishlist = async () => {
-    if (!user) {
-      router.push('/auth/login');
-      return;
-    }
-    try {
-      await toggleWishlist({
-        userId: user._id as Id<'users'>,
-        productId: id as Id<'products'>,
-      });
-    } catch (e) {
-      alert(e instanceof Error ? e.message : 'Failed to update wishlist');
-    }
-  };
-
-  const [activePlate, setActivePlate] = useState(0);
-
-  const isLive = isLiveCategoryName(product?.categoryName);
-  const inCart = !!cartItems.find((l) => l.productId === product?._id);
-
-  const related = useMemo(() => {
-    if (!product || !allProducts) return [];
-    return allProducts
-      .filter(
-        (p) =>
-          p._id !== product._id &&
-          p.isActive &&
-          p.stock > 0 &&
-          (p.categoryId as string) === (product.categoryId as string),
-      )
-      .slice(0, 3);
-  }, [product, allProducts]);
-
-  if (product === undefined) {
-    return (
-      <main className="py-20" style={{ padding: '80px 0' }}>
-        <div className="site-container text-center" style={{ color: 'var(--ink-4)' }}>
-          Loading specimen…
-        </div>
-      </main>
-    );
-  }
-
-  if (product === null) {
-    return (
-      <main className="py-20" style={{ padding: '80px 0' }}>
-        <div className="site-container text-center" style={{ color: 'var(--ink-4)' }}>
-          Specimen not found.{' '}
-          <Link href="/catalog" className="a-link" style={{ color: 'var(--red-hi)' }}>
-            Back to catalog
-          </Link>
-        </div>
-      </main>
-    );
-  }
-
-  const palette = pickPalette(product.categoryName);
-  const deposit = Math.round((product.price || 0) * 0.2);
-  const balance = (product.price || 0) - deposit;
-
-  const reserve = () => {
-    if (inCart) {
-      setOpen(true);
-      return;
-    }
-    add({
-      productId: product._id,
-      name: product.name,
-      sku: product.sku ? String(product.sku) : undefined,
-      price: product.price,
-      stock: product.stock,
-      image: product.image,
-      categoryId: product.categoryId as string,
-      categoryName: product.categoryName,
-      isLive,
-    });
-  };
-
-  return (
-    <main>
-      {/* Breadcrumb */}
-      <div className="site-container pt-6" style={{ padding: '24px 32px 0' }}>
-        <Link
-          href="/catalog"
-          className="inline-flex items-center gap-1.5 text-[12px]"
-          style={{ color: 'var(--ink-3)' }}
-        >
-          <ChevronLeft size={14} />
-          All specimens
-        </Link>
-      </div>
-
-      <section className="pt-8 pb-16">
-        <div
-          className="site-container grid gap-14"
-          style={{ gridTemplateColumns: 'minmax(0, 1.1fr) minmax(0, 1fr)', padding: '32px 32px' }}
-        >
-          {/* Plate stack */}
-          <div>
-            <div className="mb-3">
-              <SpecimenPlate
-                product={{
-                  _id: product._id,
-                  sku: product.sku ? String(product.sku) : undefined,
-                  name: product.name,
-                  categoryName: product.categoryName,
-                  tankNumber: product.tankNumber,
-                  image: product.image,
-                }}
-                ratio="4 / 5"
-                size={320}
-                showMeta
-                label="Front · primary plate"
-              />
-            </div>
-            {/* Thumbnail row (placeholder angles) */}
-            <div className="grid grid-cols-4 gap-3">
-              {[0, 1, 2, 3].map((i) => (
-                <button
-                  key={i}
-                  onClick={() => setActivePlate(i)}
-                  className="rounded overflow-hidden"
-                  style={{
-                    aspectRatio: '1 / 1',
-                    background: `radial-gradient(ellipse at 50% 40%, ${palette.from}, ${palette.to})`,
-                    border: '1px solid var(--line)',
-                    boxShadow:
-                      activePlate === i
-                        ? '0 0 0 2px var(--red) inset'
-                        : '0 1px 0 oklch(1 0 0 / 0.04) inset',
-                    cursor: 'pointer',
-                  }}
-                  aria-label={`Angle ${i + 1}`}
-                />
-              ))}
-            </div>
-          </div>
-
-          {/* Spec column */}
-          <div>
-            <div className="placard mb-3" style={{ color: 'var(--red-hi)' }}>
-              <span
-                className="inline-block w-1.5 h-1.5 rounded-full mr-2 align-middle"
-                style={{ background: 'var(--red)' }}
-              />
-              {product.categoryName || 'Specimen'}
-            </div>
-            {product.grade && (
-              <div className="mb-3">
-                <GradeBadge grade={product.grade} />
-              </div>
-            )}
-            <h1
-              className="display-xl mb-4"
-              style={{ fontSize: 'clamp(36px, 5.5vw, 56px)' }}
-            >
-              {product.name}
-            </h1>
-            {product.description && (
-              <p
-                className="mb-6 max-w-[520px]"
-                style={{
-                  fontSize: 17,
-                  color: 'var(--ink-2)',
-                  lineHeight: 1.55,
-                  fontFamily: '"Bricolage Grotesque", sans-serif',
-                  fontVariationSettings: '"opsz" 22, "wght" 500',
-                  letterSpacing: '-0.015em',
-                }}
-              >
-                {product.description}
-              </p>
-            )}
-
-            {/* Price block */}
-            <div className="flex items-baseline gap-4 mb-7 flex-wrap">
-              <div
-                className="display font-mono-tabular"
-                style={{
-                  fontSize: 36,
-                  fontVariationSettings: '"opsz" 48, "wght" 700',
-                  letterSpacing: '-0.02em',
-                }}
-              >
-                {fmt(product.price)}
-              </div>
-              {product.originalPrice && product.originalPrice > product.price && (
-                <div
-                  className="font-mono-tabular line-through text-[15px]"
-                  style={{ color: 'var(--ink-4)' }}
-                >
-                  {fmt(product.originalPrice)}
-                </div>
-              )}
-              {isLive && (
-                <span
-                  className="placard"
-                  style={{
-                    color: 'var(--red-hi)',
-                    background: 'var(--red-wash)',
-                    padding: '4px 10px',
-                    borderRadius: 4,
-                  }}
-                >
-                  Reserve with 20% deposit
-                </span>
-              )}
-            </div>
-
-            {/* CTA row */}
-            <div className="flex gap-3 mb-8 flex-wrap">
-              <button
-                type="button"
-                onClick={reserve}
-                disabled={product.stock <= 0}
-                className="b b-primary b-lg"
-              >
-                {product.stock <= 0
-                  ? 'Sold'
-                  : inCart
-                  ? (
-                    <>
-                      In your case <Check size={14} />
-                    </>
-                  )
-                  : (
-                    <>
-                      {isLive ? `Reserve · ${fmt(deposit)} deposit` : 'Add to case'}
-                      <ArrowRight size={14} />
-                    </>
-                  )}
-              </button>
-              <button
-                type="button"
-                onClick={handleWishlist}
-                className="b b-icon"
-                aria-label={isWishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
-                title={isWishlisted ? 'In your wishlist' : 'Add to wishlist'}
-                style={{
-                  background: isWishlisted ? 'var(--red-wash)' : undefined,
-                  borderColor: isWishlisted ? 'var(--red)' : undefined,
-                  color: isWishlisted ? 'var(--red-hi)' : undefined,
-                }}
-              >
-                <Heart
-                  size={15}
-                  fill={isWishlisted ? 'currentColor' : 'none'}
-                />
-              </button>
-              <button type="button" className="b b-icon" aria-label="Share">
-                <Share2 size={15} />
-              </button>
-            </div>
-
-            {isLive && (
-              <div
-                className="grid grid-cols-2 gap-0 rounded mb-8"
-                style={{ border: '1px solid var(--line-soft)' }}
-              >
-                <div className="p-4" style={{ borderRight: '1px solid var(--line-soft)' }}>
-                  <div className="placard">Due today (deposit, 20%)</div>
-                  <div
-                    className="font-mono-tabular font-bold mt-1 text-[18px]"
-                    style={{ color: 'var(--ink)' }}
-                  >
-                    {fmt(deposit)}
-                  </div>
-                </div>
-                <div className="p-4">
-                  <div className="placard">Balance at pickup</div>
-                  <div
-                    className="font-mono-tabular font-bold mt-1 text-[18px]"
-                    style={{ color: 'var(--ink-2)' }}
-                  >
-                    {fmt(balance)}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            <hr className="hairline my-7" />
-
-            {/* Specs grid */}
-            <div
-              className="grid gap-5"
-              style={{ gridTemplateColumns: 'repeat(2, 1fr)' }}
-            >
-              {[
-                ['SKU', product.sku ? `#${product.sku}` : '—'],
-                ['Grade', product.grade || '—'],
-                ['Tank', product.tankNumber || '—'],
-                ['CITES / cert', product.certificate || '—'],
-                ['Status', product.productStatus || (product.stock > 0 ? 'Available' : 'Sold')],
-                ['Lifespan', product.lifespan || '—'],
-                ['Batch', product.batchCode || '—'],
-              ].map(([k, v]) => (
-                <div key={k}>
-                  <div className="placard">{k}</div>
-                  <div
-                    className="font-mono-tabular mt-1.5 text-[14px]"
-                    style={{ color: 'var(--ink)' }}
-                  >
-                    {v}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <hr className="hairline my-7" />
-
-            {/* Care notes */}
-            <div className="placard mb-3">Care &amp; husbandry</div>
-            <ul className="list-none flex flex-col gap-3 text-[14px]" style={{ color: 'var(--ink-2)' }}>
-              {[
-                'Tank 400L+. pH 6.5–7.2. Temperature 28–30°C.',
-                'Solitary in a planted display with no aggressive tankmates.',
-                'Pellet-trained. Live feeds twice a week. We will share our diet sheet at handover.',
-                'We follow up 30, 90, and 180 days after the sale. Any question, any time.',
-              ].map((line) => (
-                <li key={line} className="flex items-start gap-3">
-                  <span
-                    className="rounded-full mt-2"
-                    style={{ background: 'var(--red)', width: 4, height: 4, flexShrink: 0 }}
-                  />
-                  <span>{line}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-      </section>
-
-      {/* Lineage strip */}
-      <section className="py-15" style={{ padding: '60px 0', background: 'var(--bg-2)' }}>
-        <div className="site-container">
-          <div className="grid items-end gap-8 mb-10" style={{ gridTemplateColumns: '1fr auto' }}>
-            <div>
-              <div className="eyebrow mb-3">Bloodline</div>
-              <h2
-                className="display-xl"
-                style={{ fontSize: 'clamp(28px, 4.4vw, 48px)' }}
-              >
-                Four generations.<br />
-                <span className="italic-flourish">One vitrine.</span>
-              </h2>
-            </div>
-            <div className="placard" style={{ color: 'var(--ink-3)' }}>
-              Lineage card available at handover
-            </div>
-          </div>
-          <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
-            {['G-IV · 2018', 'G-III · 2020', 'G-II · 2023', `G-I · ${new Date(product.createdAt).getFullYear()}`].map(
-              (g, i) => (
-                <div
-                  key={g}
-                  className="p-5 rounded"
-                  style={{
-                    background: 'var(--surface)',
-                    border: '1px solid var(--line-soft)',
-                  }}
-                >
-                  <div className="placard">Gen {i + 1}</div>
-                  <div
-                    className="display mt-2"
-                    style={{
-                      fontSize: 20,
-                      fontVariationSettings: '"opsz" 28, "wght" 700',
-                    }}
-                  >
-                    {g}
-                  </div>
-                  <div className="text-[11px] mt-2" style={{ color: 'var(--ink-4)' }}>
-                    {i === 3 ? 'This specimen' : 'Verified bloodline'}
-                  </div>
-                </div>
-              ),
-            )}
-          </div>
-        </div>
-      </section>
-
-      {/* Related */}
-      {related.length > 0 && (
-        <section className="py-15" style={{ padding: '80px 0' }}>
-          <div className="site-container">
-            <div className="grid items-end gap-8 mb-10" style={{ gridTemplateColumns: '1fr auto' }}>
-              <div>
-                <div className="eyebrow mb-3">From the same case</div>
-                <h2
-                  className="display-xl"
-                  style={{ fontSize: 'clamp(28px, 4.4vw, 48px)' }}
-                >
-                  Related specimens
-                </h2>
-              </div>
-              <Link href="/catalog" className="b">
-                All specimens <ArrowRight size={12} />
-              </Link>
-            </div>
-            <div
-              className="grid gap-8"
-              style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))' }}
-            >
-              {related.map((p) => (
-                <Link
-                  key={p._id}
-                  href={`/specimen-detail?id=${p._id}`}
-                  className="lift-card block"
-                  style={{ color: 'var(--ink)' }}
-                >
-                  <SpecimenPlate
-                    product={{
-                      _id: p._id,
-                      sku: p.sku ? String(p.sku) : undefined,
-                      name: p.name,
-                      categoryName: p.categoryName,
-                      tankNumber: p.tankNumber,
-                      image: p.image,
-                    }}
-                    ratio="3 / 4"
-                    size={200}
-                  />
-                  <div style={{ padding: '18px 4px 8px' }}>
-                    <div className="placard mb-1">{p.categoryName}</div>
-                    <div
-                      className="display"
-                      style={{
-                        fontSize: 17,
-                        fontVariationSettings: '"opsz" 22, "wght" 600',
-                      }}
-                    >
-                      {p.name}
-                    </div>
-                    <div className="font-mono-tabular text-[14px] font-semibold mt-2">
-                      {fmt(p.price)}
-                    </div>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
-    </main>
-  );
-}
+const SPECS: [string, string][] = [['SKU', '#SR—118'], ['Tank', 'VII'], ['Origin', 'Kapuas Hulu'], ['Sex', 'Male']];
+const LINEAGE: [string, string][] = [
+  ['Sire', 'Kapuas Chili “Inferno” · Grade S'],
+  ['Dam', 'Pontianak Red “Vermillion” · AAA'],
+  ['Generation', 'F3 · captive-bred'],
+  ['Microchip', '991 0023 5567 118'],
+];
+const HUSBANDRY: [string, string, string?][] = [
+  ['Length · Age', '34 cm · 2 years'],
+  ['Water', '28–30°C · pH 6.8'],
+  ['Temperament', 'Dominant · keep solo'],
+  ['Quarantine', '✓ Cleared · 21 days', 'oklch(0.42 0.14 150)'],
+];
+const MORE = [
+  { img: '/img/red.png', flip: false, bg: 'radial-gradient(circle at 50% 42%, oklch(0.30 0.015 50), oklch(0.15 0.01 40))', aura: 'oklch(0.86 0.08 68 / 0.18)', kind: 'Asian Red · AAA', name: 'Blood Red — “Ember”' },
+  { img: '/img/red.png', flip: true, bg: 'radial-gradient(circle at 50% 42%, oklch(0.30 0.015 50), oklch(0.15 0.01 40))', aura: 'oklch(0.86 0.08 68 / 0.18)', kind: 'Asian Red · AA', name: 'Ultra Red, 2yr' },
+  { img: '/img/highback-gold.png', flip: false, bg: 'radial-gradient(circle at 50% 42%, oklch(0.34 0.10 80), oklch(0.16 0.05 62))', aura: 'oklch(0.86 0.10 82 / 0.2)', kind: 'Crossback Gold · AAA', name: 'Highback Golden' },
+];
 
 export default function SpecimenPage() {
   return (
-    <Suspense
-      fallback={
-        <main className="py-20" style={{ padding: '80px 0' }}>
-          <div className="site-container text-center" style={{ color: 'var(--ink-4)' }}>
-            Loading specimen…
+    <>
+      {/* breadcrumb */}
+      <div style={{ maxWidth: 1280, margin: '0 auto', width: '100%', padding: '22px 28px 0', boxSizing: 'border-box' }}>
+        <div style={{ fontFamily: mono, fontSize: 11, letterSpacing: '0.1em', color: 'oklch(0.54 0.02 40)' }}>
+          <Link href="/catalog" style={{ color: 'oklch(0.54 0.02 40)' }}>Catalog</Link>
+          <span style={{ margin: '0 8px', color: 'oklch(0.72 0.02 50)' }}>/</span>
+          <span style={{ color: 'oklch(0.30 0.012 32)' }}>Chili Super Red</span>
+        </div>
+      </div>
+
+      {/* MAIN */}
+      <section style={{ maxWidth: 1280, margin: '0 auto', width: '100%', padding: '28px 28px 80px', boxSizing: 'border-box' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1.05fr 0.95fr', gap: 56, alignItems: 'start' }}>
+          {/* LEFT: vitrine */}
+          <div style={{ position: 'sticky', top: 96 }}>
+            <div style={{ position: 'relative', aspectRatio: '5/4', borderRadius: 12, overflow: 'hidden', background: 'radial-gradient(ellipse 92% 82% at 50% 42%, oklch(0.975 0.015 80), oklch(0.898 0.03 66) 100%)', boxShadow: 'inset 0 0 0 1px oklch(0.70 0.12 80 / 0.4), inset 0 -30px 64px oklch(0.55 0.10 40 / 0.10), 0 44px 90px -48px oklch(0.30 0.08 40 / 0.45)' }}>
+              <div style={{ position: 'absolute', inset: 0, opacity: 0.5, backgroundImage: 'radial-gradient(circle at 50% 0, transparent 0 9px, oklch(0.55 0.10 40 / 0.05) 9px 10px, transparent 10px)', backgroundSize: '30px 15px' }} />
+              <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6%' }}>
+                <div style={{ position: 'relative', width: '100%', animation: 'dcSwim 8s ease-in-out infinite' }}>
+                  <img src="/img/red.png" alt="Chili Super Red arowana" style={{ width: '100%', display: 'block', filter: 'drop-shadow(0 24px 40px oklch(0.35 0.10 30 / 0.35))' }} draggable={false} />
+                </div>
+              </div>
+              <div style={{ position: 'absolute', top: 18, left: 20, fontFamily: mono, fontSize: 10, letterSpacing: '0.14em', color: 'oklch(0.40 0.06 34 / 0.7)' }}>#SR&mdash;118 &middot; CITES A-PH-2021-00842</div>
+              <div style={{ position: 'absolute', top: 16, right: 18, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 38, height: 30, borderRadius: 7, background: 'oklch(0.50 0.216 27)', fontFamily: serif, fontWeight: 700, fontSize: 16, color: 'oklch(0.98 0.012 82)', boxShadow: '0 8px 20px -8px oklch(0.52 0.216 27 / 0.6)' }}>S</div>
+              <div style={{ position: 'absolute', bottom: 18, left: 20 }}>
+                <div style={{ fontFamily: serif, fontWeight: 700, fontSize: 24, color: 'oklch(0.19 0.012 32)', letterSpacing: '-0.01em' }}>Chili Super Red</div>
+                <div style={{ fontFamily: mono, fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'oklch(0.46 0.06 34 / 0.8)', marginTop: 4 }}>Single specimen &middot; 1 of 1</div>
+              </div>
+              <div style={{ position: 'absolute', bottom: 16, right: 18, width: 44, height: 44, borderRadius: 9, background: 'oklch(0.52 0.216 27)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 10px 22px -10px oklch(0.52 0.216 27 / 0.7)', transform: 'rotate(-5deg)' }}>
+                <span style={{ fontFamily: "'Noto Serif TC', serif", fontWeight: 900, fontSize: 24, color: 'oklch(0.97 0.012 82)' }}>龍</span>
+              </div>
+            </div>
+            {/* thumbs */}
+            <div style={{ display: 'flex', gap: 12, marginTop: 14, alignItems: 'center' }}>
+              <div className="dc-thumb" style={{ position: 'relative', width: 76, aspectRatio: '1/1', borderRadius: 8, overflow: 'hidden', background: 'radial-gradient(circle at 50% 42%, oklch(0.30 0.015 50), oklch(0.15 0.01 40))', border: '1px solid oklch(0.52 0.216 27 / 0.5)' }}><img src="/img/red.png" alt="" style={{ position: 'absolute', left: '50%', top: '47%', transform: 'translate(-50%,-50%)', width: '120%' }} draggable={false} /></div>
+              <div className="dc-thumb" style={{ position: 'relative', width: 76, aspectRatio: '1/1', borderRadius: 8, overflow: 'hidden', background: 'radial-gradient(circle at 50% 42%, oklch(0.30 0.015 50), oklch(0.15 0.01 40))', border: '1px solid oklch(0.82 0.02 50)' }}><img src="/img/red.png" alt="" style={{ position: 'absolute', left: '50%', top: '47%', transform: 'translate(-50%,-50%) scaleX(-1)', width: '120%' }} draggable={false} /></div>
+              <div className="dc-thumb" style={{ position: 'relative', width: 76, aspectRatio: '1/1', borderRadius: 8, overflow: 'hidden', background: 'radial-gradient(circle at 50% 42%, oklch(0.30 0.015 50), oklch(0.15 0.01 40))', border: '1px solid oklch(0.82 0.02 50)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ fontFamily: mono, fontSize: 9, letterSpacing: '0.1em', textAlign: 'center', color: 'oklch(0.80 0.02 60)', lineHeight: 1.4 }}>+4<br />ANGLES</span></div>
+              <a href={WA_VIDEO} target="_blank" rel="noopener" style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 7, fontFamily: mono, fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'oklch(0.50 0.216 27)', border: '1px solid oklch(0.52 0.216 27 / 0.4)', borderRadius: 999, padding: '9px 13px' }}>
+                <span style={{ width: 6, height: 6, borderRadius: 99, background: 'oklch(0.52 0.216 27)' }} /> Full video on request
+              </a>
+            </div>
           </div>
-        </main>
-      }
-    >
-      <SpecimenContent />
-    </Suspense>
+
+          {/* RIGHT: details */}
+          <div>
+            <div style={{ fontFamily: mono, fontSize: 11, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'oklch(0.50 0.14 30)', marginBottom: 14 }}>Asian Red &middot; Grade S</div>
+            <h1 style={{ fontFamily: serif, fontWeight: 800, fontSize: 'clamp(40px,5vw,66px)', lineHeight: 0.96, letterSpacing: '-0.02em', margin: '0 0 20px', color: 'oklch(0.19 0.012 32)' }}>Chili Super <span style={{ fontStyle: 'italic', fontWeight: 600, color: 'oklch(0.50 0.216 27)' }}>Red</span></h1>
+            <p style={{ fontSize: 17, lineHeight: 1.62, color: 'oklch(0.40 0.012 34)', maxWidth: 520, margin: '0 0 30px' }}>A deep-bodied Kapuas chili with high-coverage scales and a temperament we&rsquo;ve watched settle over two years. The kind of fish you build a room around.</p>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '14px 20px', padding: '24px 0', borderTop: '1px solid oklch(0.86 0.012 68)', borderBottom: '1px solid oklch(0.86 0.012 68)', marginBottom: 30 }}>
+              {SPECS.map(([k, v]) => (
+                <div key={k}>
+                  <div style={{ fontFamily: mono, fontSize: 9, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'oklch(0.56 0.02 40)', marginBottom: 6 }}>{k}</div>
+                  <div style={{ fontFamily: mono, fontSize: 14, color: 'oklch(0.24 0.012 32)' }}>{v}</div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 14 }}>
+              <a href={WA_ENQUIRE} target="_blank" rel="noopener" className="dc-btn-primary" style={{ flex: 1, minWidth: 220, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 9, background: 'oklch(0.52 0.216 27)', color: 'oklch(0.98 0.012 82)', fontSize: 14.5, fontWeight: 600, padding: '16px 24px', borderRadius: 999, transition: '.2s', boxShadow: '0 14px 32px -14px oklch(0.52 0.216 27 / 0.7)' }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v7A2.5 2.5 0 0 1 17.5 15H9l-4 3.5V15H6.5A2.5 2.5 0 0 1 4 12.5v-7Z" fill="oklch(0.98 0.012 82)" /><circle cx="9" cy="9" r="1.2" fill="oklch(0.52 0.216 27)" /><circle cx="12.5" cy="9" r="1.2" fill="oklch(0.52 0.216 27)" /><circle cx="16" cy="9" r="1.2" fill="oklch(0.52 0.216 27)" /></svg>
+                Enquire on WhatsApp
+              </a>
+              <Link href="/visit" className="dc-btn-ghost" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, border: '1px solid oklch(0.78 0.02 40)', color: 'oklch(0.34 0.012 34)', fontSize: 14.5, fontWeight: 600, padding: '16px 22px', borderRadius: 999, transition: '.2s' }}>Book a viewing</Link>
+            </div>
+            <div style={{ fontFamily: mono, fontSize: 11, color: 'oklch(0.54 0.02 40)', marginBottom: 34 }}>&#9679; Available now &mdash; ask us to hold for up to 21 days while you prepare your tank.</div>
+
+            {/* lineage card */}
+            <div style={{ position: 'relative', border: '1px solid oklch(0.82 0.03 46)', borderRadius: 10, overflow: 'hidden', marginBottom: 22 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', background: 'oklch(0.50 0.216 27)', color: 'oklch(0.98 0.012 82)' }}>
+                <span style={{ fontFamily: mono, fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase' }}>Lineage card</span>
+                <span style={{ fontFamily: "'Noto Serif TC', serif", fontWeight: 900, fontSize: 16 }}>龍</span>
+              </div>
+              <div style={{ padding: '6px 20px 16px', background: 'oklch(0.985 0.006 80)' }}>
+                {LINEAGE.map(([k, v], i) => (
+                  <div key={k} style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 0', borderBottom: i < LINEAGE.length - 1 ? '1px solid oklch(0.90 0.012 70)' : 'none' }}>
+                    <span style={{ fontFamily: mono, fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'oklch(0.56 0.02 40)' }}>{k}</span>
+                    <span style={{ fontFamily: k === 'Microchip' ? mono : undefined, fontSize: k === 'Microchip' ? 13 : 13.5, color: 'oklch(0.24 0.012 32)' }}>{v}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* husbandry */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 2, background: 'oklch(0.88 0.012 68)', border: '1px solid oklch(0.88 0.012 68)', borderRadius: 10, overflow: 'hidden' }}>
+              {HUSBANDRY.map(([k, v, color]) => (
+                <div key={k} style={{ background: 'oklch(0.985 0.006 80)', padding: '16px 18px' }}>
+                  <div style={{ fontFamily: mono, fontSize: 9, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'oklch(0.56 0.02 40)', marginBottom: 6 }}>{k}</div>
+                  <div style={{ fontSize: 14, color: color || 'oklch(0.24 0.012 32)' }}>{v}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* PROVENANCE / CARE */}
+      <section style={{ background: 'oklch(0.955 0.010 74)', borderTop: '1px solid oklch(0.86 0.012 68)', borderBottom: '1px solid oklch(0.86 0.012 68)', padding: '76px 0' }}>
+        <div style={{ maxWidth: 1280, margin: '0 auto', padding: '0 28px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 56 }}>
+          <div>
+            <div style={{ fontFamily: mono, fontSize: 11, letterSpacing: '0.24em', textTransform: 'uppercase', color: 'oklch(0.50 0.14 30)', marginBottom: 16 }}>Provenance</div>
+            <h3 style={{ fontFamily: serif, fontWeight: 700, fontSize: 26, margin: '0 0 14px', color: 'oklch(0.19 0.012 32)' }}>Where this fish comes from</h3>
+            <p style={{ fontSize: 15, lineHeight: 1.7, color: 'oklch(0.40 0.012 34)', margin: 0 }}>Bred at a licensed farm on the Kapuas river system and imported under CITES permit. We received the fish at eight months, chipped and papered, and have grown it on in our own systems since. The lineage card above is written by hand and travels with the fish.</p>
+          </div>
+          <div>
+            <div style={{ fontFamily: mono, fontSize: 11, letterSpacing: '0.24em', textTransform: 'uppercase', color: 'oklch(0.50 0.14 30)', marginBottom: 16 }}>Care</div>
+            <h3 style={{ fontFamily: serif, fontWeight: 700, fontSize: 26, margin: '0 0 14px', color: 'oklch(0.19 0.012 32)' }}>What it needs to thrive</h3>
+            <p style={{ fontSize: 15, lineHeight: 1.7, color: 'oklch(0.40 0.012 34)', margin: 0 }}>A minimum 6&times;2&times;2 ft aquarium with a tight lid, gentle current, and a varied diet. This is a dominant individual and is happiest kept alone. We&rsquo;ll walk you through acclimatisation on collection and remain on call for the life of the fish.</p>
+          </div>
+        </div>
+      </section>
+
+      {/* MORE FROM BLOODLINE */}
+      <section style={{ background: 'oklch(0.972 0.008 78)', padding: '76px 0 96px' }}>
+        <div style={{ maxWidth: 1280, margin: '0 auto', padding: '0 28px' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 20, marginBottom: 34, flexWrap: 'wrap' }}>
+            <h3 style={{ fontFamily: serif, fontWeight: 700, fontSize: 'clamp(26px,3.4vw,40px)', margin: 0, color: 'oklch(0.19 0.012 32)', letterSpacing: '-0.015em' }}>More from the <span style={{ fontStyle: 'italic', color: 'oklch(0.50 0.216 27)' }}>red house.</span></h3>
+            <Link href="/catalog" className="dc-btn-ghost" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, border: '1px solid oklch(0.78 0.02 40)', color: 'oklch(0.34 0.012 34)', fontSize: 13, fontWeight: 600, padding: '11px 18px', borderRadius: 999, transition: '.2s' }}>All Asian Red &rarr;</Link>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 22 }}>
+            {MORE.map((m) => (
+              <Link key={m.name} href="/specimen-detail" className="dc-more" style={{ display: 'block' }}>
+                <div style={{ position: 'relative', aspectRatio: '4/3', borderRadius: 8, overflow: 'hidden', background: m.bg, boxShadow: '0 20px 44px -26px oklch(0.16 0.02 40 / 0.6), inset 0 0 0 1px oklch(0.70 0.12 80 / 0.25)' }}>
+                  <div style={{ position: 'absolute', inset: 0, background: `radial-gradient(ellipse 66% 46% at 50% 47%, ${m.aura}, transparent 70%)` }} />
+                  <img className="dc-more-img" src={m.img} alt={m.name} style={{ position: 'absolute', left: '50%', top: '47%', transform: `translate(-50%,-50%)${m.flip ? ' scaleX(-1)' : ''}`, width: '104%' }} draggable={false} />
+                </div>
+                <div style={{ padding: '14px 4px 0' }}>
+                  <div style={{ fontFamily: mono, fontSize: 9.5, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'oklch(0.54 0.03 34)', marginBottom: 5 }}>{m.kind}</div>
+                  <div style={{ fontFamily: serif, fontWeight: 600, fontSize: 18, color: 'oklch(0.19 0.012 32)' }}>{m.name}</div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </section>
+    </>
   );
 }

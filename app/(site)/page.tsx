@@ -1,643 +1,236 @@
-'use client';
+/* eslint-disable @next/next/no-img-element -- verbatim design port uses the design's <img> assets */
+
+/**
+ * Home — verbatim port of the imported Claude Design file
+ * `dragons-cave-home.dc.html`. Header/footer come from the (site) layout.
+ * Assets map to /public/img (red.png, 24k-gold.png, highback-gold.png).
+ */
 
 import Link from 'next/link';
-import { ArrowRight } from 'lucide-react';
-import { useQuery } from 'convex/react';
-import { api } from '@/convex/_generated/api';
-import { useMemo } from 'react';
-import ArowanaSilhouette, {
-  GradeBadge,
-  SpecimenPlate,
-  pickPalette,
-} from '@/components/site/ArowanaSilhouette';
+import { WaIcon } from '@/components/dc/styles';
 
-const fmt = (n: number) =>
-  `₱${n.toLocaleString('en-PH', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+const WA_FEATURED =
+  'https://wa.me/639172345678?text=Hi%20Dragon%27s%20Cave%20%E2%80%94%20I%27m%20interested%20in%20the%20featured%20Chili%20Super%20Red.%20Is%20it%20still%20available%3F';
+const WA_VISIT =
+  'https://wa.me/639172345678?text=Hi%20Dragon%27s%20Cave%20%E2%80%94%20I%27d%20like%20to%20arrange%20a%20gallery%20visit.';
 
-const isLiveCategoryName = (name?: string) => {
-  const n = (name || '').toLowerCase();
-  return (
-    n.includes('fish') ||
-    n.includes('arowana') ||
-    n.includes('crossback') ||
-    n.includes('red') ||
-    n.includes('silver') ||
-    n.includes('jardini') ||
-    n.includes('pearl')
-  );
-};
+const BLOODLINES = [
+  { href: '/specimen-detail', img: '/img/red.png', alt: 'Super Red', tank: 'TANK III', kind: 'Asian Red', name: 'Chili Super Red', grade: 'Grade S', bg: 'radial-gradient(ellipse at 50% 36%, oklch(0.30 0.14 27), oklch(0.14 0.06 25))', shadow: '0 20px 44px -26px oklch(0.20 0.10 24 / 0.6)', w: '118%' },
+  { href: '/specimen-detail', img: '/img/highback-gold.png', alt: 'Highback Gold', tank: 'TANK V', kind: 'Crossback Gold', name: 'Highback Golden', grade: 'Grade AAA', bg: 'radial-gradient(ellipse at 50% 36%, oklch(0.34 0.10 80), oklch(0.16 0.05 62))', shadow: '0 20px 44px -26px oklch(0.28 0.09 60 / 0.55)', w: '118%' },
+  { href: '/specimen-detail', img: '/img/24k-gold.png', alt: '24K Gold', tank: 'TANK VIII', kind: '24K Golden', name: 'Emperor 24K', grade: 'Grade S', bg: 'radial-gradient(ellipse at 50% 36%, oklch(0.36 0.10 84), oklch(0.17 0.05 66))', shadow: '0 20px 44px -26px oklch(0.30 0.09 66 / 0.55)', w: '120%' },
+];
 
-const STORY_PILLARS = [
-  {
-    title: 'Provenance',
-    body: 'Every fish carries a microchip, a CITES certificate, and our hand-written lineage card.',
-  },
-  {
-    title: 'Quarantine',
-    body: '21 days of observation in isolated systems before any specimen joins the gallery.',
-  },
-  {
-    title: 'Husbandry',
-    body: 'Tank parameters monitored daily. Diet planned per specimen. We sweat the small things.',
-  },
-  {
-    title: 'Continuity',
-    body: 'We answer the phone five years after the sale. Your fish has a long life to live.',
-  },
+const PROMISE = [
+  { n: '01', t: 'Provenance', b: 'Every fish carries a microchip, a CITES certificate, and our hand-written lineage card.' },
+  { n: '02', t: 'Quarantine', b: '21 days of observation in isolated systems before any specimen joins the gallery.' },
+  { n: '03', t: 'Husbandry', b: 'Tank parameters monitored daily. Diet planned per specimen. We sweat the small things.' },
+  { n: '04', t: 'Continuity', b: 'We answer the phone five years after the sale. Your fish has a long life to live.' },
 ];
 
 const TESTIMONIALS = [
-  {
-    quote:
-      'Mark put a fish on hold for me for three weeks while I finished my display tank. That kind of patience is rare.',
-    name: 'Karlo Reyes',
-    title: 'Collector · Makati',
-  },
-  {
-    quote:
-      'The lineage card on my Chili Red traces back four generations. I have never seen that kind of documentation from any other dealer.',
-    name: 'Daniel Lim',
-    title: 'Aquarist · Cebu',
-  },
+  { q: 'Mark put a fish on hold for me for three weeks while I finished my display tank. That kind of patience is rare.', in: 'KR', name: 'Karlo Reyes', role: 'Collector · Makati' },
+  { q: 'The lineage card on my Chili Red traces back four generations. I have never seen that kind of documentation from any other dealer.', in: 'DL', name: 'Daniel Lim', role: 'Aquarist · Cebu' },
 ];
 
-export default function SiteHome() {
-  const products = useQuery(api.services.admin.getAllProductsAdmin, {});
+const mono = "'Geist Mono', monospace";
+const serif = "'Noto Serif Display', serif";
 
-  const liveProducts = useMemo(
-    () => (products ?? []).filter((p) => p.isActive && isLiveCategoryName(p.categoryName)),
-    [products],
-  );
-
-  // Hero specimen = newest live product
-  const hero = useMemo(() => {
-    return liveProducts
-      .filter((p) => p.stock > 0)
-      .sort((a, b) => b.createdAt - a.createdAt)[0];
-  }, [liveProducts]);
-
-  // "Now showing" — top 4 by price
-  const featured = useMemo(
-    () =>
-      liveProducts
-        .filter((p) => p.stock > 0)
-        .sort((a, b) => b.price - a.price)
-        .slice(0, 4),
-    [liveProducts],
-  );
-
-  // New arrivals — newest 6
-  const newArrivals = useMemo(
-    () =>
-      liveProducts
-        .filter((p) => p.stock > 0)
-        .sort((a, b) => b.createdAt - a.createdAt)
-        .slice(0, 6),
-    [liveProducts],
-  );
-
+export default function HomePage() {
   return (
     <main>
-      {/* ───────── HERO ───────── */}
-      <section className="relative overflow-hidden">
-        <div
-          className="site-container grid items-center gap-16"
-          style={{
-            gridTemplateColumns: '1.05fr 1fr',
-            padding: '60px 32px 80px',
-            minHeight: 'calc(100vh - 100px)',
-          }}
-        >
-          <div className="relative">
-            <div
-              className="placard mb-7"
-              style={{ color: 'var(--red-hi)' }}
-            >
-              <span
-                className="inline-block w-1.5 h-1.5 rounded-full align-middle mr-2.5"
-                style={{ background: 'var(--red)' }}
-              />
-              Featured specimen · this fortnight
+      {/* ══════════ HERO ══════════ */}
+      <section style={{ position: 'relative', overflow: 'hidden', background: 'oklch(0.972 0.008 78)' }}>
+        <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse 60% 55% at 82% 30%, oklch(0.52 0.216 27 / 0.08), transparent 70%), radial-gradient(ellipse 50% 40% at 12% 85%, oklch(0.70 0.12 80 / 0.10), transparent 70%)' }} />
+        <div style={{ position: 'absolute', left: -140, top: '52%', transform: 'translateY(-50%)', width: 640, opacity: 0.05, pointerEvents: 'none' }}>
+          <img src="/img/highback-gold.png" alt="" style={{ width: '100%', display: 'block' }} draggable={false} />
+        </div>
+
+        <div style={{ position: 'relative', maxWidth: 1280, margin: '0 auto', padding: '56px 28px 84px', display: 'grid', gridTemplateColumns: '1.03fr 0.97fr', gap: 48, alignItems: 'center', minHeight: 'calc(100vh - 70px)' }}>
+          {/* left */}
+          <div style={{ position: 'relative' }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 9, fontFamily: mono, fontSize: 11, letterSpacing: '0.24em', textTransform: 'uppercase', color: 'oklch(0.50 0.14 30)', marginBottom: 30 }}>
+              <span style={{ width: 7, height: 7, borderRadius: 99, background: 'oklch(0.52 0.216 27)', boxShadow: '0 0 0 4px oklch(0.52 0.216 27 / 0.15)' }} />
+              Featured this fortnight
             </div>
-            <h1
-              className="display-xxl fade-up mb-6"
-              style={{
-                fontSize: 'clamp(64px, 11vw, 168px)',
-                color: 'var(--ink)',
-              }}
-            >
-              <span style={{ display: 'block' }}>Liquid</span>
-              <span
-                className="italic-flourish"
-                style={{
-                  display: 'block',
-                  fontSize: 'clamp(64px, 11vw, 168px)',
-                  lineHeight: 0.84,
-                }}
-              >
-                fire.
-              </span>
+            <h1 style={{ fontFamily: serif, fontWeight: 800, fontSize: 'clamp(66px, 9.5vw, 150px)', lineHeight: 0.9, letterSpacing: '-0.02em', margin: '0 0 26px', color: 'oklch(0.19 0.012 32)' }}>
+              Living<br /><span style={{ fontStyle: 'italic', fontWeight: 600, color: 'oklch(0.50 0.216 27)' }}>dragons.</span>
             </h1>
-            <p
-              style={{
-                fontSize: 'clamp(16px, 1.4vw, 19px)',
-                color: 'var(--ink-2)',
-                maxWidth: 460,
-                lineHeight: 1.55,
-                marginBottom: 36,
-                fontVariationSettings: '"opsz" 22, "wght" 400',
-                fontFamily: '"Bricolage Grotesque", sans-serif',
-                letterSpacing: '-0.012em',
-              }}
-            >
-              An obsession with bloodline, husbandry, and patience.{' '}
-              {hero
-                ? `Today's centerpiece — ${hero.name}.`
-                : 'Browse the gallery to see what is in the vitrine this week.'}
-            </p>
+            <p style={{ fontSize: 'clamp(16px,1.35vw,19px)', lineHeight: 1.6, maxWidth: 452, color: 'oklch(0.40 0.012 34)', margin: '0 0 34px' }}>Museum-grade Asian arowana &mdash; the fish the old texts call a living dragon. Chosen for bloodline, raised for temperament, and kept in our gallery water until the right hands arrive.</p>
 
-            <div className="flex gap-3 items-center flex-wrap">
-              {hero ? (
-                <Link href={`/specimen-detail?id=${hero._id}`} className="b b-primary b-lg">
-                  Hold this specimen <ArrowRight size={14} />
-                </Link>
-              ) : null}
-              <Link href="/catalog" className="b b-lg">
-                Browse catalog
-              </Link>
+            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+              <a href={WA_FEATURED} target="_blank" rel="noopener" className="dc-btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: 9, background: 'oklch(0.52 0.216 27)', color: 'oklch(0.98 0.012 82)', fontSize: 14, fontWeight: 600, padding: '15px 24px', borderRadius: 999, transition: 'background .2s', boxShadow: '0 14px 32px -14px oklch(0.52 0.216 27 / 0.7)' }}>
+                <WaIcon size={16} />
+                Enquire on WhatsApp
+              </a>
+              <Link href="/catalog" className="dc-btn-ghost" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, border: '1px solid oklch(0.78 0.02 40)', color: 'oklch(0.34 0.012 34)', fontSize: 14, fontWeight: 600, padding: '15px 22px', borderRadius: 999, transition: '.2s' }}>Enter the gallery &rarr;</Link>
             </div>
 
-            <hr className="hairline" style={{ margin: '56px 0 24px', maxWidth: 460 }} />
-
-            {hero && (
-              <div className="grid gap-6 max-w-[480px]" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
-                {[
-                  ['SKU', hero.sku ? `#${hero.sku}` : '—'],
-                  ['Tank', hero.tankNumber || '—'],
-                  ['Stock', String(hero.stock)],
-                ].map(([k, v]) => (
-                  <div key={k}>
-                    <div className="placard">{k}</div>
-                    <div
-                      className="display"
-                      style={{ fontSize: 28, marginTop: 4, fontVariationSettings: '"opsz" 32, "wght" 700' }}
-                    >
-                      {v}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+            <div style={{ height: 1, background: 'oklch(0.84 0.012 66)', maxWidth: 452, margin: '44px 0 24px' }} />
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 20, maxWidth: 452 }}>
+              {[['Grade', 'S'], ['Tank', 'VII'], ['Origin', 'Kapuas']].map(([k, v]) => (
+                <div key={k}>
+                  <div style={{ fontFamily: mono, fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'oklch(0.55 0.02 40)', marginBottom: 6 }}>{k}</div>
+                  <div style={{ fontFamily: serif, fontWeight: 700, fontSize: 26, color: 'oklch(0.19 0.012 32)' }}>{v}</div>
+                </div>
+              ))}
+            </div>
           </div>
 
-          {/* Vitrine */}
-          {hero ? (
-            <div className="relative">
-              <div
-                style={{
-                  aspectRatio: '4 / 5',
-                  maxHeight: '78vh',
-                  borderRadius: 6,
-                  overflow: 'hidden',
-                  background: `radial-gradient(ellipse at 50% 35%, var(--oxblood), var(--oxblood-2) 60%, oklch(0 0 0) 100%)`,
-                  position: 'relative',
-                  boxShadow:
-                    '0 60px 120px -60px oklch(0 0 0 / 0.6), 0 1px 0 oklch(1 0 0 / 0.06) inset',
-                }}
-              >
-                <div
-                  style={{
-                    position: 'absolute',
-                    inset: 0,
-                    background:
-                      'radial-gradient(ellipse 50% 40% at 50% 22%, oklch(1 0 0 / 0.15), transparent 70%)',
-                  }}
-                />
-                <div className="scales" style={{ position: 'absolute', inset: 0, opacity: 0.4 }} />
-                <div
-                  className="absolute top-7 left-7 right-7 flex justify-between items-start"
-                >
-                  <div>
-                    <div
-                      className="placard mb-2"
-                      style={{ color: 'oklch(0.95 0 0 / 0.55)' }}
-                    >
-                      {hero.sku ? `#${hero.sku}` : ''}{hero.certificate ? ` · ${hero.certificate}` : ''}
-                    </div>
-                    <div
-                      className="placard"
-                      style={{ color: 'oklch(0.95 0 0 / 0.55)' }}
-                    >
-                      {hero.categoryName}
-                    </div>
-                  </div>
-                  {hero.grade && <GradeBadge grade={hero.grade} />}
+          {/* right: moon-gate vitrine */}
+          <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ position: 'absolute', writingMode: 'vertical-rl', textOrientation: 'mixed', left: -6, top: '50%', transform: 'translateY(-50%)', fontFamily: mono, fontSize: 10, letterSpacing: '0.34em', textTransform: 'uppercase', color: 'oklch(0.60 0.02 40)' }}>Chili Super Red &middot; No. SR&mdash;118</div>
+            <div style={{ position: 'relative', width: 'min(72%, 460px)', aspectRatio: '1/1' }}>
+              <div style={{ position: 'absolute', inset: 0, borderRadius: 999, background: 'radial-gradient(circle at 50% 44%, oklch(0.42 0.16 30), oklch(0.26 0.11 26) 52%, oklch(0.17 0.07 25) 100%)', boxShadow: '0 50px 90px -40px oklch(0.22 0.10 24 / 0.7), inset 0 0 0 1px oklch(0.70 0.12 80 / 0.35)', overflow: 'hidden' }}>
+                <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse 66% 46% at 50% 50%, oklch(0.95 0.07 62 / 0.34), transparent 68%)' }} />
+                <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse 60% 40% at 50% 22%, oklch(1 0 0 / 0.18), transparent 64%)' }} />
+                <div style={{ position: 'absolute', inset: 0, opacity: 0.45, backgroundImage: 'radial-gradient(circle at 50% 0, transparent 0 8px, oklch(1 0 0 / 0.05) 8px 9px, transparent 9px)', backgroundSize: '26px 13px' }} />
+                <div style={{ position: 'absolute', inset: 0, animation: 'dcSwim 7s ease-in-out infinite' }}>
+                  <img src="/img/red.png" alt="Chili Super Red arowana" style={{ position: 'absolute', left: '50%', top: '46%', transform: 'translate(-50%,-50%)', width: '120%', maxWidth: 'none', filter: 'drop-shadow(0 20px 34px oklch(0 0 0 / 0.5))' }} draggable={false} />
                 </div>
-
-                <div
-                  className="absolute inset-0 flex items-center justify-center"
-                >
-                  {hero.image ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={hero.image}
-                      alt={hero.name}
-                      style={{
-                        maxHeight: '60%',
-                        maxWidth: '80%',
-                        objectFit: 'contain',
-                        filter: 'drop-shadow(0 30px 50px oklch(0 0 0 / 0.5))',
-                      }}
-                    />
-                  ) : (
-                    <span
-                      className="swim-x"
-                      style={{
-                        color: pickPalette(hero.categoryName).fish,
-                        filter: 'drop-shadow(0 30px 50px oklch(0 0 0 / 0.5))',
-                        transform: 'scale(1.6)',
-                      }}
-                    >
-                      <ArowanaSilhouette
-                        size={420}
-                        color={pickPalette(hero.categoryName).fish}
-                      />
-                    </span>
-                  )}
-                </div>
-
-                <div
-                  className="absolute bottom-7 left-7 right-7 flex justify-between items-end"
-                >
-                  <div>
-                    <div
-                      className="placard mb-1.5"
-                      style={{ color: 'oklch(0.95 0 0 / 0.5)' }}
-                    >
-                      Studio plate · Vitrine VII
-                    </div>
-                    <div
-                      style={{
-                        color: 'oklch(0.99 0 0)',
-                        fontFamily: '"Bricolage Grotesque", sans-serif',
-                        fontVariationSettings: '"opsz" 48, "wght" 700',
-                        fontSize: 36,
-                        lineHeight: 1,
-                        letterSpacing: '-0.025em',
-                      }}
-                    >
-                      {hero.name}
-                    </div>
-                  </div>
-                  <div
-                    className="font-mono-tabular font-semibold text-[13px]"
-                    style={{ color: 'oklch(0.99 0 0)' }}
-                  >
-                    {fmt(hero.price)}
-                  </div>
-                </div>
-
-                <div
-                  style={{
-                    position: 'absolute',
-                    inset: 0,
-                    borderRadius: 6,
-                    boxShadow: 'inset 0 0 0 1px oklch(1 0 0 / 0.06)',
-                    pointerEvents: 'none',
-                  }}
-                />
               </div>
+              <div style={{ position: 'absolute', inset: 0, borderRadius: 999, border: '1px solid oklch(0.70 0.12 80 / 0.6)', pointerEvents: 'none' }} />
+              <div style={{ position: 'absolute', inset: -14, borderRadius: 999, border: '1px solid oklch(0.80 0.04 60 / 0.35)', pointerEvents: 'none' }} />
 
-              <div
-                className="absolute uppercase font-bold tracking-[0.18em] text-[10px]"
-                style={{
-                  top: -20,
-                  right: -8,
-                  transform: 'rotate(2deg)',
-                  background: 'var(--red)',
-                  color: 'oklch(0.99 0 0)',
-                  padding: '6px 12px',
-                  borderRadius: 4,
-                  boxShadow: '0 6px 18px -6px var(--red-glow)',
-                }}
-              >
-                Hold for me
+              <div style={{ position: 'absolute', top: '10%', left: '11%', fontFamily: mono, fontSize: 10, letterSpacing: '0.14em', color: 'oklch(0.90 0.02 60 / 0.75)' }}>#SR&mdash;118 &middot; CITES</div>
+              <div style={{ position: 'absolute', top: '9%', right: '11%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 34, height: 34, borderRadius: 8, background: 'oklch(0.70 0.14 82 / 0.16)', border: '1px solid oklch(0.72 0.13 82 / 0.5)', fontFamily: serif, fontWeight: 700, fontSize: 15, color: 'oklch(0.80 0.13 84)' }}>S</div>
+              <div style={{ position: 'absolute', bottom: '11%', left: 0, right: 0, textAlign: 'center' }}>
+                <div style={{ fontFamily: serif, fontWeight: 700, fontSize: 22, color: 'oklch(0.97 0.01 82)', letterSpacing: '-0.01em' }}>Chili Super Red</div>
+                <div style={{ fontFamily: mono, fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'oklch(0.88 0.02 60 / 0.7)', marginTop: 4 }}>Grade S &middot; 1 of 1</div>
               </div>
             </div>
-          ) : (
-            <div className="relative">
-              <div
-                style={{
-                  aspectRatio: '4 / 5',
-                  maxHeight: '78vh',
-                  borderRadius: 6,
-                  background: 'radial-gradient(ellipse, var(--bg-3), var(--bg-2))',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <ArowanaSilhouette size={320} color="var(--ink-5)" />
-              </div>
+
+            <div style={{ position: 'absolute', top: '3%', left: '2%', width: 56, height: 56, borderRadius: 12, background: 'oklch(0.52 0.216 27)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 12px 26px -10px oklch(0.52 0.216 27 / 0.7)', transform: 'rotate(-6deg)', animation: 'dcDrift 6s ease-in-out infinite' }}>
+              <span style={{ fontFamily: "'Noto Serif TC', serif", fontWeight: 900, fontSize: 30, lineHeight: 1, color: 'oklch(0.97 0.012 82)' }}>龍</span>
             </div>
-          )}
+            <div style={{ position: 'absolute', bottom: '4%', left: '6%', transform: 'rotate(-3deg)', background: 'oklch(0.19 0.012 32)', color: 'oklch(0.97 0.01 82)', fontFamily: mono, fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', padding: '7px 13px', borderRadius: 6, boxShadow: '0 10px 24px -12px oklch(0 0 0 / 0.6)' }}>Hold for me</div>
+          </div>
         </div>
 
-        <div
-          className="absolute left-1/2 -translate-x-1/2 bottom-6 flex items-center gap-2 text-[10px] uppercase tracking-[0.2em]"
-          style={{ color: 'var(--ink-4)' }}
-        >
-          Scroll <span className="w-8 h-px" style={{ background: 'var(--ink-4)' }} />
-        </div>
+        <div style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', bottom: 22, display: 'flex', alignItems: 'center', gap: 10, fontFamily: mono, fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'oklch(0.58 0.02 40)' }}>Scroll <span style={{ width: 34, height: 1, background: 'oklch(0.62 0.02 40)' }} /></div>
       </section>
 
-      {/* ───────── METRICS RIBBON ───────── */}
-      <section
-        style={{
-          borderTop: '1px solid var(--line-soft)',
-          borderBottom: '1px solid var(--line-soft)',
-        }}
-      >
-        <div
-          className="site-container grid"
-          style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 0 }}
-        >
-          {[
-            ['Specimens placed', String(products?.filter((p) => !p.isActive).length || '—')],
-            ['Live in gallery', String(liveProducts.filter((p) => p.stock > 0).length)],
-            ['Bloodlines tracked', '38'],
-            ['Years of breeding', '14'],
-            ['Quarantine days', '21'],
-          ].map(([k, v], i, arr) => (
-            <div
-              key={k}
-              style={{
-                padding: '32px 24px',
-                borderRight: i === arr.length - 1 ? 0 : '1px solid var(--line-soft)',
-              }}
-            >
-              <div className="placard">{k}</div>
-              <div
-                className="display"
-                style={{
-                  fontSize: 'clamp(36px, 4vw, 56px)',
-                  marginTop: 10,
-                  fontVariationSettings: '"opsz" 48, "wght" 700',
-                }}
-              >
-                {v}
-              </div>
-            </div>
+      {/* ══════════ TRUST RIBBON ══════════ */}
+      <section style={{ background: 'oklch(0.50 0.216 27)', color: 'oklch(0.97 0.012 82)' }}>
+        <div style={{ maxWidth: 1280, margin: '0 auto', padding: '20px 28px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 26, flexWrap: 'wrap', fontFamily: mono, fontSize: 11, letterSpacing: '0.16em', textTransform: 'uppercase' }}>
+          {['Microchipped', 'CITES certificate', '21-day quarantine', 'Hand-written lineage card', 'Live-arrival guarantee'].map((t, i, a) => (
+            <span key={t} style={{ display: 'inline-flex', gap: 26, alignItems: 'center' }}>
+              {t}
+              {i < a.length - 1 && <span style={{ opacity: 0.5 }}>&middot;</span>}
+            </span>
           ))}
         </div>
       </section>
 
-      {/* ───────── NOW SHOWING ───────── */}
-      <SiteSection
-        eyebrow="Now showing"
-        title={
-          <>
-            The current
-            <br />
-            <em className="italic-flourish">collection.</em>
-          </>
-        }
-        subtitle="Each fish is held in our gallery water until the right collector takes it home."
-        cta={
-          <Link href="/catalog" className="b">
-            All specimens <ArrowRight size={12} />
-          </Link>
-        }
-      >
-        <div
-          className="grid gap-8"
-          style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))' }}
-        >
-          {featured.length === 0 ? (
-            <div
-              className="col-span-full py-16 text-center"
-              style={{ color: 'var(--ink-4)' }}
-            >
-              No specimens currently on display.
+      {/* ══════════ YIN-YANG FEATURE ══════════ */}
+      <section style={{ position: 'relative', overflow: 'hidden', background: 'oklch(0.972 0.008 78)', padding: '110px 0 100px' }}>
+        <div style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%,-50%)', fontFamily: "'Noto Serif TC', serif", fontWeight: 900, fontSize: 'min(58vw,760px)', lineHeight: 1, color: 'oklch(0.52 0.216 27 / 0.035)', pointerEvents: 'none', userSelect: 'none' }}>龍</div>
+        <div style={{ position: 'relative', maxWidth: 1180, margin: '0 auto', padding: '0 28px', textAlign: 'center' }}>
+          <div style={{ fontFamily: mono, fontSize: 11, letterSpacing: '0.28em', textTransform: 'uppercase', color: 'oklch(0.50 0.14 30)', marginBottom: 18 }}>陰陽 &middot; Balance</div>
+          <h2 style={{ fontFamily: serif, fontWeight: 700, fontSize: 'clamp(34px,5vw,60px)', lineHeight: 1.02, letterSpacing: '-0.015em', margin: '0 auto 22px', maxWidth: 760, color: 'oklch(0.19 0.012 32)' }}>Fire and gold, held in <span style={{ fontStyle: 'italic', color: 'oklch(0.50 0.216 27)' }}>balance.</span></h2>
+          <p style={{ fontSize: 17, lineHeight: 1.65, maxWidth: 560, margin: '0 auto 60px', color: 'oklch(0.42 0.012 34)' }}>In feng shui the arowana carries luck through water &mdash; the red for fortune and vigour, the gold for wealth and standing. We pair the fish to the keeper, not the other way around.</p>
+
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0 }}>
+            <div style={{ position: 'relative', width: 'min(38vw,320px)', aspectRatio: '1/1', borderRadius: 999, background: 'radial-gradient(circle at 50% 40%, oklch(0.975 0.015 80), oklch(0.895 0.03 68) 100%)', boxShadow: 'inset 0 0 0 1px oklch(0.70 0.12 80 / 0.4), inset 0 -24px 54px oklch(0.55 0.10 40 / 0.12), 0 40px 70px -38px oklch(0.30 0.08 40 / 0.45)', zIndex: 2, overflow: 'hidden' }}>
+              <div style={{ position: 'absolute', inset: 0, animation: 'dcSwim 8s ease-in-out infinite' }}>
+                <img src="/img/red.png" alt="Super Red arowana" style={{ position: 'absolute', left: '50%', top: '45%', transform: 'translate(-50%,-50%)', width: '112%', filter: 'drop-shadow(0 16px 26px oklch(0.40 0.10 30 / 0.32))' }} draggable={false} />
+              </div>
+              <div style={{ position: 'absolute', bottom: '13%', left: 0, right: 0, textAlign: 'center', fontFamily: mono, fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'oklch(0.42 0.11 32 / 0.75)' }}>陽 &middot; Fire</div>
             </div>
-          ) : (
-            featured.map((p) => <SiteCatalogTile key={p._id} product={p} />)
-          )}
+            <div style={{ position: 'relative', width: 'min(38vw,320px)', aspectRatio: '1/1', borderRadius: 999, background: 'radial-gradient(circle at 50% 40%, oklch(0.30 0.02 60), oklch(0.135 0.01 40) 100%)', boxShadow: 'inset 0 0 0 1px oklch(0.70 0.12 80 / 0.45), 0 40px 70px -36px oklch(0.16 0.02 40 / 0.6)', marginLeft: -52, zIndex: 1, overflow: 'hidden' }}>
+              <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse 64% 46% at 50% 46%, oklch(0.82 0.11 82 / 0.24), transparent 70%)' }} />
+              <div style={{ position: 'absolute', inset: 0, animation: 'dcDrift 9s ease-in-out infinite' }}>
+                <img src="/img/24k-gold.png" alt="24K Gold arowana" style={{ position: 'absolute', left: '50%', top: '45%', transform: 'translate(-50%,-50%) scaleX(-1)', width: '114%', filter: 'drop-shadow(0 16px 28px oklch(0 0 0 / 0.5))' }} draggable={false} />
+              </div>
+              <div style={{ position: 'absolute', bottom: '13%', left: 0, right: 0, textAlign: 'center', fontFamily: mono, fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'oklch(0.85 0.11 84 / 0.82)' }}>陰 &middot; Gold</div>
+            </div>
+          </div>
         </div>
-      </SiteSection>
+      </section>
 
-      {/* ───────── PROMISE / STORY ───────── */}
-      <section style={{ background: 'var(--bg-2)', padding: '120px 0', position: 'relative', overflow: 'hidden' }}>
-        <div
-          style={{
-            position: 'absolute',
-            right: -120,
-            top: '50%',
-            transform: 'translateY(-50%) rotate(-8deg)',
-            opacity: 0.04,
-            pointerEvents: 'none',
-          }}
-        >
-          <ArowanaSilhouette size={780} color="var(--red)" />
-        </div>
-
-        <div className="site-container relative">
-          <div
-            className="grid gap-20 mb-14"
-            style={{ gridTemplateColumns: '1fr 1.6fr' }}
-          >
+      {/* ══════════ BLOODLINES ══════════ */}
+      <section id="bloodlines" style={{ background: 'oklch(0.955 0.010 74)', borderTop: '1px solid oklch(0.86 0.012 68)', borderBottom: '1px solid oklch(0.86 0.012 68)', padding: '96px 0' }}>
+        <div style={{ maxWidth: 1280, margin: '0 auto', padding: '0 28px' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 24, marginBottom: 52, flexWrap: 'wrap' }}>
             <div>
-              <div className="eyebrow mb-4">Our promise</div>
-              <h2
-                className="display-xl"
-                style={{ fontSize: 'clamp(36px, 5.6vw, 64px)' }}
-              >
-                Provenance,
-                <br />
-                then patience.
-              </h2>
+              <div style={{ fontFamily: mono, fontSize: 11, letterSpacing: '0.26em', textTransform: 'uppercase', color: 'oklch(0.50 0.14 30)', marginBottom: 14 }}>The bloodlines</div>
+              <h2 style={{ fontFamily: serif, fontWeight: 700, fontSize: 'clamp(34px,4.6vw,56px)', lineHeight: 1, letterSpacing: '-0.02em', margin: 0, color: 'oklch(0.19 0.012 32)' }}>Five houses of <span style={{ fontStyle: 'italic', color: 'oklch(0.50 0.216 27)' }}>the dragon.</span></h2>
             </div>
-            <p
-              style={{
-                fontSize: 20,
-                color: 'var(--ink-2)',
-                maxWidth: 620,
-                fontFamily: '"Bricolage Grotesque", sans-serif',
-                fontVariationSettings: '"opsz" 28, "wght" 500',
-                letterSpacing: '-0.018em',
-                lineHeight: 1.45,
-                alignSelf: 'flex-end',
-              }}
-            >
-              Every arowana that crosses our threshold is identified, isolated, and observed for
-              twenty-one days before it joins the gallery. We do not sell a fish until we would
-              keep it ourselves.
-            </p>
+            <Link href="/catalog" className="dc-btn-ghost" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, border: '1px solid oklch(0.78 0.02 40)', color: 'oklch(0.34 0.012 34)', fontSize: 13, fontWeight: 600, padding: '12px 20px', borderRadius: 999, transition: '.2s' }}>All specimens &rarr;</Link>
           </div>
 
-          <div
-            className="grid gap-6"
-            style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}
-          >
-            {STORY_PILLARS.map((s, i) => (
-              <div
-                key={s.title}
-                style={{
-                  padding: '32px 28px',
-                  background: 'var(--surface)',
-                  border: '1px solid var(--line-soft)',
-                  borderRadius: 4,
-                }}
-              >
-                <div
-                  className="display font-mono-tabular mb-4"
-                  style={{
-                    fontSize: 14,
-                    color: 'var(--red)',
-                    fontVariationSettings: '"opsz" 16, "wght" 700',
-                  }}
-                >
-                  0{i + 1}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 22 }}>
+            {BLOODLINES.map((b) => (
+              <Link key={b.name} href={b.href} className="dc-species" style={{ display: 'block' }}>
+                <div style={{ position: 'relative', aspectRatio: '3/4', borderRadius: 8, overflow: 'hidden', background: b.bg, boxShadow: b.shadow }}>
+                  <div style={{ position: 'absolute', inset: 0, opacity: 0.4, backgroundImage: 'radial-gradient(circle at 50% 0, transparent 0 7px, oklch(1 0 0 / 0.05) 7px 8px, transparent 8px)', backgroundSize: '24px 12px' }} />
+                  <img className="dc-species-img" src={b.img} alt={b.alt} style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%,-50%)', width: b.w, filter: 'drop-shadow(0 16px 24px oklch(0 0 0 / 0.5))' }} draggable={false} />
+                  <div style={{ position: 'absolute', top: 12, right: 12, fontFamily: mono, fontSize: 9, letterSpacing: '0.14em', color: 'oklch(0.9 0.02 60 / 0.7)' }}>{b.tank}</div>
                 </div>
-                <div
-                  className="display mb-3.5"
-                  style={{ fontSize: 22, fontVariationSettings: '"opsz" 28, "wght" 700' }}
-                >
-                  {s.title}
+                <div style={{ padding: '16px 4px 0' }}>
+                  <div style={{ fontFamily: mono, fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'oklch(0.54 0.03 34)', marginBottom: 5 }}>{b.kind}</div>
+                  <div style={{ fontFamily: serif, fontWeight: 600, fontSize: 19, color: 'oklch(0.19 0.012 32)' }}>{b.name}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 }}>
+                    <span style={{ fontSize: 12, color: 'oklch(0.50 0.216 27)', fontWeight: 600 }}>Enquire &rarr;</span>
+                    <span style={{ fontFamily: mono, fontSize: 10, color: 'oklch(0.56 0.02 40)' }}>{b.grade}</span>
+                  </div>
                 </div>
-                <p
-                  className="text-[13.5px] leading-relaxed"
-                  style={{ color: 'var(--ink-3)' }}
-                >
-                  {s.body}
-                </p>
+              </Link>
+            ))}
+
+            <Link href="/catalog" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center', aspectRatio: '3/4', borderRadius: 8, border: '1px dashed oklch(0.74 0.03 44)', background: 'oklch(0.972 0.008 78)', padding: 24, transition: '.25s' }}>
+              <div style={{ width: 52, height: 52, borderRadius: 12, background: 'oklch(0.52 0.216 27)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 18, boxShadow: '0 12px 26px -12px oklch(0.52 0.216 27 / 0.7)' }}><span style={{ fontFamily: "'Noto Serif TC', serif", fontWeight: 900, fontSize: 26, color: 'oklch(0.97 0.012 82)' }}>財</span></div>
+              <div style={{ fontFamily: serif, fontWeight: 600, fontSize: 20, color: 'oklch(0.19 0.012 32)', lineHeight: 1.2, marginBottom: 8 }}>Red Tail, Silver<br />&amp; Jardini</div>
+              <div style={{ fontSize: 13, color: 'oklch(0.46 0.012 34)', marginBottom: 16 }}>The full gallery awaits.</div>
+              <span style={{ fontSize: 13, fontWeight: 600, color: 'oklch(0.50 0.216 27)' }}>Browse all &rarr;</span>
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* ══════════ PROMISE / STORY ══════════ */}
+      <section id="story" style={{ position: 'relative', overflow: 'hidden', background: 'oklch(0.972 0.008 78)', padding: '104px 0' }}>
+        <div style={{ maxWidth: 1280, margin: '0 auto', padding: '0 28px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.55fr', gap: 64, marginBottom: 56, alignItems: 'end' }}>
+            <div>
+              <div style={{ fontFamily: mono, fontSize: 11, letterSpacing: '0.26em', textTransform: 'uppercase', color: 'oklch(0.50 0.14 30)', marginBottom: 16 }}>The Cave &middot; our promise</div>
+              <h2 style={{ fontFamily: serif, fontWeight: 700, fontSize: 'clamp(34px,4.8vw,58px)', lineHeight: 0.98, letterSpacing: '-0.02em', margin: 0, color: 'oklch(0.19 0.012 32)' }}>Provenance,<br />then <span style={{ fontStyle: 'italic', color: 'oklch(0.50 0.216 27)' }}>patience.</span></h2>
+            </div>
+            <p style={{ fontSize: 20, lineHeight: 1.5, color: 'oklch(0.36 0.012 34)', maxWidth: 600, margin: 0 }}>Every arowana that crosses our threshold is identified, isolated, and observed for twenty-one days before it joins the gallery. We do not sell a fish until we would keep it ourselves.</p>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 20 }}>
+            {PROMISE.map((p) => (
+              <div key={p.n} style={{ padding: '30px 26px', background: 'oklch(0.955 0.010 74)', border: '1px solid oklch(0.86 0.012 68)', borderTop: '2px solid oklch(0.70 0.12 80)', borderRadius: 6 }}>
+                <div style={{ fontFamily: mono, fontSize: 13, fontWeight: 600, color: 'oklch(0.50 0.216 27)', marginBottom: 16 }}>{p.n}</div>
+                <div style={{ fontFamily: serif, fontWeight: 700, fontSize: 21, color: 'oklch(0.19 0.012 32)', marginBottom: 12 }}>{p.t}</div>
+                <p style={{ fontSize: 13.5, lineHeight: 1.6, color: 'oklch(0.44 0.012 34)', margin: 0 }}>{p.b}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ───────── NEW ARRIVALS ───────── */}
-      <SiteSection
-        eyebrow="New this fortnight"
-        title="Fresh from the importer"
-        subtitle="Always under quarantine before they meet our gallery water. Reserve early — collectors travel for these."
-        cta={
-          <Link href="/catalog" className="b">
-            See all <ArrowRight size={12} />
-          </Link>
-        }
-      >
-        <div
-          className="grid overflow-x-auto pb-5 pt-2 gap-4"
-          style={{
-            gridAutoFlow: 'column',
-            gridAutoColumns: 'minmax(220px, 1fr)',
-            scrollSnapType: 'x mandatory',
-          }}
-        >
-          {newArrivals.length === 0 ? (
-            <div className="py-12 text-center" style={{ color: 'var(--ink-4)' }}>
-              No new arrivals.
+      {/* ══════════ VISIT INVITE ══════════ */}
+      <section style={{ background: 'oklch(0.972 0.008 78)', padding: '20px 0 100px' }}>
+        <div style={{ maxWidth: 1280, margin: '0 auto', padding: '0 28px' }}>
+          <div style={{ position: 'relative', overflow: 'hidden', borderRadius: 12, background: 'radial-gradient(ellipse 80% 90% at 78% 20%, oklch(0.30 0.12 25), oklch(0.16 0.06 24) 62%, oklch(0.12 0.04 25) 100%)', border: '1px solid oklch(0.34 0.10 26)', boxShadow: '0 40px 90px -50px oklch(0.20 0.10 24 / 0.8)' }}>
+            <div style={{ position: 'absolute', inset: 0, borderRadius: 8, boxShadow: 'inset 0 0 0 1px oklch(0.70 0.12 80 / 0.28)', margin: 9, pointerEvents: 'none' }} />
+            <div style={{ position: 'absolute', right: -70, top: '50%', transform: 'translateY(-50%)', width: 520, opacity: 0.5, pointerEvents: 'none' }}>
+              <img src="/img/highback-gold.png" alt="" style={{ width: '100%', display: 'block', filter: 'drop-shadow(0 20px 40px oklch(0 0 0 / 0.5))', animation: 'dcDrift 10s ease-in-out infinite' }} draggable={false} />
             </div>
-          ) : (
-            newArrivals.map((p) => (
-              <div key={p._id} style={{ scrollSnapAlign: 'start' }}>
-                <SiteCatalogTile product={p} />
+            <div style={{ position: 'relative', padding: 'clamp(40px,5.5vw,74px)', maxWidth: 620 }}>
+              <div style={{ fontFamily: mono, fontSize: 11, letterSpacing: '0.24em', textTransform: 'uppercase', color: 'oklch(0.90 0.02 60 / 0.6)', marginBottom: 18 }}>By appointment</div>
+              <h2 style={{ fontFamily: serif, fontWeight: 700, fontSize: 'clamp(36px,5.2vw,60px)', lineHeight: 0.98, letterSpacing: '-0.02em', margin: '0 0 22px', color: 'oklch(0.97 0.01 82)' }}>Visit the <span style={{ fontStyle: 'italic', color: 'oklch(0.74 0.16 40)' }}>gallery.</span></h2>
+              <p style={{ fontSize: 16.5, lineHeight: 1.6, color: 'oklch(0.90 0.01 70 / 0.82)', maxWidth: 440, margin: '0 0 34px' }}>Tuesday through Saturday, by appointment only. Bring a friend. We will pour tea. Take as long as you need with the fish.</p>
+              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 44 }}>
+                <Link href="/visit" className="dc-btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'oklch(0.55 0.22 28)', color: 'oklch(0.98 0.012 82)', fontSize: 14, fontWeight: 600, padding: '15px 24px', borderRadius: 999, transition: '.2s' }}>Book a viewing &rarr;</Link>
+                <a href={WA_VISIT} target="_blank" rel="noopener" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, border: '1px solid oklch(0.70 0.06 60 / 0.4)', color: 'oklch(0.95 0.01 74)', fontSize: 14, fontWeight: 600, padding: '15px 22px', borderRadius: 999 }}>Message us</a>
               </div>
-            ))
-          )}
-        </div>
-      </SiteSection>
-
-      {/* ───────── VISIT INVITE ───────── */}
-      <section className="py-15" style={{ padding: '60px 0' }}>
-        <div className="site-container">
-          <div
-            className="relative overflow-hidden"
-            style={{
-              background: 'linear-gradient(135deg, var(--oxblood), oklch(0 0 0) 80%)',
-              borderRadius: 6,
-              padding: 'clamp(40px, 6vw, 80px)',
-              border: '1px solid var(--line)',
-              color: 'oklch(0.99 0 0)',
-            }}
-          >
-            <div
-              style={{
-                position: 'absolute',
-                right: -60,
-                top: -20,
-                opacity: 0.25,
-                transform: 'rotate(-12deg)',
-                pointerEvents: 'none',
-              }}
-            >
-              <ArowanaSilhouette size={520} color="var(--red)" mirror />
-            </div>
-
-            <div className="relative max-w-[640px]">
-              <div className="placard mb-4" style={{ color: 'oklch(0.99 0 0 / 0.55)' }}>
-                By appointment
-              </div>
-              <h2
-                className="display-xl mb-5"
-                style={{ fontSize: 'clamp(36px, 5.6vw, 64px)' }}
-              >
-                Visit the
-                <br />
-                <span className="italic-flourish">gallery.</span>
-              </h2>
-              <p
-                className="mb-8"
-                style={{
-                  fontSize: 17,
-                  color: 'oklch(0.99 0 0 / 0.78)',
-                  maxWidth: 480,
-                  lineHeight: 1.5,
-                }}
-              >
-                Tuesday through Saturday, by appointment only. Bring a friend. We will pour coffee.
-                You can take as long as you need.
-              </p>
-
-              <div className="flex gap-3 flex-wrap">
-                <Link href="/visit" className="b b-primary b-lg">
-                  Book a slot <ArrowRight size={14} />
-                </Link>
-                <Link
-                  href="/contact"
-                  className="b b-lg"
-                  style={{ color: 'oklch(0.99 0 0)', borderColor: 'oklch(1 0 0 / 0.2)' }}
-                >
-                  Or just write to us
-                </Link>
-              </div>
-
-              <hr
-                className="hairline mt-10 mb-6"
-                style={{ maxWidth: 480, background: 'oklch(1 0 0 / 0.12)' }}
-              />
-
-              <div
-                className="grid gap-4.5 max-w-[540px]"
-                style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}
-              >
-                {[
-                  ['Address', '34 Tomas Morato Ave\nQuezon City'],
-                  ['Hours', 'Tue–Sat\n10:00 – 18:00'],
-                  ['Phone', '(02) 8851 4928\n+63 917 234 5678'],
-                ].map(([k, v]) => (
-                  <div key={k}>
-                    <div className="placard mb-1.5" style={{ color: 'oklch(0.99 0 0 / 0.45)' }}>
-                      {k}
-                    </div>
-                    <div
-                      className="font-mono-tabular text-[12px] leading-relaxed whitespace-pre-line"
-                      style={{ color: 'oklch(0.99 0 0 / 0.85)' }}
-                    >
-                      {v}
-                    </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 20, maxWidth: 520 }}>
+                {[['Address', '34 Tomas Morato Ave', 'Quezon City'], ['Hours', 'Tue–Sat', '10:00–18:00'], ['Phone', '(02) 8851 4928', '+63 917 234 5678']].map(([h, a, b]) => (
+                  <div key={h}>
+                    <div style={{ fontFamily: mono, fontSize: 9.5, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'oklch(0.85 0.02 60 / 0.5)', marginBottom: 8 }}>{h}</div>
+                    <div style={{ fontFamily: mono, fontSize: 12, lineHeight: 1.5, color: 'oklch(0.92 0.01 70 / 0.85)' }}>{a}<br />{b}</div>
                   </div>
                 ))}
               </div>
@@ -646,55 +239,19 @@ export default function SiteHome() {
         </div>
       </section>
 
-      {/* ───────── TESTIMONIALS ───────── */}
-      <section className="py-25" style={{ padding: '100px 0', background: 'var(--bg-2)' }}>
-        <div className="site-container">
-          <div
-            className="grid gap-10"
-            style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))' }}
-          >
-            {TESTIMONIALS.map((t, i) => (
-              <div key={i} className="relative">
-                <div
-                  className="display absolute italic"
-                  style={{
-                    top: -32,
-                    left: -8,
-                    fontSize: 96,
-                    color: 'var(--red)',
-                    fontVariationSettings: '"opsz" 96, "wght" 700',
-                    lineHeight: 1,
-                    opacity: 0.3,
-                  }}
-                >
-                  &ldquo;
-                </div>
-                <p
-                  className="relative mb-6"
-                  style={{
-                    fontSize: 22,
-                    lineHeight: 1.4,
-                    fontFamily: '"Bricolage Grotesque", sans-serif',
-                    fontVariationSettings: '"opsz" 28, "wght" 500',
-                    letterSpacing: '-0.018em',
-                    color: 'var(--ink)',
-                  }}
-                >
-                  {t.quote}
-                </p>
-                <div className="flex items-center gap-3">
-                  <span
-                    className="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold"
-                    style={{ background: 'var(--red-wash)', color: 'var(--red-hi)' }}
-                  >
-                    {t.name
-                      .split(' ')
-                      .map((n) => n[0])
-                      .join('')}
-                  </span>
+      {/* ══════════ TESTIMONIALS ══════════ */}
+      <section style={{ background: 'oklch(0.955 0.010 74)', borderTop: '1px solid oklch(0.86 0.012 68)', padding: '96px 0' }}>
+        <div style={{ maxWidth: 1180, margin: '0 auto', padding: '0 28px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 56 }}>
+            {TESTIMONIALS.map((t) => (
+              <div key={t.name} style={{ position: 'relative' }}>
+                <div style={{ fontFamily: serif, fontStyle: 'italic', fontSize: 90, lineHeight: 0.6, color: 'oklch(0.52 0.216 27 / 0.28)', position: 'absolute', top: -14, left: -6 }}>&ldquo;</div>
+                <p style={{ position: 'relative', fontFamily: serif, fontWeight: 500, fontSize: 23, lineHeight: 1.42, color: 'oklch(0.22 0.012 32)', margin: '0 0 24px' }}>{t.q}</p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <span style={{ width: 36, height: 36, borderRadius: 99, background: 'oklch(0.52 0.216 27 / 0.12)', color: 'oklch(0.50 0.216 27)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700 }}>{t.in}</span>
                   <div>
-                    <div className="text-[13px] font-semibold">{t.name}</div>
-                    <div className="placard mt-0.5">{t.title}</div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: 'oklch(0.22 0.012 32)' }}>{t.name}</div>
+                    <div style={{ fontFamily: mono, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'oklch(0.54 0.02 40)', marginTop: 2 }}>{t.role}</div>
                   </div>
                 </div>
               </div>
@@ -703,102 +260,5 @@ export default function SiteHome() {
         </div>
       </section>
     </main>
-  );
-}
-
-function SiteSection({
-  children,
-  eyebrow,
-  title,
-  subtitle,
-  cta,
-}: {
-  children: React.ReactNode;
-  eyebrow?: string;
-  title?: React.ReactNode;
-  subtitle?: string;
-  cta?: React.ReactNode;
-}) {
-  return (
-    <section className="py-20" style={{ padding: '80px 0' }}>
-      <div className="site-container">
-        {(eyebrow || title || subtitle) && (
-          <div
-            className="grid items-end mb-12"
-            style={{ gridTemplateColumns: cta ? '1fr auto' : '1fr', gap: 24 }}
-          >
-            <div style={{ maxWidth: 720 }}>
-              {eyebrow && <div className="eyebrow mb-4">{eyebrow}</div>}
-              {title && (
-                <h2
-                  className="display-xl"
-                  style={{ fontSize: 'clamp(36px, 5.6vw, 64px)', color: 'var(--ink)' }}
-                >
-                  {title}
-                </h2>
-              )}
-              {subtitle && (
-                <p
-                  className="mt-3.5 text-[18px] leading-relaxed"
-                  style={{ color: 'var(--ink-3)' }}
-                >
-                  {subtitle}
-                </p>
-              )}
-            </div>
-            {cta}
-          </div>
-        )}
-        {children}
-      </div>
-    </section>
-  );
-}
-
-function SiteCatalogTile({ product }: { product: any }) {
-  return (
-    <Link
-      href={`/specimen-detail?id=${product._id}`}
-      className="lift-card block"
-      style={{ background: 'transparent', color: 'var(--ink)' }}
-    >
-      <SpecimenPlate
-        product={{
-          _id: product._id,
-          sku: product.sku,
-          name: product.name,
-          categoryName: product.categoryName,
-          tankNumber: product.tankNumber,
-          image: product.image,
-        }}
-        ratio="3 / 4"
-        size={220}
-      />
-      <div className="px-1 pt-4.5 pb-2" style={{ padding: '18px 4px 8px' }}>
-        <div className="flex justify-between items-start gap-3">
-          <div className="min-w-0">
-            <div className="placard mb-1 truncate">{product.categoryName || 'Specimen'}</div>
-            <div
-              className="display truncate"
-              style={{
-                fontSize: 18,
-                fontVariationSettings: '"opsz" 22, "wght" 600',
-                letterSpacing: '-0.015em',
-                lineHeight: 1.15,
-              }}
-            >
-              {product.name}
-            </div>
-          </div>
-          {product.grade && <GradeBadge grade={product.grade} />}
-        </div>
-        <div className="flex justify-between items-baseline mt-3.5">
-          <div className="font-mono-tabular text-[15px] font-semibold">{fmt(product.price)}</div>
-          <span className="placard" style={{ color: 'var(--ink-3)' }}>
-            {product.stock === 1 ? 'Single specimen' : `${product.stock} on hold`}
-          </span>
-        </div>
-      </div>
-    </Link>
   );
 }
