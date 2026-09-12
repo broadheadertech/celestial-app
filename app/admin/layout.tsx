@@ -1,5 +1,6 @@
 import { ReactNode } from 'react';
 import AdminLayoutWrapper from '@/components/admin/AdminLayoutWrapper';
+import AdminGuard from '@/components/admin/AdminGuard';
 
 export default function AdminLayout({
   children,
@@ -7,8 +8,10 @@ export default function AdminLayout({
   children: ReactNode;
 }) {
   return (
-    <AdminLayoutWrapper>
-      {children}
-    </AdminLayoutWrapper>
+    <AdminGuard>
+      <AdminLayoutWrapper>
+        {children}
+      </AdminLayoutWrapper>
+    </AdminGuard>
   );
 }

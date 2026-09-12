@@ -1,12 +1,23 @@
 import { v } from "convex/values";
+import { getViewer, isStaffRole, requireStaff, requireSuperAdmin } from "../lib/authz";
 import { mutation, query } from "../_generated/server";
+import { Doc } from "../_generated/dataModel";
 import { hashPassword } from "./auth";
 import { recordAudit } from "./audit";
+
+// Regular admins manage customer accounts only; staff accounts need a super admin.
+// Mirrors the Users page, which only shows admins their client users.
+function assertCanManageUser(staff: Doc<"users">, target: Doc<"users">) {
+  if (staff.role !== "super_admin" && target.role !== "client") {
+    throw new Error("Only a super admin can manage staff accounts.");
+  }
+}
 
 // Admin Dashboard Analytics
 export const getDashboardStats = query({
   args: {},
   handler: async (ctx) => {
+    const staff = await requireStaff(ctx);
     // Get both orders and reservations
     const orders = await ctx.db.query("orders").collect();
     const reservations = await ctx.db.query("reservations").collect();
@@ -116,6 +127,7 @@ export const getDashboardStats = query({
 export const getRecentOrders = query({
   args: { limit: v.optional(v.number()) },
   handler: async (ctx, { limit = 10 }) => {
+    const staff = await requireStaff(ctx);
     // Get both orders and reservations
     const orders = await ctx.db
       .query("orders")
@@ -237,10 +249,18 @@ export const getAllProductsAdmin = query({
     search: v.optional(v.string()),
   },
   handler: async (ctx, { category, status, search }) => {
+    // Compatibility: storefront builds released before products.getCatalogProducts still call
+    // this without signing in. Non-staff get active products only, with cost fields removed,
+    // instead of an error. Remove once every deployed site/APK uses getCatalogProducts.
+    const viewer = await getViewer(ctx);
+    const isStaff = !!viewer && isStaffRole(viewer.role);
     const query = ctx.db.query("products");
-    
+
     // Apply filters
     let products = await query.collect();
+    if (!isStaff) {
+      products = products.filter((p) => p.isActive);
+    }
     
     if (category && category !== 'All') {
       const allCategories = await ctx.db.query("categories").collect();
@@ -274,6 +294,8 @@ export const getAllProductsAdmin = query({
         const category = await ctx.db.get(product.categoryId);
         return {
           ...product,
+          costPrice: isStaff ? product.costPrice : undefined,
+          movingAverageCost: isStaff ? product.movingAverageCost : undefined,
           categoryName: category?.name || 'Unknown',
         };
       })
@@ -286,6 +308,7 @@ export const getAllProductsAdmin = query({
 export const getProductStats = query({
   args: {},
   handler: async (ctx) => {
+    const staff = await requireStaff(ctx);
     const products = await ctx.db.query("products").collect();
     const activeProducts = products.filter(p => p.isActive);
     const outOfStock = products.filter(p => p.stock === 0);
@@ -329,6 +352,7 @@ export const createProduct = mutation({
     userId: v.optional(v.id("users")), // acting admin (for audit) — excluded from the product doc
   },
   handler: async (ctx, args) => {
+    const staff = await requireStaff(ctx);
     const now = Date.now();
     // Keep the actor out of the product document spread.
     const { userId: actorId, ...productFields } = args;
@@ -448,7 +472,7 @@ export const createProduct = mutation({
     });
 
     await recordAudit(ctx, {
-      actorId,
+      actorId: staff._id,
       action: "product.create",
       category: "inventory",
       summary: `Created product "${args.name}" @ ₱${args.price.toLocaleString("en-PH")} (stock ${args.stock})`,
@@ -482,6 +506,7 @@ export const updateProduct = mutation({
     lifespan: v.optional(v.string()),
   },
   handler: async (ctx, { id, ...updates }) => {
+    const staff = await requireStaff(ctx);
     const product = await ctx.db.get(id);
     if (!product) {
       throw new Error("Product not found");
@@ -502,6 +527,7 @@ export const toggleProductStatus = mutation({
     isActive: v.boolean(),
   },
   handler: async (ctx, { productId, isActive }) => {
+    const staff = await requireStaff(ctx);
     const product = await ctx.db.get(productId);
     if (!product) {
       throw new Error("Product not found");
@@ -523,6 +549,7 @@ export const deleteProduct = mutation({
     userId: v.optional(v.id("users")),
   },
   handler: async (ctx, { id, forceDelete, userId }) => {
+    const staff = await requireStaff(ctx);
     const product = await ctx.db.get(id);
     if (!product) {
       throw new Error("Product not found");
@@ -549,7 +576,7 @@ export const deleteProduct = mutation({
           updatedAt: Date.now(),
         });
         await recordAudit(ctx, {
-          actorId: userId,
+          actorId: staff._id,
           action: "product.deactivate",
           category: "inventory",
           summary: `Deactivated product "${product.name}" (has ${hasOrders ? "order" : "reservation"} history)`,
@@ -676,7 +703,7 @@ export const deleteProduct = mutation({
     }
 
     await recordAudit(ctx, {
-      actorId: userId,
+      actorId: staff._id,
       action: forceDelete ? "product.force_delete" : "product.delete",
       category: "inventory",
       summary: `${forceDelete ? "Force-deleted" : "Deleted"} product "${product.name}" (${parts.join(", ")})`,
@@ -707,6 +734,7 @@ export const deleteProduct = mutation({
 export const cleanupOrphanedRecords = mutation({
   args: {},
   handler: async (ctx) => {
+    const staff = await requireStaff(ctx);
     const products = await ctx.db.query("products").collect();
     const validIds = new Set<string>(products.map(p => p._id));
 
@@ -791,6 +819,7 @@ export const createFishData = mutation({
     diet: v.string(),
   },
   handler: async (ctx, args) => {
+    const staff = await requireStaff(ctx);
     const fishId = await ctx.db.insert("fish", args);
     return fishId;
   },
@@ -814,6 +843,7 @@ export const createTankData = mutation({
     filtation: v.number(),
   },
   handler: async (ctx, args) => {
+    const staff = await requireStaff(ctx);
     const tankId = await ctx.db.insert("tank", args);
     return tankId;
   },
@@ -826,6 +856,7 @@ export const getAllUsers = query({
     search: v.optional(v.string()),
   },
   handler: async (ctx, { role, search }) => {
+    const staff = await requireStaff(ctx);
     let users = await ctx.db.query("users").collect();
     
     if (role && role !== 'all') {
@@ -873,6 +904,7 @@ export const adminCreateCustomer = mutation({
     phone: v.optional(v.string()),
   },
   handler: async (ctx, { firstName, lastName, email, phone }) => {
+    const staff = await requireStaff(ctx);
     // Check if email already exists
     const existing = await ctx.db
       .query("users")
@@ -910,6 +942,7 @@ export const getStaffUsers = query({
     salesAssociatesOnly: v.optional(v.boolean()),
   },
   handler: async (ctx, { salesAssociatesOnly }) => {
+    await requireStaff(ctx);
     const admins = await ctx.db
       .query("users")
       .withIndex("by_role", (q) => q.eq("role", "admin"))
@@ -949,6 +982,7 @@ export const toggleSalesAssociate = mutation({
     actorId: v.optional(v.id("users")),
   },
   handler: async (ctx, { userId, actorId }) => {
+    const staff = await requireStaff(ctx);
     const user = await ctx.db.get(userId);
     if (!user) throw new Error("User not found");
 
@@ -959,7 +993,7 @@ export const toggleSalesAssociate = mutation({
     });
 
     await recordAudit(ctx, {
-      actorId,
+      actorId: staff._id,
       action: "user.toggle_sales_associate",
       category: "users",
       summary: `${newValue ? "Tagged" : "Untagged"} ${user.firstName} ${user.lastName} as sales associate`,
@@ -982,6 +1016,7 @@ export const assignOrderSalesAssociate = mutation({
     salesAssociateName: v.optional(v.string()),
   },
   handler: async (ctx, { orderId, salesAssociateId, salesAssociateName }) => {
+    const staff = await requireStaff(ctx);
     const order = await ctx.db.get(orderId);
     if (!order) throw new Error("Order not found");
 
@@ -1003,6 +1038,7 @@ export const assignReservationSalesAssociate = mutation({
     salesAssociateName: v.optional(v.string()),
   },
   handler: async (ctx, { reservationId, salesAssociateId, salesAssociateName }) => {
+    const staff = await requireStaff(ctx);
     const reservation = await ctx.db.get(reservationId);
     if (!reservation) throw new Error("Reservation not found");
 
@@ -1022,10 +1058,16 @@ export const updateUserRole = mutation({
     role: v.union(v.literal("admin"), v.literal("client")),
     actorId: v.optional(v.id("users")),
   },
-  handler: async (ctx, { userId, role, actorId }) => {
+  handler: async (ctx, { userId, role }) => {
+    // Changing roles can grant admin access, so only super admins may do it.
+    const staff = await requireSuperAdmin(ctx);
     const user = await ctx.db.get(userId);
     if (!user) {
       throw new Error("User not found");
+    }
+
+    if (user.role === "super_admin") {
+      throw new Error("Super admin roles can't be changed here");
     }
 
     const prevRole = user.role;
@@ -1035,7 +1077,7 @@ export const updateUserRole = mutation({
     });
 
     await recordAudit(ctx, {
-      actorId,
+      actorId: staff._id,
       action: "user.role_change",
       category: "users",
       summary: `Changed ${user.firstName} ${user.lastName}'s role: ${prevRole} → ${role}`,
@@ -1054,11 +1096,13 @@ export const toggleUserStatus = mutation({
     isActive: v.boolean(),
     actorId: v.optional(v.id("users")),
   },
-  handler: async (ctx, { userId, isActive, actorId }) => {
+  handler: async (ctx, { userId, isActive }) => {
+    const staff = await requireStaff(ctx);
     const user = await ctx.db.get(userId);
     if (!user) {
       throw new Error("User not found");
     }
+    assertCanManageUser(staff, user);
 
     await ctx.db.patch(userId, {
       isActive,
@@ -1066,7 +1110,7 @@ export const toggleUserStatus = mutation({
     });
 
     await recordAudit(ctx, {
-      actorId,
+      actorId: staff._id,
       action: "user.status",
       category: "users",
       summary: `${isActive ? "Activated" : "Deactivated"} account ${user.firstName} ${user.lastName}`,
@@ -1084,6 +1128,7 @@ export const deleteUser = mutation({
     userId: v.id("users"),
   },
   handler: async (ctx, { userId }) => {
+    const staff = await requireStaff(ctx);
     const user = await ctx.db.get(userId);
     if (!user) {
       throw new Error("User not found");
@@ -1093,6 +1138,7 @@ export const deleteUser = mutation({
     if (user.role === "super_admin") {
       throw new Error("Cannot delete super admin accounts");
     }
+    assertCanManageUser(staff, user);
 
     // Delete the user
     await ctx.db.delete(userId);
@@ -1106,10 +1152,12 @@ export const banUser = mutation({
     userId: v.id("users"),
     actorId: v.optional(v.id("users")),
   },
-  handler: async (ctx, { userId, actorId }) => {
+  handler: async (ctx, { userId }) => {
+    const staff = await requireStaff(ctx);
     const user = await ctx.db.get(userId);
     if (!user) throw new Error("User not found");
     if (user.role === "super_admin") throw new Error("Cannot ban super admin accounts");
+    assertCanManageUser(staff, user);
 
     await ctx.db.patch(userId, {
       isBanned: true,
@@ -1118,7 +1166,7 @@ export const banUser = mutation({
     });
 
     await recordAudit(ctx, {
-      actorId,
+      actorId: staff._id,
       action: "user.ban",
       category: "users",
       summary: `Banned ${user.firstName} ${user.lastName} (${user.email})`,
@@ -1134,9 +1182,11 @@ export const unbanUser = mutation({
     userId: v.id("users"),
     actorId: v.optional(v.id("users")),
   },
-  handler: async (ctx, { userId, actorId }) => {
+  handler: async (ctx, { userId }) => {
+    const staff = await requireStaff(ctx);
     const user = await ctx.db.get(userId);
     if (!user) throw new Error("User not found");
+    assertCanManageUser(staff, user);
 
     await ctx.db.patch(userId, {
       isBanned: false,
@@ -1145,7 +1195,7 @@ export const unbanUser = mutation({
     });
 
     await recordAudit(ctx, {
-      actorId,
+      actorId: staff._id,
       action: "user.unban",
       category: "users",
       summary: `Unbanned ${user.firstName} ${user.lastName} (${user.email})`,
@@ -1169,6 +1219,7 @@ export const bulkUpdateUsers = mutation({
     ),
   },
   handler: async (ctx, { userIds, action }) => {
+    const staff = await requireSuperAdmin(ctx);
     const now = Date.now();
     let processed = 0;
     const skipped: string[] = [];
@@ -1209,6 +1260,7 @@ export const getAllOrdersAdmin = query({
     search: v.optional(v.string()),
   },
   handler: async (ctx, { status, search }) => {
+    const staff = await requireStaff(ctx);
     let orders = await ctx.db.query("orders").collect();
     
     if (status && status !== 'all') {
@@ -1265,6 +1317,7 @@ export const updateOrderStatus = mutation({
     adminNotes: v.optional(v.string()),
   },
   handler: async (ctx, { orderId, status, adminNotes }) => {
+    const staff = await requireStaff(ctx);
     const order = await ctx.db.get(orderId);
     if (!order) {
       throw new Error("Order not found");
@@ -1289,6 +1342,7 @@ export const createCategory = mutation({
     isActive: v.boolean(),
   },
   handler: async (ctx, args) => {
+    const staff = await requireStaff(ctx);
     const categoryId = await ctx.db.insert("categories", {
       ...args,
       createdAt: Date.now(),
@@ -1308,6 +1362,7 @@ export const updateCategory = mutation({
     isActive: v.optional(v.boolean()),
   },
   handler: async (ctx, { id, ...updates }) => {
+    const staff = await requireStaff(ctx);
     const category = await ctx.db.get(id);
     if (!category) {
       throw new Error("Category not found");
@@ -1325,6 +1380,7 @@ export const updateCategory = mutation({
 export const deleteCategory = mutation({
   args: { id: v.id("categories") },
   handler: async (ctx, { id }) => {
+    const staff = await requireStaff(ctx);
     const category = await ctx.db.get(id);
     if (!category) {
       throw new Error("Category not found");
@@ -1349,6 +1405,7 @@ export const getAnalyticsData = query({
     period: v.optional(v.string()), // 'week', 'month', 'year'
   },
   handler: async (ctx, { period = 'month' }) => {
+    const staff = await requireStaff(ctx);
     const now = new Date();
     let startDate: Date;
     
@@ -1443,6 +1500,10 @@ export const registerAssociate = mutation({
     profilePicture: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const staff = await requireStaff(ctx);
+    if (args.role === "super_admin" && staff.role !== "super_admin") {
+      throw new Error("Only a super admin can create super admin accounts.");
+    }
     const email = args.email.toLowerCase().trim();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       throw new Error("Please enter a valid email address");
@@ -1512,8 +1573,12 @@ export const updateAssociate = mutation({
     profilePicture: v.optional(v.string()),
   },
   handler: async (ctx, { userId, ...updates }) => {
+    const staff = await requireStaff(ctx);
     const user = await ctx.db.get(userId);
     if (!user) throw new Error("Associate not found");
+    if (user.role === "super_admin" && staff.role !== "super_admin") {
+      throw new Error("Only a super admin can edit a super admin account.");
+    }
 
     if (updates.commissionRate !== undefined && (updates.commissionRate < 0 || updates.commissionRate > 100)) {
       throw new Error("Commission rate must be between 0 and 100");
@@ -1548,6 +1613,7 @@ export const updateAssociate = mutation({
 export const getAssociates = query({
   args: {},
   handler: async (ctx) => {
+    const staff = await requireStaff(ctx);
     const [admins, superAdmins, associates] = await Promise.all([
       ctx.db.query("users").withIndex("by_role", (q) => q.eq("role", "admin")).collect(),
       ctx.db.query("users").withIndex("by_role", (q) => q.eq("role", "super_admin")).collect(),
@@ -1589,7 +1655,8 @@ export const resetStoreData = mutation({
     max: v.optional(v.number()),
     userId: v.optional(v.id("users")),
   },
-  handler: async (ctx, { confirm, max = 4000, userId }) => {
+  handler: async (ctx, { confirm, max = 4000 }) => {
+    const staff = await requireSuperAdmin(ctx);
     if (confirm !== "RESET") {
       throw new Error('Refusing to reset: call with confirm:"RESET" to proceed.');
     }
@@ -1644,7 +1711,7 @@ export const resetStoreData = mutation({
     if (!remainingNeedingReset) {
       const totalDeleted = Object.values(deleted).reduce((s, n) => s + n, 0);
       await recordAudit(ctx, {
-        actorId: userId,
+        actorId: staff._id,
         action: "system.reset_store_data",
         category: "system",
         summary: `Reset store data — wiped ${totalDeleted} record${totalDeleted === 1 ? "" : "s"} (sales, inventory, financials, notifications); reset product stock`,

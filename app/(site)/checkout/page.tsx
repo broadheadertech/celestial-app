@@ -37,8 +37,7 @@ export default function CheckoutPage() {
   const clear = useSiteCart((s) => s.clear);
 
   const createReservation = useMutation(api.services.reservations.createReservation);
-  const adminCreateOrder = useMutation(api.services.orders.adminCreateOrder);
-  const acknowledgeOrder = useMutation(api.services.orders.acknowledgeOrder);
+  const placeWebOrder = useMutation(api.services.orders.placeWebOrder);
 
   const [step, setStep] = useState<Step>('selection');
   const [guestName, setGuestName] = useState(user ? `${user.firstName} ${user.lastName}` : '');
@@ -124,23 +123,22 @@ export default function CheckoutPage() {
           (reservationResult as { reservationCode?: string })?.reservationCode || undefined;
       }
 
-      // 2) Create order for gear items (one order, paid in full, ready-to-fulfill).
+      // 2) Create order for gear items. It stays pending/unpaid until staff confirm payment.
       let orderCode: string | undefined;
       if (gear.length > 0) {
-        const orderResult = await adminCreateOrder({
-          userId: userIdArg,
+        const orderResult = await placeWebOrder({
           items: gear.map((l) => ({
             productId: l.productId as Id<'products'>,
             quantity: l.qty,
           })),
           paymentMethod,
           customerName: baseCustomerName,
+          customerEmail: guestEmail || undefined,
+          customerPhone: guestPhone || undefined,
+          address: guestAddress || undefined,
+          notes: `Pickup ${pickupDate} ${pickupTime}.${notes ? ' ' + notes : ''}`,
         });
-        await acknowledgeOrder({
-          orderId: orderResult.orderId as Id<'orders'>,
-          adminNotes: `Web checkout. Pickup ${pickupDate} ${pickupTime}. ${notes || ''}`.trim(),
-        });
-        orderCode = `ORD-${String(orderResult.orderId).slice(-6).toUpperCase()}`;
+        orderCode = orderResult.orderCode;
       }
 
       const finalCode = reservationCode || orderCode || 'CHECKOUT';

@@ -2,6 +2,8 @@ import { mutation, query, internalMutation } from "../_generated/server";
 import { v } from "convex/values";
 import { notifyUserRegistered } from "./notifications";
 import { internal } from "../_generated/api";
+import { createSession } from "./session";
+import { getViewer, isStaffRole, requireSelfOrStaff, requireStaff } from "../lib/authz";
 
 // --- Secure password hashing using Web Crypto API (SHA-256 + random salt) ---
 
@@ -95,12 +97,15 @@ export const login = mutation({
       throw new Error("Account is deactivated. Please contact support.");
     }
 
+    const sessionToken = await createSession(ctx, user._id);
+
     // Return user data without password hash
-    const { passwordHash, ...userWithoutPassword } = user;
-    
+    const { passwordHash, resetToken, resetTokenExpiry, ...userWithoutPassword } = user;
+
     return {
       success: true,
       user: userWithoutPassword,
+      sessionToken,
       message: "Login successful",
     };
   },
@@ -114,9 +119,12 @@ export const register = mutation({
     firstName: v.string(),
     lastName: v.string(),
     phone: v.optional(v.string()),
+    // Accepted for backwards compatibility but ignored: public sign-up always creates a client.
+    // Staff accounts are created from the admin panel (admin.ts).
     role: v.optional(v.union(v.literal("client"), v.literal("admin"), v.literal("super_admin"))),
   },
-  handler: async (ctx, { email, password, firstName, lastName, phone, role = "client" }) => {
+  handler: async (ctx, { email, password, firstName, lastName, phone }) => {
+    const role = "client" as const;
     // Check if user already exists
     const existingUser = await ctx.db
       .query("users")
@@ -187,11 +195,14 @@ export const register = mutation({
     }
 
     // Return user data without password hash
+    const sessionToken = await createSession(ctx, userId);
+
     const { passwordHash: _, ...userWithoutPassword } = newUser;
 
     return {
       success: true,
       user: userWithoutPassword,
+      sessionToken,
       message: "Account created successfully",
     };
   },
@@ -206,7 +217,13 @@ export const getCurrentUser = query({
     if (!userId) {
       return null;
     }
-    
+
+    // Only yourself, or staff looking anyone up.
+    const viewer = await getViewer(ctx);
+    if (!viewer || (viewer._id !== userId && !isStaffRole(viewer.role))) {
+      return null;
+    }
+
     const user = await ctx.db.get(userId);
     
     if (!user) {
@@ -232,6 +249,7 @@ export const updateProfile = mutation({
     phone: v.optional(v.string()),
   },
   handler: async (ctx, { userId, firstName, lastName, phone }) => {
+    await requireSelfOrStaff(ctx, userId);
     const user = await ctx.db.get(userId);
     
     if (!user) {
@@ -288,6 +306,10 @@ export const changePassword = mutation({
     newPassword: v.string(),
   },
   handler: async (ctx, { userId, currentPassword, newPassword }) => {
+    const viewer = await getViewer(ctx);
+    if (!viewer || viewer._id !== userId) {
+      throw new Error("You can only change your own password.");
+    }
     const user = await ctx.db.get(userId);
     
     if (!user) {
@@ -334,6 +356,7 @@ export const deactivateAccount = mutation({
     userId: v.id("users"),
   },
   handler: async (ctx, { userId }) => {
+    await requireSelfOrStaff(ctx, userId);
     const user = await ctx.db.get(userId);
 
     if (!user) {
@@ -358,6 +381,7 @@ export const getUserByFacebookId = query({
     facebookId: v.string(),
   },
   handler: async (ctx, { facebookId }) => {
+    await requireStaff(ctx);
     const user = await ctx.db
       .query("users")
       .withIndex("by_facebook_id", (q) => q.eq("facebookId", facebookId))
@@ -379,6 +403,7 @@ export const getUserByEmail = query({
     email: v.string(),
   },
   handler: async (ctx, { email }) => {
+    await requireStaff(ctx);
     const user = await ctx.db
       .query("users")
       .withIndex("by_email", (q) => q.eq("email", email))
@@ -422,9 +447,11 @@ export const createFacebookUser = mutation({
       throw new Error("User with this email already exists");
     }
 
-    // Ensure loginMethod is set for Facebook users
+    // Ensure loginMethod is set for Facebook users. Role is forced to client:
+    // social sign-up must never be able to create staff accounts.
     const userWithLoginMethod = {
       ...userData,
+      role: "client" as const,
       loginMethod: userData.loginMethod || "facebook", // Default to facebook if not provided
     };
 
@@ -465,6 +492,7 @@ export const updateUserFacebookData = mutation({
     loginMethod: v.union(v.literal("email"), v.literal("facebook")),
   },
   handler: async (ctx, { userId, facebookId, profilePicture, loginMethod }) => {
+    await requireSelfOrStaff(ctx, userId);
     const user = await ctx.db.get(userId);
 
     if (!user) {

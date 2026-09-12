@@ -588,4 +588,17 @@ export default defineSchema({
     updatedAt: v.number(),
     updatedBy: v.optional(v.id("users")),
   }),
+
+  // Login sessions. The client holds the raw token; only its SHA-256 is stored.
+  // The token is exchanged for short-lived JWTs (services/session.ts) that Convex
+  // verifies on every call, so functions can trust ctx.auth instead of a userId arg.
+  sessions: defineTable({
+    userId: v.id("users"),
+    tokenHash: v.string(),
+    createdAt: v.number(),
+    expiresAt: v.number(),
+    revokedAt: v.optional(v.number()),
+  })
+    .index("by_token_hash", ["tokenHash"])
+    .index("by_user", ["userId"]),
 });

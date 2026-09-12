@@ -130,8 +130,22 @@
 
 ### Session Management
 - **NextAuth.js:** Handles OAuth and session persistence
-- **Zustand Store:** Client-side auth state with localStorage
+- **Zustand Store:** Client-side auth state with localStorage (`user`, `sessionToken`)
 - **Guest Sessions:** Auto-generated guest IDs for non-authenticated users
+
+### Server-Side Authorization (Convex)
+Middleware can't run in the static export, so authorization is enforced inside Convex functions:
+1. `auth.login` / `auth.register` create a row in `sessions` and return a `sessionToken`.
+2. `components/ConvexProvider.tsx` exchanges it for a 1-hour RS256 JWT via `session.issueToken`
+   and calls `convex.setAuth`; logout revokes the session.
+3. Convex verifies the JWT (`convex/auth.config.ts`, public key served by `convex/http.ts`).
+4. Functions call helpers from `convex/lib/authz.ts` — `getViewer`, `requireUser`, `requireStaff`,
+   `requireSuperAdmin`, `requireSelfOrStaff`. **Never trust a `userId`/`actorId` argument for
+   authorization**; use the viewer.
+5. `components/admin/AdminGuard.tsx` gates `/admin/*` in the UI using `session.me`.
+
+Deployment env vars: `JWT_PRIVATE_KEY` (base64 PKCS#8) and `JWKS` must be set on each Convex deployment.
+Storefront pages must use public queries (e.g. `products.getCatalogProducts`), never `admin.*`.
 
 ## 5. Application Structure
 

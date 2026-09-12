@@ -14,6 +14,8 @@ import type {
   FunctionReference,
 } from "convex/server";
 import type * as files from "../files.js";
+import type * as http from "../http.js";
+import type * as lib_authz from "../lib/authz.js";
 import type * as migrations_fix_login_method from "../migrations/fix_login_method.js";
 import type * as seed from "../seed.js";
 import type * as services_admin from "../services/admin.js";
@@ -33,6 +35,7 @@ import type * as services_payments from "../services/payments.js";
 import type * as services_products from "../services/products.js";
 import type * as services_reservationPayments from "../services/reservationPayments.js";
 import type * as services_reservations from "../services/reservations.js";
+import type * as services_session from "../services/session.js";
 import type * as services_settings from "../services/settings.js";
 import type * as services_stock from "../services/stock.js";
 import type * as services_users from "../services/users.js";
@@ -49,6 +52,8 @@ import type * as services_wishlist from "../services/wishlist.js";
  */
 declare const fullApi: ApiFromModules<{
   files: typeof files;
+  http: typeof http;
+  "lib/authz": typeof lib_authz;
   "migrations/fix_login_method": typeof migrations_fix_login_method;
   seed: typeof seed;
   "services/admin": typeof services_admin;
@@ -68,6 +73,7 @@ declare const fullApi: ApiFromModules<{
   "services/products": typeof services_products;
   "services/reservationPayments": typeof services_reservationPayments;
   "services/reservations": typeof services_reservations;
+  "services/session": typeof services_session;
   "services/settings": typeof services_settings;
   "services/stock": typeof services_stock;
   "services/users": typeof services_users;

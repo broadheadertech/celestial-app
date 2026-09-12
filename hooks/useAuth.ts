@@ -42,7 +42,7 @@ export function useAuth() {
           throw new Error(result?.message || "Invalid email or password");
         }
 
-        login(result.user);
+        login(result.user, result.sessionToken);
         setLoading(false);
         return result;
       } catch (error) {
@@ -64,7 +64,6 @@ export function useAuth() {
           firstName: data.firstName.trim(),
           lastName: data.lastName.trim(),
           phone: data.phone?.trim(),
-          role: "client",
         });
 
         if (!result?.success) {
@@ -73,7 +72,7 @@ export function useAuth() {
 
         // Auto-login after registration
         if (result.user) {
-          login(result.user);
+          login(result.user, result.sessionToken);
           router.push("/client/dashboard");
         }
 

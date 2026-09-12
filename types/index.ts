@@ -203,6 +203,8 @@ export interface AuthState {
   isLoading: boolean;
   isAuthenticated: boolean;
   guestId?: string;
+  /** Server session token from login/register; exchanged for Convex auth JWTs. */
+  sessionToken?: string;
 }
 
 // UI Component types

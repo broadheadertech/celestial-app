@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Bell, Settings, Sun, Moon } from 'lucide-react';
+import { Bell, Settings, Sun, Moon, LogOut } from 'lucide-react';
 import { useAuthStore } from '@/store/auth';
+import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/store/theme';
 import { useQuery } from 'convex/react';
 import { api } from '@/convex/_generated/api';
@@ -12,6 +13,7 @@ import NotificationModal from '@/components/modal/NotificationModal';
 export default function AdminTopBar() {
   const router = useRouter();
   const { user } = useAuthStore();
+  const { logout } = useAuth();
   const [now, setNow] = useState<Date | null>(null);
   const [showNotifications, setShowNotifications] = useState(false);
   const theme = useTheme((s) => s.theme);
@@ -124,6 +126,17 @@ export default function AdminTopBar() {
               {fullName}
             </span>
           </div>
+          <button
+            onClick={() => {
+              if (window.confirm('Sign out of Dragon’s Cave admin?')) logout();
+            }}
+            className="p-2 rounded-lg border hover:opacity-90"
+            style={{ background: 'var(--surface-2)', borderColor: 'var(--line)', color: 'var(--red-hi)' }}
+            aria-label="Sign out"
+            title="Sign out"
+          >
+            <LogOut className="w-[15px] h-[15px]" />
+          </button>
         </div>
       </div>
 

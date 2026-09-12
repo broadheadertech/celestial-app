@@ -3,6 +3,28 @@ import { mutation, query } from "../_generated/server";
 import { recordAudit } from "./audit";
 
 // Get all products
+// Public storefront catalog: active products with their category name. Internal cost
+// fields are stripped — use admin.getAllProductsAdmin (staff only) for the full records.
+export const getCatalogProducts = query({
+  args: {},
+  handler: async (ctx) => {
+    const products = await ctx.db
+      .query("products")
+      .withIndex("by_active", (q) => q.eq("isActive", true))
+      .collect();
+    const categoryNames = new Map<string, string>();
+    for (const c of await ctx.db.query("categories").collect()) {
+      categoryNames.set(c._id, c.name);
+    }
+    return products
+      .map(({ costPrice, movingAverageCost, ...product }) => ({
+        ...product,
+        categoryName: categoryNames.get(product.categoryId) || "Unknown",
+      }))
+      .sort((a, b) => b.updatedAt - a.updatedAt);
+  },
+});
+
 export const getProducts = query({
   args: {
     categoryId: v.optional(v.id("categories")),

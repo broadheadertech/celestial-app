@@ -9,6 +9,7 @@ export const DC_CSS = `
 
 .dc-navlink:hover { color: oklch(0.19 0.012 32) !important; }
 .dc-enquire:hover { background: oklch(0.44 0.20 28) !important; }
+.dc-menu-item:hover { background: oklch(0.52 0.216 27 / 0.08) !important; }
 
 .dc-btn-primary:hover { background: oklch(0.44 0.20 28) !important; }
 .dc-btn-ghost:hover { border-color: oklch(0.19 0.012 32) !important; color: oklch(0.19 0.012 32) !important; }

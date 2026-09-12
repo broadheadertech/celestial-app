@@ -1,12 +1,14 @@
 'use client';
 
 /**
- * Visit — verbatim port of `dragons-cave-visit.dc.html` (content only).
- * The two image-slot placeholders become styled slots (no gallery/map photo yet).
- * Header / footer / styles come from the (site) layout.
+ * Visit — the design (`dragons-cave-visit`), wired to the real `createViewing`
+ * Convex mutation (falls back to a WhatsApp message). The design form gained an
+ * email field because the viewings table requires one.
  */
 
 import { useState } from 'react';
+import { useMutation } from 'convex/react';
+import { api } from '@/convex/_generated/api';
 
 const mono = "'Geist Mono', monospace";
 const serif = "'Noto Serif Display', serif";
@@ -22,7 +24,10 @@ function Slot({ label, ratio }: { label: string; ratio: string }) {
 }
 
 export default function VisitPage() {
-  const [s, setS] = useState({ name: '', contact: '', date: '', time: '10:00', guests: '1', interest: '', notes: '' });
+  const createViewing = useMutation(api.services.viewings.createViewing);
+  const [s, setS] = useState({ name: '', email: '', contact: '', date: '', time: '10:00', guests: '1', interest: '', notes: '' });
+  const [status, setStatus] = useState<'idle' | 'sending' | 'done' | 'error'>('idle');
+  const [error, setError] = useState('');
   const set = (k: keyof typeof s) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setS((p) => ({ ...p, [k]: e.target.value }));
 
   const lines = [
@@ -36,6 +41,32 @@ export default function VisitPage() {
     s.notes ? 'Note: ' + s.notes : null,
   ].filter(Boolean);
   const waHref = 'https://wa.me/639172345678?text=' + encodeURIComponent(lines.join('\n'));
+
+  async function submit() {
+    setError('');
+    if (!s.name.trim()) return setError('Please enter your name.');
+    if (!/.+@.+\..+/.test(s.email)) return setError('Please enter a valid email.');
+    if (s.contact.trim().length < 7) return setError('Please enter a valid phone number.');
+    if (!s.date || !s.time) return setError('Please choose a date and time.');
+    const partySize = s.guests === '4+' ? 4 : parseInt(s.guests, 10) || 1;
+    setStatus('sending');
+    try {
+      await createViewing({
+        name: s.name.trim(),
+        email: s.email.trim(),
+        phone: s.contact.trim(),
+        date: s.date,
+        time: s.time,
+        partySize,
+        interest: s.interest.trim() || undefined,
+        notes: s.notes.trim() || undefined,
+      });
+      setStatus('done');
+    } catch (e) {
+      setStatus('error');
+      setError(e instanceof Error ? e.message : 'Something went wrong. Please try again or message us on WhatsApp.');
+    }
+  }
 
   return (
     <>
@@ -71,33 +102,52 @@ export default function VisitPage() {
 
           {/* FORM */}
           <div style={{ background: 'oklch(0.99 0.005 80)', border: '1px solid oklch(0.87 0.012 68)', borderRadius: 14, padding: '36px 36px 32px', boxShadow: '0 30px 70px -50px oklch(0.30 0.03 40 / 0.5)' }}>
-            <div style={{ fontFamily: mono, fontSize: 11, letterSpacing: '0.24em', textTransform: 'uppercase', color: 'oklch(0.50 0.14 30)', marginBottom: 12 }}>Request a viewing</div>
-            <h2 style={{ fontFamily: serif, fontWeight: 700, fontSize: 30, lineHeight: 1.05, letterSpacing: '-0.015em', margin: '0 0 8px', color: 'oklch(0.19 0.012 32)' }}>Tell us when to expect you</h2>
-            <p style={{ fontSize: 14, color: 'oklch(0.46 0.012 34)', margin: '0 0 28px' }}>We send your request straight to WhatsApp &mdash; we&rsquo;ll confirm your slot within the day.</p>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '18px 18px' }}>
-              <div><label className="dc-lbl">Your name</label><input className="dc-input" type="text" placeholder="Juan dela Cruz" value={s.name} onChange={set('name')} /></div>
-              <div><label className="dc-lbl">Phone / WhatsApp</label><input className="dc-input" type="tel" placeholder="+63 9__ ___ ____" value={s.contact} onChange={set('contact')} /></div>
-              <div><label className="dc-lbl">Preferred date</label><input className="dc-input" type="date" value={s.date} onChange={set('date')} /></div>
-              <div><label className="dc-lbl">Preferred time</label>
-                <select className="dc-input" value={s.time} onChange={set('time')}>
-                  {['10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00'].map((t) => <option key={t} value={t}>{t}</option>)}
-                </select>
+            {status === 'done' ? (
+              <div style={{ textAlign: 'center', padding: '30px 10px 20px' }}>
+                <div style={{ width: 56, height: 56, borderRadius: 999, margin: '0 auto 20px', background: 'oklch(0.52 0.13 150 / 0.14)', color: 'oklch(0.46 0.14 150)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26 }}>✓</div>
+                <h2 style={{ fontFamily: serif, fontWeight: 700, fontSize: 28, margin: '0 0 10px', color: 'oklch(0.19 0.012 32)' }}>Request received</h2>
+                <p style={{ fontSize: 14.5, lineHeight: 1.6, color: 'oklch(0.44 0.012 34)', maxWidth: 380, margin: '0 auto 24px' }}>Thank you, {s.name.split(' ')[0] || 'friend'}. We&rsquo;ll confirm your {s.date || 'preferred'} slot within the day. Watch your phone &mdash; we usually reply on WhatsApp.</p>
+                <a href={waHref} target="_blank" rel="noopener" className="dc-btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: 9, background: 'oklch(0.52 0.216 27)', color: 'oklch(0.98 0.012 82)', fontSize: 14, fontWeight: 600, padding: '13px 22px', borderRadius: 999 }}>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v7A2.5 2.5 0 0 1 17.5 15H9l-4 3.5V15H6.5A2.5 2.5 0 0 1 4 12.5v-7Z" fill="oklch(0.98 0.012 82)" /></svg>
+                  Message us to confirm faster
+                </a>
               </div>
-              <div><label className="dc-lbl">Guests</label>
-                <select className="dc-input" value={s.guests} onChange={set('guests')}>
-                  <option value="1">Just me</option><option value="2">2 of us</option><option value="3">3 of us</option><option value="4+">4 or more</option>
-                </select>
-              </div>
-              <div><label className="dc-lbl">Fish of interest <span style={{ textTransform: 'none', letterSpacing: 0, color: 'oklch(0.66 0.02 40)' }}>(optional)</span></label><input className="dc-input" type="text" placeholder="e.g. Chili Super Red" value={s.interest} onChange={set('interest')} /></div>
-              <div style={{ gridColumn: '1 / -1' }}><label className="dc-lbl">Anything else? <span style={{ textTransform: 'none', letterSpacing: 0, color: 'oklch(0.66 0.02 40)' }}>(optional)</span></label><textarea className="dc-input" rows={3} placeholder="First arowana, upgrading my display, bringing my kids…" style={{ resize: 'vertical', minHeight: 78 }} value={s.notes} onChange={set('notes')} /></div>
-            </div>
+            ) : (
+              <>
+                <div style={{ fontFamily: mono, fontSize: 11, letterSpacing: '0.24em', textTransform: 'uppercase', color: 'oklch(0.50 0.14 30)', marginBottom: 12 }}>Request a viewing</div>
+                <h2 style={{ fontFamily: serif, fontWeight: 700, fontSize: 30, lineHeight: 1.05, letterSpacing: '-0.015em', margin: '0 0 8px', color: 'oklch(0.19 0.012 32)' }}>Tell us when to expect you</h2>
+                <p style={{ fontSize: 14, color: 'oklch(0.46 0.012 34)', margin: '0 0 28px' }}>We log your request and confirm your slot within the day.</p>
 
-            <a href={waHref} target="_blank" rel="noopener" className="dc-btn-primary" style={{ marginTop: 26, width: '100%', boxSizing: 'border-box', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 10, background: 'oklch(0.52 0.216 27)', color: 'oklch(0.98 0.012 82)', fontSize: 15, fontWeight: 600, padding: '16px 24px', borderRadius: 999, transition: '.2s', boxShadow: '0 16px 34px -16px oklch(0.52 0.216 27 / 0.7)' }}>
-              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v7A2.5 2.5 0 0 1 17.5 15H9l-4 3.5V15H6.5A2.5 2.5 0 0 1 4 12.5v-7Z" fill="oklch(0.98 0.012 82)" /><circle cx="9" cy="9" r="1.2" fill="oklch(0.52 0.216 27)" /><circle cx="12.5" cy="9" r="1.2" fill="oklch(0.52 0.216 27)" /><circle cx="16" cy="9" r="1.2" fill="oklch(0.52 0.216 27)" /></svg>
-              Send request on WhatsApp
-            </a>
-            <div style={{ textAlign: 'center', fontFamily: mono, fontSize: 10.5, letterSpacing: '0.06em', color: 'oklch(0.56 0.02 40)', marginTop: 14 }}>No deposit needed &middot; viewings are free &middot; we reply fast</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '18px 18px' }}>
+                  <div><label className="dc-lbl">Your name</label><input className="dc-input" type="text" placeholder="Juan dela Cruz" value={s.name} onChange={set('name')} /></div>
+                  <div><label className="dc-lbl">Email</label><input className="dc-input" type="email" placeholder="you@email.com" value={s.email} onChange={set('email')} /></div>
+                  <div><label className="dc-lbl">Phone / WhatsApp</label><input className="dc-input" type="tel" placeholder="+63 9__ ___ ____" value={s.contact} onChange={set('contact')} /></div>
+                  <div><label className="dc-lbl">Preferred date</label><input className="dc-input" type="date" value={s.date} onChange={set('date')} /></div>
+                  <div><label className="dc-lbl">Preferred time</label>
+                    <select className="dc-input" value={s.time} onChange={set('time')}>
+                      {['10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00'].map((t) => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                  </div>
+                  <div><label className="dc-lbl">Guests</label>
+                    <select className="dc-input" value={s.guests} onChange={set('guests')}>
+                      <option value="1">Just me</option><option value="2">2 of us</option><option value="3">3 of us</option><option value="4+">4 or more</option>
+                    </select>
+                  </div>
+                  <div><label className="dc-lbl">Fish of interest <span style={{ textTransform: 'none', letterSpacing: 0, color: 'oklch(0.66 0.02 40)' }}>(optional)</span></label><input className="dc-input" type="text" placeholder="e.g. Chili Super Red" value={s.interest} onChange={set('interest')} /></div>
+                  <div style={{ gridColumn: '1 / -1' }}><label className="dc-lbl">Anything else? <span style={{ textTransform: 'none', letterSpacing: 0, color: 'oklch(0.66 0.02 40)' }}>(optional)</span></label><textarea className="dc-input" rows={3} placeholder="First arowana, upgrading my display, bringing my kids…" style={{ resize: 'vertical', minHeight: 78 }} value={s.notes} onChange={set('notes')} /></div>
+                </div>
+
+                {error && <div style={{ marginTop: 16, fontSize: 13, color: 'oklch(0.52 0.20 27)', fontFamily: mono }}>{error}</div>}
+
+                <button type="button" onClick={submit} disabled={status === 'sending'} className="dc-btn-primary" style={{ marginTop: 22, width: '100%', boxSizing: 'border-box', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 10, background: 'oklch(0.52 0.216 27)', color: 'oklch(0.98 0.012 82)', fontSize: 15, fontWeight: 600, padding: '16px 24px', borderRadius: 999, border: 'none', cursor: status === 'sending' ? 'default' : 'pointer', opacity: status === 'sending' ? 0.7 : 1, transition: '.2s', boxShadow: '0 16px 34px -16px oklch(0.52 0.216 27 / 0.7)' }}>
+                  {status === 'sending' ? 'Sending…' : 'Send viewing request'}
+                </button>
+                <div style={{ textAlign: 'center', fontFamily: mono, fontSize: 10.5, letterSpacing: '0.06em', color: 'oklch(0.56 0.02 40)', marginTop: 14 }}>
+                  No deposit needed &middot; viewings are free &middot; or{' '}
+                  <a href={waHref} target="_blank" rel="noopener" style={{ color: 'oklch(0.50 0.216 27)', fontWeight: 600 }}>send on WhatsApp</a>
+                </div>
+              </>
+            )}
           </div>
 
           {/* LOCATION SIDEBAR */}

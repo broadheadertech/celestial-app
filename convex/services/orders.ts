@@ -2,6 +2,7 @@ import { query, mutation } from "../_generated/server";
 import { v } from "convex/values";
 import { recordSaleHelper, restoreStockHelper } from "./stock";
 import { recordAudit } from "./audit";
+import { getViewer, isStaffRole, requireSelfOrStaff, requireStaff, requireUser } from "../lib/authz";
 
 // Get user's orders
 export const getUserOrders = query({
@@ -17,6 +18,12 @@ export const getUserOrders = query({
     )),
   },
   handler: async (ctx, { userId, status }) => {
+    // Someone else's (or a signed-out) request sees no orders rather than an error,
+    // so account pages don't crash while a session is still being established.
+    const viewer = await getViewer(ctx);
+    if (!viewer || (viewer._id !== userId && !isStaffRole(viewer.role))) {
+      return [];
+    }
     let query = ctx.db
       .query("orders")
       .withIndex("by_user", (q) => q.eq("userId", userId));
@@ -57,9 +64,10 @@ export const getOrder = query({
     orderId: v.id("orders"),
   },
   handler: async (ctx, { orderId }) => {
+    const viewer = await requireUser(ctx);
     const order = await ctx.db.get(orderId);
 
-    if (!order) {
+    if (!order || (order.userId !== viewer._id && !isStaffRole(viewer.role))) {
       throw new Error("Order not found");
     }
 
@@ -113,6 +121,11 @@ export const createOrderFromCart = mutation({
     notes: v.optional(v.string()),
   },
   handler: async (ctx, { userId, shippingAddress, paymentMethod, notes }) => {
+    const viewer = await requireUser(ctx);
+    if (viewer._id !== userId) {
+      throw new Error("You can only check out your own cart");
+    }
+
     // Get user's cart items
     const cartItems = await ctx.db
       .query("cart")
@@ -201,6 +214,7 @@ export const updateOrderStatus = mutation({
     notes: v.optional(v.string()),
   },
   handler: async (ctx, { orderId, status, notes }) => {
+    await requireStaff(ctx);
     const order = await ctx.db.get(orderId);
 
     if (!order) {
@@ -243,14 +257,16 @@ export const cancelOrder = mutation({
     orderId: v.id("orders"),
     userId: v.id("users"),
   },
-  handler: async (ctx, { orderId, userId }) => {
+  handler: async (ctx, { orderId }) => {
+    // The userId argument is kept for compatibility; ownership is checked against the session.
+    const viewer = await requireUser(ctx);
     const order = await ctx.db.get(orderId);
 
     if (!order) {
       throw new Error("Order not found");
     }
 
-    if (order.userId && order.userId !== userId) {
+    if (order.userId !== viewer._id && !isStaffRole(viewer.role)) {
       throw new Error("You can only cancel your own orders");
     }
 
@@ -295,6 +311,7 @@ export const getAllOrdersAdmin = query({
     search: v.optional(v.string()),
   },
   handler: async (ctx, { status, search }) => {
+    await requireStaff(ctx);
     let orders = await ctx.db.query("orders").collect();
 
     if (status && status !== 'all') {
@@ -379,6 +396,7 @@ export const adminCreateOrder = mutation({
     salesAssociateName: v.optional(v.string()),
   },
   handler: async (ctx, { userId, items, orderDiscount, paymentMethod, notes, customerName, salesAssociateId, salesAssociateName }) => {
+    const staff = await requireStaff(ctx);
     if (items.length === 0) {
       throw new Error("No items provided");
     }
@@ -455,14 +473,14 @@ export const adminCreateOrder = mutation({
     });
 
     await recordAudit(ctx, {
-      actorId: salesAssociateId,
+      actorId: staff._id,
       action: "order.create",
       category: "sales",
       summary: `POS sale ${generateOrderCode(orderId)} — ${orderItems.length} item${orderItems.length === 1 ? "" : "s"}, ₱${totalAmount.toLocaleString("en-PH")}${customerName ? ` · ${customerName}` : ""}`,
       entityTable: "orders",
       entityId: orderId,
       amount: totalAmount,
-      metadata: { itemCount: orderItems.length, paymentMethod, salesAssociateName },
+      metadata: { itemCount: orderItems.length, paymentMethod, salesAssociateId, salesAssociateName },
     });
 
     return {
@@ -476,6 +494,93 @@ export const adminCreateOrder = mutation({
   },
 });
 
+// Storefront checkout for gear (non-live) items. Open to guests. Prices always come from
+// the product records, no discounts are accepted, and the order stays pending + unpaid
+// until staff confirm payment — unlike adminCreateOrder, which is the POS path.
+export const placeWebOrder = mutation({
+  args: {
+    items: v.array(v.object({
+      productId: v.id("products"),
+      quantity: v.number(),
+    })),
+    paymentMethod: v.string(),
+    customerName: v.string(),
+    customerEmail: v.optional(v.string()),
+    customerPhone: v.optional(v.string()),
+    address: v.optional(v.string()),
+    notes: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    if (args.items.length === 0) throw new Error("No items provided");
+    if (args.items.length > 50) throw new Error("Too many items in one order");
+    const customerName = args.customerName.trim().slice(0, 120);
+    if (!customerName) throw new Error("Name is required");
+
+    const viewer = await getViewer(ctx);
+    const now = Date.now();
+    const orderItems = [];
+    let totalAmount = 0;
+
+    for (const item of args.items) {
+      if (!Number.isInteger(item.quantity) || item.quantity < 1 || item.quantity > 99) {
+        throw new Error("Invalid quantity");
+      }
+      const product = await ctx.db.get(item.productId);
+      if (!product || !product.isActive) {
+        throw new Error(`Product ${product?.name || "unknown"} is not available`);
+      }
+      if (product.stock < item.quantity) {
+        throw new Error(`Insufficient stock for ${product.name}. Available: ${product.stock}`);
+      }
+
+      orderItems.push({
+        productId: item.productId,
+        quantity: item.quantity,
+        price: product.price,
+        originalPrice: product.price,
+        discount: 0,
+      });
+      totalAmount += product.price * item.quantity;
+
+      await ctx.db.patch(item.productId, { stock: product.stock - item.quantity, updatedAt: now });
+      await recordSaleHelper(ctx, { productId: item.productId, quantity: item.quantity });
+    }
+
+    const contact = [args.customerEmail, args.customerPhone].filter(Boolean).join(" · ");
+    const notes = [
+      "Web checkout",
+      contact && `Contact: ${contact}`,
+      args.address && `Address: ${args.address}`,
+      args.notes,
+    ].filter(Boolean).join("\n").slice(0, 2000);
+
+    const orderId = await ctx.db.insert("orders", {
+      userId: viewer?._id,
+      status: "pending",
+      items: orderItems,
+      subtotal: totalAmount,
+      orderDiscount: 0,
+      totalAmount,
+      shippingAddress: {
+        street: args.address?.slice(0, 300) || "In-Store Pickup",
+        city: "N/A",
+        state: "N/A",
+        zipCode: "N/A",
+        country: "Philippines",
+      },
+      paymentMethod: args.paymentMethod.slice(0, 40),
+      customerName,
+      notes,
+      paymentStatus: "unpaid",
+      amountPaid: 0,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    return { orderId, orderCode: generateOrderCode(orderId), totalAmount };
+  },
+});
+
 // Admin: Acknowledge order (confirm + generate acknowledgement data)
 export const acknowledgeOrder = mutation({
   args: {
@@ -483,6 +588,7 @@ export const acknowledgeOrder = mutation({
     adminNotes: v.optional(v.string()),
   },
   handler: async (ctx, { orderId, adminNotes }) => {
+    await requireStaff(ctx);
     const order = await ctx.db.get(orderId);
     if (!order) throw new Error("Order not found");
     if (order.status !== "pending") throw new Error("Only pending orders can be acknowledged");
@@ -541,6 +647,7 @@ export const releaseOrder = mutation({
     adminNotes: v.optional(v.string()),
   },
   handler: async (ctx, { orderId, adminNotes }) => {
+    await requireStaff(ctx);
     const order = await ctx.db.get(orderId);
     if (!order) throw new Error("Order not found");
     if (order.status !== "confirmed" && order.status !== "processing") {
@@ -600,6 +707,7 @@ export const getOrderReceipt = query({
     orderId: v.id("orders"),
   },
   handler: async (ctx, { orderId }) => {
+    await requireStaff(ctx);
     const order = await ctx.db.get(orderId);
     if (!order) throw new Error("Order not found");
 

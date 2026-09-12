@@ -25,7 +25,7 @@ const isLiveCategoryName = (name?: string) => {
 };
 
 export default function ShopPage() {
-  const products = useQuery(api.services.admin.getAllProductsAdmin, {});
+  const products = useQuery(api.services.products.getCatalogProducts, {});
   const add = useSiteCart((s) => s.add);
 
   const [selectedCategory, setSelectedCategory] = useState<string>('all');

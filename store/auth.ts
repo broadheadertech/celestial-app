@@ -4,7 +4,7 @@ import { User, AuthState } from '@/types';
 
 interface AuthStore extends AuthState {
   // Actions
-  login: (user: User) => void;
+  login: (user: User, sessionToken: string) => void;
   logout: () => void;
   updateUser: (updates: Partial<User>) => void;
   setLoading: (loading: boolean) => void;
@@ -27,9 +27,10 @@ export const useAuthStore = create<AuthStore>()(
       guestId: undefined,
 
       // Actions
-      login: (user: User) => {
+      login: (user: User, sessionToken: string) => {
         set({
           user,
+          sessionToken,
           isAuthenticated: true,
           isLoading: false,
           guestId: undefined, // Clear guest session when user logs in
@@ -38,8 +39,10 @@ export const useAuthStore = create<AuthStore>()(
 
       logout: () => {
         const newGuestId = generateGuestId();
+        // The server-side session is revoked by ConvexAuthBridge when it sees the token go away.
         set({
           user: null,
+          sessionToken: undefined,
           isAuthenticated: false,
           isLoading: false,
           guestId: newGuestId, // Create new guest session after logout
@@ -78,6 +81,7 @@ export const useAuthStore = create<AuthStore>()(
       // Only persist essential auth data
       partialize: (state) => ({
         user: state.user,
+        sessionToken: state.sessionToken,
         isAuthenticated: state.isAuthenticated,
         guestId: state.guestId,
       }),
