@@ -407,6 +407,11 @@ npx cap run android      # Build and run on device/emulator
 ## 14. Performance Optimizations
 
 ### Frontend Optimizations
+- **Prerendered storefront:** `components/ConvexProvider.tsx` renders public pages (`PUBLIC_PATHS`) during
+  static export so their HTML has real content; other routes wait for mount. Public pages must not read
+  localStorage-backed stores (auth, cart) during render — gate those parts behind a mounted flag.
+- **Responsive storefront:** inline grid templates are overridden on small screens by utility classes in
+  `components/dc/styles.tsx` (`dc-split`, `dc-cols-2/3/4`, `dc-hide-md/sm`, `dc-sticky-md`).
 - **Turbopack:** Faster builds and development
 - **Image Optimization:** Next.js Image component
 - **Code Splitting:** Automatic route-based splitting

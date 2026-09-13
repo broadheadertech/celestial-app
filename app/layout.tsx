@@ -6,9 +6,8 @@ import { ReservationProvider } from "@/context/ReservationContext";
 import ClientReservationOverlay from "@/components/ui/ClientReservationOverlay";
 
 export const metadata: Metadata = {
-  title: "Dragon's Cave — Admin",
-  description:
-    "Dragon's Cave — Home of Premium Arowanas. Admin console for inventory, reservations, and point of sale.",
+  title: "Dragon's Cave",
+  description: "Dragon's Cave — Home of Premium Arowanas.",
   keywords: ["arowana", "aquarium", "fish", "tanks", "aquatic", "Philippines", "Dragon's Cave"],
   authors: [{ name: "Dragon's Cave" }],
 };

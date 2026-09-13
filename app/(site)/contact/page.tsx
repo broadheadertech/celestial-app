@@ -100,7 +100,7 @@ export default function ContactPage() {
 
       <section className="py-10" style={{ padding: '0 0 80px' }}>
         <div
-          className="site-container grid gap-10"
+          className="site-container grid gap-10 dc-split"
           style={{ gridTemplateColumns: 'minmax(0, 1.3fr) minmax(0, 1fr)' }}
         >
           {/* Form */}

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { LayoutDashboard, LogOut, ShoppingBag, User as UserIcon } from 'lucide-react';
+import { LayoutDashboard, LogOut, Menu, ShoppingBag, User as UserIcon, X } from 'lucide-react';
 import { useAuthStore } from '@/store/auth';
 import { useSiteCart } from '@/store/siteCart';
 import { WaIcon } from './styles';
@@ -24,6 +24,9 @@ export default function DcHeader() {
             ? 'visit'
             : 'home';
   const subline = [biz.establishedYear && `Est. ${biz.establishedYear}`, biz.city].filter(Boolean).join(' · ');
+  const [menuOpen, setMenuOpen] = useState(false);
+  // Close the mobile menu after navigating.
+  useEffect(() => setMenuOpen(false), [pathname]);
 
   const dot = (
     <span
@@ -61,17 +64,17 @@ export default function DcHeader() {
         fontFamily: "'Geist', system-ui, sans-serif",
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 28, maxWidth: 1280, margin: '0 auto', padding: '14px 28px' }}>
-        <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 12, flex: '0 0 auto' }}>
+      <div className="dc-header-row" style={{ display: 'flex', alignItems: 'center', gap: 28, maxWidth: 1280, margin: '0 auto', padding: '14px 28px' }}>
+        <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 12, flex: '0 1 auto', minWidth: 0 }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/img/dc-logo-light.png" alt="Dragon's Cave" height={40} style={{ display: 'block', height: 40, width: 'auto' }} draggable={false} />
-          <span style={{ display: 'flex', flexDirection: 'column', lineHeight: 1 }}>
-            <span style={{ fontFamily: "'Noto Serif Display', serif", fontWeight: 800, fontSize: 16, letterSpacing: '0.01em', color: 'oklch(0.19 0.012 32)' }}>Dragon&rsquo;s Cave</span>
-            {subline && <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 8.5, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'oklch(0.52 0.10 30)', marginTop: 4 }}>{subline}</span>}
+          <img src="/img/dc-logo-light.png" alt="" height={40} style={{ display: 'block', height: 40, width: 'auto' }} draggable={false} />
+          <span style={{ display: 'flex', flexDirection: 'column', lineHeight: 1, minWidth: 0 }}>
+            <span style={{ fontFamily: "'Noto Serif Display', serif", fontWeight: 800, fontSize: 16, letterSpacing: '0.01em', color: 'oklch(0.19 0.012 32)', whiteSpace: 'nowrap' }}>{biz.storeName}</span>
+            {subline && <span className="dc-hide-sm" style={{ fontFamily: "'Geist Mono', monospace", fontSize: 8.5, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'oklch(0.52 0.10 30)', marginTop: 4 }}>{subline}</span>}
           </span>
         </Link>
 
-        <nav style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 'auto' }}>
+        <nav className="dc-nav" aria-label="Main" style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 'auto' }}>
           <span style={{ position: 'relative', display: 'inline-flex' }}>
             <Link href="/catalog" className="dc-navlink" style={linkStyle}>Catalog</Link>
             {active === 'catalog' && dot}
@@ -90,19 +93,57 @@ export default function DcHeader() {
           </span>
         </nav>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14, flex: '0 0 auto' }}>
-          <AccountMenu linkStyle={linkStyle} />
+        <div className="dc-push" style={{ display: 'flex', alignItems: 'center', gap: 14, flex: '0 0 auto' }}>
+          <span className="dc-hide-sm" style={{ display: 'inline-flex' }}><AccountMenu linkStyle={linkStyle} /></span>
           <CartButton />
-          <div style={{ width: 38, height: 38, borderRadius: 8, background: 'oklch(0.52 0.216 27)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 6px 16px -8px oklch(0.52 0.216 27 / 0.7)', transform: 'rotate(-3deg)' }}>
+          <div className="dc-hide-md" style={{ width: 38, height: 38, borderRadius: 8, background: 'oklch(0.52 0.216 27)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 6px 16px -8px oklch(0.52 0.216 27 / 0.7)', transform: 'rotate(-3deg)' }}>
             <span style={{ fontFamily: "'Noto Serif TC', serif", fontWeight: 900, fontSize: 22, lineHeight: 1, color: 'oklch(0.97 0.012 82)' }}>龍</span>
           </div>
           <a href={biz.generalHref} target={biz.generalHref.startsWith('http') ? '_blank' : undefined} rel="noopener" className="dc-enquire" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'oklch(0.52 0.216 27)', color: 'oklch(0.98 0.012 82)', fontSize: 12.5, fontWeight: 600, letterSpacing: '0.01em', padding: '10px 16px', borderRadius: 999, transition: 'background .2s' }}>
             <WaIcon size={14} />
-            Enquire
+            <span className="dc-enquire-label">Enquire</span>
           </a>
+          <button
+            type="button"
+            className="dc-menu-btn"
+            onClick={() => setMenuOpen((o) => !o)}
+            aria-expanded={menuOpen}
+            aria-controls="dc-mobile-nav"
+            aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+            style={{ width: 38, height: 38, borderRadius: 999, border: '1px solid oklch(0.84 0.012 66)', background: 'oklch(0.985 0.006 80)', color: 'oklch(0.30 0.012 34)', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+          >
+            {menuOpen ? <X size={17} /> : <Menu size={17} />}
+          </button>
         </div>
       </div>
+
+      {menuOpen && (
+        <nav id="dc-mobile-nav" className="dc-mobile-nav" aria-label="Main" style={{ borderTop: '1px solid oklch(0.86 0.012 68)', padding: '4px 20px 16px', background: 'oklch(0.972 0.008 78)' }}>
+          <Link href="/catalog">Catalog</Link>
+          <Link href="/cave">The Cave</Link>
+          <Link href="/shop">Shop gear &amp; food</Link>
+          <Link href="/visit">Visit &amp; Book</Link>
+          <Link href="/contact">Contact</Link>
+          <MobileAccountLink />
+        </nav>
+      )}
     </header>
+  );
+}
+
+/** Account entry in the mobile menu (the avatar menu is hidden on small screens). */
+function MobileAccountLink() {
+  const user = useAuthStore((s) => s.user);
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  if (!mounted) return null;
+  if (!user) return <Link href="/auth/login">Sign in</Link>;
+  const isStaff = user.role === 'admin' || user.role === 'super_admin';
+  return (
+    <>
+      <Link href="/account">My account</Link>
+      {isStaff && <Link href="/admin/dashboard">Admin dashboard</Link>}
+    </>
   );
 }
 

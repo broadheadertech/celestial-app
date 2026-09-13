@@ -202,7 +202,7 @@ export default function AboutPage() {
             className="max-w-[520px] mx-auto mb-7"
             style={{ color: 'var(--ink-3)', fontSize: 16 }}
           >
-            Tuesday through Saturday, by appointment only. We&apos;ll pour coffee and let the
+            By appointment only. We&apos;ll pour tea and let the
             fish do the talking.
           </p>
           <Link href="/visit" className="b b-primary b-lg">

@@ -82,12 +82,12 @@ export default function VisitPage() {
     <>
       {/* HERO */}
       <section style={{ position: 'relative', overflow: 'hidden', background: 'oklch(0.972 0.008 78)', borderBottom: '1px solid oklch(0.86 0.012 68)' }}>
-        <div style={{ position: 'relative', maxWidth: 1280, margin: '0 auto', padding: '60px 28px 64px', display: 'grid', gridTemplateColumns: '1fr 0.92fr', gap: 56, alignItems: 'center' }}>
+        <div className="dc-split" style={{ position: 'relative', maxWidth: 1280, margin: '0 auto', padding: '60px 28px 64px', display: 'grid', gridTemplateColumns: '1fr 0.92fr', gap: 56, alignItems: 'center' }}>
           <div>
             <div style={{ fontFamily: mono, fontSize: 11, letterSpacing: '0.24em', textTransform: 'uppercase', color: 'oklch(0.50 0.14 30)', marginBottom: 22 }}>By appointment</div>
             <h1 style={{ fontFamily: serif, fontWeight: 800, fontSize: 'clamp(46px,6.6vw,92px)', lineHeight: 0.92, letterSpacing: '-0.02em', margin: '0 0 22px', color: 'oklch(0.19 0.012 32)' }}>Visit the <span style={{ fontStyle: 'italic', fontWeight: 600, color: 'oklch(0.50 0.216 27)' }}>gallery.</span></h1>
-            <p style={{ fontSize: 17.5, lineHeight: 1.6, maxWidth: 480, color: 'oklch(0.40 0.012 34)', margin: '0 0 34px' }}>Tuesday through Saturday, by appointment only. Bring a friend. We&rsquo;ll pour tea and you can take as long as you need with the fish &mdash; there&rsquo;s never any pressure to buy.</p>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,auto)', gap: 34, justifyContent: 'start' }}>
+            <p style={{ fontSize: 17.5, lineHeight: 1.6, maxWidth: 480, color: 'oklch(0.40 0.012 34)', margin: '0 0 34px' }}>By appointment only. Bring a friend. We&rsquo;ll pour tea and you can take as long as you need with the fish &mdash; there&rsquo;s never any pressure to buy.</p>
+            <div className="dc-cols-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,auto)', gap: 34, justifyContent: 'start' }}>
               {heroFacts.map(([h, a, b]) => (
                 <div key={h}>
                   <div style={{ fontFamily: mono, fontSize: 9.5, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'oklch(0.56 0.02 40)', marginBottom: 8 }}>{h}</div>
@@ -108,7 +108,7 @@ export default function VisitPage() {
 
       {/* BOOKING + LOCATION */}
       <section style={{ background: 'oklch(0.955 0.010 74)', padding: '76px 0' }}>
-        <div style={{ maxWidth: 1280, margin: '0 auto', padding: '0 28px', display: 'grid', gridTemplateColumns: '1.15fr 0.85fr', gap: 40, alignItems: 'start' }}>
+        <div className="dc-split" style={{ maxWidth: 1280, margin: '0 auto', padding: '0 28px', display: 'grid', gridTemplateColumns: '1.15fr 0.85fr', gap: 40, alignItems: 'start' }}>
 
           {/* FORM */}
           <div style={{ background: 'oklch(0.99 0.005 80)', border: '1px solid oklch(0.87 0.012 68)', borderRadius: 14, padding: '36px 36px 32px', boxShadow: '0 30px 70px -50px oklch(0.30 0.03 40 / 0.5)' }}>
@@ -130,7 +130,7 @@ export default function VisitPage() {
                 <h2 style={{ fontFamily: serif, fontWeight: 700, fontSize: 30, lineHeight: 1.05, letterSpacing: '-0.015em', margin: '0 0 8px', color: 'oklch(0.19 0.012 32)' }}>Tell us when to expect you</h2>
                 <p style={{ fontSize: 14, color: 'oklch(0.46 0.012 34)', margin: '0 0 28px' }}>We log your request and confirm your slot within the day.</p>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '18px 18px' }}>
+                <div className="dc-cols-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '18px 18px' }}>
                   <div><label className="dc-lbl">Your name</label><input className="dc-input" type="text" placeholder="Juan dela Cruz" value={s.name} onChange={set('name')} /></div>
                   <div><label className="dc-lbl">Email</label><input className="dc-input" type="email" placeholder="you@email.com" value={s.email} onChange={set('email')} /></div>
                   <div><label className="dc-lbl">Phone / WhatsApp</label><input className="dc-input" type="tel" placeholder="+63 9__ ___ ____" value={s.contact} onChange={set('contact')} /></div>
@@ -200,7 +200,7 @@ export default function VisitPage() {
       <section style={{ background: 'oklch(0.972 0.008 78)', borderTop: '1px solid oklch(0.86 0.012 68)', padding: '72px 0 84px' }}>
         <div style={{ maxWidth: 1280, margin: '0 auto', padding: '0 28px' }}>
           <h2 style={{ fontFamily: serif, fontWeight: 700, fontSize: 'clamp(28px,3.6vw,42px)', letterSpacing: '-0.015em', margin: '0 0 40px', color: 'oklch(0.19 0.012 32)' }}>What a visit <span style={{ fontStyle: 'italic', color: 'oklch(0.50 0.216 27)' }}>looks like.</span></h2>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 20 }}>
+          <div className="dc-cols-4" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 20 }}>
             {[
               { n: '01', t: 'You book a slot', b: 'Send the form and we confirm a private time — no overlapping viewings.' },
               { n: '02', t: 'We pour tea', b: 'Sit with the fish. We’ll talk bloodline, husbandry, and what suits your setup.' },

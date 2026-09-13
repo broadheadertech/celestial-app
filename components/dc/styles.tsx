@@ -42,6 +42,28 @@ export const DC_CSS = `
 .dc-foot-link:hover { color: oklch(0.52 0.216 27) !important; }
 .dc-fab:hover { transform: scale(1.06); box-shadow: 0 18px 40px -12px oklch(0.52 0.216 27 / 0.75) !important; }
 
+.dc-menu-btn { display: none; }
+.dc-mobile-nav a { display: block; padding: 14px 4px; border-bottom: 1px solid oklch(0.88 0.012 68); font-size: 16px; font-weight: 500; }
+
+/* ── Responsive: inline grid templates are overridden by these utility classes ── */
+@media (max-width: 960px) {
+  .dc-split { grid-template-columns: 1fr !important; gap: 40px !important; }
+  .dc-cols-4 { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  .dc-cols-3 { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  .dc-nav, .dc-hide-md { display: none !important; }
+  .dc-menu-btn { display: inline-flex !important; }
+  .dc-push { margin-left: auto !important; }
+  .dc-sticky-md { position: static !important; }
+  .dc-minh-auto { min-height: 0 !important; }
+}
+@media (max-width: 600px) {
+  .dc-cols-4, .dc-cols-3, .dc-cols-2 { grid-template-columns: minmax(0, 1fr) !important; }
+  .dc-hide-sm { display: none !important; }
+  .dc-header-row { gap: 10px !important; padding: 10px 16px !important; }
+  .dc-enquire-label { display: none; }
+  .dc-fab { right: 16px !important; bottom: 16px !important; width: 52px !important; height: 52px !important; }
+}
+
 @keyframes dcFabPulse { 0%,100% { box-shadow: 0 12px 30px -10px oklch(0.52 0.216 27 / 0.6), 0 0 0 0 oklch(0.52 0.216 27 / 0.4);} 50% { box-shadow: 0 12px 30px -10px oklch(0.52 0.216 27 / 0.6), 0 0 0 14px oklch(0.52 0.216 27 / 0);} }
 @keyframes dcSwim { 0%,100%{ transform:translateY(0) rotate(0deg);} 50%{ transform:translateY(-14px) rotate(-1.2deg);} }
 @keyframes dcDrift { 0%,100%{ transform:translateY(0);} 50%{ transform:translateY(-9px);} }

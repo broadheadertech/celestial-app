@@ -210,7 +210,7 @@ export default function CheckoutPage() {
         </div>
 
         {/* Summary */}
-        <aside style={{ position: 'sticky', top: 96, background: 'oklch(0.985 0.006 80)', border: `1px solid ${line}`, borderRadius: 14, padding: 22 }}>
+        <aside className="dc-sticky-md" style={{ position: 'sticky', top: 96, background: 'oklch(0.985 0.006 80)', border: `1px solid ${line}`, borderRadius: 14, padding: 22 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 14 }}>
             <h2 style={{ fontFamily: serif, fontWeight: 700, fontSize: 20, margin: 0 }}>Your order</h2>
             <button type="button" onClick={() => setOpen(true)} style={{ border: 'none', background: 'transparent', color: red, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Edit cart</button>

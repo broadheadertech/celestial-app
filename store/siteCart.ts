@@ -70,6 +70,8 @@ export const useSiteCart = create<SiteCartStore>()(
     {
       name: 'dragons-cave-site-cart',
       storage: createJSONStorage(() => localStorage),
+      // Don't reopen the drawer on the next visit.
+      partialize: (state) => ({ items: state.items }),
     },
   ),
 );

@@ -147,7 +147,7 @@ function SpecimenInner() {
       <section style={{ maxWidth: 1280, margin: '0 auto', width: '100%', padding: '28px 28px 80px', boxSizing: 'border-box' }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 420px), 1fr))', gap: 56, alignItems: 'start' }}>
           {/* LEFT: vitrine */}
-          <div style={{ position: 'sticky', top: 96 }}>
+          <div className="dc-sticky-md" style={{ position: 'sticky', top: 96 }}>
             <div style={{ position: 'relative', aspectRatio: '5/4', borderRadius: 12, overflow: 'hidden', background: 'radial-gradient(ellipse 92% 82% at 50% 42%, oklch(0.30 0.015 50), oklch(0.145 0.01 40) 100%)', boxShadow: 'inset 0 0 0 1px oklch(0.70 0.12 80 / 0.4), 0 44px 90px -48px oklch(0.16 0.02 40 / 0.6)' }}>
               <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse 66% 46% at 50% 47%, oklch(0.86 0.08 68 / 0.16), transparent 70%)' }} />
               <div style={{ position: 'absolute', inset: 0, opacity: 0.4, backgroundImage: 'radial-gradient(circle at 50% 0, transparent 0 9px, oklch(1 0 0 / 0.05) 9px 10px, transparent 10px)', backgroundSize: '30px 15px' }} />

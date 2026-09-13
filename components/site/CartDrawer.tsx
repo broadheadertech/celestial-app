@@ -1,7 +1,7 @@
 'use client';
 /* eslint-disable @next/next/no-img-element -- product images are remote Convex storage URLs */
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSiteCart, siteCartSubtotal } from '@/store/siteCart';
 
@@ -23,6 +23,9 @@ export default function CartDrawer() {
   const setOpen = useSiteCart((s) => s.setOpen);
   const remove = useSiteCart((s) => s.remove);
   const setQty = useSiteCart((s) => s.setQty);
+  // The cart is persisted in localStorage; render only after mount to match the static HTML.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -31,7 +34,7 @@ export default function CartDrawer() {
     return () => document.removeEventListener('keydown', onKey);
   }, [isOpen, setOpen]);
 
-  if (!isOpen) return null;
+  if (!mounted || !isOpen) return null;
 
   const subtotal = siteCartSubtotal(items);
   const count = items.reduce((n, l) => n + l.qty, 0);

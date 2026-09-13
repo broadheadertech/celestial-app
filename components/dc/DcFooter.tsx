@@ -26,7 +26,7 @@ export default function DcFooter() {
       <footer style={{ position: 'relative', overflow: 'hidden', background: 'oklch(0.955 0.010 74)', borderTop: '1px solid oklch(0.84 0.012 66)', fontFamily: "'Geist', system-ui, sans-serif", color: 'oklch(0.34 0.012 32)' }}>
         <div style={{ position: 'absolute', right: -60, bottom: -70, width: 560, opacity: 0.05, pointerEvents: 'none' }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/img/highback-gold.png" alt="" style={{ width: '100%', display: 'block' }} draggable={false} />
+          <img src="/img/highback-gold.webp" alt="" loading="lazy" decoding="async" style={{ width: '100%', display: 'block' }} draggable={false} />
         </div>
         <div style={{ position: 'absolute', left: 0, top: 0, width: '100%', height: 2, background: 'linear-gradient(90deg, transparent, oklch(0.70 0.12 80 / 0.55), oklch(0.52 0.216 27 / 0.55), transparent)' }} />
 
@@ -93,7 +93,7 @@ export default function DcFooter() {
 
         <div style={{ position: 'relative', borderTop: '1px solid oklch(0.86 0.012 68)' }}>
           <div style={{ maxWidth: 1280, margin: '0 auto', padding: '20px 28px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
-            <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 11, letterSpacing: '0.04em', color: 'oklch(0.56 0.012 36)' }}>&copy; {new Date().getFullYear()} {biz.storeName}{biz.city && <> &middot; {biz.city}, Philippines</>}</span>
+            <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 11, letterSpacing: '0.04em', color: 'oklch(0.56 0.012 36)' }}>&copy; <span suppressHydrationWarning>{new Date().getFullYear()}</span> {biz.storeName}{biz.city && <> &middot; {biz.city}, Philippines</>}</span>
             <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 11, letterSpacing: '0.04em', color: 'oklch(0.56 0.012 36)' }}>龍 &middot; Kept, not merely sold.</span>
           </div>
         </div>

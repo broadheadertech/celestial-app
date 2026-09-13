@@ -62,12 +62,12 @@ export default function CavePage() {
 
       {/* PROMISE */}
       <section style={{ background: 'oklch(0.955 0.010 74)', borderBottom: '1px solid oklch(0.86 0.012 68)' }}>
-        <div style={{ maxWidth: 1280, margin: '0 auto', padding: '30px 28px', display: 'grid', gridTemplateColumns: '0.85fr 2fr', gap: 44, alignItems: 'center' }}>
+        <div className="dc-split" style={{ maxWidth: 1280, margin: '0 auto', padding: '30px 28px', display: 'grid', gridTemplateColumns: '0.85fr 2fr', gap: 44, alignItems: 'center' }}>
           <div>
             <div style={{ fontFamily: mono, fontSize: 10, letterSpacing: '0.24em', textTransform: 'uppercase', color: 'oklch(0.50 0.14 30)', marginBottom: 10 }}>The Cave &middot; our promise</div>
             <div style={{ fontFamily: serif, fontWeight: 700, fontSize: 25, lineHeight: 1.05, letterSpacing: '-0.01em', color: 'oklch(0.19 0.012 32)' }}>Provenance, then <span style={{ fontStyle: 'italic', color: 'oklch(0.50 0.216 27)' }}>patience.</span></div>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 28 }}>
+          <div className="dc-cols-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 28 }}>
             {[{ n: '01', t: 'Provenance', b: 'Chipped where required, papered, and logged before it reaches the floor.' }, { n: '02', t: 'Quarantine', b: '21 days observed in isolation. Nothing joins the tanks uncleared.' }, { n: '03', t: 'Continuity', b: 'We answer the phone years after. Your fish has a long life to live.' }].map((p) => (
               <div key={p.n} style={{ borderLeft: '2px solid oklch(0.70 0.12 80)', paddingLeft: 16 }}>
                 <div style={{ fontFamily: mono, fontSize: 12, fontWeight: 600, color: 'oklch(0.50 0.216 27)', marginBottom: 8 }}>{p.n}</div>

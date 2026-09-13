@@ -3,6 +3,7 @@
 import { ReactNode, useEffect, useState } from 'react';
 import { ConvexProvider as ConvexReactProvider, ConvexReactClient } from 'convex/react';
 import { ConvexHttpClient } from 'convex/browser';
+import { usePathname } from 'next/navigation';
 import { api } from '@/convex/_generated/api';
 import { useAuthStore } from '@/store/auth';
 
@@ -53,35 +54,38 @@ function syncConvexAuth(sessionToken: string | undefined) {
   });
 }
 
+// Wire auth at module load in the browser — before any component renders or subscribes to a
+// query — so pages never fire a request without the signed-in user's token. The auth store
+// rehydrates from localStorage synchronously when it's created, so its state is ready here.
+if (typeof window !== 'undefined') {
+  const state = useAuthStore.getState();
+  // Logins from before server sessions existed have a user but no token — sign them out.
+  if (state.user && !state.sessionToken) state.logout();
+  syncConvexAuth(useAuthStore.getState().sessionToken);
+  useAuthStore.subscribe((s) => syncConvexAuth(s.sessionToken));
+}
+
+/**
+ * Public storefront pages render immediately (so the exported HTML has real content for
+ * first paint and search engines). They don't read persisted state during render. All other
+ * routes (admin, client app, auth, account, checkout) wait for mount, because they read
+ * localStorage-backed stores while rendering and would otherwise mismatch on hydration.
+ */
+const PUBLIC_PATHS = new Set(['/', '/catalog', '/cave', '/shop', '/visit', '/contact', '/about', '/journal', '/journal/article', '/specimen-detail']);
+
 interface ConvexProviderProps {
   children: ReactNode;
 }
 
 export function ConvexProvider({ children }: ConvexProviderProps) {
+  const pathname = usePathname();
+  const isPublic = PUBLIC_PATHS.has((pathname || '/').replace(/\/+$/, '') || '/');
   const [isReady, setIsReady] = useState(false);
 
-  useEffect(() => {
-    // Logins from before server sessions existed have a user but no token — sign them out.
-    const state = useAuthStore.getState();
-    if (state.user && !state.sessionToken) state.logout();
+  useEffect(() => setIsReady(true), []);
 
-    // Set auth before any page renders a query, then follow login/logout.
-    syncConvexAuth(useAuthStore.getState().sessionToken);
-    const unsubscribe = useAuthStore.subscribe((s) => syncConvexAuth(s.sessionToken));
-
-    // Give Convex client time to initialize
-    const timer = setTimeout(() => {
-      setIsReady(true);
-    }, 100);
-
-    return () => {
-      clearTimeout(timer);
-      unsubscribe();
-    };
-  }, []);
-
-  // Show loading while Convex initializes
-  if (!isReady) {
+  // Show loading until mounted (non-public routes only)
+  if (!isReady && !isPublic) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
