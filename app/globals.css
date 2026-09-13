@@ -70,8 +70,11 @@
 /* ─────────────────────────────────────────────────────────────
    LIGHT THEME — parchment / gallery wall
    Overrides the dark defaults via [data-theme="light"] on <html>.
+   The public storefront (.dc-scope, app/(site)/layout.tsx) is always light: the admin's
+   dark-mode preference is stored per browser and must not restyle the shop.
    ───────────────────────────────────────────────────────────── */
-:root[data-theme="light"] {
+:root[data-theme="light"],
+.dc-scope {
   --bg:           oklch(0.97 0.008 80);
   --bg-2:         oklch(0.94 0.012 80);
   --bg-3:         oklch(0.91 0.014 80);

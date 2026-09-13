@@ -1,6 +1,6 @@
 // Storefront smoke test: serves the static export in ./out, opens key pages in headless
 // Chrome (phone + desktop), and fails on console errors, uncaught exceptions, horizontal
-// overflow, or a missing <h1>. Read-only — never submits forms.
+// overflow, a missing <h1>, or light text tokens when the admin dark theme is saved. Read-only — never submits forms.
 //
 // Usage: npm run build && npm run test:smoke
 // Env: CHROME_PATH (defaults to the standard Windows/macOS/Linux Chrome locations), SMOKE_PORT.
@@ -17,6 +17,8 @@ const PAGES = ['/', '/catalog', '/cave', '/shop', '/visit', '/contact', '/track'
 const VIEWPORTS = [
   { name: 'phone', width: 390, height: 844, mobile: true },
   { name: 'desktop', width: 1366, height: 900, mobile: false },
+  // Admin dark mode is saved per browser; the storefront must stay light and readable.
+  { name: 'dark', width: 1366, height: 900, mobile: false, adminTheme: 'dark' },
 ];
 // Noise that isn't a storefront bug.
 const IGNORE = [/favicon\.ico/i, /Download the React DevTools/i];
@@ -96,19 +98,27 @@ await send('Runtime.enable');
 await send('Page.enable');
 
 let failures = 0;
+let themeScript;
 for (const vp of VIEWPORTS) {
   await send('Emulation.setDeviceMetricsOverride', { width: vp.width, height: vp.height, deviceScaleFactor: 1, mobile: vp.mobile });
+  if (themeScript) await send('Page.removeScriptToEvaluateOnNewDocument', { identifier: themeScript });
+  const theme = vp.adminTheme || 'light';
+  themeScript = (await send('Page.addScriptToEvaluateOnNewDocument', {
+    source: `try { localStorage.setItem('dragons-cave-theme', JSON.stringify({ state: { theme: '${theme}' }, version: 0 })); } catch (e) {}`,
+  })).result?.identifier;
   for (const page of PAGES) {
     problems = [];
     await send('Page.navigate', { url: `http://localhost:${PORT}${page}` });
     await sleep(4500);
     const res = await send('Runtime.evaluate', {
       returnByValue: true,
-      expression: `({ vw: document.documentElement.clientWidth, sw: document.documentElement.scrollWidth, h1: !!document.querySelector('h1'), title: document.title })`,
+      expression: `(() => { const scope = document.querySelector('.dc-scope'); const L = (c) => { const m = /oklch\\(\\s*([\\d.]+)/.exec(c || ''); if (!m) return null; const v = parseFloat(m[1]); return v > 1 ? v / 100 : v; }; return { vw: document.documentElement.clientWidth, sw: document.documentElement.scrollWidth, h1: !!document.querySelector('h1'), title: document.title, inkL: scope ? L(getComputedStyle(scope).getPropertyValue('--ink')) : null }; })()`,
     });
     const info = res.result?.result?.value ?? {};
     if (info.sw > info.vw + 1) problems.push(`horizontal overflow: ${info.sw}px content in ${info.vw}px viewport`);
     if (!info.h1 && page !== '/checkout') problems.push('no <h1> rendered');
+    // Storefront text colour token must be dark (readable on the cream background) in every admin theme.
+    if (info.inkL !== null && info.inkL > 0.5) problems.push(`--ink is light (L=${info.inkL}) — storefront inheriting admin dark theme`);
     const ok = problems.length === 0;
     if (!ok) failures++;
     console.log(`${ok ? 'PASS' : 'FAIL'}  ${vp.name.padEnd(7)} ${page.padEnd(10)} ${info.title ?? ''}`);
