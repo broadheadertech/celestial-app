@@ -25,7 +25,7 @@ const serif = "'Noto Serif Display', serif";
 
 export default function SpecimenPage() {
   return (
-    <Suspense fallback={<div style={{ padding: '80px 28px', fontFamily: mono, fontSize: 12, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'oklch(0.60 0.02 40)' }}>Loading&hellip;</div>}>
+    <Suspense fallback={<div style={{ padding: '80px 28px', fontFamily: mono, fontSize: 12, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'oklch(0.50 0.02 40)' }}>Loading&hellip;</div>}>
       <SpecimenInner />
     </Suspense>
   );
@@ -70,7 +70,7 @@ function SpecimenInner() {
 
   const notice = (text: string, withLinks = false) => (
     <div style={{ maxWidth: 1280, margin: '0 auto', padding: '96px 28px', textAlign: 'center' }}>
-      <div style={{ fontFamily: mono, fontSize: 12, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'oklch(0.60 0.02 40)', marginBottom: withLinks ? 22 : 0 }}>{text}</div>
+      <div style={{ fontFamily: mono, fontSize: 12, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'oklch(0.50 0.02 40)', marginBottom: withLinks ? 22 : 0 }}>{text}</div>
       {withLinks && (
         <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
           <Link href="/catalog" className="dc-btn-ghost" style={{ border: '1px solid oklch(0.78 0.02 40)', color: 'oklch(0.34 0.012 34)', fontSize: 14, fontWeight: 600, padding: '12px 20px', borderRadius: 999 }}>Browse the catalog</Link>
@@ -136,8 +136,8 @@ function SpecimenInner() {
     <>
       {/* breadcrumb */}
       <div style={{ maxWidth: 1280, margin: '0 auto', width: '100%', padding: '22px 28px 0', boxSizing: 'border-box' }}>
-        <div style={{ fontFamily: mono, fontSize: 11, letterSpacing: '0.1em', color: 'oklch(0.54 0.02 40)' }}>
-          <Link href={isCartProduct ? '/shop' : isArowana(product.name) ? '/catalog' : '/cave'} style={{ color: 'oklch(0.54 0.02 40)' }}>{isCartProduct ? 'Shop' : isArowana(product.name) ? 'Catalog' : 'The Cave'}</Link>
+        <div style={{ fontFamily: mono, fontSize: 11, letterSpacing: '0.1em', color: 'oklch(0.50 0.02 40)' }}>
+          <Link href={isCartProduct ? '/shop' : isArowana(product.name) ? '/catalog' : '/cave'} style={{ color: 'oklch(0.50 0.02 40)' }}>{isCartProduct ? 'Shop' : isArowana(product.name) ? 'Catalog' : 'The Cave'}</Link>
           <span style={{ margin: '0 8px', color: 'oklch(0.72 0.02 50)' }}>/</span>
           <span style={{ color: 'oklch(0.30 0.012 32)' }}>{product.name}</span>
         </div>
@@ -196,7 +196,7 @@ function SpecimenInner() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: '14px 20px', padding: '24px 0', borderTop: '1px solid oklch(0.86 0.012 68)', borderBottom: '1px solid oklch(0.86 0.012 68)', marginBottom: 30 }}>
               {specs.map(([k, v]) => (
                 <div key={k}>
-                  <div style={{ fontFamily: mono, fontSize: 9, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'oklch(0.56 0.02 40)', marginBottom: 6 }}>{k}</div>
+                  <div style={{ fontFamily: mono, fontSize: 9, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'oklch(0.50 0.02 40)', marginBottom: 6 }}>{k}</div>
                   <div style={{ fontFamily: mono, fontSize: 14, color: 'oklch(0.24 0.012 32)' }}>{v}</div>
                 </div>
               ))}
@@ -214,7 +214,7 @@ function SpecimenInner() {
                     {inStock ? 'Add to cart' : 'Out of stock'}
                   </button>
                 </div>
-                <div style={{ fontFamily: mono, fontSize: 11, color: 'oklch(0.54 0.02 40)', marginBottom: 34 }}>
+                <div style={{ fontFamily: mono, fontSize: 11, color: 'oklch(0.50 0.02 40)', marginBottom: 34 }}>
                   &#9679; {inStock ? `${product.stock} in stock — pay on pickup or by transfer after we confirm your order.` : 'Out of stock — '}
                   {!inStock && <a href={enquireHref} target={external ? '_blank' : undefined} rel="noopener" style={{ color: 'oklch(0.50 0.216 27)', fontWeight: 600 }}>ask us when it&rsquo;s back</a>}
                 </div>
@@ -228,7 +228,7 @@ function SpecimenInner() {
               </a>
               <Link href="/visit" className="dc-btn-ghost" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, border: '1px solid oklch(0.78 0.02 40)', color: 'oklch(0.34 0.012 34)', fontSize: 14.5, fontWeight: 600, padding: '16px 22px', borderRadius: 999, transition: '.2s' }}>Book a viewing</Link>
             </div>
-            <div style={{ fontFamily: mono, fontSize: 11, color: 'oklch(0.54 0.02 40)', marginBottom: 34 }}>&#9679; {inStock ? 'Available now — ask us to hold it while you prepare your tank.' : 'Not available right now — message us to join the waitlist.'}</div>
+            <div style={{ fontFamily: mono, fontSize: 11, color: 'oklch(0.50 0.02 40)', marginBottom: 34 }}>&#9679; {inStock ? 'Available now — ask us to hold it while you prepare your tank.' : 'Not available right now — message us to join the waitlist.'}</div>
             </>
             )}
 
@@ -242,7 +242,7 @@ function SpecimenInner() {
               <div style={{ padding: '6px 20px 16px', background: 'oklch(0.985 0.006 80)' }}>
                 {papers.map(([k, v], i) => (
                   <div key={k} style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 0', borderBottom: i < papers.length - 1 ? '1px solid oklch(0.90 0.012 70)' : 'none' }}>
-                    <span style={{ fontFamily: mono, fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'oklch(0.56 0.02 40)' }}>{k}</span>
+                    <span style={{ fontFamily: mono, fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'oklch(0.50 0.02 40)' }}>{k}</span>
                     <span style={{ fontSize: 13.5, color: 'oklch(0.24 0.012 32)', textAlign: 'right' }}>{v}</span>
                   </div>
                 ))}
@@ -263,7 +263,7 @@ function SpecimenInner() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 2, background: 'oklch(0.88 0.012 68)', border: '1px solid oklch(0.88 0.012 68)', borderRadius: 10, overflow: 'hidden' }}>
               {husbandry.map(([k, v, color]) => (
                 <div key={k} style={{ background: 'oklch(0.985 0.006 80)', padding: '16px 18px' }}>
-                  <div style={{ fontFamily: mono, fontSize: 9, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'oklch(0.56 0.02 40)', marginBottom: 6 }}>{k}</div>
+                  <div style={{ fontFamily: mono, fontSize: 9, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'oklch(0.50 0.02 40)', marginBottom: 6 }}>{k}</div>
                   <div style={{ fontSize: 14, color: color || 'oklch(0.24 0.012 32)' }}>{v}</div>
                 </div>
               ))}
@@ -289,7 +289,7 @@ function SpecimenInner() {
                     {m.image && <img className="dc-more-img" src={m.image} alt={m.name} style={{ position: 'absolute', left: '50%', top: '47%', transform: 'translate(-50%,-50%)', width: '100%', height: '100%', objectFit: 'contain', padding: '10%' }} draggable={false} />}
                   </div>
                   <div style={{ padding: '14px 4px 0' }}>
-                    <div style={{ fontFamily: mono, fontSize: 9.5, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'oklch(0.54 0.03 34)', marginBottom: 5 }}>{isCartProduct ? m.categoryName : isArowana(m.name) ? bloodlineOf(m.name) : familyOf(m.name)}{m.grade ? ' · ' + m.grade : ''}</div>
+                    <div style={{ fontFamily: mono, fontSize: 9.5, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'oklch(0.50 0.03 34)', marginBottom: 5 }}>{isCartProduct ? m.categoryName : isArowana(m.name) ? bloodlineOf(m.name) : familyOf(m.name)}{m.grade ? ' · ' + m.grade : ''}</div>
                     <div style={{ fontFamily: serif, fontWeight: 600, fontSize: 18, color: 'oklch(0.19 0.012 32)' }}>{m.name}</div>
                   </div>
                 </Link>

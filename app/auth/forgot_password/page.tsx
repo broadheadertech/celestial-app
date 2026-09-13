@@ -47,7 +47,9 @@ function ForgotPasswordContent() {
         setEmailSent(true);
       }
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to send reset email';
+      // Convex wraps server errors as "[Request ID: …] Server Error\nUncaught Error: <message>\n at …".
+      const raw = error instanceof Error ? error.message : '';
+      const message = raw.match(/Uncaught (?:Convex)?Error: ([^\n]+)/)?.[1]?.trim() || 'Failed to send reset email. Please try again.';
       setError(message);
     } finally {
       setIsSubmitting(false);

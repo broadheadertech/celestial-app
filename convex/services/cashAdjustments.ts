@@ -2,36 +2,10 @@ import { v } from "convex/values";
 import { mutation, query } from "../_generated/server";
 import { recordAudit } from "./audit";
 import { requireStaff } from "../lib/authz";
+// Shared verifier (pbkdf2 + older formats) so corrections can require re-auth.
+import { verifyPassword } from "../lib/password";
 
 const peso = (n: number) => `₱${n.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-
-// Password verifier — mirrors convex/services/auth.ts so corrections can require re-auth.
-async function sha256(data: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const hashBuffer = await crypto.subtle.digest("SHA-256", encoder.encode(data));
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
-}
-
-function legacyHashPassword(password: string): string {
-  let hash = 0;
-  for (let i = 0; i < password.length; i++) {
-    const char = password.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash;
-  }
-  return hash.toString() + password.length.toString();
-}
-
-async function verifyPassword(password: string, storedHash: string): Promise<boolean> {
-  // Legacy hashes don't contain ":"
-  if (!storedHash.includes(":")) {
-    return legacyHashPassword(password) === storedHash;
-  }
-  const [salt, hash] = storedHash.split(":");
-  if (!salt || !hash) return false;
-  return (await sha256(salt + password)) === hash;
-}
 
 /**
  * Create a cash-on-hand adjustment.

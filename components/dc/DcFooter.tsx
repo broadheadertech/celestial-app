@@ -93,8 +93,8 @@ export default function DcFooter() {
 
         <div style={{ position: 'relative', borderTop: '1px solid oklch(0.86 0.012 68)' }}>
           <div style={{ maxWidth: 1280, margin: '0 auto', padding: '20px 28px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
-            <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 11, letterSpacing: '0.04em', color: 'oklch(0.56 0.012 36)' }}>&copy; <span suppressHydrationWarning>{new Date().getFullYear()}</span> {biz.storeName}{biz.city && <> &middot; {biz.city}, Philippines</>}</span>
-            <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 11, letterSpacing: '0.04em', color: 'oklch(0.56 0.012 36)' }}>龍 &middot; Kept, not merely sold.</span>
+            <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 11, letterSpacing: '0.04em', color: 'oklch(0.50 0.012 36)' }}>&copy; <span suppressHydrationWarning>{new Date().getFullYear()}</span> {biz.storeName}{biz.city && <> &middot; {biz.city}, Philippines</>}</span>
+            <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 11, letterSpacing: '0.04em', color: 'oklch(0.50 0.012 36)' }}>龍 &middot; Kept, not merely sold.</span>
           </div>
         </div>
       </footer>

@@ -153,7 +153,7 @@ export default function CheckoutPage() {
   // ── Form ──
   return wrap(
     <>
-      <Link href="/shop" style={{ fontFamily: mono, fontSize: 11, letterSpacing: '0.1em', color: 'oklch(0.54 0.02 40)' }}>&larr; Continue shopping</Link>
+      <Link href="/shop" style={{ fontFamily: mono, fontSize: 11, letterSpacing: '0.1em', color: 'oklch(0.50 0.02 40)' }}>&larr; Continue shopping</Link>
       <h1 style={{ fontFamily: serif, fontWeight: 800, fontSize: 'clamp(36px,5vw,60px)', letterSpacing: '-0.02em', margin: '14px 0 8px' }}>Checkout</h1>
       <p style={{ color: muted, fontSize: 15, margin: '0 0 36px', maxWidth: 560 }}>
         Place your order and we&rsquo;ll get in touch to confirm. No payment is taken on this website.
@@ -223,7 +223,7 @@ export default function CheckoutPage() {
                 </div>
                 <div style={{ minWidth: 0 }}>
                   <div style={{ fontSize: 13.5, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.name}</div>
-                  <div style={{ fontFamily: mono, fontSize: 11, color: 'oklch(0.54 0.02 40)' }}>{l.qty} × {fmt(l.price)}</div>
+                  <div style={{ fontFamily: mono, fontSize: 11, color: 'oklch(0.50 0.02 40)' }}>{l.qty} × {fmt(l.price)}</div>
                 </div>
                 <div style={{ fontFamily: mono, fontSize: 13.5, fontWeight: 600 }}>{fmt(l.price * l.qty)}</div>
               </div>
@@ -243,7 +243,7 @@ export default function CheckoutPage() {
           <button type="button" onClick={submit} disabled={submitting} className="dc-btn-primary" style={{ marginTop: 18, width: '100%', border: 'none', background: red, color: 'oklch(0.98 0.012 82)', fontSize: 15, fontWeight: 600, padding: '16px 24px', borderRadius: 999, cursor: submitting ? 'default' : 'pointer', opacity: submitting ? 0.7 : 1 }}>
             {submitting ? 'Placing order…' : 'Place order'}
           </button>
-          <p style={{ fontSize: 11.5, color: 'oklch(0.54 0.02 40)', textAlign: 'center', margin: '10px 0 0', lineHeight: 1.5 }}>
+          <p style={{ fontSize: 11.5, color: 'oklch(0.50 0.02 40)', textAlign: 'center', margin: '10px 0 0', lineHeight: 1.5 }}>
             Nothing is charged now. We&rsquo;ll confirm stock, payment and {fulfilment === 'pickup' ? 'pickup' : 'delivery'} with you.
           </p>
         </aside>

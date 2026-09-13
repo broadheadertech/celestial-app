@@ -605,6 +605,18 @@ export default defineSchema({
     .index("by_token_hash", ["tokenHash"])
     .index("by_user", ["userId"]),
 
+  // Rate limiting for auth endpoints (convex/lib/throttle.ts), keyed by normalized email so it
+  // applies whether or not the account exists. `count` is failures (login) or requests
+  // (password_reset) since `windowStart`; `lockedUntil` is set once the limit is hit.
+  loginAttempts: defineTable({
+    kind: v.union(v.literal("login"), v.literal("password_reset")),
+    key: v.string(),
+    count: v.number(),
+    windowStart: v.number(),
+    lockedUntil: v.optional(v.number()),
+    updatedAt: v.number(),
+  }).index("by_kind_key", ["kind", "key"]),
+
   // Public business details shown across the storefront (singleton; managed in
   // Admin → Business Details). Read via services/business.ts, which fills defaults.
   businessProfile: defineTable({

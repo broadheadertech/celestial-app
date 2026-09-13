@@ -5,6 +5,9 @@
  */
 export const DC_CSS = `
 .dc-scope a { color: inherit; text-decoration: none; }
+/* Visible keyboard focus everywhere on the storefront (mouse clicks don't trigger it). */
+.dc-scope a:focus-visible, .dc-scope button:focus-visible, .dc-scope select:focus-visible, .dc-scope summary:focus-visible, .dc-scope [tabindex]:focus-visible { outline: 2px solid oklch(0.52 0.216 27); outline-offset: 3px; border-radius: 6px; }
+.dc-scope .dc-input:focus-visible { outline: none; }
 .dc-scope a:hover { color: oklch(0.52 0.216 27); }
 
 .dc-navlink:hover { color: oklch(0.19 0.012 32) !important; }

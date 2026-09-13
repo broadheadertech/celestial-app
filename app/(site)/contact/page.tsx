@@ -132,10 +132,12 @@ export default function ContactPage() {
               </div>
             ) : (
               <form onSubmit={submit} className="flex flex-col gap-4">
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <div className="placard mb-1.5">Name</div>
+                    <label htmlFor="ct-name" className="placard mb-1.5 block">Name</label>
                     <input
+                      id="ct-name"
+                      autoComplete="name"
                       required
                       className="input"
                       value={name}
@@ -143,8 +145,11 @@ export default function ContactPage() {
                     />
                   </div>
                   <div>
-                    <div className="placard mb-1.5">Phone</div>
+                    <label htmlFor="ct-phone" className="placard mb-1.5 block">Phone</label>
                     <input
+                      id="ct-phone"
+                      type="tel"
+                      autoComplete="tel"
                       className="input"
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
@@ -152,8 +157,10 @@ export default function ContactPage() {
                   </div>
                 </div>
                 <div>
-                  <div className="placard mb-1.5">Email</div>
+                  <label htmlFor="ct-email" className="placard mb-1.5 block">Email</label>
                   <input
+                    id="ct-email"
+                    autoComplete="email"
                     required
                     type="email"
                     className="input"
@@ -162,8 +169,9 @@ export default function ContactPage() {
                   />
                 </div>
                 <div>
-                  <div className="placard mb-1.5">Subject</div>
+                  <label htmlFor="ct-subject" className="placard mb-1.5 block">Subject</label>
                   <input
+                    id="ct-subject"
                     required
                     className="input"
                     value={subject}
@@ -172,8 +180,9 @@ export default function ContactPage() {
                   />
                 </div>
                 <div>
-                  <div className="placard mb-1.5">Message</div>
+                  <label htmlFor="ct-message" className="placard mb-1.5 block">Message</label>
                   <textarea
+                    id="ct-message"
                     required
                     rows={6}
                     className="input"
@@ -184,6 +193,7 @@ export default function ContactPage() {
                 </div>
                 {error && (
                   <div
+                    role="alert"
                     className="text-[12px] px-3 py-2 rounded"
                     style={{
                       background: 'var(--red-wash)',
@@ -276,6 +286,8 @@ export default function ContactPage() {
                 <button
                   type="button"
                   onClick={() => setOpenFaq(openFaq === i ? null : i)}
+                  aria-expanded={openFaq === i}
+                  aria-controls={`faq-${i}`}
                   className="w-full flex justify-between items-center py-5 text-left"
                 >
                   <span
@@ -299,6 +311,7 @@ export default function ContactPage() {
                 </button>
                 {openFaq === i && (
                   <div
+                    id={`faq-${i}`}
                     className="pb-5 pr-10 text-[15px]"
                     style={{
                       color: 'var(--ink-2)',

@@ -109,7 +109,7 @@ export default function HomePage() {
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 20, maxWidth: 452 }}>
                   {[['Grade', heroGrade || '—'], ['Tank', featured.tankNumber || '—'], ['Price', fmtPeso(featured.price)]].map(([k, v]) => (
                     <div key={k}>
-                      <div style={{ fontFamily: mono, fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'oklch(0.55 0.02 40)', marginBottom: 6 }}>{k}</div>
+                      <div style={{ fontFamily: mono, fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'oklch(0.50 0.02 40)', marginBottom: 6 }}>{k}</div>
                       <div style={{ fontFamily: serif, fontWeight: 700, fontSize: k === 'Price' ? 22 : 26, color: 'oklch(0.19 0.012 32)' }}>{v}</div>
                     </div>
                   ))}
@@ -120,7 +120,7 @@ export default function HomePage() {
 
           {/* right: moon-gate vitrine */}
           <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            {featured && <div className="dc-hide-sm" style={{ position: 'absolute', writingMode: 'vertical-rl', textOrientation: 'mixed', left: -6, top: '50%', transform: 'translateY(-50%)', fontFamily: mono, fontSize: 10, letterSpacing: '0.34em', textTransform: 'uppercase', color: 'oklch(0.60 0.02 40)' }}>{heroName}{heroSku && <> &middot; No. {heroSku}</>}</div>}
+            {featured && <div className="dc-hide-sm" style={{ position: 'absolute', writingMode: 'vertical-rl', textOrientation: 'mixed', left: -6, top: '50%', transform: 'translateY(-50%)', fontFamily: mono, fontSize: 10, letterSpacing: '0.34em', textTransform: 'uppercase', color: 'oklch(0.50 0.02 40)' }}>{heroName}{heroSku && <> &middot; No. {heroSku}</>}</div>}
             <Link href={featured ? `/specimen-detail?id=${featured._id}` : '/catalog'} style={{ position: 'relative', width: 'min(72%, 460px)', aspectRatio: '1/1', display: 'block' }}>
               <div style={{ position: 'absolute', inset: 0, borderRadius: 999, background: 'radial-gradient(circle at 50% 44%, oklch(0.42 0.16 30), oklch(0.26 0.11 26) 52%, oklch(0.17 0.07 25) 100%)', boxShadow: '0 50px 90px -40px oklch(0.22 0.10 24 / 0.7), inset 0 0 0 1px oklch(0.70 0.12 80 / 0.35)', overflow: 'hidden' }}>
                 <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse 66% 46% at 50% 50%, oklch(0.95 0.07 62 / 0.34), transparent 68%)' }} />
@@ -158,7 +158,7 @@ export default function HomePage() {
           </div>
         </div>
 
-        <div style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', bottom: 22, display: 'flex', alignItems: 'center', gap: 10, fontFamily: mono, fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'oklch(0.58 0.02 40)' }}>Scroll <span style={{ width: 34, height: 1, background: 'oklch(0.62 0.02 40)' }} /></div>
+        <div style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', bottom: 22, display: 'flex', alignItems: 'center', gap: 10, fontFamily: mono, fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'oklch(0.50 0.02 40)' }}>Scroll <span style={{ width: 34, height: 1, background: 'oklch(0.62 0.02 40)' }} /></div>
       </section>
 
       {/* ══════════ TRUST RIBBON ══════════ */}
@@ -215,11 +215,11 @@ export default function HomePage() {
                   {b.tankNumber && <div style={{ position: 'absolute', top: 12, right: 12, fontFamily: mono, fontSize: 9, letterSpacing: '0.14em', color: 'oklch(0.9 0.02 60 / 0.7)' }}>{b.tankNumber}</div>}
                 </div>
                 <div style={{ padding: '16px 4px 0' }}>
-                  <div style={{ fontFamily: mono, fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'oklch(0.54 0.03 34)', marginBottom: 5 }}>{bloodlineOf(b.name)}</div>
+                  <div style={{ fontFamily: mono, fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'oklch(0.50 0.03 34)', marginBottom: 5 }}>{bloodlineOf(b.name)}</div>
                   <div style={{ fontFamily: serif, fontWeight: 600, fontSize: 19, color: 'oklch(0.19 0.012 32)' }}>{b.name}</div>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 }}>
                     <span style={{ fontSize: 12, color: 'oklch(0.50 0.216 27)', fontWeight: 600 }}>{fmtPeso(b.price)}</span>
-                    <span style={{ fontFamily: mono, fontSize: 10, color: 'oklch(0.56 0.02 40)' }}>{b.grade ? 'Grade ' + b.grade : 'Enquire →'}</span>
+                    <span style={{ fontFamily: mono, fontSize: 10, color: 'oklch(0.50 0.02 40)' }}>{b.grade ? 'Grade ' + b.grade : 'Enquire →'}</span>
                   </div>
                 </div>
               </Link>
@@ -318,7 +318,7 @@ export default function HomePage() {
                       <div>
                         <div style={{ fontSize: 13, fontWeight: 600, color: 'oklch(0.22 0.012 32)' }}>{t.clientName}</div>
                         {(t.clientLocation || t.productName) && (
-                          <div style={{ fontFamily: mono, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'oklch(0.54 0.02 40)', marginTop: 2 }}>
+                          <div style={{ fontFamily: mono, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'oklch(0.50 0.02 40)', marginTop: 2 }}>
                             {[t.clientLocation, t.productName].filter(Boolean).join(' · ')}
                           </div>
                         )}

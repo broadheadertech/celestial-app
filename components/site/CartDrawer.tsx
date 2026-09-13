@@ -46,7 +46,7 @@ export default function CartDrawer() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 22px', borderBottom: '1px solid oklch(0.86 0.012 68)' }}>
           <div>
             <div style={{ fontFamily: serif, fontWeight: 700, fontSize: 22 }}>Your cart</div>
-            <div style={{ fontFamily: mono, fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'oklch(0.54 0.02 40)', marginTop: 3 }}>
+            <div style={{ fontFamily: mono, fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'oklch(0.50 0.02 40)', marginTop: 3 }}>
               {count} item{count === 1 ? '' : 's'}
             </div>
           </div>
@@ -75,7 +75,7 @@ export default function CartDrawer() {
                   </div>
                   <div style={{ minWidth: 0 }}>
                     <div style={{ fontSize: 13.5, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.name}</div>
-                    <div style={{ fontFamily: mono, fontSize: 11, color: 'oklch(0.54 0.02 40)', marginTop: 2 }}>{fmt(l.price)} each</div>
+                    <div style={{ fontFamily: mono, fontSize: 11, color: 'oklch(0.50 0.02 40)', marginTop: 2 }}>{fmt(l.price)} each</div>
                     <div style={{ display: 'inline-flex', alignItems: 'center', border: '1px solid oklch(0.82 0.02 50)', borderRadius: 999, marginTop: 8 }}>
                       <button type="button" onClick={() => setQty(l.productId, l.qty - 1)} aria-label={`Decrease quantity of ${l.name}`} style={{ width: 28, height: 28, border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 15 }}>&minus;</button>
                       <span style={{ minWidth: 26, textAlign: 'center', fontFamily: mono, fontSize: 12.5, fontWeight: 600 }}>{l.qty}</span>
@@ -84,7 +84,7 @@ export default function CartDrawer() {
                   </div>
                   <div style={{ textAlign: 'right' }}>
                     <div style={{ fontFamily: mono, fontSize: 13.5, fontWeight: 700 }}>{fmt(l.price * l.qty)}</div>
-                    <button type="button" onClick={() => remove(l.productId)} style={{ marginTop: 6, border: 'none', background: 'transparent', fontFamily: mono, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'oklch(0.54 0.02 40)', cursor: 'pointer' }}>
+                    <button type="button" onClick={() => remove(l.productId)} style={{ marginTop: 6, border: 'none', background: 'transparent', fontFamily: mono, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'oklch(0.50 0.02 40)', cursor: 'pointer' }}>
                       Remove
                     </button>
                   </div>
@@ -103,7 +103,7 @@ export default function CartDrawer() {
             <button type="button" onClick={() => { setOpen(false); router.push('/checkout'); }} className="dc-btn-primary" style={{ marginTop: 16, width: '100%', border: 'none', background: 'oklch(0.52 0.216 27)', color: 'oklch(0.98 0.012 82)', fontSize: 15, fontWeight: 600, padding: '15px 24px', borderRadius: 999, cursor: 'pointer' }}>
               Continue to checkout &rarr;
             </button>
-            <div style={{ textAlign: 'center', marginTop: 10, fontSize: 11.5, color: 'oklch(0.54 0.02 40)' }}>
+            <div style={{ textAlign: 'center', marginTop: 10, fontSize: 11.5, color: 'oklch(0.50 0.02 40)' }}>
               No payment is taken online — we confirm your order first.
             </div>
           </div>

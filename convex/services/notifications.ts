@@ -1,7 +1,8 @@
-import { query, mutation, MutationCtx } from "../_generated/server";
-import { v, ConvexError } from "convex/values";
+import { query, mutation, MutationCtx, QueryCtx } from "../_generated/server";
+import { v, ConvexError, Infer } from "convex/values";
 import { Doc } from "../_generated/dataModel";
 import { getViewer, isStaffRole, requireStaff, requireUser } from "../lib/authz";
+import { DEFAULT_BUSINESS_PROFILE } from "./business";
 
 /*
  * Authorization model for the (single, shared) notifications table:
@@ -957,3 +958,210 @@ export const updatePushNotificationPreferences = mutation({
     return { success: true, preferences };
   },
 });
+
+/* ------------------------------------------------------------------------------------------
+ * Storefront submissions: staff notifications + shared helpers for customer emails.
+ *
+ * Staff notifications for web orders, viewing requests and contact messages deliberately
+ * omit metadata.customerEmail: isAddressedToUser() matches on it, which would put these
+ * staff-only notifications into the customer's own feed (and let them delete them).
+ * ------------------------------------------------------------------------------------------ */
+
+const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+export function formatPeso(amount: number): string {
+  const [whole, cents] = Math.abs(amount).toFixed(2).split(".");
+  const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return `${amount < 0 ? "-" : ""}₱${grouped}.${cents}`;
+}
+
+/** "2026-09-20" → "Sunday, 20 September 2026" (falls back to the raw value). */
+export function formatViewingDate(date: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
+  if (!m) return date;
+  const d = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])));
+  if (Number.isNaN(d.getTime()) || d.getUTCDate() !== Number(m[3])) return date;
+  return `${WEEKDAYS[d.getUTCDay()]}, ${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+}
+
+/** "14:30" → "2:30 PM" (falls back to the raw value). */
+export function formatViewingTime(time: string): string {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(time);
+  if (!m) return time;
+  const hours = Number(m[1]);
+  if (hours > 23 || Number(m[2]) > 59) return time;
+  return `${hours % 12 || 12}:${m[2]} ${hours < 12 ? "AM" : "PM"}`;
+}
+
+/** A trimmed, plausibly deliverable address, or null. */
+export function normalizeCustomerEmail(email: string | undefined): string | null {
+  const trimmed = (email ?? "").trim();
+  if (!trimmed || trimmed.length > 254) return null;
+  return /^[^\s@<>,;"]+@[^\s@<>,;"]+\.[^\s@<>,;"]+$/.test(trimmed) ? trimmed : null;
+}
+
+/** Store contact details passed to email actions (from the businessProfile table). */
+export const storeContactValidator = v.object({
+  storeName: v.string(),
+  phone: v.string(),
+  landline: v.string(),
+  whatsappNumber: v.string(),
+  email: v.string(),
+  addressLine: v.string(),
+  city: v.string(),
+  mapUrl: v.string(),
+  hours: v.string(),
+});
+
+export type StoreContact = Infer<typeof storeContactValidator>;
+
+type OpeningHours = { day: string; open: string; close: string; closed: boolean }[];
+
+function summarizeHours(hours: OpeningHours): string {
+  const label = (h: OpeningHours[number]) => (h.closed ? "Closed" : `${formatViewingTime(h.open)} – ${formatViewingTime(h.close)}`);
+  const groups: { first: string; last: string; label: string }[] = [];
+  for (const h of hours) {
+    const current = label(h);
+    const previous = groups[groups.length - 1];
+    if (previous && previous.label === current) {
+      previous.last = h.day;
+    } else {
+      groups.push({ first: h.day, last: h.day, label: current });
+    }
+  }
+  return groups
+    .map((g) => `${g.first === g.last ? g.first.slice(0, 3) : `${g.first.slice(0, 3)}–${g.last.slice(0, 3)}`}: ${g.label}`)
+    .join(" · ");
+}
+
+export async function loadStoreContact(ctx: QueryCtx | MutationCtx): Promise<StoreContact> {
+  const row = await ctx.db.query("businessProfile").first();
+  const profile = { ...DEFAULT_BUSINESS_PROFILE, ...(row ?? {}) };
+  const hours = summarizeHours(profile.hours ?? []);
+  return {
+    storeName: profile.storeName || DEFAULT_BUSINESS_PROFILE.storeName,
+    phone: profile.phone ?? "",
+    landline: profile.landline ?? "",
+    whatsappNumber: profile.whatsappNumber ?? "",
+    email: profile.email ?? "",
+    addressLine: profile.addressLine ?? "",
+    city: profile.city ?? "",
+    mapUrl: profile.mapUrl ?? "",
+    hours: profile.hoursNote ? `${hours}${hours ? " · " : ""}${profile.hoursNote}` : hours,
+  };
+}
+
+const ACK_WINDOW_MS = 60 * 60 * 1000;
+const ACK_SCAN_LIMIT = 100;
+const MAX_ACKS_PER_ADDRESS = 3;
+const MAX_ACKS_PER_WINDOW = 30;
+
+/**
+ * Throttle for acknowledgement emails from open (guest) forms, so they can't be used to
+ * mail-bomb an address: at most a few per address and a global cap per hour. Reads only
+ * the most recent submissions. The submission itself is always saved either way.
+ */
+export async function shouldSendAcknowledgement(
+  ctx: QueryCtx | MutationCtx,
+  table: "viewings" | "contactMessages",
+  email: string,
+  submissionId: string,
+): Promise<boolean> {
+  const rows: { _id: string; email: string; createdAt: number }[] =
+    table === "viewings"
+      ? await ctx.db.query("viewings").order("desc").take(ACK_SCAN_LIMIT)
+      : await ctx.db.query("contactMessages").order("desc").take(ACK_SCAN_LIMIT);
+  const since = Date.now() - ACK_WINDOW_MS;
+  const earlier = rows.filter((row) => row._id !== submissionId && row.createdAt >= since);
+  if (earlier.length >= MAX_ACKS_PER_WINDOW) return false;
+  const key = email.toLowerCase();
+  return earlier.filter((row) => row.email.toLowerCase() === key).length < MAX_ACKS_PER_ADDRESS;
+}
+
+// Staff notification: a guest or client placed a storefront (web checkout) order.
+export async function notifyWebOrderPlaced(
+  ctx: MutationCtx,
+  args: {
+    orderId: string;
+    orderCode: string;
+    customerName: string;
+    itemCount: number;
+    totalAmount: number;
+    fulfilment: string;
+  },
+): Promise<void> {
+  const now = Date.now();
+  await ctx.db.insert("notifications", {
+    title: `New web order ${args.orderCode}`,
+    message: `${args.customerName} ordered ${args.itemCount} item${args.itemCount === 1 ? "" : "s"} · ${formatPeso(args.totalAmount)} · ${args.fulfilment}`,
+    type: "order",
+    isRead: false,
+    priority: "high",
+    relatedId: args.orderId,
+    relatedType: "order",
+    metadata: {
+      customerName: args.customerName,
+      amount: args.totalAmount,
+      status: "pending",
+    },
+    createdAt: now,
+    updatedAt: now,
+  });
+}
+
+// Staff notification: a gallery viewing was requested from the /visit page.
+export async function notifyViewingRequested(
+  ctx: MutationCtx,
+  args: {
+    viewingId: string;
+    name: string;
+    date: string;
+    time: string;
+    partySize: number;
+  },
+): Promise<void> {
+  const now = Date.now();
+  await ctx.db.insert("notifications", {
+    title: "New viewing request",
+    message: `${args.name} · ${formatViewingDate(args.date)} at ${formatViewingTime(args.time)} · party of ${args.partySize}`,
+    type: "reservation",
+    isRead: false,
+    priority: "medium",
+    relatedId: args.viewingId,
+    relatedType: "viewing",
+    metadata: {
+      customerName: args.name,
+      status: "requested",
+    },
+    createdAt: now,
+    updatedAt: now,
+  });
+}
+
+// Staff notification: a message was sent from the /contact form.
+export async function notifyContactMessageReceived(
+  ctx: MutationCtx,
+  args: {
+    messageId: string;
+    name: string;
+    subject: string;
+  },
+): Promise<void> {
+  const now = Date.now();
+  await ctx.db.insert("notifications", {
+    title: "New contact message",
+    message: `${args.name}: ${args.subject}`,
+    type: "user",
+    isRead: false,
+    priority: "medium",
+    relatedId: args.messageId,
+    relatedType: "contactMessage",
+    metadata: {
+      customerName: args.name,
+      status: "new",
+    },
+    createdAt: now,
+    updatedAt: now,
+  });
+}

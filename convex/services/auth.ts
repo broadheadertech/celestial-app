@@ -1,100 +1,115 @@
-import { mutation, query, internalMutation } from "../_generated/server";
+import { mutation, query, MutationCtx } from "../_generated/server";
 import { v } from "convex/values";
+import { Id } from "../_generated/dataModel";
 import { notifyUserRegistered } from "./notifications";
 import { internal } from "../_generated/api";
 import { createSession } from "./session";
 import { getViewer, isStaffRole, requireSelfOrStaff, requireStaff } from "../lib/authz";
+import {
+  hashPassword as hashPasswordImpl,
+  verifyPassword,
+  needsRehash,
+  dummyVerify,
+  sha256Hex,
+} from "../lib/password";
+import {
+  LOGIN_POLICY,
+  PASSWORD_RESET_POLICY,
+  clearAttempts,
+  getLockMinutes,
+  normalizeEmail,
+  recordAttempt,
+} from "../lib/throttle";
 
-// --- Secure password hashing using Web Crypto API (SHA-256 + random salt) ---
-
-function generateSalt(): string {
-  const array = new Uint8Array(16);
-  crypto.getRandomValues(array);
-  return Array.from(array, (b) => b.toString(16).padStart(2, "0")).join("");
-}
-
-async function sha256(data: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const hashBuffer = await crypto.subtle.digest("SHA-256", encoder.encode(data));
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
-}
-
+// Password hashing lives in convex/lib/password.ts (PBKDF2-HMAC-SHA256). Re-exported here
+// because other modules (admin.ts) import it from auth.
 export async function hashPassword(password: string): Promise<string> {
-  const salt = generateSalt();
-  const hash = await sha256(salt + password);
-  return `${salt}:${hash}`;
+  return hashPasswordImpl(password);
 }
 
-async function verifySecureHash(password: string, storedHash: string): Promise<boolean> {
-  const [salt, hash] = storedHash.split(":");
-  if (!salt || !hash) return false;
-  const computedHash = await sha256(salt + password);
-  return computedHash === hash;
-}
+const INVALID_CREDENTIALS = "Invalid email or password";
+const lockedMessage = (minutes: number) =>
+  `Too many failed attempts. Try again in ${minutes} minute${minutes === 1 ? "" : "s"}.`;
 
-// Legacy hash for migrating existing users (old simple hash)
-function legacyHashPassword(password: string): string {
-  let hash = 0;
-  for (let i = 0; i < password.length; i++) {
-    const char = password.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash;
+/** Revokes a user's live sessions, optionally keeping one (e.g. the caller's own). */
+async function revokeUserSessions(
+  ctx: MutationCtx,
+  userId: Id<"users">,
+  keepSessionId?: Id<"sessions"> | null,
+): Promise<void> {
+  const now = Date.now();
+  const sessions = await ctx.db
+    .query("sessions")
+    .withIndex("by_user", (q) => q.eq("userId", userId))
+    .collect();
+  for (const session of sessions) {
+    if (session._id === keepSessionId || session.revokedAt || session.expiresAt < now) continue;
+    await ctx.db.patch(session._id, { revokedAt: now });
   }
-  return hash.toString() + password.length.toString();
-}
-
-function isLegacyHash(storedHash: string): boolean {
-  return !storedHash.includes(":");
-}
-
-async function verifyPassword(password: string, storedHash: string): Promise<boolean> {
-  if (isLegacyHash(storedHash)) {
-    // Old format: verify with legacy method
-    return legacyHashPassword(password) === storedHash;
-  }
-  // New format: verify with SHA-256 + salt
-  return verifySecureHash(password, storedHash);
 }
 
 // Login mutation
+//
+// Credential failures RETURN { success: false, message } instead of throwing: a thrown error
+// would roll back the failed-attempt counter. The client (hooks/useAuth.ts) already treats
+// `success === false` as an error and shows `message`.
 export const login = mutation({
   args: {
     email: v.string(),
     password: v.string(),
   },
   handler: async (ctx, { email, password }) => {
-    // Find user by email
-    const user = await ctx.db
+    const throttleKey = normalizeEmail(email);
+    const fail = (message: string) => ({
+      success: false as const,
+      user: null,
+      sessionToken: null,
+      message,
+    });
+
+    const lockMinutes = await getLockMinutes(ctx, "login", throttleKey);
+    if (lockMinutes !== null) {
+      return fail(lockedMessage(lockMinutes));
+    }
+
+    // Find user by email (as given first, for accounts stored with mixed case)
+    let user = await ctx.db
       .query("users")
       .withIndex("by_email", (q) => q.eq("email", email))
       .first();
-
-    if (!user) {
-      throw new Error("Invalid email or password");
+    if (!user && throttleKey !== email) {
+      user = await ctx.db
+        .query("users")
+        .withIndex("by_email", (q) => q.eq("email", throttleKey))
+        .first();
     }
 
-    // Verify password
-    if (!user.passwordHash) {
-      throw new Error("This account uses Facebook login. Please log in with Facebook.");
-    }
-    const isValidPassword = await verifyPassword(password, user.passwordHash);
-    if (!isValidPassword) {
-      throw new Error("Invalid email or password");
+    // Unknown email, password-less (Facebook) account, or wrong password all look the same.
+    let isValidPassword = false;
+    if (user?.passwordHash) {
+      isValidPassword = await verifyPassword(password, user.passwordHash);
+    } else {
+      await dummyVerify(password);
     }
 
-    // Auto-migrate legacy hash to secure hash on successful login
-    if (isLegacyHash(user.passwordHash)) {
-      const secureHash = await hashPassword(password);
-      await ctx.db.patch(user._id, {
-        passwordHash: secureHash,
-        updatedAt: Date.now(),
-      });
+    if (!user || !user.passwordHash || !isValidPassword) {
+      const lockedFor = await recordAttempt(ctx, "login", throttleKey, LOGIN_POLICY);
+      return fail(lockedFor !== null ? lockedMessage(lockedFor) : INVALID_CREDENTIALS);
     }
 
     // Check if user is active
-    if (user.isActive === false) {
-      throw new Error("Account is deactivated. Please contact support.");
+    if (user.isActive === false || user.isBanned) {
+      return fail("Account is deactivated. Please contact support.");
+    }
+
+    await clearAttempts(ctx, "login", throttleKey);
+
+    // Upgrade older hash formats (legacy / salted SHA-256 / fewer iterations) on successful login
+    if (needsRehash(user.passwordHash)) {
+      await ctx.db.patch(user._id, {
+        passwordHash: await hashPassword(password),
+        updatedAt: Date.now(),
+      });
     }
 
     const sessionToken = await createSession(ctx, user._id);
@@ -103,7 +118,7 @@ export const login = mutation({
     const { passwordHash, resetToken, resetTokenExpiry, ...userWithoutPassword } = user;
 
     return {
-      success: true,
+      success: true as const,
       user: userWithoutPassword,
       sessionToken,
       message: "Login successful",
@@ -225,7 +240,7 @@ export const getCurrentUser = query({
     }
 
     const user = await ctx.db.get(userId);
-    
+
     if (!user) {
       return null; // Return null instead of throwing error
     }
@@ -251,7 +266,7 @@ export const updateProfile = mutation({
   handler: async (ctx, { userId, firstName, lastName, phone }) => {
     await requireSelfOrStaff(ctx, userId);
     const user = await ctx.db.get(userId);
-    
+
     if (!user) {
       throw new Error("User not found");
     }
@@ -311,7 +326,7 @@ export const changePassword = mutation({
       throw new Error("You can only change your own password.");
     }
     const user = await ctx.db.get(userId);
-    
+
     if (!user) {
       throw new Error("User not found");
     }
@@ -342,6 +357,13 @@ export const changePassword = mutation({
       passwordHash: newPasswordHash,
       updatedAt: Date.now(),
     });
+
+    // Sign out every other device; keep the session making this call (getViewer already
+    // verified the JWT's `sid` belongs to this user and is live).
+    const identity = await ctx.auth.getUserIdentity();
+    const currentSessionId =
+      typeof identity?.sid === "string" ? ctx.db.normalizeId("sessions", identity.sid) : null;
+    await revokeUserSessions(ctx, userId, currentSessionId);
 
     return {
       success: true,
@@ -529,60 +551,68 @@ export const updateUserFacebookData = mutation({
   },
 });
 
-// Generate reset token helper function
+// Reset tokens: 32 random bytes, base64url. Only the SHA-256 of the token is stored in
+// users.resetToken, so a database leak doesn't expose usable links.
 function generateResetToken(): string {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  let token = '';
-  for (let i = 0; i < 32; i++) {
-    token += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return token;
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  let binary = "";
+  for (const b of bytes) binary += String.fromCharCode(b);
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
+const hashResetToken = (token: string) => sha256Hex(`reset:${token}`);
+
+const RESET_REQUESTED_MESSAGE =
+  "If an account exists for this email, a password reset link has been sent.";
+
 // Request password reset
-// This function verifies the email exists in Convex, then sends email via Resend
+// Always returns the same result whether or not the email has an account (no enumeration);
+// the email is only sent when the account exists and uses a password. Sends via Resend
+// (see convex/services/email.ts).
 export const requestPasswordReset = mutation({
   args: {
     email: v.string(),
   },
   handler: async (ctx, { email }) => {
-    // STEP 1: Verify email exists in database (Convex)
+    const normalizedEmail = normalizeEmail(email);
+
+    // Rate limit per email, counted whether or not the account exists. Throwing is fine
+    // here: nothing needs to be recorded for a request that is refused.
+    const lockMinutes = await getLockMinutes(ctx, "password_reset", normalizedEmail);
+    if (lockMinutes !== null) {
+      throw new Error(
+        `Too many password reset requests. Try again in ${lockMinutes} minute${lockMinutes === 1 ? "" : "s"}.`,
+      );
+    }
+    await recordAttempt(ctx, "password_reset", normalizedEmail, PASSWORD_RESET_POLICY);
+
     const user = await ctx.db
       .query("users")
-      .withIndex("by_email", (q) => q.eq("email", email.toLowerCase()))
+      .withIndex("by_email", (q) => q.eq("email", normalizedEmail))
       .first();
 
-    if (!user) {
-      throw new Error("No account found with this email address");
+    if (user && user.passwordHash) {
+      const resetToken = generateResetToken();
+      const now = Date.now();
+
+      await ctx.db.patch(user._id, {
+        resetToken: await hashResetToken(resetToken),
+        resetTokenExpiry: now + 3600000, // 1 hour from now
+        updatedAt: now,
+      });
+
+      // Note: We use Convex Action because static export doesn't support API routes
+      await ctx.scheduler.runAfter(0, internal.services.email.sendPasswordResetEmail, {
+        to: user.email,
+        userName: `${user.firstName} ${user.lastName}`,
+        resetToken,
+      });
     }
-
-    // Check if user has password (not Facebook-only user)
-    if (!user.passwordHash) {
-      throw new Error("This account uses Facebook login. Please log in with Facebook.");
-    }
-
-    // STEP 2: Generate reset token and save to database (Convex)
-    const resetToken = generateResetToken();
-    const resetTokenExpiry = Date.now() + 3600000; // 1 hour from now
-
-    await ctx.db.patch(user._id, {
-      resetToken,
-      resetTokenExpiry,
-      updatedAt: Date.now(),
-    });
-
-    // STEP 3: Send email using Resend (via Convex Action)
-    // Note: We use Convex Action because static export doesn't support API routes
-    // This action directly calls Resend SDK - see convex/services/email.ts
-    await ctx.scheduler.runAfter(0, internal.services.email.sendPasswordResetEmail, {
-      to: user.email,
-      userName: `${user.firstName} ${user.lastName}`,
-      resetToken,
-    });
 
     return {
       success: true,
-      message: "Password reset email has been sent",
+      message: RESET_REQUESTED_MESSAGE,
     };
   },
 });
@@ -593,9 +623,13 @@ export const verifyResetToken = query({
     token: v.string(),
   },
   handler: async (ctx, { token }) => {
+    if (!token) {
+      return { valid: false, message: "Invalid reset token" };
+    }
+    const tokenHash = await hashResetToken(token);
     const user = await ctx.db
       .query("users")
-      .withIndex("by_reset_token", (q) => q.eq("resetToken", token))
+      .withIndex("by_reset_token", (q) => q.eq("resetToken", tokenHash))
       .first();
 
     if (!user) {
@@ -623,10 +657,14 @@ export const resetPassword = mutation({
     newPassword: v.string(),
   },
   handler: async (ctx, { token, newPassword }) => {
+    if (!token) {
+      throw new Error("Invalid or expired reset token");
+    }
     // Find user by reset token
+    const tokenHash = await hashResetToken(token);
     const user = await ctx.db
       .query("users")
-      .withIndex("by_reset_token", (q) => q.eq("resetToken", token))
+      .withIndex("by_reset_token", (q) => q.eq("resetToken", tokenHash))
       .first();
 
     if (!user) {
@@ -657,6 +695,11 @@ export const resetPassword = mutation({
       resetTokenExpiry: undefined,
       updatedAt: Date.now(),
     });
+
+    // Whoever had the old password is signed out everywhere; the account owner can log in
+    // again immediately with the new password.
+    await revokeUserSessions(ctx, user._id);
+    await clearAttempts(ctx, "login", normalizeEmail(user.email));
 
     return {
       success: true,

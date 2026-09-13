@@ -54,7 +54,7 @@ export default function CavePage() {
             </div>
             <div style={{ textAlign: 'right' }}>
               <div style={{ fontFamily: serif, fontWeight: 700, fontSize: 46, lineHeight: 1, color: 'oklch(0.50 0.216 27)' }}>{loading ? '—' : items.length}</div>
-              <div style={{ fontFamily: mono, fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'oklch(0.54 0.02 40)', marginTop: 6 }}>In the cave</div>
+              <div style={{ fontFamily: mono, fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'oklch(0.50 0.02 40)', marginTop: 6 }}>In the cave</div>
             </div>
           </div>
         </div>
@@ -110,7 +110,7 @@ export default function CavePage() {
                   {item.grade && <div style={{ position: 'absolute', top: 11, right: 12, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 26, height: 22, padding: '0 6px', borderRadius: 6, background: 'oklch(0.72 0.14 82 / 0.14)', border: '1px solid oklch(0.72 0.13 82 / 0.45)', fontFamily: serif, fontWeight: 700, fontSize: 12, color: 'oklch(0.82 0.13 84)' }}>{item.grade}</div>}
                 </Link>
                 <div style={{ padding: '15px 4px 4px', display: 'flex', flexDirection: 'column', flex: 1 }}>
-                  <div style={{ fontFamily: mono, fontSize: 9.5, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'oklch(0.54 0.03 34)', marginBottom: 6 }}>{familyOf(item.name)}</div>
+                  <div style={{ fontFamily: mono, fontSize: 9.5, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'oklch(0.50 0.03 34)', marginBottom: 6 }}>{familyOf(item.name)}</div>
                   <Link href={`/specimen-detail?id=${item._id}`} style={{ fontFamily: serif, fontWeight: 600, fontSize: 19, lineHeight: 1.15, color: 'oklch(0.19 0.012 32)', marginBottom: 5 }}>{item.name}</Link>
                   <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, paddingTop: 13, borderTop: '1px solid oklch(0.88 0.012 68)' }}>
                     <span style={{ fontFamily: mono, fontSize: 14.5, fontWeight: 600, color: 'oklch(0.22 0.012 32)', letterSpacing: '0.01em' }}>{fmtPeso(item.price)}</span>
@@ -131,7 +131,7 @@ export default function CavePage() {
               <div style={{ fontSize: 14 }}>Message us &mdash; we often have unlisted fish in quarantine.</div>
             </div>
           )}
-          {loading && <div style={{ textAlign: 'center', padding: '80px 0', fontFamily: mono, fontSize: 12, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'oklch(0.60 0.02 40)' }}>Loading the cave&hellip;</div>}
+          {loading && <div style={{ textAlign: 'center', padding: '80px 0', fontFamily: mono, fontSize: 12, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'oklch(0.50 0.02 40)' }}>Loading the cave&hellip;</div>}
         </div>
       </section>
     </>
@@ -141,7 +141,7 @@ export default function CavePage() {
 function ChipRow({ label, chips, value, onChange }: { label: string; chips: string[]; value: string; onChange: (v: string) => void }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
-      <span style={{ fontFamily: mono, fontSize: 9.5, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'oklch(0.56 0.02 40)', minWidth: 64 }}>{label}</span>
+      <span style={{ fontFamily: mono, fontSize: 9.5, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'oklch(0.50 0.02 40)', minWidth: 64 }}>{label}</span>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         {chips.map((c) => (
           <button key={c} className="dc-chip" type="button" aria-pressed={value === c} onClick={() => onChange(c)}>{c === 'all' ? 'All' : c}</button>

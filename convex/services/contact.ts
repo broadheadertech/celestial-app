@@ -1,6 +1,13 @@
 import { v } from "convex/values";
 import { mutation, query } from "../_generated/server";
+import { internal } from "../_generated/api";
 import { getViewer, requireStaff } from "../lib/authz";
+import {
+  loadStoreContact,
+  normalizeCustomerEmail,
+  notifyContactMessageReceived,
+  shouldSendAcknowledgement,
+} from "./notifications";
 
 const MAX_NAME = 100;
 const MAX_EMAIL = 254;
@@ -44,6 +51,32 @@ export const createContactMessage = mutation({
       createdAt: now,
       updatedAt: now,
     });
+
+    // Best-effort side effects: a failure here must never fail the message itself.
+    try {
+      await notifyContactMessageReceived(ctx, {
+        messageId: id,
+        name: args.name.trim(),
+        subject: args.subject.trim(),
+      });
+    } catch (error) {
+      console.error("Failed to create contact message notification:", error);
+    }
+
+    try {
+      const to = normalizeCustomerEmail(args.email);
+      if (to && (await shouldSendAcknowledgement(ctx, "contactMessages", to, id))) {
+        await ctx.scheduler.runAfter(0, internal.services.email.sendContactAcknowledgementEmail, {
+          to,
+          messageId: id,
+          name: args.name.trim(),
+          store: await loadStoreContact(ctx),
+        });
+      }
+    } catch (error) {
+      console.error("Failed to schedule contact acknowledgement email:", error);
+    }
+
     return { success: true, id };
   },
 });

@@ -128,9 +128,9 @@ export default function AccountPage() {
         <div className="site-container flex gap-1 overflow-x-auto scrollbar-hide" style={{ padding: '12px 32px' }}>
           {([
             { id: 'overview' as Tab, label: 'Overview' },
-            { id: 'orders' as Tab, label: `Orders · ${orders?.length || 0}` },
-            { id: 'reservations' as Tab, label: `Reservations · ${(reservations as any[])?.length || 0}` },
-            { id: 'wishlist' as Tab, label: `Wishlist · ${wishlist?.length || 0}` },
+            { id: 'orders' as Tab, label: `Orders · ${orders === undefined ? '…' : orders.length}` },
+            { id: 'reservations' as Tab, label: `Reservations · ${reservations === undefined ? '…' : (reservations as any[]).length}` },
+            { id: 'wishlist' as Tab, label: `Wishlist · ${wishlist === undefined ? '…' : wishlist.length}` },
             { id: 'profile' as Tab, label: 'Profile' },
           ]).map((t) => (
             <button
@@ -208,7 +208,9 @@ export default function AccountPage() {
               {/* Recent orders */}
               <div>
                 <div className="placard mb-3">Recent orders</div>
-                {!orders?.length ? (
+                {orders === undefined ? (
+                  <p className="py-10 text-center text-[14px]" style={{ color: 'var(--ink-4)' }}>Loading orders…</p>
+                ) : !orders.length ? (
                   <p className="py-10 text-center text-[14px]" style={{ color: 'var(--ink-4)' }}>
                     No orders yet.
                   </p>
@@ -254,7 +256,9 @@ export default function AccountPage() {
 
           {tab === 'orders' && (
             <div className="flex flex-col gap-2">
-              {!orders?.length ? (
+              {orders === undefined ? (
+                <p className="py-10 text-center text-[14px]" style={{ color: 'var(--ink-4)' }}>Loading orders…</p>
+              ) : !orders.length ? (
                 <p className="py-10 text-center text-[14px]" style={{ color: 'var(--ink-4)' }}>
                   No orders yet.
                 </p>
@@ -301,7 +305,9 @@ export default function AccountPage() {
 
           {tab === 'reservations' && (
             <div className="flex flex-col gap-2">
-              {!(reservations as any[])?.length ? (
+              {reservations === undefined ? (
+                <p className="py-10 text-center text-[14px]" style={{ color: 'var(--ink-4)' }}>Loading reservations…</p>
+              ) : !(reservations as any[]).length ? (
                 <p className="py-10 text-center text-[14px]" style={{ color: 'var(--ink-4)' }}>
                   No reservations yet.
                 </p>
@@ -350,7 +356,9 @@ export default function AccountPage() {
 
           {tab === 'wishlist' && (
             <>
-              {!wishlist?.length ? (
+              {wishlist === undefined ? (
+                <p className="py-10 text-center text-[14px]" style={{ color: 'var(--ink-4)' }}>Loading wishlist…</p>
+              ) : !wishlist.length ? (
                 <div className="text-center py-20" style={{ color: 'var(--ink-3)' }}>
                   <Heart size={28} className="mx-auto mb-4" style={{ color: 'var(--ink-4)' }} />
                   <p className="text-[14px] mb-4">Nothing on hold for later yet.</p>

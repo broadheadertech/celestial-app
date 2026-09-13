@@ -1,6 +1,7 @@
 import { action, internalAction } from "../_generated/server";
 import { v } from "convex/values";
 import { Resend } from 'resend';
+import { formatPeso, formatViewingDate, formatViewingTime, storeContactValidator, StoreContact } from "./notifications";
 
 /**
  * EMAIL SENDING SERVICE USING RESEND SDK
@@ -256,6 +257,291 @@ export const sendWelcomeEmail = action({
       console.error("Error sending welcome email:", error);
       return { success: false, message: "Failed to send welcome email" };
     }
+  },
+});
+
+/* ------------------------------------------------------------------------------------------
+ * Customer confirmation emails for storefront submissions (web orders, viewing requests,
+ * contact messages). Scheduled best-effort from the mutations; they never throw, so a missing
+ * API key or a Resend outage only logs — the customer's order/booking/message is already saved.
+ * All user-provided text is escaped before it goes into HTML.
+ * ------------------------------------------------------------------------------------------ */
+
+const DEFAULT_FROM_ADDRESS = "noreply@cda.broadheader.com";
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+/** Strips characters that don't belong in a header value (subject, display name). */
+function headerSafe(value: string): string {
+  return value.replace(/[\r\n<>"]/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function fromAddress(store: StoreContact): string {
+  return process.env.RESEND_FROM_EMAIL || `${headerSafe(store.storeName) || "Store"} <${DEFAULT_FROM_ADDRESS}>`;
+}
+
+type ContactLine = { label: string; text: string; href?: string };
+
+function storeContactLines(store: StoreContact, options: { includeHours: boolean }): ContactLine[] {
+  const lines: ContactLine[] = [];
+  const address = [store.addressLine, store.city].filter((part) => part.trim()).join(", ");
+  if (address) lines.push({ label: "Address", text: address });
+  if (store.mapUrl && /^https:\/\//i.test(store.mapUrl)) lines.push({ label: "Map", text: store.mapUrl, href: store.mapUrl });
+  const whatsappDigits = store.whatsappNumber.replace(/\D/g, "");
+  if (whatsappDigits) {
+    lines.push({ label: "WhatsApp", text: `+${whatsappDigits}`, href: `https://wa.me/${whatsappDigits}` });
+  }
+  if (store.phone) lines.push({ label: "Phone", text: store.phone });
+  if (store.landline) lines.push({ label: "Landline", text: store.landline });
+  if (store.email) lines.push({ label: "Email", text: store.email, href: `mailto:${store.email}` });
+  if (options.includeHours && store.hours) lines.push({ label: "Hours", text: store.hours });
+  return lines;
+}
+
+type EmailBlock =
+  | { kind: "paragraph"; text: string }
+  | { kind: "details"; rows: { label: string; value: string }[] }
+  | { kind: "items"; rows: { name: string; quantity: number; lineTotal: string }[]; total: string };
+
+/** Renders the same content as simple HTML and plain text. Every string is escaped here. */
+function renderEmail(args: {
+  store: StoreContact;
+  heading: string;
+  blocks: EmailBlock[];
+  includeHours: boolean;
+}): { html: string; text: string } {
+  const contact = storeContactLines(args.store, { includeHours: args.includeHours });
+  const cell = "padding:6px 0;border-bottom:1px solid #eeeeee;vertical-align:top;";
+
+  const htmlBlocks = args.blocks.map((block) => {
+    if (block.kind === "paragraph") {
+      return `<p style="margin:0 0 16px;">${escapeHtml(block.text)}</p>`;
+    }
+    if (block.kind === "details") {
+      const rows = block.rows
+        .map((row) => `<tr><td style="${cell}color:#777777;width:40%;">${escapeHtml(row.label)}</td><td style="${cell}">${escapeHtml(row.value)}</td></tr>`)
+        .join("");
+      return `<table role="presentation" style="width:100%;border-collapse:collapse;margin:0 0 20px;font-size:15px;">${rows}</table>`;
+    }
+    const rows = block.rows
+      .map((row) => `<tr><td style="${cell}">${escapeHtml(row.name)}</td><td style="${cell}text-align:center;width:48px;">&times;${row.quantity}</td><td style="${cell}text-align:right;white-space:nowrap;">${escapeHtml(row.lineTotal)}</td></tr>`)
+      .join("");
+    return `<table role="presentation" style="width:100%;border-collapse:collapse;margin:0 0 20px;font-size:15px;">${rows}<tr><td colspan="2" style="padding:10px 0;font-weight:600;">Total</td><td style="padding:10px 0;font-weight:600;text-align:right;white-space:nowrap;">${escapeHtml(block.total)}</td></tr></table>`;
+  });
+
+  const contactHtml = contact.length
+    ? `<div style="margin-top:28px;padding-top:16px;border-top:1px solid #eeeeee;font-size:14px;color:#555555;">
+        <p style="margin:0 0 8px;font-weight:600;color:#333333;">${escapeHtml(args.store.storeName)}</p>
+        ${contact
+          .map((line) => {
+            const value = line.href
+              ? `<a href="${escapeHtml(line.href)}" style="color:#b3261e;">${escapeHtml(line.text)}</a>`
+              : escapeHtml(line.text);
+            return `<p style="margin:0 0 4px;">${escapeHtml(line.label)}: ${value}</p>`;
+          })
+          .join("")}
+      </div>`
+    : `<div style="margin-top:28px;padding-top:16px;border-top:1px solid #eeeeee;font-size:14px;color:#555555;"><p style="margin:0;font-weight:600;color:#333333;">${escapeHtml(args.store.storeName)}</p></div>`;
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>${escapeHtml(args.heading)}</title></head>
+<body style="margin:0;padding:0;background:#f4f4f4;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;line-height:1.6;color:#333333;">
+  <div style="max-width:600px;margin:32px auto;background:#ffffff;border-radius:8px;overflow:hidden;">
+    <div style="padding:24px 28px;background:#1f1a17;color:#ffffff;">
+      <p style="margin:0;font-size:14px;letter-spacing:0.04em;opacity:0.8;">${escapeHtml(args.store.storeName)}</p>
+      <h1 style="margin:4px 0 0;font-size:22px;font-weight:600;">${escapeHtml(args.heading)}</h1>
+    </div>
+    <div style="padding:28px;">
+      ${htmlBlocks.join("\n      ")}
+      ${contactHtml}
+    </div>
+  </div>
+</body>
+</html>`;
+
+  const textBlocks = args.blocks.map((block) => {
+    if (block.kind === "paragraph") return block.text;
+    if (block.kind === "details") return block.rows.map((row) => `${row.label}: ${row.value}`).join("\n");
+    return [
+      ...block.rows.map((row) => `${row.quantity} x ${row.name} — ${row.lineTotal}`),
+      `Total: ${block.total}`,
+    ].join("\n");
+  });
+  const text = [
+    args.heading,
+    "",
+    textBlocks.join("\n\n"),
+    "",
+    "—",
+    args.store.storeName,
+    ...contact.map((line) => `${line.label}: ${line.text}`),
+  ].join("\n");
+
+  return { html, text };
+}
+
+type SendResult = { success: boolean; skipped?: boolean; emailId?: string };
+
+/** Sends via Resend without ever throwing; logs and reports failure instead. */
+async function sendBestEffort(args: {
+  kind: string;
+  to: string;
+  subject: string;
+  store: StoreContact;
+  content: { html: string; text: string };
+  idempotencyKey: string;
+}): Promise<SendResult> {
+  const resendApiKey = process.env.RESEND_API_KEY;
+  if (!resendApiKey) {
+    console.warn(`RESEND_API_KEY is not set; skipping ${args.kind} email.`);
+    return { success: false, skipped: true };
+  }
+
+  try {
+    const resend = new Resend(resendApiKey);
+    const replyTo = args.store.email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(args.store.email) ? args.store.email : undefined;
+    const { data, error } = await resend.emails.send(
+      {
+        from: fromAddress(args.store),
+        to: [args.to],
+        subject: headerSafe(args.subject),
+        html: args.content.html,
+        text: args.content.text,
+        ...(replyTo ? { replyTo } : {}),
+      },
+      { idempotencyKey: args.idempotencyKey },
+    );
+    if (error) {
+      console.error(`Resend API error sending ${args.kind} email:`, error);
+      return { success: false };
+    }
+    return { success: true, emailId: data?.id };
+  } catch (error) {
+    console.error(`Error sending ${args.kind} email:`, error);
+    return { success: false };
+  }
+}
+
+export const sendWebOrderConfirmationEmail = internalAction({
+  args: {
+    to: v.string(),
+    orderId: v.string(),
+    orderCode: v.string(),
+    customerName: v.string(),
+    items: v.array(v.object({
+      name: v.string(),
+      quantity: v.number(),
+      unitPrice: v.number(),
+    })),
+    totalAmount: v.number(),
+    fulfilment: v.string(),
+    store: storeContactValidator,
+  },
+  handler: async (_ctx, args): Promise<SendResult> => {
+    const content = renderEmail({
+      store: args.store,
+      heading: `We've received your order ${args.orderCode}`,
+      includeHours: true,
+      blocks: [
+        { kind: "paragraph", text: `Hi ${args.customerName}, thank you for your order with ${args.store.storeName}.` },
+        { kind: "details", rows: [
+          { label: "Order", value: args.orderCode },
+          { label: "Fulfilment", value: args.fulfilment },
+        ] },
+        {
+          kind: "items",
+          rows: args.items.map((item) => ({
+            name: item.name,
+            quantity: item.quantity,
+            lineTotal: formatPeso(item.unitPrice * item.quantity),
+          })),
+          total: formatPeso(args.totalAmount),
+        },
+        { kind: "paragraph", text: "Nothing has been charged. We'll contact you to confirm stock, payment and pickup/delivery." },
+        { kind: "paragraph", text: `If you have questions, reply to this email or reach us using the details below and mention ${args.orderCode}.` },
+      ],
+    });
+    return await sendBestEffort({
+      kind: "web order confirmation",
+      to: args.to,
+      subject: `Order ${args.orderCode} received — ${args.store.storeName}`,
+      store: args.store,
+      content,
+      idempotencyKey: `web-order-confirmation/${args.orderId}`,
+    });
+  },
+});
+
+export const sendViewingRequestEmail = internalAction({
+  args: {
+    to: v.string(),
+    viewingId: v.string(),
+    name: v.string(),
+    date: v.string(),
+    time: v.string(),
+    partySize: v.number(),
+    store: storeContactValidator,
+  },
+  handler: async (_ctx, args): Promise<SendResult> => {
+    const content = renderEmail({
+      store: args.store,
+      heading: "We've received your viewing request",
+      includeHours: true,
+      blocks: [
+        { kind: "paragraph", text: `Hi ${args.name}, thank you for booking a visit to ${args.store.storeName}.` },
+        { kind: "details", rows: [
+          { label: "Date", value: formatViewingDate(args.date) },
+          { label: "Time", value: formatViewingTime(args.time) },
+          { label: "Party size", value: `${args.partySize} ${args.partySize === 1 ? "person" : "people"}` },
+        ] },
+        { kind: "paragraph", text: "This is a request, not yet a confirmed booking. We'll confirm your slot shortly." },
+      ],
+    });
+    return await sendBestEffort({
+      kind: "viewing request",
+      to: args.to,
+      subject: `Viewing request received — ${args.store.storeName}`,
+      store: args.store,
+      content,
+      idempotencyKey: `viewing-request/${args.viewingId}`,
+    });
+  },
+});
+
+export const sendContactAcknowledgementEmail = internalAction({
+  args: {
+    to: v.string(),
+    messageId: v.string(),
+    name: v.string(),
+    store: storeContactValidator,
+  },
+  handler: async (_ctx, args): Promise<SendResult> => {
+    // The sender's subject/message are intentionally not echoed back, so the open contact form
+    // can't be used to relay arbitrary content to third-party inboxes.
+    const content = renderEmail({
+      store: args.store,
+      heading: "Thanks for getting in touch",
+      includeHours: false,
+      blocks: [
+        { kind: "paragraph", text: `Hi ${args.name}, we've received your message and will get back to you as soon as we can.` },
+      ],
+    });
+    return await sendBestEffort({
+      kind: "contact acknowledgement",
+      to: args.to,
+      subject: `We received your message — ${args.store.storeName}`,
+      store: args.store,
+      content,
+      idempotencyKey: `contact-acknowledgement/${args.messageId}`,
+    });
   },
 });
 

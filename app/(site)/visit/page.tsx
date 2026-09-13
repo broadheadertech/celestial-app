@@ -6,22 +6,40 @@
  * email field because the viewings table requires one.
  */
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
-import { groupHours, hoursSummary, useBusiness } from '@/components/dc/business';
+import { groupHours, hoursSummary, useBusiness, type BusinessHours } from '@/components/dc/business';
 
 const mono = "'Geist Mono', monospace";
 const serif = "'Noto Serif Display', serif";
 
 const GUEST_LABEL: Record<string, string> = { '1': 'Just me', '2': '2 of us', '3': '3 of us', '4+': '4 or more' };
+const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const FALLBACK_SLOTS = ['10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00'];
 
-function Slot({ label, ratio }: { label: string; ratio: string }) {
-  return (
-    <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'radial-gradient(ellipse 92% 82% at 50% 40%, oklch(0.955 0.010 74), oklch(0.90 0.02 66) 100%)', aspectRatio: ratio }}>
-      <div style={{ fontFamily: mono, fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'oklch(0.58 0.02 40)' }}>{label}</div>
-    </div>
-  );
+const pad = (n: number) => String(n).padStart(2, '0');
+/** Today as YYYY-MM-DD in the visitor's local time (not UTC). */
+const todayLocal = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+};
+const dayNameOf = (ymd: string) => {
+  const [y, m, d] = ymd.split('-').map(Number);
+  return DAY_NAMES[new Date(y, m - 1, d).getDay()];
+};
+const toMinutes = (hhmm: string) => {
+  const [h, m] = hhmm.split(':').map(Number);
+  return h * 60 + (m || 0);
+};
+/** Hourly start times that fit fully inside a day's opening hours. */
+function slotsFor(day: BusinessHours | undefined): string[] {
+  if (!day || day.closed) return [];
+  const out: string[] = [];
+  for (let t = Math.ceil(toMinutes(day.open) / 60) * 60; t + 60 <= toMinutes(day.close); t += 60) {
+    out.push(`${pad(Math.floor(t / 60))}:00`);
+  }
+  return out;
 }
 
 export default function VisitPage() {
@@ -32,7 +50,22 @@ export default function VisitPage() {
   const [s, setS] = useState({ name: '', email: '', contact: '', date: '', time: '10:00', guests: '1', interest: '', notes: '' });
   const [status, setStatus] = useState<'idle' | 'sending' | 'done' | 'error'>('idle');
   const [error, setError] = useState('');
+  const [minDate, setMinDate] = useState('');
+  useEffect(() => setMinDate(todayLocal()), []);
   const set = (k: keyof typeof s) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setS((p) => ({ ...p, [k]: e.target.value }));
+
+  // Time slots follow Business Details → opening hours for the chosen date.
+  const selectedDay = s.date && biz.hours.length ? biz.hours.find((h) => h.day === dayNameOf(s.date)) : undefined;
+  const closedOnDate = !!selectedDay?.closed;
+  const timeSlots = useMemo(
+    () => (biz.hours.length === 0 ? FALLBACK_SLOTS : s.date ? slotsFor(selectedDay) : FALLBACK_SLOTS),
+    [biz.hours.length, s.date, selectedDay],
+  );
+  useEffect(() => {
+    if (timeSlots.length && !timeSlots.includes(s.time)) setS((p) => ({ ...p, time: timeSlots[0] }));
+  }, [timeSlots, s.time]);
+  const closedDays = biz.hours.filter((h) => h.closed).map((h) => h.day);
+  const mapEmbed = biz.address ? `https://www.google.com/maps?q=${encodeURIComponent(`${biz.address} ${biz.city}`)}&output=embed` : null;
 
   const lines = [
     "Hi Dragon's Cave — I'd like to book a viewing.",
@@ -58,6 +91,8 @@ export default function VisitPage() {
     if (!/.+@.+\..+/.test(s.email)) return setError('Please enter a valid email.');
     if (s.contact.trim().length < 7) return setError('Please enter a valid phone number.');
     if (!s.date || !s.time) return setError('Please choose a date and time.');
+    if (s.date < todayLocal()) return setError('Please choose a date from today onwards.');
+    if (closedOnDate || timeSlots.length === 0) return setError(`We're closed on ${dayNameOf(s.date)}s — please pick another day.`);
     const partySize = s.guests === '4+' ? 4 : parseInt(s.guests, 10) || 1;
     setStatus('sending');
     try {
@@ -90,18 +125,24 @@ export default function VisitPage() {
             <div className="dc-cols-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,auto)', gap: 34, justifyContent: 'start' }}>
               {heroFacts.map(([h, a, b]) => (
                 <div key={h}>
-                  <div style={{ fontFamily: mono, fontSize: 9.5, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'oklch(0.56 0.02 40)', marginBottom: 8 }}>{h}</div>
+                  <div style={{ fontFamily: mono, fontSize: 9.5, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'oklch(0.50 0.02 40)', marginBottom: 8 }}>{h}</div>
                   <div style={{ fontFamily: mono, fontSize: 13, lineHeight: 1.5, color: 'oklch(0.26 0.012 32)' }}>{a}{b && <><br />{b}</>}</div>
                 </div>
               ))}
             </div>
           </div>
           <div style={{ position: 'relative' }}>
-            <div style={{ position: 'relative', aspectRatio: '4/5', borderRadius: 12, overflow: 'hidden', boxShadow: 'inset 0 0 0 1px oklch(0.70 0.12 80 / 0.4), 0 40px 84px -46px oklch(0.30 0.08 40 / 0.5)' }}>
-              <Slot label="The gallery" ratio="4/5" />
+            <div className="dc-gallery-art" style={{ position: 'relative', aspectRatio: '4/5', borderRadius: 12, overflow: 'hidden', background: 'radial-gradient(ellipse 90% 80% at 50% 40%, oklch(0.30 0.12 25), oklch(0.14 0.05 24) 100%)', boxShadow: 'inset 0 0 0 1px oklch(0.70 0.12 80 / 0.4), 0 40px 84px -46px oklch(0.30 0.08 40 / 0.5)' }}>
+              <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse 60% 40% at 50% 48%, oklch(0.86 0.10 70 / 0.22), transparent 70%)' }} />
+              <div style={{ position: 'absolute', inset: 0, opacity: 0.4, backgroundImage: 'radial-gradient(circle at 50% 0, transparent 0 9px, oklch(1 0 0 / 0.05) 9px 10px, transparent 10px)', backgroundSize: '30px 15px' }} />
+              {/* The swim keyframes set `transform`, so animate a wrapper and centre the image inside it. */}
+              <div style={{ position: 'absolute', inset: 0, animation: 'dcSwim 9s ease-in-out infinite' }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/img/highback-gold.webp" alt="Highback golden arowana" style={{ position: 'absolute', left: '50%', top: '48%', transform: 'translate(-50%,-50%)', width: '115%', maxWidth: 'none', filter: 'drop-shadow(0 20px 36px oklch(0 0 0 / 0.55))' }} draggable={false} />
+              </div>
             </div>
-            <div style={{ position: 'absolute', top: -14, left: -14, width: 56, height: 56, borderRadius: 12, background: 'oklch(0.52 0.216 27)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 12px 26px -10px oklch(0.52 0.216 27 / 0.7)', transform: 'rotate(-6deg)' }}><span style={{ fontFamily: "'Noto Serif TC', serif", fontWeight: 900, fontSize: 30, color: 'oklch(0.97 0.012 82)' }}>龍</span></div>
-            <div style={{ position: 'absolute', bottom: 14, left: 16, fontFamily: mono, fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'oklch(0.98 0.01 82)', background: 'oklch(0.19 0.012 32 / 0.55)', backdropFilter: 'blur(6px)', padding: '6px 11px', borderRadius: 6, pointerEvents: 'none' }}>The gallery &middot; Quezon City</div>
+            <div className="dc-hide-sm" style={{ position: 'absolute', top: -14, left: -14, width: 56, height: 56, borderRadius: 12, background: 'oklch(0.52 0.216 27)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 12px 26px -10px oklch(0.52 0.216 27 / 0.7)', transform: 'rotate(-6deg)' }}><span style={{ fontFamily: "'Noto Serif TC', serif", fontWeight: 900, fontSize: 30, color: 'oklch(0.97 0.012 82)' }}>龍</span></div>
+            <div style={{ position: 'absolute', bottom: 14, left: 16, fontFamily: mono, fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'oklch(0.98 0.01 82)', background: 'oklch(0.19 0.012 32 / 0.55)', backdropFilter: 'blur(6px)', padding: '6px 11px', borderRadius: 6, pointerEvents: 'none' }}>The gallery{biz.city && <> &middot; {biz.city}</>}</div>
           </div>
         </div>
       </section>
@@ -131,30 +172,36 @@ export default function VisitPage() {
                 <p style={{ fontSize: 14, color: 'oklch(0.46 0.012 34)', margin: '0 0 28px' }}>We log your request and confirm your slot within the day.</p>
 
                 <div className="dc-cols-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '18px 18px' }}>
-                  <div><label className="dc-lbl">Your name</label><input className="dc-input" type="text" placeholder="Juan dela Cruz" value={s.name} onChange={set('name')} /></div>
-                  <div><label className="dc-lbl">Email</label><input className="dc-input" type="email" placeholder="you@email.com" value={s.email} onChange={set('email')} /></div>
-                  <div><label className="dc-lbl">Phone / WhatsApp</label><input className="dc-input" type="tel" placeholder="+63 9__ ___ ____" value={s.contact} onChange={set('contact')} /></div>
-                  <div><label className="dc-lbl">Preferred date</label><input className="dc-input" type="date" value={s.date} onChange={set('date')} /></div>
-                  <div><label className="dc-lbl">Preferred time</label>
-                    <select className="dc-input" value={s.time} onChange={set('time')}>
-                      {['10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00'].map((t) => <option key={t} value={t}>{t}</option>)}
+                  <div><label className="dc-lbl" htmlFor="vw-name">Your name</label><input id="vw-name" className="dc-input" type="text" autoComplete="name" placeholder="Juan dela Cruz" value={s.name} onChange={set('name')} /></div>
+                  <div><label className="dc-lbl" htmlFor="vw-email">Email</label><input id="vw-email" className="dc-input" type="email" autoComplete="email" placeholder="you@email.com" value={s.email} onChange={set('email')} /></div>
+                  <div><label className="dc-lbl" htmlFor="vw-phone">Phone / WhatsApp</label><input id="vw-phone" className="dc-input" type="tel" autoComplete="tel" placeholder="+63 9__ ___ ____" value={s.contact} onChange={set('contact')} /></div>
+                  <div>
+                    <label className="dc-lbl" htmlFor="vw-date">Preferred date</label>
+                    <input id="vw-date" className="dc-input" type="date" min={minDate || undefined} value={s.date} onChange={set('date')} aria-describedby="vw-date-hint" />
+                    <div id="vw-date-hint" style={{ fontSize: 11.5, marginTop: 6, color: closedOnDate ? 'oklch(0.50 0.20 27)' : 'oklch(0.50 0.02 40)' }}>
+                      {closedOnDate ? `Closed on ${dayNameOf(s.date)}s — pick another day.` : closedDays.length ? `Closed ${closedDays.join(', ')}` : ' '}
+                    </div>
+                  </div>
+                  <div><label className="dc-lbl" htmlFor="vw-time">Preferred time</label>
+                    <select id="vw-time" className="dc-input" value={s.time} onChange={set('time')} disabled={timeSlots.length === 0}>
+                      {timeSlots.length === 0 ? <option value="">No slots this day</option> : timeSlots.map((t) => <option key={t} value={t}>{t}</option>)}
                     </select>
                   </div>
-                  <div><label className="dc-lbl">Guests</label>
-                    <select className="dc-input" value={s.guests} onChange={set('guests')}>
+                  <div><label className="dc-lbl" htmlFor="vw-guests">Guests</label>
+                    <select id="vw-guests" className="dc-input" value={s.guests} onChange={set('guests')}>
                       <option value="1">Just me</option><option value="2">2 of us</option><option value="3">3 of us</option><option value="4+">4 or more</option>
                     </select>
                   </div>
-                  <div><label className="dc-lbl">Fish of interest <span style={{ textTransform: 'none', letterSpacing: 0, color: 'oklch(0.66 0.02 40)' }}>(optional)</span></label><input className="dc-input" type="text" placeholder="e.g. Chili Super Red" value={s.interest} onChange={set('interest')} /></div>
-                  <div style={{ gridColumn: '1 / -1' }}><label className="dc-lbl">Anything else? <span style={{ textTransform: 'none', letterSpacing: 0, color: 'oklch(0.66 0.02 40)' }}>(optional)</span></label><textarea className="dc-input" rows={3} placeholder="First arowana, upgrading my display, bringing my kids…" style={{ resize: 'vertical', minHeight: 78 }} value={s.notes} onChange={set('notes')} /></div>
+                  <div><label className="dc-lbl" htmlFor="vw-interest">Fish of interest <span style={{ textTransform: 'none', letterSpacing: 0, color: 'oklch(0.50 0.02 40)' }}>(optional)</span></label><input id="vw-interest" className="dc-input" type="text" placeholder="e.g. Chili Super Red" value={s.interest} onChange={set('interest')} /></div>
+                  <div style={{ gridColumn: '1 / -1' }}><label className="dc-lbl" htmlFor="vw-notes">Anything else? <span style={{ textTransform: 'none', letterSpacing: 0, color: 'oklch(0.50 0.02 40)' }}>(optional)</span></label><textarea id="vw-notes" className="dc-input" rows={3} placeholder="First arowana, upgrading my display, bringing my kids…" style={{ resize: 'vertical', minHeight: 78 }} value={s.notes} onChange={set('notes')} /></div>
                 </div>
 
-                {error && <div style={{ marginTop: 16, fontSize: 13, color: 'oklch(0.52 0.20 27)', fontFamily: mono }}>{error}</div>}
+                {error && <div role="alert" style={{ marginTop: 16, fontSize: 13, color: 'oklch(0.50 0.20 27)', fontFamily: mono }}>{error}</div>}
 
                 <button type="button" onClick={submit} disabled={status === 'sending'} className="dc-btn-primary" style={{ marginTop: 22, width: '100%', boxSizing: 'border-box', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 10, background: 'oklch(0.52 0.216 27)', color: 'oklch(0.98 0.012 82)', fontSize: 15, fontWeight: 600, padding: '16px 24px', borderRadius: 999, border: 'none', cursor: status === 'sending' ? 'default' : 'pointer', opacity: status === 'sending' ? 0.7 : 1, transition: '.2s', boxShadow: '0 16px 34px -16px oklch(0.52 0.216 27 / 0.7)' }}>
                   {status === 'sending' ? 'Sending…' : 'Send viewing request'}
                 </button>
-                <div style={{ textAlign: 'center', fontFamily: mono, fontSize: 10.5, letterSpacing: '0.06em', color: 'oklch(0.56 0.02 40)', marginTop: 14 }}>
+                <div style={{ textAlign: 'center', fontFamily: mono, fontSize: 10.5, letterSpacing: '0.06em', color: 'oklch(0.50 0.02 40)', marginTop: 14 }}>
                   No deposit needed &middot; viewings are free
                   {waHref && <> &middot; or{' '}<a href={waHref} target="_blank" rel="noopener" style={{ color: 'oklch(0.50 0.216 27)', fontWeight: 600 }}>send on WhatsApp</a></>}
                 </div>
@@ -165,9 +212,11 @@ export default function VisitPage() {
           {/* LOCATION SIDEBAR */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
             <div style={{ background: 'oklch(0.99 0.005 80)', border: '1px solid oklch(0.87 0.012 68)', borderRadius: 14, overflow: 'hidden' }}>
-              <div style={{ position: 'relative', aspectRatio: '16/10' }}>
-                <Slot label="Map" ratio="16/10" />
-              </div>
+              {mapEmbed && (
+                <div style={{ position: 'relative', aspectRatio: '16/10', background: 'oklch(0.93 0.012 70)' }}>
+                  <iframe title={`Map to ${biz.storeName}`} src={mapEmbed} loading="lazy" referrerPolicy="no-referrer-when-downgrade" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 0 }} />
+                </div>
+              )}
               <div style={{ padding: '20px 22px' }}>
                 <div style={{ fontFamily: serif, fontWeight: 700, fontSize: 19, color: 'oklch(0.19 0.012 32)', marginBottom: 4 }}>{biz.storeName} Gallery</div>
                 {(biz.address || biz.city) && <div style={{ fontSize: 13.5, lineHeight: 1.55, color: 'oklch(0.44 0.012 34)', marginBottom: 14 }}>{biz.address}{biz.address && biz.city && <br />}{biz.city}</div>}

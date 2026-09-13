@@ -1,6 +1,13 @@
 import { v } from "convex/values";
 import { mutation, query } from "../_generated/server";
+import { internal } from "../_generated/api";
 import { getViewer, requireStaff } from "../lib/authz";
+import {
+  loadStoreContact,
+  normalizeCustomerEmail,
+  notifyViewingRequested,
+  shouldSendAcknowledgement,
+} from "./notifications";
 
 const MAX_NAME = 100;
 const MAX_EMAIL = 254;
@@ -57,6 +64,37 @@ export const createViewing = mutation({
       createdAt: now,
       updatedAt: now,
     });
+
+    // Best-effort side effects: a failure here must never fail the booking itself.
+    try {
+      await notifyViewingRequested(ctx, {
+        viewingId: id,
+        name: args.name.trim(),
+        date: args.date,
+        time: args.time,
+        partySize: args.partySize,
+      });
+    } catch (error) {
+      console.error("Failed to create viewing request notification:", error);
+    }
+
+    try {
+      const to = normalizeCustomerEmail(args.email);
+      if (to && (await shouldSendAcknowledgement(ctx, "viewings", to, id))) {
+        await ctx.scheduler.runAfter(0, internal.services.email.sendViewingRequestEmail, {
+          to,
+          viewingId: id,
+          name: args.name.trim(),
+          date: args.date,
+          time: args.time,
+          partySize: args.partySize,
+          store: await loadStoreContact(ctx),
+        });
+      }
+    } catch (error) {
+      console.error("Failed to schedule viewing request email:", error);
+    }
+
     return { success: true, id };
   },
 });

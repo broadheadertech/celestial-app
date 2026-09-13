@@ -13,10 +13,13 @@ import type {
   FilterApi,
   FunctionReference,
 } from "convex/server";
+import type * as crons from "../crons.js";
 import type * as files from "../files.js";
 import type * as http from "../http.js";
 import type * as lib_authz from "../lib/authz.js";
+import type * as lib_password from "../lib/password.js";
 import type * as lib_purchaseMode from "../lib/purchaseMode.js";
+import type * as lib_throttle from "../lib/throttle.js";
 import type * as migrations_fix_login_method from "../migrations/fix_login_method.js";
 import type * as seed from "../seed.js";
 import type * as services_admin from "../services/admin.js";
@@ -31,6 +34,7 @@ import type * as services_categories from "../services/categories.js";
 import type * as services_contact from "../services/contact.js";
 import type * as services_email from "../services/email.js";
 import type * as services_finance from "../services/finance.js";
+import type * as services_maintenance from "../services/maintenance.js";
 import type * as services_notifications from "../services/notifications.js";
 import type * as services_orders from "../services/orders.js";
 import type * as services_payments from "../services/payments.js";
@@ -54,10 +58,13 @@ import type * as services_wishlist from "../services/wishlist.js";
  * ```
  */
 declare const fullApi: ApiFromModules<{
+  crons: typeof crons;
   files: typeof files;
   http: typeof http;
   "lib/authz": typeof lib_authz;
+  "lib/password": typeof lib_password;
   "lib/purchaseMode": typeof lib_purchaseMode;
+  "lib/throttle": typeof lib_throttle;
   "migrations/fix_login_method": typeof migrations_fix_login_method;
   seed: typeof seed;
   "services/admin": typeof services_admin;
@@ -72,6 +79,7 @@ declare const fullApi: ApiFromModules<{
   "services/contact": typeof services_contact;
   "services/email": typeof services_email;
   "services/finance": typeof services_finance;
+  "services/maintenance": typeof services_maintenance;
   "services/notifications": typeof services_notifications;
   "services/orders": typeof services_orders;
   "services/payments": typeof services_payments;

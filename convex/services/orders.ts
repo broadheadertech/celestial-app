@@ -4,6 +4,8 @@ import { recordSaleHelper, restoreStockHelper } from "./stock";
 import { recordAudit } from "./audit";
 import { getViewer, isStaffRole, requireStaff, requireUser } from "../lib/authz";
 import { resolvePurchaseMode } from "../lib/purchaseMode";
+import { internal } from "../_generated/api";
+import { loadStoreContact, normalizeCustomerEmail, notifyWebOrderPlaced } from "./notifications";
 
 // Get user's orders
 export const getUserOrders = query({
@@ -520,6 +522,7 @@ export const placeWebOrder = mutation({
     const viewer = await getViewer(ctx);
     const now = Date.now();
     const orderItems = [];
+    const emailItems: { name: string; quantity: number; unitPrice: number }[] = [];
     let totalAmount = 0;
 
     for (const item of args.items) {
@@ -545,6 +548,7 @@ export const placeWebOrder = mutation({
         originalPrice: product.price,
         discount: 0,
       });
+      emailItems.push({ name: product.name, quantity: item.quantity, unitPrice: product.price });
       totalAmount += product.price * item.quantity;
 
       await ctx.db.patch(item.productId, { stock: product.stock - item.quantity, updatedAt: now });
@@ -582,7 +586,45 @@ export const placeWebOrder = mutation({
       updatedAt: now,
     });
 
-    return { orderId, orderCode: generateOrderCode(orderId), totalAmount };
+    const orderCode = generateOrderCode(orderId);
+    const itemCount = orderItems.reduce((sum, line) => sum + line.quantity, 0);
+    // The checkout sends "Fulfilment: pickup at the gallery|delivery" as the first notes line.
+    const fulfilmentMatch = /^Fulfilment:\s*(.+)$/im.exec(args.notes ?? "");
+    const fulfilment = (fulfilmentMatch?.[1].trim() || (args.address ? "delivery" : "pickup")).slice(0, 80);
+
+    // Best-effort side effects: a failure here must never fail the order itself.
+    try {
+      await notifyWebOrderPlaced(ctx, {
+        orderId,
+        orderCode,
+        customerName,
+        itemCount,
+        totalAmount,
+        fulfilment,
+      });
+    } catch (error) {
+      console.error("Failed to create web order notification:", error);
+    }
+
+    try {
+      const to = normalizeCustomerEmail(args.customerEmail);
+      if (to) {
+        await ctx.scheduler.runAfter(0, internal.services.email.sendWebOrderConfirmationEmail, {
+          to,
+          orderId,
+          orderCode,
+          customerName,
+          items: emailItems,
+          totalAmount,
+          fulfilment,
+          store: await loadStoreContact(ctx),
+        });
+      }
+    } catch (error) {
+      console.error("Failed to schedule web order confirmation email:", error);
+    }
+
+    return { orderId, orderCode, totalAmount };
   },
 });
 
