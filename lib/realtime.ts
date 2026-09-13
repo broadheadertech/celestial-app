@@ -1,3 +1,9 @@
+type RealtimeMessage =
+  | { type: 'order_update'; message: string; orderId: string }
+  | { type: 'reservation_update'; message: string; reservationId: string }
+  | { type: 'low_stock_alert'; productName: string; stock: number; productId: string }
+  | { type: 'new_arrival'; productName: string; productId: string };
+
 export class RealtimeService {
   private static eventSource: EventSource | null = null;
   private static reconnectAttempts = 0;
@@ -50,7 +56,7 @@ export class RealtimeService {
     }
   }
 
-  private static handleMessage(data: any) {
+  private static handleMessage(data: RealtimeMessage) {
     switch (data.type) {
       case 'order_update':
         this.showNotification('Order Update', {
@@ -85,7 +91,7 @@ export class RealtimeService {
         break;
 
       default:
-        console.log('Unknown message type:', data.type);
+        console.log('Unknown message type:', (data as { type?: unknown }).type);
     }
   }
 

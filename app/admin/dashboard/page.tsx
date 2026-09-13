@@ -7,8 +7,6 @@ import {
   Package,
   TrendingUp,
   TrendingDown,
-  Receipt,
-  Eye,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from 'convex/react';

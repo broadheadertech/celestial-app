@@ -7,8 +7,6 @@ import {
   User,
   Calendar,
   Package,
-  DollarSign,
-  Clock,
   MapPin,
   Phone,
   Mail,
@@ -17,10 +15,8 @@ import {
   X,
   AlertCircle,
   FileText,
-  MessageSquare,
   Printer,
   Send,
-  MoreVertical,
   Loader,
   Wallet,
   Plus,
@@ -37,7 +33,7 @@ import { useQuery, useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { Id } from '@/convex/_generated/dataModel';
 import { useAuthStore } from '@/store/auth';
-import { getSMSMessageForStatus, type SMSMessageData } from '@/lib/sms';
+import { getSMSMessageForStatus } from '@/lib/sms';
 
 const paymentMethodLabels: Record<string, string> = {
   cash: 'Cash',
@@ -233,7 +229,7 @@ function ReservationDetailsContent() {
       setStatusNote('');
 
       showConfirmation('Success', 'Reservation status updated successfully!', 'success');
-    } catch (error) {
+    } catch {
       showConfirmation('Error', 'Error updating status. Please try again.', 'error');
     } finally {
       setIsUpdating(false);
@@ -277,7 +273,7 @@ function ReservationDetailsContent() {
         `Reservation ${actionText}! ${sendSMS ? 'SMS sent to customer.' : 'Customer notified via push notification.'}`, 
         'success'
       );
-    } catch (error) {
+    } catch {
       showConfirmation('Error', 'Error updating status. Please try again.', 'error');
     } finally {
       setIsUpdating(false);
@@ -620,7 +616,7 @@ function ReservationDetailsContent() {
           </div>
 
           <div className="divide-y divide-white/10">
-            {reservation.items.map((item, index) => (
+            {reservation.items.map((item) => (
               <div key={item.productId} className="py-3 sm:py-4 first:pt-0 last:pb-0">
                 <div className="flex items-start gap-3 sm:gap-4">
                   <img

@@ -223,7 +223,7 @@ export default function GlobalReservationOverlay() {
               >
                 Continue browsing
               </Button>
-              <p className="text-xs text-gray-400">We'll notify you when it's ready</p>
+              <p className="text-xs text-gray-400">We&apos;ll notify you when it&apos;s ready</p>
             </div>
           </>
         ) : timedOut ? (
@@ -235,7 +235,7 @@ export default function GlobalReservationOverlay() {
 
             <h2 className="text-xl sm:text-2xl font-semibold text-white mb-2 sm:mb-3">Reservation in process</h2>
             <p className="text-sm sm:text-base text-gray-300 px-4">
-              Your reservation is still being processed by our team. We'll send you a confirmation notification once it's approved.
+              Your reservation is still being processed by our team. We&apos;ll send you a confirmation notification once it&apos;s approved.
             </p>
 
             {reservationCode && (
@@ -279,7 +279,7 @@ export default function GlobalReservationOverlay() {
 
             <h2 className="text-xl sm:text-2xl font-semibold text-white mb-2 sm:mb-3">Reservation confirmed</h2>
             <p className="text-sm sm:text-base text-gray-300 px-4">
-              We'll notify you when your order is ready for pickup. Keep this code handy for a faster experience at the counter.
+              We&apos;ll notify you when your order is ready for pickup. Keep this code handy for a faster experience at the counter.
             </p>
 
             {reservationCode && (

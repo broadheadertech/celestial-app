@@ -7,7 +7,7 @@ export const generateInsights = query({
   args: {
     focus: v.optional(v.string()),
   },
-  handler: async (ctx, { focus }) => {
+  handler: async (ctx) => {
     await requireStaff(ctx);
     const [orders, reservations, products, users, stockRecords, categories] = await Promise.all([
       ctx.db.query("orders").collect(),

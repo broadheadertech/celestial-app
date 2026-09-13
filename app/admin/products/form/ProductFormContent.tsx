@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useMutation, useQuery } from 'convex/react';
 import {
@@ -152,7 +152,9 @@ export function ProductFormContentInner({ editProductId, onSuccess, isDrawer }: 
   const dietOptions = ['Carnivore', 'Herbivore', 'Omnivore', 'Piscivore', 'Planktivore', 'Detritivore'];
 
   // Convex queries and mutations
-  const categories = useQuery(api.services.categories.getCategories, {}) || [];
+  const categoriesData = useQuery(api.services.categories.getCategories, {});
+  // Stable empty fallback: a fresh `[]` each render would re-run the edit-prefill effect below on every render.
+  const categories = useMemo(() => categoriesData ?? [], [categoriesData]);
 
   // Fetch data for editing
   const existingProduct = useQuery(
@@ -346,7 +348,7 @@ export function ProductFormContentInner({ editProductId, onSuccess, isDrawer }: 
           }
 
           showConfirmation('Success', 'Image uploaded successfully!', 'success');
-        } catch (error) {
+        } catch {
           showConfirmation('Upload Failed', 'Failed to upload image. Please try again.', 'error');
 
           // Remove from uploading state
@@ -405,7 +407,7 @@ export function ProductFormContentInner({ editProductId, onSuccess, isDrawer }: 
     try {
       // Find the selected category ID
       const selectedCategory = categories.find(cat => cat.name === formData.category);
-      const categoryId = selectedCategory ? selectedCategory._id : (formData.categoryId as any);
+      const categoryId = selectedCategory ? selectedCategory._id : (formData.categoryId as Id<'categories'>);
 
       // Create certificate string from images - store URLs separated by commas
       const certificateString = formData.certificateImages.length > 0
@@ -421,7 +423,7 @@ export function ProductFormContentInner({ editProductId, onSuccess, isDrawer }: 
         price: parseFloat(formData.price),
         costPrice: formData.costPrice ? parseFloat(formData.costPrice) : undefined,
         originalPrice: formData.originalPrice ? parseFloat(formData.originalPrice) : undefined,
-        categoryId: categoryId as any,
+        categoryId,
         certificate: certificateString,
         image: formData.image,
         images: formData.images.length > 0 ? formData.images : [formData.image],
@@ -436,7 +438,7 @@ export function ProductFormContentInner({ editProductId, onSuccess, isDrawer }: 
         userId: user?._id as Id<'users'> | undefined,
       };
 
-      let savedProductId: any;
+      let savedProductId: Id<'products'>;
 
       if (isEditing && productId) {
         // Prepare fish data for update (scientificName/temperature/origin/lifespan are optional)
@@ -473,19 +475,19 @@ export function ProductFormContentInner({ editProductId, onSuccess, isDrawer }: 
         }
 
         await updateProduct({
-          productId: productId as any,
+          productId: productId as Id<'products'>,
           ...baseProductData,
           fishData: fishDataForUpdate,
           tankData: tankDataForUpdate,
         });
-        savedProductId = productId;
+        savedProductId = productId as Id<'products'>;
       } else {
         savedProductId = await createProduct(baseProductData);
 
         // Handle fish-specific data for new products (scientificName/temperature/origin/lifespan optional)
         if (isFishProduct && savedProductId) {
           const fishData = {
-            productId: savedProductId as any,
+            productId: savedProductId,
             scientificName: formData.scientificName.trim() || undefined,
             size: parseFloat(formData.fishSize),
             temperature: formData.fishTemperature ? parseFloat(formData.fishTemperature) : undefined,
@@ -502,7 +504,7 @@ export function ProductFormContentInner({ editProductId, onSuccess, isDrawer }: 
         // Handle tank-specific data for new products
         if (isTankProduct && savedProductId) {
           const tankData = {
-            productId: savedProductId as any,
+            productId: savedProductId,
             tankType: formData.tankType,
             material: formData.material,
             capacity: parseFloat(formData.capacity),
@@ -526,7 +528,7 @@ export function ProductFormContentInner({ editProductId, onSuccess, isDrawer }: 
       } else {
         router.push('/admin/products');
       }
-    } catch (error) {
+    } catch {
       showConfirmation('Error', `Failed to ${isEditing ? 'update' : 'create'} product. Please try again.`, 'error');
     } finally {
       setFormLoading(false);

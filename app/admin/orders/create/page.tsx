@@ -9,7 +9,6 @@ import {
   Trash2,
   ShoppingCart,
   User,
-  X,
   Package,
   ChevronDown,
 } from 'lucide-react';
@@ -20,7 +19,10 @@ import { Id } from '@/convex/_generated/dataModel';
 import Card from '@/components/ui/Card';
 import BottomNavbar from '@/components/common/BottomNavbar';
 import SafeAreaProvider from '@/components/provider/SafeAreaProvider';
-import OrderReceipt from '@/components/admin/OrderReceipt';
+import OrderReceipt, { type ReceiptData } from '@/components/admin/OrderReceipt';
+import type { FunctionReturnType } from 'convex/server';
+
+type AdminProduct = FunctionReturnType<typeof api.services.admin.getAllProductsAdmin>[number];
 
 const formatCurrency = (amount: number) => {
   return `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`;
@@ -64,7 +66,7 @@ function CreateOrderContent() {
 
   // State
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [receiptData, setReceiptData] = useState<any>(null);
+  const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
 
   // Queries
   const products = useQuery(api.services.admin.getAllProductsAdmin, {});
@@ -92,7 +94,7 @@ function CreateOrderContent() {
   // Calculate total
   const totalAmount = orderItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
-  const addProduct = (product: any) => {
+  const addProduct = (product: AdminProduct) => {
     const existing = orderItems.find(i => i.productId === product._id);
     if (existing) {
       if (existing.quantity < product.stock) {
@@ -190,7 +192,7 @@ function CreateOrderContent() {
   // Filter client users only
   const clientUsers = useMemo(() => {
     if (!users) return [];
-    return users.filter((u: any) => u.role === 'client' && u.isActive !== false);
+    return users.filter((u) => u.role === 'client' && u.isActive !== false);
   }, [users]);
 
   return (
@@ -239,13 +241,13 @@ function CreateOrderContent() {
                     value={selectedUserId}
                     onChange={(e) => {
                       setSelectedUserId(e.target.value);
-                      const user = clientUsers.find((u: any) => u._id === e.target.value);
-                      if (user) setCustomerName(`${(user as any).firstName} ${(user as any).lastName}`);
+                      const user = clientUsers.find((u) => u._id === e.target.value);
+                      if (user) setCustomerName(`${user.firstName} ${user.lastName}`);
                     }}
                     className="w-full px-3 py-2.5 bg-background/60 border border-white/10 rounded-lg text-sm text-white appearance-none focus:outline-none focus:ring-2 focus:ring-primary"
                   >
                     <option value="">Select customer...</option>
-                    {clientUsers.map((user: any) => (
+                    {clientUsers.map((user) => (
                       <option key={user._id} value={user._id}>
                         {user.firstName} {user.lastName} ({user.email})
                       </option>
@@ -320,14 +322,14 @@ function CreateOrderContent() {
               value={salesAssociateId}
               onChange={(e) => {
                 setSalesAssociateId(e.target.value);
-                const staff = staffUsers?.find((s: any) => s._id === e.target.value);
+                const staff = staffUsers?.find((s) => s._id === e.target.value);
                 if (staff) setSalesAssociateName(`${staff.firstName} ${staff.lastName}`);
                 else setSalesAssociateName('');
               }}
               className="w-full px-3 py-2.5 bg-background/60 border border-white/10 rounded-lg text-sm text-white appearance-none focus:outline-none focus:ring-2 focus:ring-primary"
             >
               <option value="">Select staff member (optional)</option>
-              {staffUsers?.map((staff: any) => (
+              {staffUsers?.map((staff) => (
                 <option key={staff._id} value={staff._id}>
                   {staff.firstName} {staff.lastName} ({staff.role})
                 </option>

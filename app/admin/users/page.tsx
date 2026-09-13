@@ -13,7 +13,6 @@ import {
   Search,
   Filter,
   MoreVertical,
-  Edit,
   Trash2,
   Shield,
   ShieldOff,
@@ -29,9 +28,7 @@ import {
   Unlock,
   UserCog,
 } from 'lucide-react';
-import { formatDate, getRelativeTime } from '@/lib/utils';
-import Button from '@/components/ui/Button';
-import Card from '@/components/ui/Card';
+import { getRelativeTime } from '@/lib/utils';
 import ConfirmationModal from '@/components/ui/ConfirmationModal';
 import { useAuthStore } from '@/store/auth';
 
@@ -266,7 +263,7 @@ function AdminUsersContent() {
         actorId: currentUser?._id as Id<'users'> | undefined,
       });
       showConfirmation('Success', `User ${!currentStatus ? 'activated' : 'deactivated'} successfully!`, 'success');
-    } catch (error) {
+    } catch {
       showConfirmation('Error', 'Error updating user status. Please try again.', 'error');
     }
     setSelectedUser(null);
@@ -280,7 +277,7 @@ function AdminUsersContent() {
         actorId: currentUser?._id as Id<'users'> | undefined,
       });
       showConfirmation('Success', 'User promoted to admin successfully!', 'success');
-    } catch (error) {
+    } catch {
       showConfirmation('Error', 'Error promoting user to admin. Please try again.', 'error');
     }
     setSelectedUser(null);
@@ -294,7 +291,7 @@ function AdminUsersContent() {
         actorId: currentUser?._id as Id<'users'> | undefined,
       });
       showConfirmation('Success', 'User demoted to client successfully!', 'success');
-    } catch (error) {
+    } catch {
       showConfirmation('Error', 'Error demoting user. Please try again.', 'error');
     }
     setSelectedUser(null);
@@ -340,7 +337,8 @@ function AdminUsersContent() {
 
   const toggleSelect = (userId: string) => {
     const next = new Set(selectedUserIds);
-    next.has(userId) ? next.delete(userId) : next.add(userId);
+    if (next.has(userId)) next.delete(userId);
+    else next.add(userId);
     setSelectedUserIds(next);
   };
 

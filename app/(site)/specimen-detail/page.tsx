@@ -2,12 +2,14 @@
 /* eslint-disable @next/next/no-img-element -- product images are remote Convex storage URLs */
 
 /**
- * Specimen — the design, wired to a real Convex product via ?id=.
- * Falls back to the top in-stock arowana when no id is given.
+ * Specimen — the design, wired to a real Convex product.
+ *  - /specimen-detail?id=<id>   in-app links (work on the web and inside the Capacitor app)
+ *  - /specimen/<slug>           readable/shareable URL; vercel.json rewrites it to this page
+ * Falls back to the top in-stock arowana when neither is given.
  */
 
 import Link from 'next/link';
-import { Suspense, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useQuery } from 'convex/react';
 import { api } from '@/convex/_generated/api';
@@ -22,6 +24,61 @@ const certificateUrls = (certificate?: string) =>
 
 const mono = "'Geist Mono', monospace";
 const serif = "'Noto Serif Display', serif";
+const SITE_URL = 'https://dc.broadheader.com';
+
+/** Slug from a rewritten /specimen/<slug> URL (read from the real browser location). */
+function slugFromLocation(): string | null {
+  if (typeof window === 'undefined') return null;
+  const m = /^\/specimen\/([^/?#]+)\/?$/.exec(window.location.pathname);
+  return m ? decodeURIComponent(m[1]).toLowerCase() : null;
+}
+
+/** Title, description, canonical URL and Product structured data for search engines. */
+function useProductSeo(product: DcProduct | null | undefined, storeName: string) {
+  useEffect(() => {
+    if (!product) return;
+    const url = product.slug ? `${SITE_URL}/specimen/${product.slug}` : `${SITE_URL}/specimen-detail?id=${product._id}`;
+    const description = (product.description || `${product.name} — available at ${storeName}.`).slice(0, 300);
+    document.title = `${product.name} · ${storeName}`;
+
+    const upsert = (selector: string, create: () => HTMLElement) => {
+      let el = document.head.querySelector<HTMLElement>(selector);
+      if (!el) {
+        el = create();
+        document.head.appendChild(el);
+      }
+      return el;
+    };
+    upsert('meta[name="description"]', () => Object.assign(document.createElement('meta'), { name: 'description' })).setAttribute('content', description);
+    upsert('link[rel="canonical"]', () => Object.assign(document.createElement('link'), { rel: 'canonical' })).setAttribute('href', url);
+
+    const jsonLd = {
+      '@context': 'https://schema.org',
+      '@type': 'Product',
+      name: product.name,
+      description,
+      image: (product.images?.length ? product.images : product.image ? [product.image] : []).slice(0, 5),
+      sku: product.sku ? String(product.sku) : undefined,
+      category: product.categoryName,
+      brand: { '@type': 'Brand', name: storeName },
+      url,
+      offers: {
+        '@type': 'Offer',
+        url,
+        priceCurrency: 'PHP',
+        price: product.price,
+        availability: product.stock > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+        seller: { '@type': 'Organization', name: storeName },
+      },
+    };
+    const script = upsert('script#product-jsonld', () => Object.assign(document.createElement('script'), { id: 'product-jsonld', type: 'application/ld+json' }));
+    script.textContent = JSON.stringify(jsonLd);
+
+    return () => {
+      document.getElementById('product-jsonld')?.remove();
+    };
+  }, [product, storeName]);
+}
 
 export default function SpecimenPage() {
   return (
@@ -32,19 +89,27 @@ export default function SpecimenPage() {
 }
 
 function SpecimenInner() {
-  const idParam = useSearchParams().get('id');
+  const params = useSearchParams();
+  const idParam = params.get('id');
+  // Read once: the slug lives in the real URL (/specimen/<slug>), not in this page's route.
+  const [pathSlug] = useState(slugFromLocation);
+  const slugParam = idParam ? null : params.get('p') || pathSlug;
   const biz = useBusiness();
   const addToCart = useSiteCart((s) => s.add);
   const [activeImage, setActiveImage] = useState(0);
   const [qty, setQty] = useState(1);
   const all = useQuery(api.services.products.getCatalogProducts, {}) as DcProduct[] | undefined;
-  const fetched = useQuery(api.services.products.getProduct, idParam ? { productId: idParam } : 'skip') as DcProduct | null | undefined;
+  const byId = useQuery(api.services.products.getProduct, idParam ? { productId: idParam } : 'skip') as DcProduct | null | undefined;
+  const bySlug = useQuery(api.services.products.getProductBySlug, slugParam ? { slug: slugParam } : 'skip') as DcProduct | null | undefined;
+  const lookup = idParam || slugParam;
+  const fetched = idParam ? byId : bySlug;
 
   const fallback = useMemo(
     () => (all ?? []).filter((p) => p.isActive && isFish(p) && isArowana(p.name)).sort((a, b) => gradeRank(a.grade) - gradeRank(b.grade) || b.price - a.price)[0],
     [all],
   );
-  const product = idParam ? fetched : fallback;
+  const product = lookup ? fetched : fallback;
+  useProductSeo(lookup ? fetched : null, biz.storeName);
 
   const fish = useQuery(
     api.services.products.getFishByProductId,
@@ -70,7 +135,7 @@ function SpecimenInner() {
 
   const notice = (text: string, withLinks = false) => (
     <div style={{ maxWidth: 1280, margin: '0 auto', padding: '96px 28px', textAlign: 'center' }}>
-      <div style={{ fontFamily: mono, fontSize: 12, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'oklch(0.50 0.02 40)', marginBottom: withLinks ? 22 : 0 }}>{text}</div>
+      <h1 style={{ fontFamily: mono, fontWeight: 400, fontSize: 12, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'oklch(0.50 0.02 40)', margin: 0, marginBottom: withLinks ? 22 : 0 }}>{text}</h1>
       {withLinks && (
         <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
           <Link href="/catalog" className="dc-btn-ghost" style={{ border: '1px solid oklch(0.78 0.02 40)', color: 'oklch(0.34 0.012 34)', fontSize: 14, fontWeight: 600, padding: '12px 20px', borderRadius: 999 }}>Browse the catalog</Link>
@@ -80,8 +145,8 @@ function SpecimenInner() {
     </div>
   );
 
-  if (idParam && fetched === null) return notice('This item is no longer available', true);
-  if (!idParam && all !== undefined && !fallback) return notice('No specimens on display right now', true);
+  if (lookup && fetched === null) return notice('This item is no longer available', true);
+  if (!lookup && all !== undefined && !fallback) return notice('No specimens on display right now', true);
   if (!product) return notice('Loading…');
 
   const label = isArowana(product.name) ? bloodlineOf(product.name) : isLiveFish ? familyOf(product.name) : product.categoryName || 'Shop';

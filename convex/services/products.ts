@@ -1,9 +1,11 @@
 import { v } from "convex/values";
-import { mutation, query, QueryCtx } from "../_generated/server";
+import { internalMutation, mutation, query, QueryCtx } from "../_generated/server";
 import { Doc } from "../_generated/dataModel";
+import type { WithoutSystemFields } from "convex/server";
 import { recordAudit } from "./audit";
 import { getViewer, isStaffRole, requireStaff } from "../lib/authz";
 import { resolvePurchaseMode } from "../lib/purchaseMode";
+import { uniqueProductSlug } from "../lib/slug";
 
 const PURCHASE_MODE = v.optional(v.union(v.literal("enquire"), v.literal("cart")));
 
@@ -79,24 +81,57 @@ export const getProduct = query({
   handler: async (ctx, { productId }) => {
     const id = ctx.db.normalizeId("products", productId);
     if (!id) return null;
-    const product = await ctx.db.get(id);
-    if (!product) return null;
+    return productForViewer(ctx, await ctx.db.get(id));
+  },
+});
 
-    const viewer = await getViewer(ctx);
-    const staff = !!viewer && isStaffRole(viewer.role);
-    if (!product.isActive && !staff) return null;
+// Get product by its URL slug (/specimen/<slug>). Same visibility rules as getProduct.
+export const getProductBySlug = query({
+  args: { slug: v.string() },
+  handler: async (ctx, { slug }) => {
+    const clean = slug.trim().toLowerCase();
+    if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(clean) || clean.length > 120) return null;
+    const product = await ctx.db
+      .query("products")
+      .withIndex("by_slug", (q) => q.eq("slug", clean))
+      .first();
+    return productForViewer(ctx, product);
+  },
+});
 
-    const category = await ctx.db.get(product.categoryId);
-    if (staff) {
-      // Admin edit form needs cost fields and whether purchaseMode was explicitly set.
-      return {
-        ...product,
-        categoryName: category?.name || "Unknown",
-        purchaseMode: resolvePurchaseMode(product, category?.name),
-        purchaseModeSetting: product.purchaseMode ?? null,
-      };
+/** Shapes a product for the caller: full record for staff, public fields otherwise. */
+async function productForViewer(ctx: QueryCtx, product: Doc<"products"> | null) {
+  if (!product) return null;
+  const viewer = await getViewer(ctx);
+  const staff = !!viewer && isStaffRole(viewer.role);
+  if (!product.isActive && !staff) return null;
+
+  const category = await ctx.db.get(product.categoryId);
+  if (staff) {
+    // Admin edit form needs cost fields and whether purchaseMode was explicitly set.
+    return {
+      ...product,
+      categoryName: category?.name || "Unknown",
+      purchaseMode: resolvePurchaseMode(product, category?.name),
+      purchaseModeSetting: product.purchaseMode ?? null,
+    };
+  }
+  return { ...toPublicProduct(product, category?.name), purchaseModeSetting: null };
+}
+
+/**
+ * One-off backfill: gives every product without a slug a unique one. Batched — run
+ * `npx convex run services/products:backfillProductSlugs` until `remaining` is 0.
+ */
+export const backfillProductSlugs = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const batch = (await ctx.db.query("products").collect()).filter((p) => !p.slug).slice(0, 100);
+    for (const p of batch) {
+      await ctx.db.patch(p._id, { slug: await uniqueProductSlug(ctx, p.name, p._id) });
     }
-    return { ...toPublicProduct(product, category?.name), purchaseModeSetting: null };
+    const remaining = (await ctx.db.query("products").collect()).filter((p) => !p.slug).length;
+    return { updated: batch.length, remaining };
   },
 });
 // Get tank data by product ID
@@ -149,7 +184,7 @@ export const getTopRatedProducts = query({
     limit: v.optional(v.number()),
     minRating: v.optional(v.number()),
   },
-  handler: async (ctx, { limit = 10, minRating = 4.0 }) => {
+  handler: async (ctx, { limit = 10 }) => {
     // Get all active products
     const products = await ctx.db
       .query("products")
@@ -437,6 +472,8 @@ export const createProduct = mutation({
         tankNumber: args.tankNumber,
         batchCode: batchCode,
         grade: args.grade,
+        purchaseMode: args.purchaseMode,
+        slug: await uniqueProductSlug(ctx, args.name.trim()),
         isActive: args.isActive,
         createdAt: now,
         updatedAt: now,
@@ -761,7 +798,7 @@ export const updateProduct = mutation({
     
     try {
       // Prepare update data
-      const updateData: any = {
+      const updateData: Partial<WithoutSystemFields<Doc<"products">>> = {
         updatedAt: Date.now(),
       };
       

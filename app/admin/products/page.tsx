@@ -28,6 +28,7 @@ import {
 import { useRouter } from 'next/navigation';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
+import type { Id } from '@/convex/_generated/dataModel';
 import BottomNavbar from '@/components/common/BottomNavbar';
 import SafeAreaProvider from '@/components/provider/SafeAreaProvider';
 import DesktopDrawer from '@/components/admin/DesktopDrawer';
@@ -371,10 +372,10 @@ function AdminProductsContent() {
         if (!product) return;
 
         await toggleProductStatus({
-          productId: productId as any,
+          productId: productId as Id<'products'>,
           isActive: !product.isActive,
         });
-      } catch (error) {
+      } catch {
       }
     } else if (action === 'Restock') {
       setRestockProductId(productId);
@@ -442,13 +443,13 @@ function AdminProductsContent() {
     try {
       // Create a new stock record for this restock (1-to-many relationship)
       const result = await restockProduct({
-        productId: restockProductId as any,
+        productId: restockProductId as Id<'products'>,
         quantity: quantity,
         notes: `Admin restock - Added ${quantity} units`,
         actualCostPrice,
         fundingSource: restockSource,
         supplier: restockSupplier.trim() || undefined,
-        userId: actingUser?._id as any,
+        userId: actingUser?._id as Id<'users'> | undefined,
       });
 
       // Close modal and reset
@@ -460,7 +461,7 @@ function AdminProductsContent() {
       setRestockSupplier('');
 
       alert(`${result.message}\nNew batch code: ${result.batchCode}\nTotal stock: ${result.newTotalStock} units`);
-    } catch (error) {
+    } catch {
       alert('Failed to restock product. Please try again.');
     }
   };
@@ -486,11 +487,11 @@ function AdminProductsContent() {
     setIsLoggingInternalUse(true);
     try {
       const result = await logInternalUse({
-        productId: internalUseProductId as any,
+        productId: internalUseProductId as Id<'products'>,
         quantity,
         notes: internalUseNotes.trim() || undefined,
         internalUseCategory: internalUseReason,
-        userId: actingUser?._id as any,
+        userId: actingUser?._id as Id<'users'> | undefined,
       });
       setShowInternalUseModal(false);
       setInternalUseProductId(null);
@@ -532,10 +533,10 @@ function AdminProductsContent() {
 
     try {
       const result = await recordMortalityLoss({
-        productId: mortalityProductId as any,
+        productId: mortalityProductId as Id<'products'>,
         quantity: quantity,
         notes: `🪦 Mortality Loss - ${product.name}\nTank: ${product.tankNumber || 'N/A'}\nSKU: ${product.sku || 'N/A'}\nQuantity Lost: ${quantity} units\nRecorded: ${new Date().toLocaleString()}`,
-        userId: actingUser?._id as any,
+        userId: actingUser?._id as Id<'users'> | undefined,
       });
 
       // Close modal and reset
@@ -1849,7 +1850,7 @@ function AdminProductsContent() {
                 <button onClick={async () => {
                   setIsDeleting(true);
                   try {
-                    const result = await deleteProductMutation({ id: deleteConfirm.id as any, userId: actingUser?._id as any });
+                    const result = await deleteProductMutation({ id: deleteConfirm.id as Id<'products'>, userId: actingUser?._id as Id<'users'> | undefined });
                     setSuccessMessage(result?.message || 'Product deleted successfully');
                     setDeleteConfirm(null);
                     setTimeout(() => setSuccessMessage(''), 3000);

@@ -4,8 +4,10 @@ const nextConfig: NextConfig = {
   output: "export",
   distDir: "out",
   eslint: {
-    // Many legacy lint errors remain (no-explicit-any etc.); run `npm run lint` separately.
-    ignoreDuringBuilds: true,
+    // Lint errors now fail the build (warnings don't). Next only lints app/pages/components/lib/src
+    // by default, so list every source directory explicitly.
+    ignoreDuringBuilds: false,
+    dirs: ["app", "components", "lib", "hooks", "store", "convex"],
   },
   typescript: {
     // Type errors now fail the build.

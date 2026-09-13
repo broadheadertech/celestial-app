@@ -3,11 +3,10 @@
 import { useState } from "react";
 import { X, MessageSquare, Phone, User, FileText } from "lucide-react";
 import Button from "@/components/ui/Button";
-import { 
-  openSMSApp, 
-  formatPhoneNumber, 
-  isValidPhoneNumber,
-  type SMSMessageData 
+import {
+  openSMSApp,
+  formatPhoneNumber,
+  isValidPhoneNumber
 } from "@/lib/sms";
 
 interface SMSConfirmationModalProps {

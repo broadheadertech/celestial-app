@@ -5,12 +5,11 @@ import { Lock, Eye, EyeOff, CheckCircle, AlertCircle, ArrowLeft } from "lucide-r
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useRouter, useSearchParams } from "next/navigation";
-import SafeAreaProvider, { useSafeArea } from '@/components/provider/SafeAreaProvider';
+import SafeAreaProvider from '@/components/provider/SafeAreaProvider';
 
 // Reset Password Content Component
 function ResetPasswordContent() {
   const router = useRouter();
-  const { isMobileApp } = useSafeArea();
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
 
@@ -84,8 +83,8 @@ function ResetPasswordContent() {
       setTimeout(() => {
         router.push("/auth/login");
       }, 3000);
-    } catch (err: any) {
-      setError(err.message || "Failed to reset password. Please try again.");
+    } catch (err: unknown) {
+      setError((err instanceof Error && err.message) || "Failed to reset password. Please try again.");
     } finally {
       setIsLoading(false);
     }

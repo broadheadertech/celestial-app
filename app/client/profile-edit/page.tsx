@@ -5,13 +5,8 @@ import { useRouter } from 'next/navigation';
 import {
   ArrowLeft,
   User,
-  Mail,
-  Phone,
   Edit3,
   Save,
-  X,
-  AlertCircle,
-  Check,
   Eye,
   EyeOff
 } from 'lucide-react';
@@ -66,6 +61,17 @@ export default function ProfileEditPage() {
     }
   }, [isAuthenticated, user?.role, router]);
 
+  // Password form state
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
+  });
+
+  // Validation errors
+  const [profileErrors, setProfileErrors] = useState<{[key: string]: string}>({});
+  const [passwordErrors, setPasswordErrors] = useState<{[key: string]: string}>({});
+
   // Show loading while checking auth
   if (!isAuthenticated || user?.role === 'admin' || user?.role === 'super_admin') {
     return (
@@ -77,17 +83,6 @@ export default function ProfileEditPage() {
       </div>
     );
   }
-
-  // Password form state
-  const [passwordData, setPasswordData] = useState({
-    currentPassword: '',
-    newPassword: '',
-    confirmPassword: '',
-  });
-
-  // Validation errors
-  const [profileErrors, setProfileErrors] = useState<{[key: string]: string}>({});
-  const [passwordErrors, setPasswordErrors] = useState<{[key: string]: string}>({});
 
   const validateProfile = () => {
     const errors: {[key: string]: string} = {};

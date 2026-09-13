@@ -1,10 +1,9 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
-import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import { useState, useRef } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   ArrowLeft,
-  Star,
   ShoppingCart,
   Plus,
   Minus,
@@ -34,7 +33,6 @@ import { useCartStore } from '@/store/cart';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { Doc, Id } from '@/convex/_generated/dataModel';
-import Button from '@/components/ui/Button';
 import { Product } from '@/types';
 import SafeAreaProvider from '@/components/provider/SafeAreaProvider';
 

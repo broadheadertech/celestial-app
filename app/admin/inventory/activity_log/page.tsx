@@ -4,6 +4,7 @@ import React, { Suspense, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuery } from 'convex/react';
 import { api } from '@/convex/_generated/api';
+import type { Id } from '@/convex/_generated/dataModel';
 import {
   ArrowLeft,
   Package,
@@ -42,7 +43,7 @@ interface RecordVisual {
   ringColor: string;
 }
 
-const getRecordVisual = (record: any): RecordVisual => {
+const getRecordVisual = (record: { isMortalityLoss?: boolean; isRestock?: boolean }): RecordVisual => {
   if (record.isMortalityLoss) {
     return { icon: Skull, label: 'Mortality Loss', color: 'text-error', bgColor: 'bg-error/10', ringColor: 'ring-error/30' };
   }
@@ -76,12 +77,12 @@ function ActivityLogContent() {
 
   const stockRecords = useQuery(
     api.services.stock.getStockRecordsByProduct,
-    productId ? { productId: productId as any } : 'skip'
+    productId ? { productId: productId as Id<'products'> } : 'skip'
   );
 
   const product = useQuery(
     api.services.products.getProduct,
-    productId ? { productId: productId as any } : 'skip'
+    productId ? { productId: productId as Id<'products'> } : 'skip'
   );
 
   const sortedRecords = useMemo(() => {

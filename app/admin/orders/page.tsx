@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useMemo, useEffect, useRef } from 'react';
-import useWindowSize from '@/hooks/useWindowSize';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import {
@@ -34,7 +33,11 @@ import { Id } from '@/convex/_generated/dataModel';
 import { useAuthStore } from '@/store/auth';
 import { SMSConfirmationModal } from '@/components/modal/SMSConfirmationModal';
 import { getSMSMessageForStatus } from '@/lib/sms';
-import OrderReceipt from '@/components/admin/OrderReceipt';
+import OrderReceipt, { type ReceiptData } from '@/components/admin/OrderReceipt';
+import type { FunctionArgs } from 'convex/server';
+
+type OrderStatus = FunctionArgs<typeof api.services.orders.updateOrderStatus>['status'];
+type ReservationStatus = FunctionArgs<typeof api.services.reservations.updateReservationStatus>['status'];
 import DesktopDrawer from '@/components/admin/DesktopDrawer';
 import CreateOrderForm from '@/components/admin/CreateOrderForm';
 
@@ -265,9 +268,7 @@ function DesktopDropdown({
 
 function AdminOrdersContent() {
   const router = useRouter();
-  const { width } = useWindowSize();
   const { user: actingUser } = useAuthStore();
-  const isMobile = width < 640;
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [showFilters, setShowFilters] = useState(false);
@@ -320,7 +321,7 @@ function AdminOrdersContent() {
   const assignReservationSA = useMutation(api.services.admin.assignReservationSalesAssociate);
   const staffUsers = useQuery(api.services.admin.getStaffUsers, {});
 
-  const [receiptData, setReceiptData] = useState<any>(null);
+  const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
   const [showCreateDrawer, setShowCreateDrawer] = useState(false);
   const [showAssignSA, setShowAssignSA] = useState<CombinedItem | null>(null);
   const [selectedSAId, setSelectedSAId] = useState('');
@@ -407,11 +408,11 @@ function AdminOrdersContent() {
       }
 
       if (item.type === 'order') {
-        await updateOrderStatus({ orderId: itemId as Id<'orders'>, status: newStatus as any });
+        await updateOrderStatus({ orderId: itemId as Id<'orders'>, status: newStatus as OrderStatus });
       } else {
-        await updateReservationStatus({ reservationId: itemId as Id<'reservations'>, status: newStatus as any });
+        await updateReservationStatus({ reservationId: itemId as Id<'reservations'>, status: newStatus as ReservationStatus });
       }
-    } catch (error) {
+    } catch {
       alert('Failed to update status. Please try again.');
     }
   };
@@ -423,7 +424,7 @@ function AdminOrdersContent() {
 
       setPendingAction({ itemId, status: 'ready_for_pickup', type: 'ready_for_pickup' });
       setShowSMSModal(true);
-    } catch (error) {
+    } catch {
       alert('Failed to prepare status update. Please try again.');
     }
   };
@@ -445,13 +446,13 @@ function AdminOrdersContent() {
       } else {
         await updateReservationStatus({
           reservationId: pendingAction.itemId as Id<'reservations'>,
-          status: pendingAction.status as any
+          status: pendingAction.status as ReservationStatus
         });
       }
 
       setShowSMSModal(false);
       setPendingAction(null);
-    } catch (error) {
+    } catch {
       alert('Failed to update status. Please try again.');
     } finally {
       setIsProcessing(false);
@@ -914,7 +915,7 @@ function AdminOrdersContent() {
                   const filtered = q
                     ? productsQuery.filter(p => p.name?.toLowerCase().includes(q))
                     : productsQuery.slice(0, 30); // show first 30 by default
-                  if (filtered.length === 0) return <p className="text-[11px] text-white/40 px-1">No products match "{productSearch}".</p>;
+                  if (filtered.length === 0) return <p className="text-[11px] text-white/40 px-1">No products match &ldquo;{productSearch}&rdquo;.</p>;
                   return (
                     <div className="max-h-44 overflow-y-auto rounded-lg border border-white/5 bg-background/40 divide-y divide-white/5">
                       {filtered.map(p => {
@@ -1447,13 +1448,13 @@ function AdminOrdersContent() {
                   value={selectedSAId}
                   onChange={(e) => {
                     setSelectedSAId(e.target.value);
-                    const staff = staffUsers?.find((s: any) => s._id === e.target.value);
+                    const staff = staffUsers?.find((s) => s._id === e.target.value);
                     setSelectedSAName(staff ? `${staff.firstName} ${staff.lastName}` : '');
                   }}
                   className="w-full px-3 py-2.5 bg-background/60 border border-white/10 rounded-lg text-sm text-white appearance-none focus:outline-none focus:ring-2 focus:ring-primary"
                 >
                   <option value="">None (remove associate)</option>
-                  {staffUsers?.map((s: any) => (
+                  {staffUsers?.map((s) => (
                     <option key={s._id} value={s._id}>
                       {s.firstName} {s.lastName} {s.isSalesAssociate ? '⭐' : ''} ({s.role})
                     </option>

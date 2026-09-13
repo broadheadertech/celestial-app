@@ -1,6 +1,7 @@
 import { mutation, query, MutationCtx } from "../_generated/server";
 import { v } from "convex/values";
-import { Id } from "../_generated/dataModel";
+import { Doc, Id } from "../_generated/dataModel";
+import type { WithoutSystemFields } from "convex/server";
 import { notifyUserRegistered } from "./notifications";
 import { internal } from "../_generated/api";
 import { createSession } from "./session";
@@ -271,7 +272,7 @@ export const updateProfile = mutation({
       throw new Error("User not found");
     }
 
-    const updateData: any = {
+    const updateData: Partial<WithoutSystemFields<Doc<"users">>> = {
       updatedAt: Date.now(),
     };
 
@@ -521,7 +522,7 @@ export const updateUserFacebookData = mutation({
       throw new Error("User not found");
     }
 
-    const updateData: any = {
+    const updateData: Partial<WithoutSystemFields<Doc<"users">>> = {
       updatedAt: Date.now(),
       loginMethod,
     };

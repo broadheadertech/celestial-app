@@ -1,5 +1,7 @@
 import { query, mutation } from "../_generated/server";
 import { v } from "convex/values";
+import type { WithoutSystemFields } from "convex/server";
+import type { Doc } from "../_generated/dataModel";
 import { getViewer, isStaffRole, requireStaff } from "../lib/authz";
 
 // Get all categories (public storefront read; inactive categories are staff-only)
@@ -97,7 +99,7 @@ export const updateCategory = mutation({
       throw new Error("Category name cannot be empty");
     }
 
-    const updateData: any = {
+    const updateData: Partial<WithoutSystemFields<Doc<"categories">>> = {
       ...updates,
       updatedAt: Date.now(),
     };

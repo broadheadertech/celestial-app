@@ -9,14 +9,13 @@ import Input from '@/components/ui/Input';
 import Card from '@/components/ui/Card';
 import { isValidEmail } from '@/lib/utils';
 import { useAuthStore } from '@/store/auth';
-import SafeAreaProvider, { useSafeArea } from '@/components/provider/SafeAreaProvider';
+import SafeAreaProvider from '@/components/provider/SafeAreaProvider';
 
 // Login Content Component
 function LoginContent() {
   const router = useRouter();
   const { user, isAuthenticated } = useAuthStore();
-  const { loginWithEmail, isLoading } = useAuth();
-  const { isMobileApp } = useSafeArea();
+  const { loginWithEmail } = useAuth();
 
   const [formData, setFormData] = useState({
     email: '',

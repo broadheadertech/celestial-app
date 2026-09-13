@@ -1,7 +1,9 @@
 import { v } from "convex/values";
 import { getViewer, isStaffRole, requireStaff, requireSuperAdmin } from "../lib/authz";
+import { getReservationUser } from "../lib/reservationUser";
+import { uniqueProductSlug } from "../lib/slug";
 import { mutation, query } from "../_generated/server";
-import { Doc } from "../_generated/dataModel";
+import { Doc, Id } from "../_generated/dataModel";
 import { hashPassword } from "./auth";
 import { recordAudit } from "./audit";
 
@@ -17,7 +19,7 @@ function assertCanManageUser(staff: Doc<"users">, target: Doc<"users">) {
 export const getDashboardStats = query({
   args: {},
   handler: async (ctx) => {
-    const staff = await requireStaff(ctx);
+    await requireStaff(ctx);
     // Get both orders and reservations
     const orders = await ctx.db.query("orders").collect();
     const reservations = await ctx.db.query("reservations").collect();
@@ -127,7 +129,7 @@ export const getDashboardStats = query({
 export const getRecentOrders = query({
   args: { limit: v.optional(v.number()) },
   handler: async (ctx, { limit = 10 }) => {
-    const staff = await requireStaff(ctx);
+    await requireStaff(ctx);
     // Get both orders and reservations
     const orders = await ctx.db
       .query("orders")
@@ -174,22 +176,8 @@ export const getRecentOrders = query({
         let customerName = 'Unknown Customer';
         
         if (reservation.userId) {
-          // Try Convex Id first; if it fails, fallback to facebookId lookup
-          try {
-            // @ts-expect-error runtime may be string; db.get will throw if invalid
-            const u = await ctx.db.get(reservation.userId);
-            if (u) {
-              user = u;
-            }
-          } catch (_) {
-            // Not a Convex Id, attempt facebookId index
-            user = await ctx.db
-              .query("users")
-              .withIndex("by_facebook_id", (q) =>
-                q.eq("facebookId", String(reservation.userId))
-              )
-              .unique();
-          }
+          // Users id, or a legacy Facebook id string (see convex/lib/reservationUser.ts).
+          user = await getReservationUser(ctx, reservation.userId);
 
           if (user) {
             customerName = `${user.firstName} ${user.lastName}`;
@@ -308,7 +296,7 @@ export const getAllProductsAdmin = query({
 export const getProductStats = query({
   args: {},
   handler: async (ctx) => {
-    const staff = await requireStaff(ctx);
+    await requireStaff(ctx);
     const products = await ctx.db.query("products").collect();
     const activeProducts = products.filter(p => p.isActive);
     const outOfStock = products.filter(p => p.stock === 0);
@@ -425,6 +413,7 @@ export const createProduct = mutation({
       productStatus: args.productStatus || "active",
       tankNumber: args.tankNumber,
       batchCode: batchCode,
+      slug: await uniqueProductSlug(ctx, args.name),
       createdAt: now,
       updatedAt: now,
     });
@@ -508,7 +497,7 @@ export const updateProduct = mutation({
     lifespan: v.optional(v.string()),
   },
   handler: async (ctx, { id, ...updates }) => {
-    const staff = await requireStaff(ctx);
+    await requireStaff(ctx);
     const product = await ctx.db.get(id);
     if (!product) {
       throw new Error("Product not found");
@@ -529,7 +518,7 @@ export const toggleProductStatus = mutation({
     isActive: v.boolean(),
   },
   handler: async (ctx, { productId, isActive }) => {
-    const staff = await requireStaff(ctx);
+    await requireStaff(ctx);
     const product = await ctx.db.get(productId);
     if (!product) {
       throw new Error("Product not found");
@@ -550,7 +539,7 @@ export const deleteProduct = mutation({
     forceDelete: v.optional(v.boolean()), // bypass history guard + cascade orders/reservations/expenses
     userId: v.optional(v.id("users")),
   },
-  handler: async (ctx, { id, forceDelete, userId }) => {
+  handler: async (ctx, { id, forceDelete }) => {
     const staff = await requireStaff(ctx);
     const product = await ctx.db.get(id);
     if (!product) {
@@ -736,7 +725,7 @@ export const deleteProduct = mutation({
 export const cleanupOrphanedRecords = mutation({
   args: {},
   handler: async (ctx) => {
-    const staff = await requireStaff(ctx);
+    await requireStaff(ctx);
     const products = await ctx.db.query("products").collect();
     const validIds = new Set<string>(products.map(p => p._id));
 
@@ -821,7 +810,7 @@ export const createFishData = mutation({
     diet: v.string(),
   },
   handler: async (ctx, args) => {
-    const staff = await requireStaff(ctx);
+    await requireStaff(ctx);
     const fishId = await ctx.db.insert("fish", args);
     return fishId;
   },
@@ -845,7 +834,7 @@ export const createTankData = mutation({
     filtation: v.number(),
   },
   handler: async (ctx, args) => {
-    const staff = await requireStaff(ctx);
+    await requireStaff(ctx);
     const tankId = await ctx.db.insert("tank", args);
     return tankId;
   },
@@ -858,7 +847,7 @@ export const getAllUsers = query({
     search: v.optional(v.string()),
   },
   handler: async (ctx, { role, search }) => {
-    const staff = await requireStaff(ctx);
+    await requireStaff(ctx);
     let users = await ctx.db.query("users").collect();
     
     if (role && role !== 'all') {
@@ -906,7 +895,7 @@ export const adminCreateCustomer = mutation({
     phone: v.optional(v.string()),
   },
   handler: async (ctx, { firstName, lastName, email, phone }) => {
-    const staff = await requireStaff(ctx);
+    await requireStaff(ctx);
     // Check if email already exists
     const existing = await ctx.db
       .query("users")
@@ -983,7 +972,7 @@ export const toggleSalesAssociate = mutation({
     userId: v.id("users"),
     actorId: v.optional(v.id("users")),
   },
-  handler: async (ctx, { userId, actorId }) => {
+  handler: async (ctx, { userId }) => {
     const staff = await requireStaff(ctx);
     const user = await ctx.db.get(userId);
     if (!user) throw new Error("User not found");
@@ -1018,7 +1007,7 @@ export const assignOrderSalesAssociate = mutation({
     salesAssociateName: v.optional(v.string()),
   },
   handler: async (ctx, { orderId, salesAssociateId, salesAssociateName }) => {
-    const staff = await requireStaff(ctx);
+    await requireStaff(ctx);
     const order = await ctx.db.get(orderId);
     if (!order) throw new Error("Order not found");
 
@@ -1040,7 +1029,7 @@ export const assignReservationSalesAssociate = mutation({
     salesAssociateName: v.optional(v.string()),
   },
   handler: async (ctx, { reservationId, salesAssociateId, salesAssociateName }) => {
-    const staff = await requireStaff(ctx);
+    await requireStaff(ctx);
     const reservation = await ctx.db.get(reservationId);
     if (!reservation) throw new Error("Reservation not found");
 
@@ -1221,7 +1210,7 @@ export const bulkUpdateUsers = mutation({
     ),
   },
   handler: async (ctx, { userIds, action }) => {
-    const staff = await requireSuperAdmin(ctx);
+    await requireSuperAdmin(ctx);
     const now = Date.now();
     let processed = 0;
     const skipped: string[] = [];
@@ -1262,7 +1251,7 @@ export const getAllOrdersAdmin = query({
     search: v.optional(v.string()),
   },
   handler: async (ctx, { status, search }) => {
-    const staff = await requireStaff(ctx);
+    await requireStaff(ctx);
     let orders = await ctx.db.query("orders").collect();
     
     if (status && status !== 'all') {
@@ -1319,7 +1308,7 @@ export const updateOrderStatus = mutation({
     adminNotes: v.optional(v.string()),
   },
   handler: async (ctx, { orderId, status, adminNotes }) => {
-    const staff = await requireStaff(ctx);
+    await requireStaff(ctx);
     const order = await ctx.db.get(orderId);
     if (!order) {
       throw new Error("Order not found");
@@ -1344,7 +1333,7 @@ export const createCategory = mutation({
     isActive: v.boolean(),
   },
   handler: async (ctx, args) => {
-    const staff = await requireStaff(ctx);
+    await requireStaff(ctx);
     const categoryId = await ctx.db.insert("categories", {
       ...args,
       createdAt: Date.now(),
@@ -1364,7 +1353,7 @@ export const updateCategory = mutation({
     isActive: v.optional(v.boolean()),
   },
   handler: async (ctx, { id, ...updates }) => {
-    const staff = await requireStaff(ctx);
+    await requireStaff(ctx);
     const category = await ctx.db.get(id);
     if (!category) {
       throw new Error("Category not found");
@@ -1382,7 +1371,7 @@ export const updateCategory = mutation({
 export const deleteCategory = mutation({
   args: { id: v.id("categories") },
   handler: async (ctx, { id }) => {
-    const staff = await requireStaff(ctx);
+    await requireStaff(ctx);
     const category = await ctx.db.get(id);
     if (!category) {
       throw new Error("Category not found");
@@ -1407,7 +1396,7 @@ export const getAnalyticsData = query({
     period: v.optional(v.string()), // 'week', 'month', 'year'
   },
   handler: async (ctx, { period = 'month' }) => {
-    const staff = await requireStaff(ctx);
+    await requireStaff(ctx);
     const now = new Date();
     let startDate: Date;
     
@@ -1455,7 +1444,7 @@ export const getAnalyticsData = query({
         .slice(0, 5)
         .map(async ([productId, sales]) => {
           try {
-            const product = await ctx.db.get(productId as any);
+            const product = await ctx.db.get(productId as Id<"products">);
             if (product && 'name' in product && 'price' in product) {
               return {
                 name: product.name,
@@ -1615,7 +1604,7 @@ export const updateAssociate = mutation({
 export const getAssociates = query({
   args: {},
   handler: async (ctx) => {
-    const staff = await requireStaff(ctx);
+    await requireStaff(ctx);
     const [admins, superAdmins, associates] = await Promise.all([
       ctx.db.query("users").withIndex("by_role", (q) => q.eq("role", "admin")).collect(),
       ctx.db.query("users").withIndex("by_role", (q) => q.eq("role", "super_admin")).collect(),

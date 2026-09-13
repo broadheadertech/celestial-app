@@ -13,7 +13,9 @@ import path from 'node:path';
 const ROOT = path.resolve('out');
 const PORT = Number(process.env.SMOKE_PORT || 4179);
 const DEBUG_PORT = PORT + 1;
-const PAGES = ['/', '/catalog', '/cave', '/shop', '/visit', '/contact', '/track', '/checkout'];
+const PAGES = ['/', '/catalog', '/cave', '/shop', '/visit', '/contact', '/track', '/checkout', '/journal'];
+// Extra paths to check, e.g. SMOKE_EXTRA=/specimen/some-slug,/specimen/another
+for (const extra of (process.env.SMOKE_EXTRA || '').split(',').map((p) => p.trim()).filter(Boolean)) PAGES.push(extra);
 const VIEWPORTS = [
   { name: 'phone', width: 390, height: 844, mobile: true },
   { name: 'desktop', width: 1366, height: 900, mobile: false },
@@ -44,8 +46,20 @@ if (!chromePath) {
 
 // ── static server (resolves /path -> /path.html) ──
 const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.webp': 'image/webp', '.png': 'image/png', '.svg': 'image/svg+xml', '.json': 'application/json', '.woff2': 'font/woff2', '.ico': 'image/x-icon', '.txt': 'text/plain', '.xml': 'application/xml' };
+// Apply vercel.json rewrites (e.g. /specimen/:slug → /specimen-detail) like production does.
+const rewrites = (() => {
+  try {
+    return (JSON.parse(fs.readFileSync('vercel.json', 'utf8')).rewrites || []).map((r) => ({
+      re: new RegExp('^' + r.source.replace(/:[a-zA-Z]+/g, '[^/]+') + '$'),
+      destination: r.destination,
+    }));
+  } catch {
+    return [];
+  }
+})();
 const server = http.createServer((req, res) => {
-  const p = decodeURIComponent((req.url || '/').split('?')[0]);
+  let p = decodeURIComponent((req.url || '/').split('?')[0]);
+  p = rewrites.find((r) => r.re.test(p))?.destination ?? p;
   for (const c of [p, `${p}.html`, path.join(p, 'index.html')]) {
     const f = path.join(ROOT, c);
     if (f.startsWith(ROOT) && fs.existsSync(f) && fs.statSync(f).isFile()) {

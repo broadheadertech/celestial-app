@@ -62,7 +62,7 @@ export default function SafeAreaProvider({
     const initializeSafeArea = async () => {
       try {
         // Check if we're in a Capacitor environment
-        if (typeof window !== 'undefined' && (window as any).Capacitor) {
+        if (typeof window !== 'undefined' && (window as Window & { Capacitor?: unknown }).Capacitor) {
           const { SafeArea } = await import('capacitor-plugin-safe-area');
           
           setIsMobileApp(true);
@@ -75,7 +75,7 @@ export default function SafeAreaProvider({
           applyCSSVariables(initialInsets);
           
           // Listen for safe area changes (orientation changes, etc.)
-          const listener = await SafeArea.addListener('safeAreaChanged', (data) => {
+          await SafeArea.addListener('safeAreaChanged', (data) => {
             const { insets: updatedInsets } = data;
             setInsets(updatedInsets);
             applyCSSVariables(updatedInsets);

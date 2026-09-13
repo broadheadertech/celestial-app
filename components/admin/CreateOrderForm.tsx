@@ -16,8 +16,10 @@ import {
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { Id } from '@/convex/_generated/dataModel';
-import Card from '@/components/ui/Card';
-import OrderReceipt from '@/components/admin/OrderReceipt';
+import OrderReceipt, { type ReceiptData } from '@/components/admin/OrderReceipt';
+import type { FunctionReturnType } from 'convex/server';
+
+type AdminProduct = FunctionReturnType<typeof api.services.admin.getAllProductsAdmin>[number];
 
 const formatCurrency = (amount: number) =>
   `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`;
@@ -53,7 +55,7 @@ export default function CreateOrderForm({ onSuccess }: CreateOrderFormProps) {
   const [paymentMethod, setPaymentMethod] = useState('cash');
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [receiptData, setReceiptData] = useState<any>(null);
+  const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
 
   // Order-level discount
   const [orderDiscountType, setOrderDiscountType] = useState<'amount' | 'percent'>('amount');
@@ -106,10 +108,10 @@ export default function CreateOrderForm({ onSuccess }: CreateOrderFormProps) {
 
   const clientUsers = useMemo(() => {
     if (!users) return [];
-    return users.filter((u: any) => u.role === 'client' && u.isActive !== false);
+    return users.filter((u) => u.role === 'client' && u.isActive !== false);
   }, [users]);
 
-  const addProduct = (product: any) => {
+  const addProduct = (product: AdminProduct) => {
     const existing = orderItems.find(i => i.productId === product._id);
     if (existing) {
       if (existing.quantity < product.stock) {
@@ -211,10 +213,10 @@ export default function CreateOrderForm({ onSuccess }: CreateOrderFormProps) {
           {!showNewCustomer ? (
             <div className="space-y-3">
               <div className="relative">
-                <select value={selectedUserId} onChange={(e) => { setSelectedUserId(e.target.value); const u = clientUsers.find((u: any) => u._id === e.target.value); if (u) setCustomerName(`${(u as any).firstName} ${(u as any).lastName}`); }}
+                <select value={selectedUserId} onChange={(e) => { setSelectedUserId(e.target.value); const u = clientUsers.find((u) => u._id === e.target.value); if (u) setCustomerName(`${u.firstName} ${u.lastName}`); }}
                   className="w-full px-3 py-2.5 bg-background/60 border border-white/10 rounded-lg text-sm text-white appearance-none focus:outline-none focus:ring-2 focus:ring-primary">
                   <option value="">Select customer...</option>
-                  {clientUsers.map((u: any) => <option key={u._id} value={u._id}>{u.firstName} {u.lastName} ({u.email})</option>)}
+                  {clientUsers.map((u) => <option key={u._id} value={u._id}>{u.firstName} {u.lastName} ({u.email})</option>)}
                 </select>
                 <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40 pointer-events-none" />
               </div>
@@ -334,10 +336,10 @@ export default function CreateOrderForm({ onSuccess }: CreateOrderFormProps) {
         <div className="bg-secondary/40 rounded-xl p-4 border border-white/10">
           <h3 className="text-sm font-bold text-white mb-2 flex items-center gap-2"><User className="w-4 h-4 text-success" /> Sales Associate</h3>
           <div className="relative">
-            <select value={salesAssociateId} onChange={(e) => { setSalesAssociateId(e.target.value); const s = staffUsers?.find((s: any) => s._id === e.target.value); setSalesAssociateName(s ? `${s.firstName} ${s.lastName}` : ''); }}
+            <select value={salesAssociateId} onChange={(e) => { setSalesAssociateId(e.target.value); const s = staffUsers?.find((s) => s._id === e.target.value); setSalesAssociateName(s ? `${s.firstName} ${s.lastName}` : ''); }}
               className="w-full px-3 py-2.5 bg-background/60 border border-white/10 rounded-lg text-sm text-white appearance-none focus:outline-none focus:ring-2 focus:ring-primary">
               <option value="">Select (optional)</option>
-              {staffUsers?.map((s: any) => <option key={s._id} value={s._id}>{s.firstName} {s.lastName} {s.isSalesAssociate ? '⭐' : ''}</option>)}
+              {staffUsers?.map((s) => <option key={s._id} value={s._id}>{s.firstName} {s.lastName} {s.isSalesAssociate ? '⭐' : ''}</option>)}
             </select>
             <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40 pointer-events-none" />
           </div>

@@ -5,7 +5,6 @@ import {
   Bell,
   X,
   Gift,
-  CheckCircle,
   Info,
   Clock,
   Calendar,

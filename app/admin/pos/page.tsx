@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, type Dispatch, type SetStateAction } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
@@ -19,17 +19,15 @@ import {
   Smartphone,
   Wallet,
   Percent,
-  User,
-  Pause,
   CheckCircle2,
-  Receipt,
   Calendar,
   Clock,
   Bookmark,
   RotateCcw,
   Sparkles,
 } from 'lucide-react';
-import OrderReceipt from '@/components/admin/OrderReceipt';
+import OrderReceipt, { type ReceiptData } from '@/components/admin/OrderReceipt';
+import type { FunctionReturnType } from 'convex/server';
 import BottomNavbar from '@/components/common/BottomNavbar';
 import SafeAreaProvider from '@/components/provider/SafeAreaProvider';
 import { useAuthStore } from '@/store/auth';
@@ -40,6 +38,11 @@ const fmt = (amount: number) =>
 
 type Mode = 'sale' | 'reserve' | 'refund';
 type PaymentMethodId = 'cash' | 'card' | 'gcash' | 'other';
+type DepositMethod = 'cash' | 'gcash' | 'card' | 'bank_transfer' | 'other';
+type AdminProduct = FunctionReturnType<typeof api.services.admin.getAllProductsAdmin>[number];
+type AdminUser = FunctionReturnType<typeof api.services.admin.getAllUsers>[number];
+type AdminOrder = FunctionReturnType<typeof api.services.orders.getAllOrdersAdmin>[number];
+type Setter<T> = Dispatch<SetStateAction<T>>;
 
 interface CartLine {
   productId: string;
@@ -118,7 +121,7 @@ function PosPageContent() {
   // Exact downpayment override. When non-empty & valid, it wins over the percentage preset.
   const [reservationDepositInput, setReservationDepositInput] = useState('');
   // How the downpayment is being taken (cash hits Cash on Hand; others tracked separately).
-  const [reservationDepositMethod, setReservationDepositMethod] = useState<'cash' | 'gcash' | 'card' | 'bank_transfer' | 'other'>('cash');
+  const [reservationDepositMethod, setReservationDepositMethod] = useState<DepositMethod>('cash');
 
   // Line discount modal
   const [editLine, setEditLine] = useState<string | null>(null);
@@ -132,7 +135,7 @@ function PosPageContent() {
 
   // UI flags
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [receiptData, setReceiptData] = useState<any>(null);
+  const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
   const [showCartMobile, setShowCartMobile] = useState(false);
 
   // ─── Convex ───
@@ -194,7 +197,6 @@ function PosPageContent() {
       addProduct(exact);
       setSearch('');
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, products]);
 
   // ─── Math ───
@@ -329,11 +331,6 @@ function PosPageContent() {
   };
 
   // ─── Sale checkout ───
-  const canCheckoutSale =
-    cart.length > 0 &&
-    (!!selectedUserId || !!customerName.trim()) &&
-    !isSubmitting &&
-    Math.abs(remaining) < 0.01 || (remaining < 0 && tenders.length > 0);
 
   const handleCheckout = async () => {
     if (cart.length === 0) return;
@@ -861,7 +858,7 @@ function ProductTile({
   qty,
   onAdd,
 }: {
-  product: any;
+  product: AdminProduct;
   qty: number;
   onAdd: () => void;
 }) {
@@ -927,7 +924,57 @@ function ProductTile({
   );
 }
 
-function CartPanel(props: any) {
+interface CartPanelProps {
+  mode: Mode;
+  cart: CartLine[];
+  setQty: (productId: string, delta: number) => void;
+  removeLine: (productId: string) => void;
+  openLineDiscount: (l: CartLine) => void;
+  clearSale: () => void;
+  customerName: string;
+  setCustomerName: Setter<string>;
+  selectedUserId: string;
+  setSelectedUserId: Setter<string>;
+  setShowCustomerPicker: Setter<boolean>;
+  orderDiscType: 'amount' | 'percent';
+  setOrderDiscType: Setter<'amount' | 'percent'>;
+  orderDiscInput: string;
+  setOrderDiscInput: Setter<string>;
+  tip: string;
+  setTip: Setter<string>;
+  tenders: TenderLine[];
+  setTenders: Setter<TenderLine[]>;
+  total: number;
+  subtotal: number;
+  orderDiscount: number;
+  lineDiscountTotal: number;
+  tipNumber: number;
+  paid: number;
+  remaining: number;
+  change: number;
+  clientUsers: AdminUser[];
+  onCheckout: () => Promise<void>;
+  isSubmitting: boolean;
+  showCartMobile: boolean;
+  setShowCartMobile: Setter<boolean>;
+  pickupDate: string;
+  setPickupDate: Setter<string>;
+  pickupTime: string;
+  setPickupTime: Setter<string>;
+  reservationDepositRatio: number;
+  setReservationDepositRatio: Setter<number>;
+  reservationDepositInput: string;
+  setReservationDepositInput: Setter<string>;
+  reservationDepositMethod: DepositMethod;
+  setReservationDepositMethod: Setter<DepositMethod>;
+  reservationDepositIsExact: boolean;
+  reservationDeposit: number;
+  reservationBalance: number;
+  onReserve: () => Promise<void>;
+  canReserve: boolean;
+}
+
+function CartPanel(props: CartPanelProps) {
   const {
     mode,
     cart,
@@ -952,10 +999,8 @@ function CartPanel(props: any) {
     subtotal,
     orderDiscount,
     tipNumber,
-    paid,
     remaining,
     change,
-    clientUsers,
     onCheckout,
     isSubmitting,
     showCartMobile,
@@ -1595,7 +1640,6 @@ function CartLineRow({
 function PaymentSplit({
   tenders,
   setTenders,
-  total,
   remaining,
   change,
 }: {
@@ -1851,8 +1895,8 @@ function CustomerPickerModal({
 }: {
   search: string;
   setSearch: (v: string) => void;
-  customers: any[];
-  onPick: (u: any) => void;
+  customers: AdminUser[];
+  onPick: (u: AdminUser) => void;
   onClose: () => void;
 }) {
   return (
@@ -1926,7 +1970,7 @@ function RefundView({
   setSearch,
   onConfirm,
 }: {
-  orders: any[];
+  orders: AdminOrder[];
   search: string;
   setSearch: (v: string) => void;
   onConfirm: (id: string) => void;
@@ -2025,7 +2069,7 @@ function RefundConfirmModal({
   onClose,
 }: {
   orderId: string;
-  order: any;
+  order: AdminOrder | undefined;
   isProcessing: boolean;
   onConfirm: () => void;
   onClose: () => void;

@@ -37,7 +37,7 @@ export default function AccountPage() {
   const liveReservation = useMemo(() => {
     if (!reservations) return null;
     return (
-      (reservations as any[]).find(
+      reservations.find(
         (r) => r.status === 'confirmed' || r.status === 'pending' || r.status === 'ready_for_pickup',
       ) || null
     );
@@ -45,11 +45,11 @@ export default function AccountPage() {
 
   const totalSpent = useMemo(() => {
     const oSum = (orders ?? []).reduce(
-      (s: number, o: any) => s + (o.amountPaid ?? o.totalAmount ?? 0),
+      (s: number, o) => s + (o.amountPaid ?? o.totalAmount ?? 0),
       0,
     );
-    const rSum = ((reservations as any[]) ?? []).reduce(
-      (s: number, r: any) => s + (r.amountPaid ?? 0),
+    const rSum = (reservations ?? []).reduce(
+      (s: number, r) => s + (r.amountPaid ?? 0),
       0,
     );
     return oSum + rSum;
@@ -129,7 +129,7 @@ export default function AccountPage() {
           {([
             { id: 'overview' as Tab, label: 'Overview' },
             { id: 'orders' as Tab, label: `Orders · ${orders === undefined ? '…' : orders.length}` },
-            { id: 'reservations' as Tab, label: `Reservations · ${reservations === undefined ? '…' : (reservations as any[]).length}` },
+            { id: 'reservations' as Tab, label: `Reservations · ${reservations === undefined ? '…' : reservations.length}` },
             { id: 'wishlist' as Tab, label: `Wishlist · ${wishlist === undefined ? '…' : wishlist.length}` },
             { id: 'profile' as Tab, label: 'Profile' },
           ]).map((t) => (
@@ -159,7 +159,7 @@ export default function AccountPage() {
                 style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}
               >
                 <StatCard label="Orders placed" value={String(orders?.length || 0)} />
-                <StatCard label="Reservations" value={String((reservations as any[])?.length || 0)} />
+                <StatCard label="Reservations" value={String(reservations?.length || 0)} />
                 <StatCard label="Lifetime spend" value={fmt(totalSpent)} />
               </div>
 
@@ -307,12 +307,12 @@ export default function AccountPage() {
             <div className="flex flex-col gap-2">
               {reservations === undefined ? (
                 <p className="py-10 text-center text-[14px]" style={{ color: 'var(--ink-4)' }}>Loading reservations…</p>
-              ) : !(reservations as any[]).length ? (
+              ) : !reservations.length ? (
                 <p className="py-10 text-center text-[14px]" style={{ color: 'var(--ink-4)' }}>
                   No reservations yet.
                 </p>
               ) : (
-                (reservations as any[]).map((r) => (
+                reservations.map((r) => (
                   <div
                     key={r._id}
                     className="grid items-center gap-4 py-4 px-5 rounded"

@@ -4,18 +4,14 @@ import { useEffect, useState, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import {
-  ShoppingCart,
-  User,
   Search,
   Bell,
-  Gift,
   Star,
   Zap,
   TrendingUp,
   Package,
   ChevronRight,
   Crown,
-  Shield,
   MapPin,
   CalendarCheck,
   Fish,
@@ -25,12 +21,14 @@ import {
   Loader2,
   Eye,
   RefreshCw,
+  type LucideIcon,
 } from "lucide-react";
 import { useAuthStore, useIsAuthenticated, useIsGuest } from "@/store/auth";
-import { useCartItemCount, useCartStore } from "@/store/cart";
+import { useCartStore } from "@/store/cart";
 import { Product } from "@/types";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
 import Button from "@/components/ui/Button";
 import ProductCard from "@/components/ui/ProductCard";
 import ClientNotificationModal from "@/components/modal/ClientNotifModal";
@@ -44,7 +42,6 @@ function ClientDashboardContent() {
   const { addItem, getItemById, updateQuantity } = useCartStore();
   const isAuthenticated = useIsAuthenticated();
   const isGuest = useIsGuest();
-  const cartItemCount = useCartItemCount();
   const { success, error } = useToastHelpers();
   const [currentBannerIndex, setCurrentBannerIndex] = useState(0);
   const [isRedirecting, setIsRedirecting] = useState(false);
@@ -68,12 +65,16 @@ function ClientDashboardContent() {
   }, []);
 
   // Fetch data from Convex
-  const productsQuery = useQuery(api.services.products.getProducts, { isActive: true }) || [];
-  const topRatedProductsQuery = useQuery(api.services.products.getTopRatedProducts, {
+  const productsData = useQuery(api.services.products.getProducts, { isActive: true });
+  const topRatedProductsData = useQuery(api.services.products.getTopRatedProducts, {
     limit: 18,
     minRating: 4.0,
-  }) || [];
-  const categoriesQuery = useQuery(api.services.categories.getCategories, { isActive: true }) || [];
+  });
+  const categoriesData = useQuery(api.services.categories.getCategories, { isActive: true });
+  // Stable empty fallbacks so the memos below don't recompute on every render while loading.
+  const productsQuery = useMemo(() => productsData ?? [], [productsData]);
+  const topRatedProductsQuery = useMemo(() => topRatedProductsData ?? [], [topRatedProductsData]);
+  const categoriesQuery = useMemo(() => categoriesData ?? [], [categoriesData]);
 
   // Get client notifications - only if user is authenticated
   const clientNotifications = useQuery(
@@ -147,21 +148,9 @@ function ClientDashboardContent() {
     return () => clearInterval(interval);
   }, [banners.length]);
 
-  // Show loading state while redirecting
-  if (isRedirecting) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4 safe-area-container">
-        <div className="text-center">
-          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-white/60 text-sm">Redirecting...</p>
-        </div>
-      </div>
-    );
-  }
-
   // Map real categories to featured ones with icons
   const featuredCategories = useMemo(() => {
-    const iconMap: Record<string, any> = {
+    const iconMap: Record<string, LucideIcon> = {
       "tropical fish": Fish,
       freshwater: Droplet,
       tanks: Box,
@@ -283,7 +272,7 @@ function ClientDashboardContent() {
     try {
       addItem(product, 1);
       success("Added to Cart", `${product.name} has been added to your cart`);
-    } catch (err) {
+    } catch {
       error("Failed to Add", "Could not add item to cart. Please try again.");
     }
   };
@@ -319,7 +308,7 @@ function ClientDashboardContent() {
 
   const handleMarkAsRead = async (id: string) => {
     try {
-      await markAsReadMutation({ notificationId: id as any });
+      await markAsReadMutation({ notificationId: id as Id<"notifications"> });
     } catch (error) {
       console.error("Failed to mark notification as read:", error);
     }
@@ -335,7 +324,7 @@ function ClientDashboardContent() {
 
   const handleDeleteNotification = async (id: string) => {
     try {
-      await deleteNotificationMutation({ notificationId: id as any });
+      await deleteNotificationMutation({ notificationId: id as Id<"notifications"> });
     } catch (error) {
       console.error("Failed to delete notification:", error);
     }
@@ -348,6 +337,18 @@ function ClientDashboardContent() {
       console.error("Failed to clear all notifications:", error);
     }
   };
+
+  // Show loading state while redirecting
+  if (isRedirecting) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4 safe-area-container">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-white/60 text-sm">Redirecting...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">

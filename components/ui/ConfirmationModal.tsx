@@ -5,8 +5,7 @@ import {
   CheckCircle,
   AlertTriangle,
   Info,
-  XCircle,
-  X
+  XCircle
 } from 'lucide-react';
 import Button from '@/components/ui/Button';
 

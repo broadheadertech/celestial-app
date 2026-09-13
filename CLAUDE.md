@@ -359,6 +359,14 @@ npx cap run android      # Build and run on device/emulator
   published ones show on the home page.
 - **Order tracking** (`/track`, `convex/services/tracking.ts`): guests look up ORD-/RES- codes with the
   email used at checkout; returns customer-safe fields only.
+- **Product URLs:** every product has a unique `slug` (set on create, kept on rename; `convex/lib/slug.ts`).
+  Readable URLs `/specimen/<slug>` are rewritten by `vercel.json` to the prerendered `/specimen-detail`
+  page, which also accepts `?id=`. In-app links keep using `?id=` because the Capacitor app has no
+  rewrites. The page sets title/description/canonical + Product JSON-LD client-side, and
+  `app/sitemap.ts` lists in-stock product URLs at build time (fetched via node:https to avoid Next's
+  build fetch cache). Hosting is **Vercel** (`public/_redirects` is ignored).
+- **Journal** (Admin → Journal, `convex/services/journal.ts`): staff write/publish posts; `/journal` and
+  `/journal/article?slug=` show published posts only (body rendered by `components/dc/JournalBody.tsx`).
 - **Notifications:** each row has `audience` (`"staff"` team inbox with shared `isRead`, or
   `"customer"`). Customer read/dismiss state lives in `notificationReceipts` per user — never modify
   or delete shared rows on a customer's behalf. Web orders, viewing requests and contact messages
@@ -442,7 +450,10 @@ npx cap run android      # Build and run on device/emulator
 - **Storefront smoke test:** `npm run build && npm run test:smoke` — serves `out/`, opens key pages
   in headless Chrome at phone and desktop widths, fails on console errors or horizontal overflow.
 - **TypeScript:** builds fail on type errors (`next.config.ts` `ignoreBuildErrors: false`).
-- **ESLint:** `npm run lint` (still has legacy errors; not enforced in builds).
+- **ESLint:** builds fail on lint errors too (`eslint.dirs` in `next.config.ts` covers app, components,
+  lib, hooks, store, convex). Warnings are allowed.
+- **Smoke test extras:** `SMOKE_EXTRA=/specimen/<slug>,... npm run test:smoke` checks additional paths;
+  the smoke server applies `vercel.json` rewrites.
 
 ### Recommended Additions
 - **Unit Tests:** Component and utility testing

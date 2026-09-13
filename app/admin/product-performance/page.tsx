@@ -21,8 +21,6 @@ import Card from '@/components/ui/Card';
 import BottomNavbar from '@/components/common/BottomNavbar';
 import SafeAreaProvider from '@/components/provider/SafeAreaProvider';
 
-const fmt = (n: number) =>
-  `₱${n.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const fmtCompact = (n: number) =>
   `₱${n.toLocaleString('en-PH', { maximumFractionDigits: 0 })}`;
 const num = (n: number) => n.toLocaleString('en-PH', { maximumFractionDigits: 0 });

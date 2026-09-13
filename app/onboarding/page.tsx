@@ -5,7 +5,7 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, ArrowRight, Check } from 'lucide-react';
 import Image from 'next/image';
-import SafeAreaProvider, { useSafeArea } from '@/components/provider/SafeAreaProvider';
+import SafeAreaProvider from '@/components/provider/SafeAreaProvider';
 
 const ONBOARDING_KEY = 'onboarding_completed';
 
@@ -42,7 +42,6 @@ function OnboardingContent() {
   const [currentStep, setCurrentStep] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
   const [imageErrors, setImageErrors] = useState<{[key: number]: boolean}>({});
-  const { isMobileApp, isInitialized } = useSafeArea();
 
   const handleNext = () => {
     if (isAnimating) return;

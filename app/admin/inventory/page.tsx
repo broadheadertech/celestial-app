@@ -1,22 +1,17 @@
 'use client';
+/* eslint-disable @next/next/no-img-element -- product images are remote Convex storage URLs (static export, images unoptimized) */
 
 import React, { useState, useMemo } from 'react';
 import {
-  ArrowLeft,
   Search,
-  Filter,
   Package,
   Activity,
   AlertTriangle,
-  CheckCircle,
-  DollarSign,
   X,
   MoreVertical,
-  PackagePlus,
   ChevronDown,
   Minus,
   ArrowRightLeft,
-  Clock,
   Hourglass,
   Trash2,
   Barcode,
@@ -29,6 +24,7 @@ import { useRouter } from 'next/navigation';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { Id } from '@/convex/_generated/dataModel';
+import type { FunctionReturnType } from 'convex/server';
 import { useAuthStore } from '@/store/auth';
 import Card from '@/components/ui/Card';
 import BottomNavbar from '@/components/common/BottomNavbar';
@@ -51,7 +47,6 @@ function InventoryContent() {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilter, setSelectedFilter] = useState<'all' | 'active' | 'depleted' | 'low_stock' | 'expired' | 'quarantine'>('all');
-  const [showFilters, setShowFilters] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
@@ -453,7 +448,7 @@ function InventoryContent() {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-error">
-                {orphanCount} orphaned batch{orphanCount === 1 ? '' : 'es'} ("Unknown Product")
+                {orphanCount} orphaned batch{orphanCount === 1 ? '' : 'es'} (&ldquo;Unknown Product&rdquo;)
               </p>
               <p className="text-xs text-error/70 truncate">Stock records pointing to deleted products. Safe to remove.</p>
             </div>
@@ -1504,7 +1499,7 @@ function InventoryContent() {
                   This sweeps all <strong>stockRecords</strong>, <strong>stockMovements</strong>, fish/tank metadata, cart, and wishlist rows whose product no longer exists. Cannot be undone.
                 </div>
                 <div className="px-3 py-2.5 rounded-lg bg-white/[0.04] border border-white/10 text-xs text-white/70">
-                  These show as "Unknown Product" because the product was deleted before today's cascade-cleanup fix.
+                  These show as &ldquo;Unknown Product&rdquo; because the product was deleted before today&apos;s cascade-cleanup fix.
                 </div>
               </div>
 
@@ -1652,7 +1647,7 @@ function ProductCard({
   isLive,
   onClick,
 }: {
-  product: any;
+  product: FunctionReturnType<typeof api.services.admin.getAllProductsAdmin>[number];
   isLive: boolean;
   onClick: () => void;
 }) {
@@ -1719,7 +1714,6 @@ function ProductCard({
         {/* Centered fish image or silhouette */}
         <div className="absolute inset-0 flex items-center justify-center px-6">
           {product.image ? (
-            // eslint-disable-next-line @next/next/no-img-element
             <img
               src={product.image}
               alt={product.name}
@@ -1782,63 +1776,6 @@ function ProductCard({
   );
 }
 
-function InvKpi({
-  label,
-  value,
-  sub,
-  icon,
-  tone,
-  accent,
-}: {
-  label: string;
-  value: string;
-  sub?: string;
-  icon: React.ReactNode;
-  tone: 'red' | 'jade' | 'gold' | 'indigo';
-  accent?: boolean;
-}) {
-  const toneMap = {
-    red: { bg: 'var(--red-wash)', fg: 'var(--red-hi)' },
-    jade: { bg: 'var(--jade-wash)', fg: 'var(--jade)' },
-    gold: { bg: 'var(--gold-wash)', fg: 'var(--gold-deep)' },
-    indigo: { bg: 'var(--indigo-wash)', fg: 'var(--indigo)' },
-  } as const;
-  const t = toneMap[tone];
-  return (
-    <div
-      className="rounded-[14px] border p-4"
-      style={{
-        background: 'var(--surface)',
-        borderColor: 'var(--line)',
-        boxShadow: 'var(--shadow-card)',
-      }}
-    >
-      <div className="flex items-center justify-between mb-2.5">
-        <span
-          className="w-7 h-7 rounded-md inline-flex items-center justify-center"
-          style={{ background: t.bg, color: t.fg }}
-        >
-          {icon}
-        </span>
-        <p className="label-eyebrow">{label}</p>
-      </div>
-      <p
-        className="display dc-mono text-[22px] sm:text-[24px] leading-none mb-1"
-        style={{
-          fontVariationSettings: '"opsz" 36, "wght" 700',
-          color: accent ? 'var(--red)' : 'var(--ink)',
-        }}
-      >
-        {value}
-      </p>
-      {sub && (
-        <p className="text-[11px] truncate" style={{ color: 'var(--ink-3)' }}>
-          {sub}
-        </p>
-      )}
-    </div>
-  );
-}
 
 export default function InventoryPage() {
   return (

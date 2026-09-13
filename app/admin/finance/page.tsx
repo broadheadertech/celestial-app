@@ -23,7 +23,6 @@ import {
   PieChart as PieChartIcon,
   ArrowUpRight,
   ArrowDownRight,
-  Edit2,
   ChevronRight,
   X,
 } from 'lucide-react';

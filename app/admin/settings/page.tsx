@@ -34,7 +34,7 @@ import Card from "@/components/ui/Card";
 
 function AdminSettingsContent() {
   const router = useRouter();
-  const { user, logout: authStoreLogout } = useAuthStore();
+  const { user } = useAuthStore();
   const { logout } = useAuth();
   const isAuthenticated = useIsAuthenticated();
 
@@ -258,7 +258,7 @@ function AdminSettingsContent() {
     try {
       await logout();
       setShowLogoutConfirm(false);
-    } catch (error) {
+    } catch {
       setModalMessage('Error during logout. Please try again.');
       setShowErrorModal(true);
     } finally {

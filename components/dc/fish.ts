@@ -23,6 +23,8 @@ export type DcProduct = {
   createdAt?: number;
   description?: string;
   certificate?: string;
+  /** URL slug for the readable /specimen/<slug> address (set once, kept on rename). */
+  slug?: string;
   /** Resolved by the backend: "enquire" (showcase only) or "cart" (can be bought online). */
   purchaseMode?: 'enquire' | 'cart';
 };

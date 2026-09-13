@@ -67,10 +67,11 @@ function ReservationsContent() {
       ? { guestId: guestId }
       : "skip";
 
-  const reservationsQuery = useQuery(
+  const reservationsData = useQuery(
     api.services.reservations.getReservations,
     queryArgs
-  ) || [];
+  );
+  const reservationsQuery = useMemo(() => reservationsData ?? [], [reservationsData]);
 
   // Mutations
   const cancelReservation = useMutation(

@@ -109,7 +109,7 @@ export function PasswordResetEmail({ userName, resetUrl }: PasswordResetEmailPro
               marginBottom: '20px',
               fontSize: '16px'
             }}>
-              If the button doesn't work, you can copy and paste this link into your browser:
+              If the button doesn&apos;t work, you can copy and paste this link into your browser:
             </p>
             <p style={{
               color: '#FF6B00',
@@ -125,7 +125,7 @@ export function PasswordResetEmail({ userName, resetUrl }: PasswordResetEmailPro
               marginTop: '40px',
               fontSize: '16px'
             }}>
-              If you didn't request a password reset, you can safely ignore this email. Your password will remain unchanged.
+              If you didn&apos;t request a password reset, you can safely ignore this email. Your password will remain unchanged.
             </p>
             
             <p style={{

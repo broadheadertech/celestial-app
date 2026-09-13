@@ -12,6 +12,7 @@ import { useRouter } from 'next/navigation';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { Id } from '@/convex/_generated/dataModel';
+import type { Product } from '@/types';
 import { useAuthStore, useIsAuthenticated } from '@/store/auth';
 import { useCartStore } from '@/store/cart';
 import Card from '@/components/ui/Card';
@@ -49,7 +50,7 @@ function WishlistContent() {
     }
   };
 
-  const handleAddToCart = (product: any) => {
+  const handleAddToCart = (product: Product) => {
     if (product.stock <= 0) return;
     addItem(product, 1);
   };
@@ -170,7 +171,7 @@ function WishlistContent() {
                       {/* Actions */}
                       <div className="flex items-center gap-2 mt-3">
                         <button
-                          onClick={() => handleAddToCart(product as any)}
+                          onClick={() => handleAddToCart(product)}
                           disabled={isOutOfStock}
                           className="flex-1 px-3 py-2 rounded-lg bg-primary text-white text-xs sm:text-sm font-medium hover:bg-primary/90 active:scale-95 transition-all touch-manipulation flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
                         >

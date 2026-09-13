@@ -1186,8 +1186,10 @@ export const migrateLegacyReservations = mutation({
     let skipped = 0;
 
     for (const r of reservations) {
-      const legacyProductId = (r as any).productId as string | undefined;
-      const legacyQuantity = (r as any).quantity as number | undefined;
+      // Legacy fields are no longer on the typed schema, so widen the doc to read them.
+      const legacy = r as typeof r & { productId?: string; quantity?: number };
+      const legacyProductId = legacy.productId;
+      const legacyQuantity = legacy.quantity;
 
       // Nothing legacy on this doc → leave it alone.
       if (!legacyProductId && legacyQuantity === undefined) {
@@ -1196,14 +1198,15 @@ export const migrateLegacyReservations = mutation({
       }
 
       const hasItems = Array.isArray(r.items) && r.items.length > 0;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- clears legacy fields that are not in the schema's patch type
       const patch: any = { productId: undefined, quantity: undefined, updatedAt: Date.now() };
 
       // Only synthesize items[] when it's missing AND we have a legacy product.
       if (!hasItems && legacyProductId) {
-        const product = await ctx.db.get(legacyProductId as any);
+        const product = await ctx.db.get(legacyProductId as Id<"products">);
         const qty = legacyQuantity || 1;
         const unitPrice =
-          r.totalAmount && qty ? r.totalAmount / qty : ((product as any)?.price || 0);
+          r.totalAmount && qty ? r.totalAmount / qty : (product?.price || 0);
         patch.items = [{ productId: legacyProductId, quantity: qty, reservedPrice: unitPrice }];
         if (r.totalAmount === undefined) patch.totalAmount = unitPrice * qty;
         if (r.totalQuantity === undefined) patch.totalQuantity = qty;

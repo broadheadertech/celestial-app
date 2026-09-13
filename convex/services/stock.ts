@@ -1196,7 +1196,7 @@ export const processSale = mutation({
     const now = Date.now();
     let newCurrentQty = stockRecord.currentQty;
     let newReservedQty = stockRecord.reservedQty;
-    let newSoldQty = stockRecord.soldQty + quantity;
+    const newSoldQty = stockRecord.soldQty + quantity;
 
     if (fromReserved) {
       // Converting reserved stock to sold
@@ -1362,7 +1362,7 @@ export const processReturn = mutation({
     const now = Date.now();
     let newCurrentQty = stockRecord.currentQty;
     const newReturnedQty = stockRecord.returnedQty + quantity;
-    let newSoldQty = Math.max(0, stockRecord.soldQty - quantity);
+    const newSoldQty = Math.max(0, stockRecord.soldQty - quantity);
 
     if (restockable) {
       // Add back to current stock

@@ -60,7 +60,7 @@ export function WelcomeEmail({ userName, appUrl = 'http://localhost:3000' }: Wel
               marginBottom: '20px',
               fontSize: '16px'
             }}>
-              Thank you for joining Dragon Cave Inventory! We're thrilled to have you as part of our aquarium community.
+              Thank you for joining Dragon Cave Inventory! We&apos;re thrilled to have you as part of our aquarium community.
             </p>
             
             <p style={{

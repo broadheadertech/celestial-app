@@ -23,9 +23,6 @@ const formatDate = (timestamp: number) => {
   });
 };
 
-const formatCurrency = (amount: number) => {
-  return `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`;
-};
 
 function ExpiringContent() {
   const router = useRouter();

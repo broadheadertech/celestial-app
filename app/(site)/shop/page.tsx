@@ -2,9 +2,10 @@
 
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
-import { ArrowRight, Plus, Search, X } from 'lucide-react';
+import { Plus, Search, X } from 'lucide-react';
 import { useQuery } from 'convex/react';
 import { api } from '@/convex/_generated/api';
+import type { FunctionReturnType } from 'convex/server';
 import { GearPlate } from '@/components/site/ArowanaSilhouette';
 import { useSiteCart } from '@/store/siteCart';
 
@@ -209,7 +210,9 @@ export default function ShopPage() {
   );
 }
 
-function GearTile({ product, onAdd }: { product: any; onAdd: () => void }) {
+type CatalogProduct = FunctionReturnType<typeof api.services.products.getCatalogProducts>[number];
+
+function GearTile({ product, onAdd }: { product: CatalogProduct; onAdd: () => void }) {
   return (
     <div
       className="lift-card relative"

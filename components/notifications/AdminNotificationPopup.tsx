@@ -10,13 +10,12 @@ import {
   Users,
   AlertTriangle,
   CheckCircle,
-  Info,
   DollarSign,
-  Clock,
   ChevronRight
 } from 'lucide-react';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
+import type { Id } from '@/convex/_generated/dataModel';
 
 interface NotificationPopupProps {
   userId?: string;
@@ -45,7 +44,7 @@ interface ConvexNotification {
   updatedAt: number;
 }
 
-export default function AdminNotificationPopup({ userId, userRole }: NotificationPopupProps) {
+export default function AdminNotificationPopup({ userRole }: NotificationPopupProps) {
   const router = useRouter();
   const [dismissedNotifications, setDismissedNotifications] = useState<Set<string>>(new Set());
   const [showPopup, setShowPopup] = useState(false);
@@ -98,7 +97,7 @@ export default function AdminNotificationPopup({ userId, userRole }: Notificatio
 
     try {
       // Mark as read
-      await markAsReadMutation({ notificationId: currentNotification._id as any });
+      await markAsReadMutation({ notificationId: currentNotification._id as Id<'notifications'> });
 
       // Navigate to relevant page based on notification type and metadata
       const route = getNotificationRoute(currentNotification);

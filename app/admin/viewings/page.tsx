@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { Id } from '@/convex/_generated/dataModel';
+import type { FunctionReturnType } from 'convex/server';
 import {
   ArrowLeft,
   Calendar,
@@ -174,7 +175,7 @@ function ViewingCard({
   onStatus,
   busy,
 }: {
-  viewing: any;
+  viewing: FunctionReturnType<typeof api.services.viewings.getViewings>[number];
   onStatus: (id: string, status: ViewingStatus) => void;
   busy: boolean;
 }) {

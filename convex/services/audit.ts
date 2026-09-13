@@ -84,7 +84,7 @@ export const getAuditLogs = query({
     endDate: v.optional(v.number()),
   },
   handler: async (ctx, { paginationOpts, category, actorId, startDate, endDate }) => {
-    const staff = await requireStaff(ctx);
+    await requireStaff(ctx);
     return await ctx.db
       .query("auditLogs")
       .withIndex("by_created")
@@ -112,7 +112,7 @@ export const getAuditSummary = query({
     endDate: v.optional(v.number()),
   },
   handler: async (ctx, { startDate, endDate }) => {
-    const staff = await requireStaff(ctx);
+    await requireStaff(ctx);
     const inRange = (ts: number) =>
       (startDate === undefined || ts >= startDate) && (endDate === undefined || ts <= endDate);
 

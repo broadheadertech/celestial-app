@@ -13,7 +13,6 @@ import {
   ShoppingCart,
   Bell,
   HelpCircle,
-  Search,
   Shield,
   Save,
   RefreshCw,
@@ -22,10 +21,9 @@ import {
   AlertTriangle,
   Eye,
   EyeOff,
-  TrendingUp,
   Lock
 } from 'lucide-react';
-import { useIsAuthenticated, useIsAdmin, useCurrentUser, useAuthStore } from '@/store/auth';
+import { useIsAuthenticated, useCurrentUser, useAuthStore } from '@/store/auth';
 import { useAuth } from '@/hooks/useAuth';
 import { useCartItemCount } from '@/store/cart';
 import { useQuery, useMutation } from 'convex/react';
@@ -40,7 +38,6 @@ function ProfileContent() {
   const router = useRouter();
   const { logout } = useAuth();
   const isAuthenticated = useIsAuthenticated();
-  const isAdmin = useIsAdmin();
   const user = useCurrentUser();
   const cartItemCount = useCartItemCount();
   const updateUser = useAuthStore((state) => state.updateUser);

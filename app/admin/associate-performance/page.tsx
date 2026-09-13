@@ -11,7 +11,6 @@ import {
   Users,
   Trophy,
   Coins,
-  ShoppingBag,
   AlertTriangle,
   Medal,
 } from 'lucide-react';

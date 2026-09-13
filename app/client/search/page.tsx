@@ -1,19 +1,15 @@
 'use client';
 
-import { useState, useMemo, useEffect, useRef, useCallback, Suspense } from 'react';
+import { useState, useMemo, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   ArrowLeft,
   Search,
-  Filter,
   Grid,
   List,
-  ShoppingCart,
-  User,
   SlidersHorizontal,
   Sparkles,
   Loader2,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
@@ -37,16 +33,7 @@ function SearchContent() {
   const { user } = useAuthStore();
   const isAuthenticated = useIsAuthenticated();
 
-  // Redirect admins and super_admins to their respective dashboards
-  if (isAuthenticated && user?.role === 'admin') {
-    router.push('/admin/dashboard');
-    return null;
-  }
-
-  if (isAuthenticated && user?.role === 'super_admin') {
-    router.push('/admin/dashboard');
-    return null;
-  }
+  const isStaff = isAuthenticated && (user?.role === 'admin' || user?.role === 'super_admin');
 
   const [searchQuery, setSearchQuery] = useState(searchParams?.get('q') || '');
   const [selectedCategory, setSelectedCategory] = useState(searchParams?.get('category') || 'all');
@@ -60,14 +47,16 @@ function SearchContent() {
   const topRef = useRef<HTMLDivElement>(null);
 
   // Fetch real products data from Convex
-  const productsQuery = useQuery(api.services.products.getProducts,
+  const productsData = useQuery(api.services.products.getProducts,
     { isActive: true }
-  ) || [];
+  );
+  const productsQuery = useMemo(() => productsData ?? [], [productsData]);
 
   // Fetch categories from Convex
-  const categoriesQuery = useQuery(api.services.categories.getCategories,
+  const categoriesData = useQuery(api.services.categories.getCategories,
     { isActive: true }
-  ) || [];
+  );
+  const categoriesQuery = useMemo(() => categoriesData ?? [], [categoriesData]);
 
   const filteredProducts = useMemo(() => {
     let filtered = productsQuery;
@@ -117,6 +106,13 @@ function SearchContent() {
   useEffect(() => {
     setCurrentPage(1);
   }, [searchQuery, selectedCategory, sortBy]);
+
+  // Redirect admins and super_admins to their respective dashboards
+  useEffect(() => {
+    if (isStaff) router.push('/admin/dashboard');
+  }, [isStaff, router]);
+
+  if (isStaff) return null;
 
   // Scroll to top when page changes
   const handlePageChange = (page: number) => {
@@ -340,7 +336,7 @@ function SearchContent() {
             </div>
             <h3 className="text-lg sm:text-xl font-semibold text-white mb-2">No products found</h3>
             <p className="text-sm sm:text-base text-white/60 mb-6 max-w-sm mx-auto">
-              We couldn't find any products matching your criteria. Try adjusting your search or filters.
+              We couldn&apos;t find any products matching your criteria. Try adjusting your search or filters.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 justify-center mb-6">

@@ -12,7 +12,6 @@ import {
   TrendingUp,
   DollarSign,
   Users,
-  Package,
   ShoppingBag,
   Target,
   RefreshCw,
@@ -253,7 +252,7 @@ function AdminAnalyticsContent() {
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
                         <Pie data={categoryData} cx="50%" cy="50%" innerRadius={40} outerRadius={70} dataKey="value" label={({ name, value }) => `${name} ${value}%`} labelLine={false}>
-                          {categoryData.map((entry: any, index: number) => (
+                          {categoryData.map((entry, index) => (
                             <Cell key={index} fill={entry.color} />
                           ))}
                         </Pie>
@@ -262,7 +261,7 @@ function AdminAnalyticsContent() {
                     </ResponsiveContainer>
                   </div>
                   <div className="flex flex-wrap gap-2 mt-2">
-                    {categoryData.map((cat: any, i: number) => (
+                    {categoryData.map((cat, i) => (
                       <div key={i} className="flex items-center gap-1.5 text-xs text-white/70">
                         <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: cat.color }} />
                         {cat.name} ({cat.count})
@@ -276,8 +275,8 @@ function AdminAnalyticsContent() {
               <div className="bg-secondary/40 rounded-xl p-4 border border-white/10">
                 <h3 className="text-sm font-bold text-white mb-3">Product Revenue Comparison</h3>
                 <div className="space-y-2">
-                  {topProducts.map((product: any, i: number) => {
-                    const maxRev = Math.max(...topProducts.map((p: any) => p.revenue));
+                  {topProducts.map((product, i) => {
+                    const maxRev = Math.max(...topProducts.map((p) => p.revenue));
                     const pct = maxRev > 0 ? (product.revenue / maxRev) * 100 : 0;
                     return (
                       <div key={product.id} className="flex items-center gap-2">

@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import { requireStaff } from "../lib/authz";
 import { getReservationUser } from "../lib/reservationUser";
 import { mutation, query, MutationCtx } from "../_generated/server";
-import { Id } from "../_generated/dataModel";
+import { Doc, Id } from "../_generated/dataModel";
 import { recordAudit } from "./audit";
 
 const peso = (n: number) => `₱${n.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -265,7 +265,7 @@ export const updateExpense = mutation({
 // Delete an expense
 export const deleteExpense = mutation({
   args: { id: v.id("expenses"), userId: v.optional(v.id("users")) },
-  handler: async (ctx, { id, userId }) => {
+  handler: async (ctx, { id }) => {
     const staff = await requireStaff(ctx);
     const expense = await ctx.db.get(id);
     if (!expense) throw new Error("Expense not found");
@@ -291,7 +291,7 @@ export const setOpeningBalance = mutation({
     amount: v.number(),
     userId: v.optional(v.id("users")),
   },
-  handler: async (ctx, { amount, userId }) => {
+  handler: async (ctx, { amount }) => {
     const staff = await requireStaff(ctx);
     if (amount < 0) throw new Error("Opening balance cannot be negative");
 
@@ -335,7 +335,7 @@ export const setOpeningBalance = mutation({
 export const getOpeningBalance = query({
   args: {},
   handler: async (ctx) => {
-    const staff = await requireStaff(ctx);
+    await requireStaff(ctx);
     const record = await ctx.db
       .query("financialSettings")
       .withIndex("by_key", (q) => q.eq("key", "opening_cash_balance"))
@@ -354,7 +354,7 @@ export const getExpenses = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, { type, category, startDate, endDate, limit = 100 }) => {
-    const staff = await requireStaff(ctx);
+    await requireStaff(ctx);
     let expenses;
     if (type) {
       expenses = await ctx.db
@@ -397,7 +397,7 @@ export const getFinancialSummary = query({
     endDate: v.optional(v.number()),
   },
   handler: async (ctx, { startDate, endDate }) => {
-    const staff = await requireStaff(ctx);
+    await requireStaff(ctx);
     const [orders, reservations, expenses, openingBalanceRecord, products, cashAdjustments, stockRecords, reservationPayments] =
       await Promise.all([
         ctx.db.query("orders").collect(),
@@ -421,7 +421,7 @@ export const getFinancialSummary = query({
 
     // Revenue only counts what's been ACTUALLY paid.
     // Unpaid/refunded orders don't count toward cash flow or P&L revenue.
-    const getAmountCollected = (o: any) => {
+    const getAmountCollected = (o: { paymentStatus?: string; amountPaid?: number; totalAmount?: number }) => {
       const status = o.paymentStatus || 'unpaid';
       if (status === 'refunded' || status === 'unpaid') return 0;
       if (status === 'partial') return o.amountPaid || 0;
@@ -586,13 +586,13 @@ export const getFinancialSummary = query({
         inRange(r.receivedDate) &&
         (r.fundingSource === "coh" || r.fundingSource === "investment"),
     );
-    const totalRestockCost = restockBatches.reduce((s, r) => s + batchCost(r as any), 0);
+    const totalRestockCost = restockBatches.reduce((s, r) => s + batchCost(r), 0);
     const restockFromCOH = restockBatches
       .filter((r) => r.fundingSource === "coh")
-      .reduce((s, r) => s + batchCost(r as any), 0);
+      .reduce((s, r) => s + batchCost(r), 0);
     const restockFromInvestment = restockBatches
       .filter((r) => r.fundingSource === "investment")
-      .reduce((s, r) => s + batchCost(r as any), 0);
+      .reduce((s, r) => s + batchCost(r), 0);
     const restockCount = restockBatches.length;
 
     // Operational expenses by category
@@ -752,7 +752,7 @@ export const getDailySalesReport = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, { tzOffsetMinutes = -480, startDate, endDate, limit = 370 }) => {
-    const staff = await requireStaff(ctx);
+    await requireStaff(ctx);
     const [orders, reservations, expenses, cashAdjustments, openingRecord, stockRecords, products, reservationPayments] = await Promise.all([
       ctx.db.query("orders").collect(),
       ctx.db.query("reservations").collect(),
@@ -918,7 +918,7 @@ export const getDailyReportDetail = query({
     endDate: v.number(),
   },
   handler: async (ctx, { startDate, endDate }) => {
-    const staff = await requireStaff(ctx);
+    await requireStaff(ctx);
     const [orders, reservations, expenses, products, stockRecords, categories] = await Promise.all([
       ctx.db.query("orders").collect(),
       ctx.db.query("reservations").collect(),
@@ -1092,7 +1092,7 @@ export const getStockFlowReport = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, { tzOffsetMinutes = -480, startDate, endDate, limit = 370 }) => {
-    const staff = await requireStaff(ctx);
+    await requireStaff(ctx);
     const [stockRecords, products] = await Promise.all([
       ctx.db.query("stockRecords").collect(),
       ctx.db.query("products").collect(),
@@ -1113,7 +1113,7 @@ export const getStockFlowReport = query({
     const batches = stockRecords.filter(
       (r) => r.isRestock && !r.isMortalityLoss && (r.fundingSource === "coh" || r.fundingSource === "investment"),
     );
-    const batchCost = (r: any) => r.initialQty * (r.actualCostPrice ?? fallbackCost(r.productId as string));
+    const batchCost = (r: Doc<"stockRecords">) => r.initialQty * (r.actualCostPrice ?? fallbackCost(r.productId as string));
 
     type Bucket = { viaCOH: number; viaInvestment: number; count: number; suppliers: Set<string> };
     const buckets = new Map<number, Bucket>();
@@ -1184,7 +1184,7 @@ export const getStockFlowDetail = query({
     endDate: v.number(),
   },
   handler: async (ctx, { startDate, endDate }) => {
-    const staff = await requireStaff(ctx);
+    await requireStaff(ctx);
     const [stockRecords, products] = await Promise.all([
       ctx.db.query("stockRecords").collect(),
       ctx.db.query("products").collect(),
@@ -1246,7 +1246,7 @@ export const getCollectionsFlowReport = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, { tzOffsetMinutes = -480, startDate, endDate, limit = 370 }) => {
-    const staff = await requireStaff(ctx);
+    await requireStaff(ctx);
     const payments = await ctx.db.query("reservationPayments").collect();
 
     const now = Date.now();
@@ -1326,7 +1326,7 @@ export const getCollectionsFlowDetail = query({
     endDate: v.number(),
   },
   handler: async (ctx, { startDate, endDate }) => {
-    const staff = await requireStaff(ctx);
+    await requireStaff(ctx);
     const all = await ctx.db.query("reservationPayments").collect();
     const inRange = (ts: number) => ts >= startDate && ts <= endDate;
     const scoped = all.filter((p) => inRange(p.date)).sort((a, b) => b.date - a.date);

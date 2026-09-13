@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useRef } from 'react';
-import { Printer, X, CheckCircle, Package } from 'lucide-react';
+import { Printer, X } from 'lucide-react';
 
 interface ReceiptItem {
   productId: string;
@@ -13,7 +13,7 @@ interface ReceiptItem {
   productImage?: string;
 }
 
-interface ReceiptData {
+export interface ReceiptData {
   receiptType: 'acknowledgement' | 'release';
   orderCode: string;
   items: ReceiptItem[];

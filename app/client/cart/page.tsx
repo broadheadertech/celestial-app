@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft,
@@ -11,7 +11,7 @@ import {
   Clock,
 } from 'lucide-react';
 import { useCartStore, useCartItems, useCartTotal } from '@/store/cart';
-import { useAuthStore, useIsAuthenticated, useIsGuest } from '@/store/auth';
+import { useAuthStore, useIsAuthenticated } from '@/store/auth';
 import { formatCurrency } from '@/lib/utils';
 import { useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
@@ -30,22 +30,12 @@ function CartContent() {
   const { updateQuantity, removeItem, clearCart } = useCartStore();
   const { user, guestId } = useAuthStore();
   const isAuthenticated = useIsAuthenticated();
-  const isGuest = useIsGuest();
   const { showReservation } = useReservation();
 
   // Convex mutation for creating reservations
   const createReservation = useMutation(api.services.reservations.createReservation);
 
-  // Redirect admins and super_admins to their respective dashboards
-  if (isAuthenticated && user?.role === 'admin') {
-    router.push('/admin/dashboard');
-    return null;
-  }
-
-  if (isAuthenticated && user?.role === 'super_admin') {
-    router.push('/admin/dashboard');
-    return null;
-  }
+  const isStaff = isAuthenticated && (user?.role === 'admin' || user?.role === 'super_admin');
 
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [showGuestForm, setShowGuestForm] = useState(false);
@@ -59,6 +49,13 @@ function CartContent() {
     notes: '',
   });
   const [guestErrors, setGuestErrors] = useState<Record<string, string>>({});
+
+  // Redirect admins and super_admins to their respective dashboards
+  useEffect(() => {
+    if (isStaff) router.push('/admin/dashboard');
+  }, [isStaff, router]);
+
+  if (isStaff) return null;
 
   const handleQuantityChange = (productId: string, change: number) => {
     const item = cartItems.find(item => item.productId === productId);

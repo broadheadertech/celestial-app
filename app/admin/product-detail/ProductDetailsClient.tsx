@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { Id } from '@/convex/_generated/dataModel';
-import { ArrowLeft, Award, Edit, Eye, X, CheckCircle, AlertTriangle, RefreshCw, Fish, Waves, Trash2 } from 'lucide-react';
+import { ArrowLeft, Award, Edit, X, CheckCircle, AlertTriangle, RefreshCw, Fish, Waves, Trash2 } from 'lucide-react';
 import React, { useState } from 'react';
 import Image from 'next/image';
 import Button from '@/components/ui/Button';
@@ -77,7 +77,7 @@ function ProductDetailsContent() {
         <div className="text-center max-w-md mx-auto">
           <AlertTriangle className="w-12 h-12 sm:w-16 sm:h-16 text-error mx-auto mb-4" />
           <h1 className="font-bold text-lg sm:text-xl text-white mb-2">Product Not Found</h1>
-          <p className="text-white/60 text-xs sm:text-sm mb-6">The product you're looking for doesn't exist or has been removed.</p>
+          <p className="text-white/60 text-xs sm:text-sm mb-6">The product you&apos;re looking for doesn&apos;t exist or has been removed.</p>
           <Button
             onClick={() => router.push('/admin/products')}
             className="bg-primary hover:bg-primary/90 w-full sm:w-auto"
@@ -126,7 +126,7 @@ function ProductDetailsContent() {
       setTimeout(() => {
         router.push('/admin/products');
       }, 1500);
-    } catch (error) {
+    } catch {
       setModalMessage('Error deleting product. Please try again.');
       setShowDeleteConfirm(false);
       setShowErrorModal(true);

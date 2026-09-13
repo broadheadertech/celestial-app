@@ -11,16 +11,14 @@ import {
   User,
   Mail,
   Phone,
-  Calendar,
   Clock,
   CheckCircle,
   XCircle,
-  Printer,
   RefreshCw,
 } from 'lucide-react';
 import BottomNavbar from '@/components/common/BottomNavbar';
 import SafeAreaProvider from '@/components/provider/SafeAreaProvider';
-import OrderReceipt from '@/components/admin/OrderReceipt';
+import OrderReceipt, { type ReceiptData } from '@/components/admin/OrderReceipt';
 
 const formatCurrency = (amount: number) =>
   `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`;
@@ -54,7 +52,7 @@ function OrderDetailContent() {
   const releaseOrder = useMutation(api.services.orders.releaseOrder);
   const updateOrderStatus = useMutation(api.services.orders.updateOrderStatus);
 
-  const [receiptData, setReceiptData] = useState<any>(null);
+  const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
   const [confirmAction, setConfirmAction] = useState<{ label: string; action: () => Promise<void> } | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -188,7 +186,7 @@ function OrderDetailContent() {
             <Package className="w-4 h-4 text-primary" /> Items ({order.items.length})
           </h3>
           <div className="space-y-3">
-            {order.items.map((item: any, i: number) => (
+            {order.items.map((item, i) => (
               <div key={i} className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-lg bg-secondary border border-white/10 overflow-hidden flex items-center justify-center flex-shrink-0">
                   {item.productImage ? (

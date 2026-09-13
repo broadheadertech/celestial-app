@@ -1,5 +1,4 @@
 import { mutation } from "../_generated/server";
-import { api } from "../_generated/api";
 
 // Migration to add loginMethod field to existing users
 export const fixLoginMethod = mutation({

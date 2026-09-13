@@ -18,6 +18,7 @@ import {
   ScrollText,
   Store,
   MessageSquareQuote,
+  Newspaper,
 } from 'lucide-react';
 
 /**
@@ -117,6 +118,7 @@ export const ADMIN_NAV_SECTIONS: AdminNavSection[] = [
         icon: MessageSquareQuote,
         href: '/admin/testimonials',
       },
+      { id: 'journal', label: 'Journal', icon: Newspaper, href: '/admin/journal' },
       {
         id: 'app-settings',
         label: 'App Settings',

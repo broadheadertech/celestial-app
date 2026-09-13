@@ -8,8 +8,7 @@ import {
   Search,
   ShoppingCart,
   Heart,
-  User,
-  Package
+  User
 } from 'lucide-react';
 
 interface NavItem {

@@ -70,12 +70,15 @@ export default defineSchema({
     // Storefront sales channel: "enquire" (showcase + WhatsApp, e.g. live fish) or "cart"
     // (add to cart + checkout). Unset = default by category (see convex/lib/purchaseMode.ts).
     purchaseMode: v.optional(v.union(v.literal("enquire"), v.literal("cart"))),
+    // URL-safe unique name for readable links (/specimen/<slug>); generated from the name.
+    slug: v.optional(v.string()),
     isActive: v.boolean(),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
     .index("by_category", ["categoryId"])
-    .index("by_active", ["isActive"]),
+    .index("by_active", ["isActive"])
+    .index("by_slug", ["slug"]),
 
   //Tank additional data
   tank: defineTable({
@@ -664,6 +667,23 @@ export default defineSchema({
     updatedAt: v.number(),
     updatedBy: v.optional(v.id("users")),
   }),
+
+  // Storefront journal articles (Admin → Journal). Only published posts are public.
+  journalPosts: defineTable({
+    slug: v.string(),
+    title: v.string(),
+    kicker: v.optional(v.string()), // short category label, e.g. "Husbandry"
+    excerpt: v.string(),
+    body: v.string(), // plain text; blank lines separate paragraphs, "## " starts a heading
+    coverImageUrl: v.optional(v.string()),
+    authorName: v.optional(v.string()),
+    isPublished: v.boolean(),
+    publishedAt: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_slug", ["slug"])
+    .index("by_published", ["isPublished", "publishedAt"]),
 
   // Client testimonials with photos, shown on the storefront home page when published.
   testimonials: defineTable({

@@ -79,7 +79,10 @@ interface ConvexProviderProps {
 
 export function ConvexProvider({ children }: ConvexProviderProps) {
   const pathname = usePathname();
-  const isPublic = PUBLIC_PATHS.has((pathname || '/').replace(/\/+$/, '') || '/');
+  const normalized = (pathname || '/').replace(/\/+$/, '') || '/';
+  // /specimen/<slug> is rewritten (vercel.json) to the prerendered /specimen-detail page, so it
+  // must be treated the same or the first client render won't match the static HTML.
+  const isPublic = PUBLIC_PATHS.has(normalized) || normalized.startsWith('/specimen/');
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => setIsReady(true), []);

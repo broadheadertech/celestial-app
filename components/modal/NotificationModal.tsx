@@ -10,13 +10,11 @@ import {
   AlertCircle,
   CheckCircle,
   Info,
-  Clock,
   Package,
   ShoppingBag,
   Users,
   TrendingUp,
   Trash2,
-  MoreVertical,
   RefreshCw,
   Calendar,
   CreditCard,
@@ -251,7 +249,7 @@ export default function NotificationModal({
               <div className="flex flex-col items-center justify-center p-8 text-center">
                 <Bell className="w-12 h-12 text-muted/50 mb-3" />
                 <p className="text-foreground font-medium mb-1">No notifications</p>
-                <p className="text-sm text-muted">You're all caught up!</p>
+                <p className="text-sm text-muted">You&apos;re all caught up!</p>
               </div>
             ) : (
               <div className="divide-y divide-white/10">
