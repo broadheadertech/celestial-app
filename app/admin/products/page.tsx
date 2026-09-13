@@ -31,6 +31,7 @@ import { api } from '@/convex/_generated/api';
 import BottomNavbar from '@/components/common/BottomNavbar';
 import SafeAreaProvider from '@/components/provider/SafeAreaProvider';
 import DesktopDrawer from '@/components/admin/DesktopDrawer';
+import { ProductFormContentInner } from '@/app/admin/products/form/ProductFormContent';
 import { Suspense } from 'react';
 
 const ITEMS_PER_PAGE = 15;
@@ -207,8 +208,8 @@ function AdminProductsContent() {
   const [isLoggingInternalUse, setIsLoggingInternalUse] = useState(false);
 
   // Convex queries
-  const products = useQuery(api.services.admin.getAllProductsAdmin);
-  const categories = useQuery(api.services.categories.getCategories);
+  const products = useQuery(api.services.admin.getAllProductsAdmin, {});
+  const categories = useQuery(api.services.categories.getCategories, {});
 
   // Convex mutations
   const toggleProductStatus = useMutation(api.services.admin.toggleProductStatus);
@@ -543,11 +544,13 @@ function AdminProductsContent() {
       setMortalityQuantity('');
 
       // Show detailed success message with batch information
-      const isFirstLoss = result.isFirstMortalityLoss;
-
       const writeOffLine = result.expenseAmount && result.expenseAmount > 0
         ? `💸 P&L Write-off: ₱${result.expenseAmount.toLocaleString('en-PH', { minimumFractionDigits: 2 })} logged as mortality expense\n\n`
         : `⚠ No P&L write-off — set a cost price on this product to track mortality losses on the P&L\n\n`;
+
+      const batchLines = result.affectedBatches
+        .map((b) => `• ${b.batchCode}: -${b.qty} units`)
+        .join('\n');
 
       alert(
         `✅ Mortality Loss Recorded Successfully\n\n` +
@@ -555,19 +558,14 @@ function AdminProductsContent() {
         `Tank: ${product.tankNumber || 'N/A'}\n` +
         `SKU: ${product.sku || 'N/A'}\n\n` +
         writeOffLine +
-        `📦 Batch Information:\n` +
-        `Batch Code: ${result.mortalityBatchCode}\n` +
-        `${isFirstLoss ? '(First mortality loss - using source batch)' : '(Using previous mortality batch)'}\n\n` +
+        `📦 Deducted from batches (oldest first):\n` +
+        `${batchLines}\n\n` +
         `📊 Mortality Tracking:\n` +
         `Previous Product Stock: ${result.previousProductStock} units\n` +
-        `Mortality Loss: ${quantity} units\n` +
+        `Mortality Loss: ${result.mortalityLossQty} units\n` +
         `New Product Stock: ${result.productStock} units\n` +
-        `Formula: ${result.previousProductStock} - ${quantity} = ${result.productStock}\n\n` +
-        `💾 Mortality Record Saved:\n` +
-        `CurrentQty: ${result.newMortalityCurrentQty} units (= Product Stock)\n` +
-        `InitialQty: ${result.newMortalityInitialQty} units (= CurrentQty)\n\n` +
-        `✓ ${isFirstLoss ? 'First' : 'Continued'} mortality record created\n` +
-        `✓ CurrentQty now matches Product Stock (${result.productStock} units)\n` +
+        `Formula: ${result.previousProductStock} - ${result.mortalityLossQty} = ${result.productStock}\n\n` +
+        `✓ Mortality record created\n` +
         `✓ Stock movements logged for audit trail`
       );
     } catch (error) {
@@ -1912,9 +1910,8 @@ function AdminProductsContent() {
   );
 }
 
-// Lazy wrapper for product form inside drawer
+// Wrapper for product form inside drawer
 function ProductFormInDrawer({ onSuccess }: { onSuccess: () => void }) {
-  const { ProductFormContentInner } = require('@/app/admin/products/form/page');
   return <ProductFormContentInner isDrawer onSuccess={onSuccess} />;
 }
 

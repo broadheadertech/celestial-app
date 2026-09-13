@@ -33,7 +33,7 @@ import { useAuthStore, useIsAuthenticated } from '@/store/auth';
 import { useCartStore } from '@/store/cart';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
-import { Id } from '@/convex/_generated/dataModel';
+import { Doc, Id } from '@/convex/_generated/dataModel';
 import Button from '@/components/ui/Button';
 import { Product } from '@/types';
 import SafeAreaProvider from '@/components/provider/SafeAreaProvider';
@@ -56,20 +56,8 @@ interface TankData {
   _creationTime: number;
 }
 
-interface FishData {
-  _id: string;
-  productId: string;
-  scientificName: string;
-  weight?: number;
-  size: number;
-  temperature: number;
-  age: number;
-  phLevel: string;
-  lifespan: string;
-  origin: string;
-  diet: string;
-  _creationTime: number;
-}
+// Matches the `fish` table (scientificName, temperature, lifespan and origin are optional there).
+type FishData = Doc<'fish'>;
 
 function ProductDetailContent() {
   const router = useRouter();

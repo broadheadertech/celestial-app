@@ -1,6 +1,7 @@
-import { query, mutation, MutationCtx } from "../_generated/server";
+import { query, mutation, QueryCtx, MutationCtx } from "../_generated/server";
 import { v, ConvexError } from "convex/values";
 import { Doc, Id } from "../_generated/dataModel";
+import { getReservationUser } from "../lib/reservationUser";
 import {
   notifyLowStock,
   notifyReservationCreated,
@@ -96,6 +97,24 @@ function assertReservationInputLimits(
   if ((notes?.length ?? 0) > LIMITS.notes) {
     throw new Error(`Notes must be at most ${LIMITS.notes} characters`);
   }
+}
+
+// Attach the product document to each reservation line item.
+type ReservationItemWithProduct = NonNullable<Doc<"reservations">["items"]>[number] & {
+  product: Doc<"products"> | null;
+};
+
+async function withProducts(
+  ctx: QueryCtx | MutationCtx,
+  reservation: Doc<"reservations">,
+): Promise<ReservationItemWithProduct[]> {
+  if (!reservation.items || reservation.items.length === 0) return [];
+  return await Promise.all(
+    reservation.items.map(async (item) => ({
+      ...item,
+      product: await ctx.db.get(item.productId),
+    })),
+  );
 }
 
 // Helper function to generate unique reservation codes
@@ -318,11 +337,10 @@ export const getReservations = query({
 
     let query;
     if (userId) {
-      // Handle both Convex ID and string formats
-      const userIdValue = typeof userId === 'string' ? userId as any : userId;
+      // userId may be a Convex user id or a legacy Facebook id; the index accepts both
       query = ctx.db
         .query("reservations")
-        .withIndex("by_user", (q) => q.eq("userId", userIdValue));
+        .withIndex("by_user", (q) => q.eq("userId", userId));
     } else if (guestId) {
       query = ctx.db
         .query("reservations")
@@ -340,28 +358,9 @@ export const getReservations = query({
     // Get product details for each reservation (handle both new and legacy format)
     const reservationsWithProducts = await Promise.all(
       reservations.map(async (reservation) => {
-        // Handle new multi-item format
-        if (reservation.items && reservation.items.length > 0) {
-          const itemsWithProducts = await Promise.all(
-            reservation.items.map(async (item) => {
-              const product = await ctx.db.get(item.productId);
-              return {
-                ...item,
-                product,
-              };
-            })
-          );
-
-          return {
-            ...reservation,
-            items: itemsWithProducts,
-          };
-        }
-
-        // Empty reservation (should not happen but handle gracefully)
         return {
           ...reservation,
-          items: [],
+          items: await withProducts(ctx, reservation),
         };
       })
     );
@@ -397,21 +396,8 @@ export const getReservationByCode = query({
       };
     }
 
-    // Get product details (handle both new and legacy format)
-    let itemsWithProducts = [];
-
-    // Handle new multi-item format
-    if (reservation.items && reservation.items.length > 0) {
-      itemsWithProducts = await Promise.all(
-        reservation.items.map(async (item) => {
-          const product = await ctx.db.get(item.productId);
-          return {
-            ...item,
-            product,
-          };
-        })
-      );
-    }
+    // Get product details
+    const itemsWithProducts = await withProducts(ctx, reservation);
 
     return {
       ...reservation,
@@ -488,7 +474,7 @@ export const cancelReservation = mutation({
       customerName = reservation.guestInfo.name;
     } else if (reservation.userId) {
       // User reservation - fetch user details
-      const user = await ctx.db.get(reservation.userId);
+      const user = await getReservationUser(ctx, reservation.userId);
       if (user) {
         customerName = `${user.firstName} ${user.lastName}`;
       }
@@ -513,20 +499,7 @@ export const cancelReservation = mutation({
 
     // Get product details for the response (handle both formats)
     if (updatedReservation) {
-      let itemsWithProducts = [];
-
-      if (updatedReservation.items && updatedReservation.items.length > 0) {
-        // New multi-item format
-        itemsWithProducts = await Promise.all(
-          updatedReservation.items.map(async (item) => {
-            const product = await ctx.db.get(item.productId);
-            return {
-              ...item,
-              product,
-            };
-          })
-        );
-      }
+      const itemsWithProducts = await withProducts(ctx, updatedReservation);
 
       return {
         ...updatedReservation,
@@ -580,7 +553,7 @@ export const markReservationReadyForPickup = mutation({
       customerEmail = reservation.guestInfo.email;
     } else if (reservation.userId) {
       // User reservation - fetch user details
-      const user = await ctx.db.get(reservation.userId as any);
+      const user = await getReservationUser(ctx, reservation.userId);
       if (user) {
         customerName = `${user.firstName} ${user.lastName}`;
         customerEmail = user.email;
@@ -695,7 +668,7 @@ export const updateReservationStatus = mutation({
         customerEmail = reservation.guestInfo.email;
       } else if (reservation.userId) {
         // User reservation - fetch user details
-        const user = await ctx.db.get(reservation.userId);
+        const user = await getReservationUser(ctx, reservation.userId);
         if (user) {
           customerName = `${user.firstName} ${user.lastName}`;
           customerEmail = user.email;
@@ -739,39 +712,15 @@ export const getReservationByIdAdmin = query({
       return null;
     }
 
-    // Get product and user details
-    let itemsWithProducts = [];
-
-    // Handle new multi-item format
-    if (reservation.items && reservation.items.length > 0) {
-      itemsWithProducts = await Promise.all(
-        reservation.items.map(async (item) => {
-          const product = await ctx.db.get(item.productId);
-          return {
-            ...item,
-            product,
-          };
-        })
-      );
-    }
-
-    let user = null;
-    if (reservation.userId) {
-      try {
-        // Try to get user by ID first (works for Convex IDs)
-        user = await ctx.db.get(reservation.userId);
-      } catch (error) {
-        // If that fails, it might be a Facebook ID, try to find by facebookId
-        try {
-          user = await ctx.db
-            .query("users")
-            .withIndex("by_facebook_id", (q) => q.eq("facebookId", reservation.userId as string))
-            .first();
-        } catch (e) {
-          console.warn("Could not find user:", reservation.userId);
-        }
-      }
-    }
+    // Get product (with category name) and user details
+    const itemsWithProducts = await Promise.all(
+      (await withProducts(ctx, reservation)).map(async (item) => {
+        const category = item.product ? await ctx.db.get(item.product.categoryId) : null;
+        return { ...item, categoryName: category?.name ?? null };
+      }),
+    );
+    // Convex user id, or a Facebook id on legacy records
+    const user = await getReservationUser(ctx, reservation.userId);
 
     return {
       ...reservation,
@@ -807,38 +756,9 @@ export const getAllReservationsAdmin = query({
     // Get product and user details for each reservation (handle both formats)
     const reservationsWithDetails = await Promise.all(
       reservations.map(async (reservation) => {
-        let itemsWithProducts = [];
-
-        // Handle new multi-item format
-        if (reservation.items && reservation.items.length > 0) {
-          itemsWithProducts = await Promise.all(
-            reservation.items.map(async (item) => {
-              const product = await ctx.db.get(item.productId);
-              return {
-                ...item,
-                product,
-              };
-            })
-          );
-        }
-
-        let user = null;
-        if (reservation.userId) {
-          try {
-            // Try to get user by ID first (works for Convex IDs)
-            user = await ctx.db.get(reservation.userId);
-          } catch (error) {
-            // If that fails, it might be a Facebook ID, try to find by facebookId
-            try {
-              user = await ctx.db
-                .query("users")
-                .withIndex("by_facebook_id", (q) => q.eq("facebookId", reservation.userId as string))
-                .first();
-            } catch (e) {
-              console.warn("Could not find user:", reservation.userId);
-            }
-          }
-        }
+        const itemsWithProducts = await withProducts(ctx, reservation);
+        // Convex user id, or a Facebook id on legacy records
+        const user = await getReservationUser(ctx, reservation.userId);
 
         return {
           ...reservation,
@@ -873,7 +793,7 @@ export const getAllReservationsAdmin = query({
                userName.includes(searchLower) ||
                guestName.includes(searchLower) ||
                guestEmail.includes(searchLower) ||
-               reservation.reservationCode.toLowerCase().includes(searchLower);
+               (reservation.reservationCode ?? '').toLowerCase().includes(searchLower);
       });
     }
 
@@ -1004,7 +924,7 @@ export const createReservation = mutation({
     // Create reservation - handle userId as string for Facebook users
     const reservationId = await ctx.db.insert("reservations", {
       reservationCode,
-      userId: typeof userId === 'string' ? userId as any : userId,
+      userId, // Convex user id, or a Facebook id for legacy Facebook users
       guestId,
       guestInfo,
       items: finalItems,
@@ -1029,19 +949,7 @@ export const createReservation = mutation({
       customerEmail = guestInfo.email;
     } else if (userId) {
       // Handle both Convex ID and string ID for Facebook users
-      let user = null;
-      if (typeof userId === 'string') {
-        // For Facebook users, find by facebookId or userId field
-        user = await ctx.db
-          .query("users")
-          .filter(q => q.or(
-            q.eq(q.field("facebookId"), userId),
-            q.eq(q.field("_id"), userId as any)
-          ))
-          .first();
-      } else {
-        user = await ctx.db.get(userId);
-      }
+      const user = await getReservationUser(ctx, userId);
 
       if (user) {
         customerName = `${user.firstName} ${user.lastName}`;
@@ -1165,16 +1073,14 @@ export const acknowledgeReservation = mutation({
         phone: reservation.guestInfo.phone,
       };
     } else if (reservation.userId) {
-      try {
-        const user = await ctx.db.get(reservation.userId as any);
-        if (user) {
-          customer = {
-            name: `${user.firstName} ${user.lastName}`,
-            email: user.email,
-            phone: user.phone,
-          };
-        }
-      } catch { /* */ }
+      const user = await getReservationUser(ctx, reservation.userId);
+      if (user) {
+        customer = {
+          name: `${user.firstName} ${user.lastName}`,
+          email: user.email,
+          phone: user.phone,
+        };
+      }
     }
 
     return {
@@ -1236,16 +1142,14 @@ export const releaseReservation = mutation({
         phone: reservation.guestInfo.phone,
       };
     } else if (reservation.userId) {
-      try {
-        const user = await ctx.db.get(reservation.userId as any);
-        if (user) {
-          customer = {
-            name: `${user.firstName} ${user.lastName}`,
-            email: user.email,
-            phone: user.phone,
-          };
-        }
-      } catch { /* */ }
+      const user = await getReservationUser(ctx, reservation.userId);
+      if (user) {
+        customer = {
+          name: `${user.firstName} ${user.lastName}`,
+          email: user.email,
+          phone: user.phone,
+        };
+      }
     }
 
     return {

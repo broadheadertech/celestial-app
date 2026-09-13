@@ -5,7 +5,7 @@ import { useQuery, useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { Id } from '@/convex/_generated/dataModel';
 import { ArrowLeft, Award, Edit, Eye, X, CheckCircle, AlertTriangle, RefreshCw, Fish, Waves, Trash2 } from 'lucide-react';
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import Image from 'next/image';
 import Button from '@/components/ui/Button';
 import SafeAreaProvider from '@/components/provider/SafeAreaProvider';
@@ -30,19 +30,6 @@ function ProductDetailsContent() {
   const searchParams = useSearchParams();
 
   const id = searchParams.get('id');
-
-  useEffect(() => {
-    if (false) {
-      const requestedPath = sessionStorage.getItem('_capacitor_requested_path');
-      if (requestedPath && requestedPath.startsWith('/admin/products/')) {
-        const productId = requestedPath.split('/admin/products/')[1]?.split('/')[0];
-        if (productId) {
-          sessionStorage.removeItem('_capacitor_requested_path');
-          router.replace(`/admin/products/${productId}`);
-        }
-      }
-    }
-  }, [id, router]);
 
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [certificateModalVisible, setCertificateModalVisible] = useState(false);
@@ -131,8 +118,9 @@ function ProductDetailsContent() {
     
     try {
       setIsDeleting(true);
-      await deleteProduct({ productId: product._id as Id<"products"> });
-      setModalMessage('Product deleted successfully!');
+      // Products with order/reservation history are deactivated rather than deleted.
+      const result = await deleteProduct({ id: product._id as Id<"products"> });
+      setModalMessage(result.message || 'Product deleted successfully!');
       setShowDeleteConfirm(false);
       setShowSuccessModal(true);
       setTimeout(() => {

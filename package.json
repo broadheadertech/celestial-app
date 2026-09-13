@@ -20,7 +20,10 @@
     "cap:run": "npx cap run android",
     "cap:open": "npx cap open android",
     "clean": "rm -rf .next out android/app/build android/build",
-    "clean:build": "npm run clean && npm run build:static"
+    "clean:build": "npm run clean && npm run build:static",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:smoke": "node scripts/smoke-storefront.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^7.4.3",
@@ -49,14 +52,17 @@
   },
   "devDependencies": {
     "@capacitor/assets": "^3.0.5",
+    "@edge-runtime/vm": "^5.0.0",
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20.19.15",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "convex-test": "^0.0.41",
     "eslint": "^9",
     "eslint-config-next": "15.5.3",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^3.2.7"
   }
 }

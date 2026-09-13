@@ -4,10 +4,12 @@ const nextConfig: NextConfig = {
   output: "export",
   distDir: "out",
   eslint: {
+    // Many legacy lint errors remain (no-explicit-any etc.); run `npm run lint` separately.
     ignoreDuringBuilds: true,
   },
   typescript: {
-    ignoreBuildErrors: true,
+    // Type errors now fail the build.
+    ignoreBuildErrors: false,
   },
   images: {
     unoptimized: true,

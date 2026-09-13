@@ -164,11 +164,20 @@ export default function CategoriesPage() {
               {featuredCategories.map((category) => {
                 const IconComponent = category.icon;
                 return (
-                  <Card
+                  <div
                     key={`featured-${category._id}`}
-                    className="overflow-hidden hover:scale-[1.02] transition-transform cursor-pointer"
+                    role="button"
+                    tabIndex={0}
+                    className="block hover:scale-[1.02] transition-transform cursor-pointer"
                     onClick={() => handleCategoryPress(category._id, category.name)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        handleCategoryPress(category._id, category.name);
+                      }
+                    }}
                   >
+                  <Card className="overflow-hidden">
                     <div className="relative">
                       <div className="h-32 bg-gradient-to-r from-primary/20 to-info/20 flex items-center justify-center">
                         <IconComponent className="w-12 h-12 text-primary" />
@@ -204,6 +213,7 @@ export default function CategoriesPage() {
                       </div>
                     </div>
                   </Card>
+                  </div>
                 );
               })}
             </div>
@@ -221,11 +231,20 @@ export default function CategoriesPage() {
               {regularCategories.map((category) => {
                 const IconComponent = category.icon;
                 return (
-                  <Card
+                  <div
                     key={category._id}
-                    className="p-4 hover:scale-[1.02] transition-transform cursor-pointer"
+                    role="button"
+                    tabIndex={0}
+                    className="block hover:scale-[1.02] transition-transform cursor-pointer"
                     onClick={() => handleCategoryPress(category._id, category.name)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        handleCategoryPress(category._id, category.name);
+                      }
+                    }}
                   >
+                  <Card className="p-4">
                     <div className="flex items-center space-x-4">
                       <div className="w-12 h-12 rounded-xl bg-primary/20 flex items-center justify-center">
                         <IconComponent className="w-6 h-6 text-primary" />
@@ -250,6 +269,7 @@ export default function CategoriesPage() {
                       </div>
                     </div>
                   </Card>
+                  </div>
                 );
               })}
             </div>

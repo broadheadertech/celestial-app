@@ -357,6 +357,14 @@ npx cap run android      # Build and run on device/emulator
   `components/dc/business.ts` (`useBusiness`). Never hardcode contact details in pages; unset values are hidden.
 - **Testimonials** (Admin → Testimonials, `convex/services/testimonials.ts`): client photo + quote; only
   published ones show on the home page.
+- **Order tracking** (`/track`, `convex/services/tracking.ts`): guests look up ORD-/RES- codes with the
+  email used at checkout; returns customer-safe fields only.
+- **Notifications:** each row has `audience` (`"staff"` team inbox with shared `isRead`, or
+  `"customer"`). Customer read/dismiss state lives in `notificationReceipts` per user — never modify
+  or delete shared rows on a customer's behalf. Web orders, viewing requests and contact messages
+  create staff notifications and send best-effort confirmation emails (`convex/services/email.ts`).
+- **Auth hardening:** passwords are PBKDF2 (`convex/lib/password.ts`); login/reset throttling in
+  `convex/lib/throttle.ts`; a daily cron (`convex/crons.ts`) prunes stale auth rows.
 
 ### Product Management
 - **Live Fish:** Require reservations with pickup scheduling
@@ -426,9 +434,15 @@ npx cap run android      # Build and run on device/emulator
 ## 15. Testing Strategy
 
 ### Current Setup
-- **ESLint:** Code quality and consistency
-- **TypeScript:** Compile-time error checking
-- **Manual Testing:** Feature verification
+- **Backend tests:** `npm test` — Vitest + `convex-test` (pinned to 0.0.41 for convex 1.27) in
+  `tests/convex/`. Covers staff-only access, revoked/deactivated sessions, role changes, sign-up
+  role, login lockout + PBKDF2 storage, public catalog (no cost fields, purchase modes), web
+  checkout rules, and order tracking. Helpers in `tests/convex/setup.ts` (`signedInAs`,
+  `seedCatalog`). Use fake timers in tests that trigger scheduled functions.
+- **Storefront smoke test:** `npm run build && npm run test:smoke` — serves `out/`, opens key pages
+  in headless Chrome at phone and desktop widths, fails on console errors or horizontal overflow.
+- **TypeScript:** builds fail on type errors (`next.config.ts` `ignoreBuildErrors: false`).
+- **ESLint:** `npm run lint` (still has legacy errors; not enforced in builds).
 
 ### Recommended Additions
 - **Unit Tests:** Component and utility testing

@@ -15,6 +15,7 @@ import { useAuthStore, useIsAuthenticated, useIsGuest } from '@/store/auth';
 import { formatCurrency } from '@/lib/utils';
 import { useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
+import { Id } from '@/convex/_generated/dataModel';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Card from '@/components/ui/Card';
@@ -106,7 +107,7 @@ function CartContent() {
 
       // Prepare reservation data
       const reservationItems = cartItems.map(item => ({
-        productId: item.productId,
+        productId: item.productId as Id<'products'>,
         quantity: item.quantity,
         reservedPrice: item.product?.price || 0
       }));

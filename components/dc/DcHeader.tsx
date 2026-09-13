@@ -124,6 +124,7 @@ export default function DcHeader() {
           <Link href="/shop">Shop gear &amp; food</Link>
           <Link href="/visit">Visit &amp; Book</Link>
           <Link href="/contact">Contact</Link>
+          <Link href="/track">Track an order</Link>
           <MobileAccountLink />
         </nav>
       )}

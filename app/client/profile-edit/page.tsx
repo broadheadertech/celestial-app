@@ -18,6 +18,7 @@ import {
 import { useAuthStore, useIsAuthenticated } from '@/store/auth';
 import { useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
+import { Id } from '@/convex/_generated/dataModel';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Card from '@/components/ui/Card';
@@ -25,12 +26,12 @@ import { useToastHelpers } from '@/components/ui/ToastManager';
 
 export default function ProfileEditPage() {
   const router = useRouter();
-  const { user } = useAuthStore();
+  const { user, updateUser } = useAuthStore();
   const isAuthenticated = useIsAuthenticated();
   const { success, error } = useToastHelpers();
 
   // Convex mutations
-  const updateUserProfile = useMutation(api.services.auth.updateUserProfile);
+  const updateProfile = useMutation(api.services.auth.updateProfile);
   const changePassword = useMutation(api.services.auth.changePassword);
 
   const [activeTab, setActiveTab] = useState<'profile' | 'password'>('profile');
@@ -154,13 +155,15 @@ export default function ProfileEditPage() {
 
     setIsLoading(true);
     try {
-      await updateUserProfile({
-        userId: user._id,
+      const result = await updateProfile({
+        userId: user._id as Id<'users'>,
         firstName: profileData.firstName.trim(),
         lastName: profileData.lastName.trim(),
-        email: profileData.email.trim(),
         phone: profileData.phone.trim() || undefined,
       });
+      if (result.success && result.user) {
+        updateUser(result.user);
+      }
 
       success('Profile Updated', 'Your profile has been updated successfully!');
       router.back();
@@ -179,7 +182,7 @@ export default function ProfileEditPage() {
     setIsLoading(true);
     try {
       await changePassword({
-        userId: user._id,
+        userId: user._id as Id<'users'>,
         currentPassword: passwordData.currentPassword,
         newPassword: passwordData.newPassword,
       });
@@ -320,6 +323,8 @@ export default function ProfileEditPage() {
                   }}
                   error={profileErrors.email}
                   placeholder="Enter your email"
+                  // auth.updateProfile doesn't support changing the email address
+                  disabled
                 />
 
                 <Input

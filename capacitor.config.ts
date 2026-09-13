@@ -10,9 +10,8 @@ const config: CapacitorConfig = {
     iosScheme: 'capacitor',
     hostname: 'localhost'
   },
-  android: {
-    icon: 'app-icons/icon.png'
-  },
+  // Android launcher icons aren't set here (CapacitorConfig has no `android.icon`); they live in
+  // android/app/src/main/res/mipmap-* (generate them from app-icons/icon.png, e.g. with @capacitor/assets).
   plugins: {
     SplashScreen: {
       launchShowDuration: 3000,

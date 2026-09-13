@@ -152,7 +152,7 @@ export default function NotificationModal({
   const handleMarkAllAsRead = async () => {
     try {
       setIsLoading(true);
-      await markAllAsRead({});
+      await markAllAsRead({ scope: "staff" });
     } catch (error) {
       console.error('Error marking all notifications as read:', error);
     } finally {
@@ -175,7 +175,7 @@ export default function NotificationModal({
   const handleClearAll = async () => {
     try {
       setIsLoading(true);
-      await clearAllNotifications({});
+      await clearAllNotifications({ scope: "staff" });
     } catch (error) {
       console.error('Error clearing all notifications:', error);
     } finally {

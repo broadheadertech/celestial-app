@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
 import { ChevronLeft } from 'lucide-react';
-import { JOURNAL_POSTS } from '../page';
+import { JOURNAL_POSTS } from '../posts';
 
 function JournalArticleContent() {
   const searchParams = useSearchParams();

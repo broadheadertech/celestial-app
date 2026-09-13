@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { requireStaff } from "../lib/authz";
+import { getReservationUser } from "../lib/reservationUser";
 import { mutation, query, MutationCtx } from "../_generated/server";
 import { Id } from "../_generated/dataModel";
 import { recordAudit } from "./audit";
@@ -1336,8 +1337,8 @@ export const getCollectionsFlowDetail = query({
         let customer = "Unknown customer";
         if (r?.guestInfo?.name) {
           customer = r.guestInfo.name;
-        } else if (r?.userId && typeof r.userId !== "string") {
-          const u = await ctx.db.get(r.userId);
+        } else if (r?.userId) {
+          const u = await getReservationUser(ctx, r.userId);
           if (u) customer = `${u.firstName} ${u.lastName}`.trim();
         }
         return {

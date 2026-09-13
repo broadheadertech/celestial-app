@@ -291,6 +291,8 @@ export default defineSchema({
       v.literal("success"),
       v.literal("system")
     ),
+    // Shared read flag — meaningful for the staff inbox only. Customer read/dismiss state is
+    // per user, in notificationReceipts.
     isRead: v.boolean(),
     priority: v.union(
       v.literal("low"),
@@ -298,6 +300,10 @@ export default defineSchema({
       v.literal("high"),
       v.literal("urgent")
     ),
+    // Who the notification is for: "staff" = shared admin team inbox, "customer" = a customer's
+    // own feed (addressed via metadata.customerEmail) or a promotion broadcast.
+    // Unset on rows created before this field existed; see audienceOf() in services/notifications.ts.
+    audience: v.optional(v.union(v.literal("staff"), v.literal("customer"))),
     // Reference IDs for context
     relatedId: v.optional(v.string()), // Can be orderId, reservationId, userId, etc.
     relatedType: v.optional(v.string()), // Type of the related entity
@@ -315,7 +321,19 @@ export default defineSchema({
     .index("by_read", ["isRead"])
     .index("by_type", ["type"])
     .index("by_priority", ["priority"])
-    .index("by_created", ["createdAt"]),
+    .index("by_created", ["createdAt"])
+    .index("by_audience_and_read", ["audience", "isRead"]),
+
+  // Per-user state for customer-facing notifications, so one customer reading or dismissing a
+  // notification (e.g. a promotion broadcast) never changes it for anyone else.
+  notificationReceipts: defineTable({
+    notificationId: v.id("notifications"),
+    userId: v.id("users"),
+    readAt: v.optional(v.number()),
+    dismissedAt: v.optional(v.number()),
+  })
+    .index("by_user_and_notification", ["userId", "notificationId"])
+    .index("by_notification", ["notificationId"]),
 
   // Stock Records - Detailed inventory tracking per batch
   stockRecords: defineTable({

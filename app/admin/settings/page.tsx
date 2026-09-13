@@ -49,7 +49,7 @@ function AdminSettingsContent() {
   // Fetch current user data
   const currentUser = useQuery(
     api.services.auth.getCurrentUser,
-    user ? { userId: user._id } : "skip",
+    user ? { userId: user._id as Id<"users"> } : "skip",
   );
 
   // Profile update mutation
@@ -197,7 +197,7 @@ function AdminSettingsContent() {
 
       // Update profile information
       await updateProfile({
-        userId: user._id,
+        userId: user._id as Id<"users">,
         firstName: settings.firstName.trim(),
         lastName: settings.lastName.trim(),
         phone: settings.phone.trim() || undefined,
@@ -217,7 +217,7 @@ function AdminSettingsContent() {
       // Handle password change if enabled
       if (settings.security.changePassword) {
         await changePassword({
-          userId: user._id,
+          userId: user._id as Id<"users">,
           currentPassword: settings.security.currentPassword,
           newPassword: settings.security.newPassword,
         });

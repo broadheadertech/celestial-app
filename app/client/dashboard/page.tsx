@@ -125,7 +125,6 @@ function ClientDashboardContent() {
       success(
         reservation.title,
         reservation.message + " - Check your reservations for pickup details.",
-        { duration: 8000 },
       );
     }
   }, [clientNotifications, hasShownReservationNotif, isHydrated, success]);
@@ -328,7 +327,7 @@ function ClientDashboardContent() {
 
   const handleMarkAllAsRead = async () => {
     try {
-      await markAllAsReadMutation();
+      await markAllAsReadMutation({ scope: "customer" });
     } catch (error) {
       console.error("Failed to mark all notifications as read:", error);
     }
@@ -344,7 +343,7 @@ function ClientDashboardContent() {
 
   const handleClearAll = async () => {
     try {
-      await clearAllNotificationsMutation();
+      await clearAllNotificationsMutation({ scope: "customer" });
     } catch (error) {
       console.error("Failed to clear all notifications:", error);
     }

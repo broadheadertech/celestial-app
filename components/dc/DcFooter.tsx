@@ -52,6 +52,7 @@ export default function DcFooter() {
               <Link href="/shop" className="dc-foot-link" style={footLink}>Shop gear &amp; food</Link>
               <Link href="/visit" className="dc-foot-link" style={footLink}>Visit &amp; Book</Link>
               <Link href="/contact" className="dc-foot-link" style={footLink}>Contact</Link>
+              <Link href="/track" className="dc-foot-link" style={footLink}>Track an order</Link>
             </div>
           </div>
 

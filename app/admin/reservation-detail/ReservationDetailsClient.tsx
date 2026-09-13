@@ -83,7 +83,7 @@ function ReservationDetailsContent() {
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [showPickupModal, setShowPickupModal] = useState(false);
   const [showSMSModal, setShowSMSModal] = useState(false);
-  const [pendingAction, setPendingAction] = useState<'confirm' | 'ready_for_pickup' | null>(null);
+  const [pendingAction, setPendingAction] = useState<'confirmed' | 'ready_for_pickup' | null>(null);
   const [newStatus, setNewStatus] = useState('');
   const [statusNote, setStatusNote] = useState('');
   const [pickupDate, setPickupDate] = useState('');
@@ -261,7 +261,7 @@ function ReservationDetailsContent() {
         // Use regular status update for confirmed
         await updateReservationStatus({
           reservationId: reservation._id as Id<'reservations'>,
-          status: pendingAction as 'confirmed',
+          status: pendingAction,
           adminNotes: statusNote || undefined
         });
       }
@@ -630,7 +630,7 @@ function ReservationDetailsContent() {
                   />
                   <div className="flex-1 min-w-0">
                     <h4 className="font-medium text-white break-words">{item.product?.name || 'Unknown Product'}</h4>
-                    <p className="text-sm text-muted">{item.product?.category || 'Unknown Category'}</p>
+                    <p className="text-sm text-muted">{item.categoryName || 'Unknown Category'}</p>
                     <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 mt-1">
                       <span className="text-sm text-muted">Qty: {item.quantity}</span>
                       <span className="hidden sm:inline text-muted">•</span>

@@ -112,6 +112,7 @@ export default function CheckoutPage() {
         </div>
         <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
           {wa && <a href={wa} target="_blank" rel="noopener" className="dc-btn-primary" style={{ background: red, color: 'oklch(0.98 0.012 82)', fontSize: 14, fontWeight: 600, padding: '14px 22px', borderRadius: 999 }}>Message us about this order</a>}
+          <Link href={`/track?code=${placed.code}`} className="dc-btn-ghost" style={{ border: '1px solid oklch(0.78 0.02 40)', color: 'oklch(0.34 0.012 34)', fontSize: 14, fontWeight: 600, padding: '14px 22px', borderRadius: 999 }}>Track this order</Link>
           <Link href="/shop" className="dc-btn-ghost" style={{ border: '1px solid oklch(0.78 0.02 40)', color: 'oklch(0.34 0.012 34)', fontSize: 14, fontWeight: 600, padding: '14px 22px', borderRadius: 999 }}>Back to the shop</Link>
           {user && <Link href="/account" className="dc-btn-ghost" style={{ border: '1px solid oklch(0.78 0.02 40)', color: 'oklch(0.34 0.012 34)', fontSize: 14, fontWeight: 600, padding: '14px 22px', borderRadius: 999 }}>View in my account</Link>}
         </div>

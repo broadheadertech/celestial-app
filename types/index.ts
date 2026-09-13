@@ -224,7 +224,7 @@ export interface InputProps {
   placeholder?: string;
   value: string;
   onChange: (value: string) => void;
-  type?: "text" | "email" | "password" | "number" | "tel";
+  type?: "text" | "email" | "password" | "number" | "tel" | "date" | "time";
   required?: boolean;
   disabled?: boolean;
   error?: string;

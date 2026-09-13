@@ -30,6 +30,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useCartItemCount } from '@/store/cart';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
+import { Id } from '@/convex/_generated/dataModel';
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
 import ClientBottomNavbar from '@/components/client/ClientBottomNavbar';
@@ -152,7 +153,7 @@ function ProfileContent() {
 
       // Call Convex mutation
       const result = await updateProfileMutation({
-        userId: user._id,
+        userId: user._id as Id<'users'>,
         firstName: profileSettings.firstName.trim(),
         lastName: profileSettings.lastName.trim(),
         phone: profileSettings.phone?.trim() || '',
@@ -222,7 +223,7 @@ function ProfileContent() {
 
       // Call Convex mutation
       const result = await changePasswordMutation({
-        userId: user._id,
+        userId: user._id as Id<'users'>,
         currentPassword: passwordForm.currentPassword,
         newPassword: passwordForm.newPassword,
       });
@@ -236,7 +237,7 @@ function ProfileContent() {
         setShowNewPassword(false);
         setShowConfirmPassword(false);
       } else {
-        setModalMessage(result.error || 'Failed to change password');
+        setModalMessage(result.message || 'Failed to change password');
         setShowErrorModal(true);
       }
     } catch (error) {
@@ -285,10 +286,10 @@ function ProfileContent() {
             className="p-2 hover:bg-white/10 rounded-lg transition-colors relative"
           >
             <Bell className="w-5 h-5 text-[var(--white)]" />
-            {clientNotificationCounts?.all?.unread > 0 && (
+            {(clientNotificationCounts?.unread ?? 0) > 0 && (
               <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-[var(--error-red)] rounded-full flex items-center justify-center">
                 <span className="text-[10px] text-[var(--white)]">
-                  {clientNotificationCounts.all.unread > 99 ? '99+' : clientNotificationCounts.all.unread}
+                  {(clientNotificationCounts?.unread ?? 0) > 99 ? '99+' : clientNotificationCounts?.unread}
                 </span>
               </span>
             )}
@@ -569,9 +570,9 @@ function ProfileContent() {
             <div className="flex items-center space-x-3">
               <Bell className="w-5 h-5 text-[var(--primary-orange)]" />
               <span className="text-[var(--white)]">Notifications</span>
-              {clientNotificationCounts?.all?.unread > 0 && (
+              {(clientNotificationCounts?.unread ?? 0) > 0 && (
                 <span className="px-2 py-0.5 bg-[var(--error-red)]/20 text-[var(--error-red)] text-xs rounded-full">
-                  {clientNotificationCounts.all.unread} new
+                  {clientNotificationCounts?.unread} new
                 </span>
               )}
             </div>
