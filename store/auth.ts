@@ -14,7 +14,8 @@ interface AuthStore extends AuthState {
 
 // Generate unique guest ID
 const generateGuestId = (): string => {
-  return `guest_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  // Acts as the access key to a guest's cart/reservations, so it must be unguessable.
+  return `guest_${crypto.randomUUID()}`;
 };
 
 export const useAuthStore = create<AuthStore>()(

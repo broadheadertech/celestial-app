@@ -10,13 +10,15 @@ import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { useQuery } from 'convex/react';
 import { api } from '@/convex/_generated/api';
-import { buildChips, DcProduct, familyOf, fmtPeso, gradeRank, isArowana, isFish, tintFor, waEnquire } from '@/components/dc/fish';
+import { buildChips, DcProduct, familyOf, fmtPeso, gradeRank, isArowana, isFish, tintFor } from '@/components/dc/fish';
+import { useBusiness } from '@/components/dc/business';
 
 const mono = "'Geist Mono', monospace";
 const serif = "'Noto Serif Display', serif";
 
 export default function CavePage() {
   const products = useQuery(api.services.products.getCatalogProducts, {}) as DcProduct[] | undefined;
+  const biz = useBusiness();
   const [family, setFamily] = useState('all');
   const [grade, setGrade] = useState('all');
 
@@ -112,7 +114,7 @@ export default function CavePage() {
                   <Link href={`/specimen-detail?id=${item._id}`} style={{ fontFamily: serif, fontWeight: 600, fontSize: 19, lineHeight: 1.15, color: 'oklch(0.19 0.012 32)', marginBottom: 5 }}>{item.name}</Link>
                   <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, paddingTop: 13, borderTop: '1px solid oklch(0.88 0.012 68)' }}>
                     <span style={{ fontFamily: mono, fontSize: 14.5, fontWeight: 600, color: 'oklch(0.22 0.012 32)', letterSpacing: '0.01em' }}>{fmtPeso(item.price)}</span>
-                    <a href={waEnquire(item.name, item.tankNumber || String(item.sku || ''))} target="_blank" rel="noopener" className="dc-reserve" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 600, color: 'oklch(0.50 0.216 27)', transition: 'color .18s', whiteSpace: 'nowrap' }}>
+                    <a href={biz.enquireHref(item.name, item.tankNumber || String(item.sku || ''))} target="_blank" rel="noopener" className="dc-reserve" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 600, color: 'oklch(0.50 0.216 27)', transition: 'color .18s', whiteSpace: 'nowrap' }}>
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v7A2.5 2.5 0 0 1 17.5 15H9l-4 3.5V15H6.5A2.5 2.5 0 0 1 4 12.5v-7Z" fill="oklch(0.50 0.216 27)" /></svg>
                       Reserve
                     </a>

@@ -349,6 +349,8 @@ export const createProduct = mutation({
     productStatus: v.optional(v.string()),
     lifespan: v.optional(v.string()),
     tankNumber: v.optional(v.string()),
+    grade: v.optional(v.union(v.literal("S"), v.literal("AAA"), v.literal("AA"), v.literal("A"))),
+    purchaseMode: v.optional(v.union(v.literal("enquire"), v.literal("cart"))),
     userId: v.optional(v.id("users")), // acting admin (for audit) — excluded from the product doc
   },
   handler: async (ctx, args) => {

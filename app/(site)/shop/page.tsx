@@ -11,19 +11,6 @@ import { useSiteCart } from '@/store/siteCart';
 const fmt = (n: number) =>
   `₱${n.toLocaleString('en-PH', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 
-const isLiveCategoryName = (name?: string) => {
-  const n = (name || '').toLowerCase();
-  return (
-    n.includes('fish') ||
-    n.includes('arowana') ||
-    n.includes('crossback') ||
-    n.includes('red') ||
-    n.includes('silver') ||
-    n.includes('jardini') ||
-    n.includes('pearl')
-  );
-};
-
 export default function ShopPage() {
   const products = useQuery(api.services.products.getCatalogProducts, {});
   const add = useSiteCart((s) => s.add);
@@ -31,11 +18,9 @@ export default function ShopPage() {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [search, setSearch] = useState('');
 
+  // Only products set to "Add to cart" in the admin (live fish are enquiry-only).
   const gearProducts = useMemo(
-    () =>
-      (products ?? []).filter(
-        (p) => p.isActive && p.stock > 0 && !isLiveCategoryName(p.categoryName),
-      ),
+    () => (products ?? []).filter((p) => p.isActive && p.stock > 0 && p.purchaseMode === 'cart'),
     [products],
   );
 
@@ -184,9 +169,13 @@ export default function ShopPage() {
       {/* Grid */}
       <section className="py-15" style={{ padding: '40px 0 80px' }}>
         <div className="site-container">
-          {visible.length === 0 ? (
+          {products === undefined ? (
             <div className="py-20 text-center" style={{ color: 'var(--ink-4)' }}>
-              No gear matches these filters.
+              Loading the shop…
+            </div>
+          ) : visible.length === 0 ? (
+            <div className="py-20 text-center" style={{ color: 'var(--ink-4)' }}>
+              {gearProducts.length === 0 ? 'Nothing in the shop right now — check back soon.' : 'No gear matches these filters.'}
             </div>
           ) : (
             <div

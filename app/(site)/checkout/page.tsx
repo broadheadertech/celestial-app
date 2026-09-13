@@ -1,773 +1,253 @@
 'use client';
+/* eslint-disable @next/next/no-img-element -- product images are remote Convex storage URLs */
+
+/**
+ * Checkout for shop products (food, lights, gear). Live fish are enquiry-only and never
+ * reach the cart. No payment is taken online: the order is created pending/unpaid via
+ * orders.placeWebOrder and staff confirm payment and pickup/delivery.
+ */
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
-import { ArrowRight, Check, ChevronLeft, CreditCard, Building2, Smartphone, Banknote, ShoppingBag } from 'lucide-react';
 import { useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { Id } from '@/convex/_generated/dataModel';
 import { useAuthStore } from '@/store/auth';
-import {
-  useSiteCart,
-  siteCartSubtotal,
-  siteCartDepositToday,
-  siteCartLiveItems,
-  siteCartGearItems,
-  siteCartBalanceAtPickup,
-  type SiteCartLine,
-} from '@/store/siteCart';
+import { useSiteCart, siteCartSubtotal } from '@/store/siteCart';
+import { useBusiness } from '@/components/dc/business';
 
 const fmt = (n: number) =>
-  `₱${n.toLocaleString('en-PH', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+  `₱${n.toLocaleString('en-PH', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
 
-type Step = 'selection' | 'delivery' | 'payment' | 'confirmation';
+const mono = "'Geist Mono', monospace";
+const serif = "'Noto Serif Display', serif";
+const ink = 'oklch(0.19 0.012 32)';
+const muted = 'oklch(0.46 0.012 34)';
+const line = 'oklch(0.86 0.012 68)';
+const red = 'oklch(0.52 0.216 27)';
 
-const PAYMENT_METHODS = [
-  { id: 'card', label: 'Card', icon: CreditCard },
-  { id: 'gcash', label: 'GCash', icon: Smartphone },
-  { id: 'bank_transfer', label: 'Bank transfer', icon: Building2 },
-  { id: 'cash', label: 'Cash at pickup', icon: Banknote },
-];
+type Fulfilment = 'pickup' | 'delivery';
 
 export default function CheckoutPage() {
-  const router = useRouter();
   const { user } = useAuthStore();
+  const biz = useBusiness();
   const items = useSiteCart((s) => s.items);
   const clear = useSiteCart((s) => s.clear);
-
-  const createReservation = useMutation(api.services.reservations.createReservation);
+  const setOpen = useSiteCart((s) => s.setOpen);
   const placeWebOrder = useMutation(api.services.orders.placeWebOrder);
 
-  const [step, setStep] = useState<Step>('selection');
-  const [guestName, setGuestName] = useState(user ? `${user.firstName} ${user.lastName}` : '');
-  const [guestEmail, setGuestEmail] = useState(user?.email || '');
-  const [guestPhone, setGuestPhone] = useState(user?.phone || '');
-  const [guestAddress, setGuestAddress] = useState('');
-  const [pickupDate, setPickupDate] = useState(() => {
-    const d = new Date();
-    d.setDate(d.getDate() + 3);
-    return d.toISOString().slice(0, 10);
-  });
-  const [pickupTime, setPickupTime] = useState('14:00');
-  const [paymentMethod, setPaymentMethod] = useState<string>('card');
+  const [name, setName] = useState(user ? `${user.firstName} ${user.lastName}`.trim() : '');
+  const [email, setEmail] = useState(user?.email || '');
+  const [phone, setPhone] = useState(user?.phone || '');
+  const [fulfilment, setFulfilment] = useState<Fulfilment>('pickup');
+  const [address, setAddress] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState('cash');
   const [notes, setNotes] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [confirmation, setConfirmation] = useState<{ code: string; total: number; deposit: number } | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+  const [placed, setPlaced] = useState<{ code: string; total: number; count: number } | null>(null);
 
-  const subtotal = siteCartSubtotal(items);
-  const live = siteCartLiveItems(items);
-  const gear = siteCartGearItems(items);
-  const hasLive = live.length > 0;
-  const dueToday = siteCartDepositToday(items);
-  const balanceAtPickup = siteCartBalanceAtPickup(items);
-  const totalQty = items.reduce((s, l) => s + l.qty, 0);
+  // Any leftover live items from older versions of the cart can't be checked out.
+  const cartItems = useMemo(() => items.filter((l) => !l.isLive), [items]);
+  const subtotal = siteCartSubtotal(cartItems);
+  const count = cartItems.reduce((n, l) => n + l.qty, 0);
 
-  const canContinueDelivery = useMemo(
-    () => guestName.trim().length > 1 && /.+@.+\..+/.test(guestEmail) && guestPhone.trim().length >= 7,
-    [guestName, guestEmail, guestPhone],
-  );
+  const paymentOptions = [
+    { id: 'cash', label: fulfilment === 'pickup' ? 'Cash on pickup' : 'Cash on delivery', hint: 'Pay when you receive your order' },
+    { id: 'gcash', label: 'GCash', hint: biz.gcashNumber ? `Send to ${biz.gcashNumber}${biz.gcashName ? ` (${biz.gcashName})` : ''} after we confirm` : 'We send GCash details when we confirm' },
+    { id: 'bank_transfer', label: 'Bank transfer', hint: biz.bankDetails ? 'Details below — transfer after we confirm' : 'We send bank details when we confirm' },
+  ];
 
-  if (items.length === 0 && !confirmation) {
-    return (
-      <main className="py-20" style={{ padding: '80px 0' }}>
-        <div className="site-container text-center" style={{ color: 'var(--ink-3)' }}>
-          <ShoppingBag size={32} className="mx-auto mb-4" style={{ color: 'var(--ink-4)' }} />
-          <h1
-            className="display mb-3"
-            style={{ fontSize: 28, fontVariationSettings: '"opsz" 32, "wght" 700' }}
-          >
-            An empty case
-          </h1>
-          <p className="text-[14px] mb-6">Add a specimen or gear to start a checkout.</p>
-          <Link href="/catalog" className="b">
-            Browse catalog <ArrowRight size={12} />
-          </Link>
-        </div>
-      </main>
-    );
-  }
+  const validationError = () => {
+    if (name.trim().length < 2) return 'Please enter your name.';
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return 'Please enter a valid email.';
+    if (phone.replace(/\D/g, '').length < 10) return 'Please enter a mobile number we can reach you on.';
+    if (fulfilment === 'delivery' && address.trim().length < 10) return 'Please enter your full delivery address.';
+    return '';
+  };
 
   const submit = async () => {
-    setIsSubmitting(true);
+    const problem = validationError();
+    if (problem) return setError(problem);
+    setError('');
+    setSubmitting(true);
     try {
-      const userIdArg = user?._id as Id<'users'> | undefined;
-      const baseCustomerName = guestName.trim() || (user ? `${user.firstName} ${user.lastName}` : 'Walk-in');
-
-      // 1) Create reservation for live items (one reservation for the whole live batch).
-      let reservationCode: string | undefined;
-      if (live.length > 0) {
-        const reservationResult = await createReservation({
-          userId: userIdArg,
-          guestId: !userIdArg ? `web-${Date.now()}` : undefined,
-          guestInfo: !userIdArg
-            ? {
-                name: baseCustomerName,
-                email: guestEmail,
-                phone: guestPhone,
-                completeAddress: guestAddress || undefined,
-                pickupSchedule: { date: pickupDate, time: pickupTime },
-                notes: notes || undefined,
-              }
-            : undefined,
-          items: live.map((l) => ({
-            productId: l.productId as Id<'products'>,
-            quantity: l.qty,
-            reservedPrice: l.price,
-          })),
-          totalAmount: live.reduce((s, l) => s + l.price * l.qty, 0),
-          totalQuantity: live.reduce((s, l) => s + l.qty, 0),
-          notes: `Deposit ${fmt(dueToday)} via ${paymentMethod}. Balance ${fmt(balanceAtPickup)} due at pickup ${pickupDate} ${pickupTime}.${notes ? ' · ' + notes : ''}`,
-        });
-        reservationCode =
-          (reservationResult as { reservationCode?: string })?.reservationCode || undefined;
-      }
-
-      // 2) Create order for gear items. It stays pending/unpaid until staff confirm payment.
-      let orderCode: string | undefined;
-      if (gear.length > 0) {
-        const orderResult = await placeWebOrder({
-          items: gear.map((l) => ({
-            productId: l.productId as Id<'products'>,
-            quantity: l.qty,
-          })),
-          paymentMethod,
-          customerName: baseCustomerName,
-          customerEmail: guestEmail || undefined,
-          customerPhone: guestPhone || undefined,
-          address: guestAddress || undefined,
-          notes: `Pickup ${pickupDate} ${pickupTime}.${notes ? ' ' + notes : ''}`,
-        });
-        orderCode = orderResult.orderCode;
-      }
-
-      const finalCode = reservationCode || orderCode || 'CHECKOUT';
-      setConfirmation({
-        code: finalCode,
-        total: subtotal,
-        deposit: dueToday,
+      const result = await placeWebOrder({
+        items: cartItems.map((l) => ({ productId: l.productId as Id<'products'>, quantity: l.qty })),
+        paymentMethod,
+        customerName: name.trim(),
+        customerEmail: email.trim(),
+        customerPhone: phone.trim(),
+        address: fulfilment === 'delivery' ? address.trim() : undefined,
+        notes: [`Fulfilment: ${fulfilment === 'pickup' ? 'pickup at the gallery' : 'delivery'}`, notes.trim()].filter(Boolean).join('\n'),
       });
+      setPlaced({ code: result.orderCode, total: result.totalAmount, count });
       clear();
-      setStep('confirmation');
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Checkout failed. Try again or contact us.');
+      setError(e instanceof Error ? e.message : 'We couldn’t place your order. Please try again or message us.');
     } finally {
-      setIsSubmitting(false);
+      setSubmitting(false);
     }
   };
 
-  const steps: { id: Step; label: string }[] = [
-    { id: 'selection', label: 'Selection' },
-    { id: 'delivery', label: 'Delivery' },
-    { id: 'payment', label: 'Payment' },
-    { id: 'confirmation', label: 'Confirmation' },
-  ];
-  const currentStepIndex = steps.findIndex((s) => s.id === step);
-
-  return (
-    <main>
-      <div className="site-container pt-6 pb-3" style={{ padding: '24px 32px 12px' }}>
-        <Link
-          href="/catalog"
-          className="inline-flex items-center gap-1.5 text-[12px]"
-          style={{ color: 'var(--ink-3)' }}
-        >
-          <ChevronLeft size={14} />
-          Back to gallery
-        </Link>
-      </div>
-
-      <section className="pb-10" style={{ padding: '0 0 40px' }}>
-        <div className="site-container">
-          <div className="placard mb-3" style={{ color: 'var(--red-hi)' }}>
-            Checkout
-          </div>
-          <h1
-            className="display-xl mb-8"
-            style={{ fontSize: 'clamp(40px, 6vw, 64px)' }}
-          >
-            Take it <em className="italic-flourish">home.</em>
-          </h1>
-
-          {/* Step indicator */}
-          <div className="flex items-center gap-3 mb-10 flex-wrap">
-            {steps.map((s, i) => {
-              const done = currentStepIndex > i;
-              const active = currentStepIndex === i;
-              return (
-                <div key={s.id} className="flex items-center gap-3">
-                  <span
-                    className="inline-flex items-center justify-center w-7 h-7 rounded-full font-semibold text-[12px]"
-                    style={{
-                      background: active
-                        ? 'var(--red)'
-                        : done
-                        ? 'var(--jade-wash)'
-                        : 'var(--surface)',
-                      color: active
-                        ? 'oklch(0.99 0 0)'
-                        : done
-                        ? 'var(--jade)'
-                        : 'var(--ink-3)',
-                      border:
-                        '1px solid ' +
-                        (active ? 'var(--red-deep)' : done ? 'var(--jade)' : 'var(--line)'),
-                    }}
-                  >
-                    {done ? <Check size={12} /> : i + 1}
-                  </span>
-                  <span
-                    className="text-[13px] font-semibold"
-                    style={{ color: active ? 'var(--ink)' : 'var(--ink-3)' }}
-                  >
-                    {s.label}
-                  </span>
-                  {i < steps.length - 1 && (
-                    <span
-                      className="w-8 h-px"
-                      style={{ background: done ? 'var(--jade)' : 'var(--line)' }}
-                    />
-                  )}
-                </div>
-              );
-            })}
-          </div>
-
-          <div
-            className="grid gap-10"
-            style={{ gridTemplateColumns: 'minmax(0, 1.4fr) minmax(0, 1fr)' }}
-          >
-            <div>
-              {step === 'selection' && (
-                <SelectionStep
-                  items={items}
-                  onContinue={() => setStep('delivery')}
-                />
-              )}
-              {step === 'delivery' && (
-                <DeliveryStep
-                  name={guestName}
-                  setName={setGuestName}
-                  email={guestEmail}
-                  setEmail={setGuestEmail}
-                  phone={guestPhone}
-                  setPhone={setGuestPhone}
-                  address={guestAddress}
-                  setAddress={setGuestAddress}
-                  hasLive={hasLive}
-                  pickupDate={pickupDate}
-                  setPickupDate={setPickupDate}
-                  pickupTime={pickupTime}
-                  setPickupTime={setPickupTime}
-                  notes={notes}
-                  setNotes={setNotes}
-                  onBack={() => setStep('selection')}
-                  onContinue={() => setStep('payment')}
-                  canContinue={canContinueDelivery}
-                />
-              )}
-              {step === 'payment' && (
-                <PaymentStep
-                  method={paymentMethod}
-                  setMethod={setPaymentMethod}
-                  hasLive={hasLive}
-                  dueToday={dueToday}
-                  onBack={() => setStep('delivery')}
-                  onSubmit={submit}
-                  isSubmitting={isSubmitting}
-                />
-              )}
-              {step === 'confirmation' && confirmation && (
-                <ConfirmationStep
-                  code={confirmation.code}
-                  total={confirmation.total}
-                  deposit={confirmation.deposit}
-                  pickupDate={pickupDate}
-                  pickupTime={pickupTime}
-                  router={router}
-                />
-              )}
-            </div>
-
-            {/* Order summary */}
-            <aside>
-              <div
-                className="sticky top-[100px] rounded p-5"
-                style={{ background: 'var(--surface)', border: '1px solid var(--line-soft)' }}
-              >
-                <div className="placard mb-4">Selection</div>
-
-                <div className="flex flex-col gap-3 mb-5">
-                  {items.length === 0 ? (
-                    <p
-                      className="text-[12px] text-center py-4"
-                      style={{ color: 'var(--ink-4)' }}
-                    >
-                      Empty.
-                    </p>
-                  ) : (
-                    items.map((l) => (
-                      <div key={l.productId} className="flex justify-between text-[13px] gap-3">
-                        <div className="min-w-0">
-                          <div className="truncate font-medium">{l.name}</div>
-                          <div className="placard mt-0.5">
-                            {l.isLive ? 'Live · single' : `Gear × ${l.qty}`}
-                          </div>
-                        </div>
-                        <div className="font-mono-tabular font-semibold">
-                          {fmt(l.price * l.qty)}
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-
-                <hr className="hairline my-4" />
-
-                <div className="flex flex-col gap-1.5 text-[13px]">
-                  <div className="flex justify-between" style={{ color: 'var(--ink-3)' }}>
-                    <span>Subtotal ({totalQty} item{totalQty === 1 ? '' : 's'})</span>
-                    <span className="font-mono-tabular">{fmt(subtotal)}</span>
-                  </div>
-                  {hasLive && (
-                    <>
-                      <div
-                        className="flex justify-between"
-                        style={{ color: 'var(--ink-3)' }}
-                      >
-                        <span>Deposit due today (20% of live)</span>
-                        <span className="font-mono-tabular">
-                          {fmt(live.reduce((s, l) => s + l.price * 0.2, 0))}
-                        </span>
-                      </div>
-                      <div
-                        className="flex justify-between"
-                        style={{ color: 'var(--ink-3)' }}
-                      >
-                        <span>Balance at pickup</span>
-                        <span className="font-mono-tabular">{fmt(balanceAtPickup)}</span>
-                      </div>
-                    </>
-                  )}
-                  {gear.length > 0 && (
-                    <div className="flex justify-between" style={{ color: 'var(--ink-3)' }}>
-                      <span>Gear (paid in full)</span>
-                      <span className="font-mono-tabular">
-                        {fmt(gear.reduce((s, l) => s + l.price * l.qty, 0))}
-                      </span>
-                    </div>
-                  )}
-                </div>
-
-                <hr className="hairline my-4" />
-
-                <div className="flex justify-between items-baseline">
-                  <span className="text-[13px]" style={{ color: 'var(--ink-2)' }}>
-                    Due now
-                  </span>
-                  <span
-                    className="display font-mono-tabular"
-                    style={{
-                      fontSize: 22,
-                      fontVariationSettings: '"opsz" 28, "wght" 700',
-                    }}
-                  >
-                    {fmt(dueToday)}
-                  </span>
-                </div>
-                {hasLive && (
-                  <p
-                    className="text-[11px] mt-3 text-center"
-                    style={{ color: 'var(--ink-4)' }}
-                  >
-                    Live specimens reserved with deposit; balance settles at pickup.
-                  </p>
-                )}
-              </div>
-            </aside>
-          </div>
-        </div>
-      </section>
+  const wrap = (children: React.ReactNode) => (
+    <main style={{ background: 'oklch(0.972 0.008 78)', color: ink }}>
+      <div style={{ maxWidth: 1180, margin: '0 auto', padding: '40px 28px 96px' }}>{children}</div>
     </main>
   );
-}
 
-/* ─────────── STEPS ─────────── */
-
-function SelectionStep({
-  items,
-  onContinue,
-}: {
-  items: SiteCartLine[];
-  onContinue: () => void;
-}) {
-  return (
-    <div>
-      <h2
-        className="display mb-2"
-        style={{ fontSize: 26, fontVariationSettings: '"opsz" 32, "wght" 700' }}
-      >
-        Confirm your selection
-      </h2>
-      <p className="mb-6 text-[14px]" style={{ color: 'var(--ink-3)' }}>
-        {items.length} item{items.length === 1 ? '' : 's'} in your case. Live specimens reserve
-        with a 20% deposit; gear pays in full.
-      </p>
-      <div
-        className="flex flex-col rounded"
-        style={{ border: '1px solid var(--line-soft)' }}
-      >
-        {items.map((l, i) => (
-          <div
-            key={l.productId}
-            className="flex justify-between items-center px-4 py-3.5"
-            style={{
-              borderBottom: i === items.length - 1 ? 'none' : '1px solid var(--line-soft)',
-            }}
-          >
-            <div className="min-w-0">
-              <div className="text-[14px] font-semibold truncate">{l.name}</div>
-              <div className="placard mt-1">
-                {l.isLive ? 'Live specimen · 20% deposit' : `Gear × ${l.qty}`}
-                {l.sku && <> · #{l.sku}</>}
-              </div>
-            </div>
-            <div className="font-mono-tabular font-bold text-[14px]">
-              {fmt(l.price * l.qty)}
-            </div>
-          </div>
-        ))}
-      </div>
-      <div className="mt-8">
-        <button
-          type="button"
-          onClick={onContinue}
-          disabled={items.length === 0}
-          className="b b-primary b-lg"
-        >
-          Continue to delivery <ArrowRight size={14} />
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function DeliveryStep({
-  name,
-  setName,
-  email,
-  setEmail,
-  phone,
-  setPhone,
-  address,
-  setAddress,
-  hasLive,
-  pickupDate,
-  setPickupDate,
-  pickupTime,
-  setPickupTime,
-  notes,
-  setNotes,
-  onBack,
-  onContinue,
-  canContinue,
-}: {
-  name: string;
-  setName: (v: string) => void;
-  email: string;
-  setEmail: (v: string) => void;
-  phone: string;
-  setPhone: (v: string) => void;
-  address: string;
-  setAddress: (v: string) => void;
-  hasLive: boolean;
-  pickupDate: string;
-  setPickupDate: (v: string) => void;
-  pickupTime: string;
-  setPickupTime: (v: string) => void;
-  notes: string;
-  setNotes: (v: string) => void;
-  onBack: () => void;
-  onContinue: () => void;
-  canContinue: boolean;
-}) {
-  return (
-    <div>
-      <h2
-        className="display mb-2"
-        style={{ fontSize: 26, fontVariationSettings: '"opsz" 32, "wght" 700' }}
-      >
-        How should we reach you?
-      </h2>
-      <p className="mb-6 text-[14px]" style={{ color: 'var(--ink-3)' }}>
-        Contact details and {hasLive ? 'pickup' : 'delivery'} preferences.
-      </p>
-      <div className="flex flex-col gap-4">
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <div className="placard mb-1.5">Full name</div>
-            <input
-              className="input"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Mark Santos"
-            />
-          </div>
-          <div>
-            <div className="placard mb-1.5">Phone</div>
-            <input
-              className="input"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="+63 917 234 5678"
-            />
-          </div>
-        </div>
-        <div>
-          <div className="placard mb-1.5">Email</div>
-          <input
-            className="input"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="you@studio.com"
-          />
-        </div>
-        <div>
-          <div className="placard mb-1.5">Address</div>
-          <input
-            className="input"
-            value={address}
-            onChange={(e) => setAddress(e.target.value)}
-            placeholder="Optional · for delivery or records"
-          />
-        </div>
-        {hasLive && (
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <div className="placard mb-1.5">Pickup date</div>
-              <input
-                type="date"
-                className="input [color-scheme:dark]"
-                value={pickupDate}
-                onChange={(e) => setPickupDate(e.target.value)}
-              />
-            </div>
-            <div>
-              <div className="placard mb-1.5">Pickup time</div>
-              <input
-                type="time"
-                className="input [color-scheme:dark]"
-                value={pickupTime}
-                onChange={(e) => setPickupTime(e.target.value)}
-              />
-            </div>
-          </div>
-        )}
-        <div>
-          <div className="placard mb-1.5">Notes (optional)</div>
-          <textarea
-            className="input"
-            rows={3}
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            placeholder="Anything we should know — tank size, preferred grade, who is collecting…"
-          />
-        </div>
-      </div>
-
-      <div className="flex justify-between mt-8 gap-3">
-        <button type="button" onClick={onBack} className="b">
-          <ChevronLeft size={12} /> Back
-        </button>
-        <button
-          type="button"
-          onClick={onContinue}
-          disabled={!canContinue}
-          className="b b-primary b-lg"
-        >
-          Continue to payment <ArrowRight size={14} />
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function PaymentStep({
-  method,
-  setMethod,
-  hasLive,
-  dueToday,
-  onBack,
-  onSubmit,
-  isSubmitting,
-}: {
-  method: string;
-  setMethod: (v: string) => void;
-  hasLive: boolean;
-  dueToday: number;
-  onBack: () => void;
-  onSubmit: () => void;
-  isSubmitting: boolean;
-}) {
-  return (
-    <div>
-      <h2
-        className="display mb-2"
-        style={{ fontSize: 26, fontVariationSettings: '"opsz" 32, "wght" 700' }}
-      >
-        How would you like to pay?
-      </h2>
-      <p className="mb-6 text-[14px]" style={{ color: 'var(--ink-3)' }}>
-        {hasLive
-          ? 'Pay your deposit now; the balance settles at pickup.'
-          : 'One-time payment for your gear and food.'}
-      </p>
-
-      <div className="grid grid-cols-2 gap-3">
-        {PAYMENT_METHODS.map((m) => {
-          const Icon = m.icon;
-          const active = method === m.id;
-          return (
-            <button
-              key={m.id}
-              type="button"
-              onClick={() => setMethod(m.id)}
-              className="p-5 rounded text-left transition-colors"
-              style={{
-                background: active ? 'var(--red-wash)' : 'var(--surface)',
-                border: '1px solid ' + (active ? 'var(--red)' : 'var(--line)'),
-                color: 'var(--ink)',
-              }}
-            >
-              <div className="flex items-center justify-between mb-2">
-                <Icon size={18} style={{ color: active ? 'var(--red-hi)' : 'var(--ink-3)' }} />
-                {active && <Check size={14} style={{ color: 'var(--red-hi)' }} />}
-              </div>
-              <div className="text-[14px] font-semibold">{m.label}</div>
-              <div className="placard mt-0.5">
-                {m.id === 'cash' && 'Settle on arrival'}
-                {m.id === 'gcash' && 'Send to 0917-234-5678'}
-                {m.id === 'bank_transfer' && 'BPI · BDO · UB'}
-                {m.id === 'card' && 'Visa / MC · in person'}
-              </div>
-            </button>
-          );
-        })}
-      </div>
-
-      <div
-        className="mt-6 p-5 rounded"
-        style={{ background: 'var(--surface)', border: '1px solid var(--line-soft)' }}
-      >
-        <div className="placard">Confirmation</div>
-        <p className="mt-2 text-[13px]" style={{ color: 'var(--ink-3)' }}>
-          We&apos;ll email you a confirmation and our gallery address. Live specimens are held in
-          your name once payment lands.
+  // ── Confirmation ──
+  if (placed) {
+    const wa = biz.wa(`Hi ${biz.storeName} — I just placed order ${placed.code} on the website.`);
+    return wrap(
+      <div style={{ maxWidth: 620, margin: '40px auto 0', textAlign: 'center' }}>
+        <div style={{ width: 60, height: 60, borderRadius: 999, margin: '0 auto 22px', background: 'oklch(0.52 0.13 150 / 0.14)', color: 'oklch(0.46 0.14 150)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28 }}>✓</div>
+        <h1 style={{ fontFamily: serif, fontWeight: 700, fontSize: 'clamp(30px,4vw,44px)', margin: '0 0 12px' }}>Order received</h1>
+        <p style={{ fontSize: 16, lineHeight: 1.6, color: muted, margin: '0 0 24px' }}>
+          Thank you. We&rsquo;ll contact you shortly to confirm availability, payment and {fulfilment === 'pickup' ? 'your pickup time' : 'delivery'}. Nothing has been charged yet.
         </p>
-      </div>
+        <div style={{ display: 'inline-block', fontFamily: mono, fontSize: 18, fontWeight: 700, padding: '12px 18px', borderRadius: 8, border: `1px solid ${line}`, background: 'oklch(0.985 0.006 80)', marginBottom: 12 }}>{placed.code}</div>
+        <div style={{ fontFamily: mono, fontSize: 12, color: muted, marginBottom: 30 }}>
+          {placed.count} item{placed.count === 1 ? '' : 's'} · {fmt(placed.total)}
+        </div>
+        <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
+          {wa && <a href={wa} target="_blank" rel="noopener" className="dc-btn-primary" style={{ background: red, color: 'oklch(0.98 0.012 82)', fontSize: 14, fontWeight: 600, padding: '14px 22px', borderRadius: 999 }}>Message us about this order</a>}
+          <Link href="/shop" className="dc-btn-ghost" style={{ border: '1px solid oklch(0.78 0.02 40)', color: 'oklch(0.34 0.012 34)', fontSize: 14, fontWeight: 600, padding: '14px 22px', borderRadius: 999 }}>Back to the shop</Link>
+          {user && <Link href="/account" className="dc-btn-ghost" style={{ border: '1px solid oklch(0.78 0.02 40)', color: 'oklch(0.34 0.012 34)', fontSize: 14, fontWeight: 600, padding: '14px 22px', borderRadius: 999 }}>View in my account</Link>}
+        </div>
+      </div>,
+    );
+  }
 
-      <div className="flex justify-between mt-8 gap-3">
-        <button type="button" onClick={onBack} className="b" disabled={isSubmitting}>
-          <ChevronLeft size={12} /> Back
-        </button>
-        <button
-          type="button"
-          onClick={onSubmit}
-          disabled={isSubmitting}
-          className="b b-primary b-lg"
-        >
-          {isSubmitting ? 'Locking it in…' : `Pay ${fmt(dueToday)} & confirm`}
-          {!isSubmitting && <ArrowRight size={14} />}
-        </button>
-      </div>
-    </div>
+  // ── Empty cart ──
+  if (cartItems.length === 0) {
+    return wrap(
+      <div style={{ textAlign: 'center', padding: '60px 0' }}>
+        <h1 style={{ fontFamily: serif, fontWeight: 700, fontSize: 32, margin: '0 0 10px' }}>Your cart is empty</h1>
+        <p style={{ color: muted, fontSize: 15, margin: '0 0 24px' }}>Add food, lights or gear from the shop. Live fish are reserved by enquiry.</p>
+        <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
+          <Link href="/shop" className="dc-btn-primary" style={{ background: red, color: 'oklch(0.98 0.012 82)', fontSize: 14, fontWeight: 600, padding: '14px 22px', borderRadius: 999 }}>Browse the shop</Link>
+          <Link href="/catalog" className="dc-btn-ghost" style={{ border: '1px solid oklch(0.78 0.02 40)', color: 'oklch(0.34 0.012 34)', fontSize: 14, fontWeight: 600, padding: '14px 22px', borderRadius: 999 }}>See our fish</Link>
+        </div>
+      </div>,
+    );
+  }
+
+  const label = (text: string, htmlFor: string, optional = false) => (
+    <label htmlFor={htmlFor} className="dc-lbl">
+      {text}
+      {optional && <span style={{ textTransform: 'none', letterSpacing: 0, color: 'oklch(0.66 0.02 40)' }}> (optional)</span>}
+    </label>
   );
-}
+  const choice = (selected: boolean): React.CSSProperties => ({
+    textAlign: 'left',
+    padding: '14px 16px',
+    borderRadius: 10,
+    cursor: 'pointer',
+    background: selected ? 'oklch(0.52 0.216 27 / 0.07)' : 'oklch(0.99 0.005 80)',
+    border: `1px solid ${selected ? red : 'oklch(0.84 0.012 66)'}`,
+    color: ink,
+    fontFamily: 'inherit',
+  });
 
-function ConfirmationStep({
-  code,
-  total,
-  deposit,
-  pickupDate,
-  pickupTime,
-  router,
-}: {
-  code: string;
-  total: number;
-  deposit: number;
-  pickupDate: string;
-  pickupTime: string;
-  router: ReturnType<typeof useRouter>;
-}) {
-  return (
-    <div>
-      <div
-        className="flex items-center justify-center rounded-full mb-6"
-        style={{
-          width: 56,
-          height: 56,
-          background: 'var(--jade-wash)',
-          color: 'var(--jade)',
-          border: '1px solid var(--jade)',
-        }}
-      >
-        <Check size={24} />
-      </div>
-      <h2
-        className="display mb-2"
-        style={{ fontSize: 32, fontVariationSettings: '"opsz" 48, "wght" 700' }}
-      >
-        Held in your name.
-      </h2>
-      <p className="mb-6 max-w-[520px]" style={{ color: 'var(--ink-2)', fontSize: 16 }}>
-        We&apos;ve emailed you the confirmation. Bring this code on pickup — or quote it on the
-        phone:
+  // ── Form ──
+  return wrap(
+    <>
+      <Link href="/shop" style={{ fontFamily: mono, fontSize: 11, letterSpacing: '0.1em', color: 'oklch(0.54 0.02 40)' }}>&larr; Continue shopping</Link>
+      <h1 style={{ fontFamily: serif, fontWeight: 800, fontSize: 'clamp(36px,5vw,60px)', letterSpacing: '-0.02em', margin: '14px 0 8px' }}>Checkout</h1>
+      <p style={{ color: muted, fontSize: 15, margin: '0 0 36px', maxWidth: 560 }}>
+        Place your order and we&rsquo;ll get in touch to confirm. No payment is taken on this website.
       </p>
-      <div
-        className="inline-block px-4 py-3 rounded font-mono-tabular text-[16px] font-bold mb-7"
-        style={{
-          background: 'var(--bg-2)',
-          border: '1px solid var(--line)',
-          color: 'var(--ink)',
-        }}
-      >
-        {code}
-      </div>
 
-      <div
-        className="grid grid-cols-2 gap-0 rounded mb-8"
-        style={{ border: '1px solid var(--line-soft)' }}
-      >
-        <div className="p-4" style={{ borderRight: '1px solid var(--line-soft)' }}>
-          <div className="placard">Total</div>
-          <div className="font-mono-tabular font-bold mt-1 text-[18px]">{fmt(total)}</div>
-        </div>
-        <div className="p-4">
-          <div className="placard">Paid today</div>
-          <div className="font-mono-tabular font-bold mt-1 text-[18px]">{fmt(deposit)}</div>
-        </div>
-      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 340px), 1fr))', gap: 40, alignItems: 'start' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 30 }}>
+          {/* Contact */}
+          <section>
+            <h2 style={{ fontFamily: serif, fontWeight: 700, fontSize: 22, margin: '0 0 16px' }}>Your details</h2>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
+              <div>{label('Full name', 'co-name')}<input id="co-name" className="dc-input" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} /></div>
+              <div>{label('Mobile number', 'co-phone')}<input id="co-phone" className="dc-input" type="tel" autoComplete="tel" placeholder="09XX XXX XXXX" value={phone} onChange={(e) => setPhone(e.target.value)} /></div>
+              <div style={{ gridColumn: '1 / -1' }}>{label('Email', 'co-email')}<input id="co-email" className="dc-input" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
+            </div>
+          </section>
 
-      <div
-        className="p-5 rounded mb-8"
-        style={{ background: 'var(--bg-2)', border: '1px solid var(--line-soft)' }}
-      >
-        <div className="placard mb-2">Pickup window</div>
-        <div className="text-[15px] font-semibold">{pickupDate} at {pickupTime}</div>
-        <div className="text-[12px] mt-1" style={{ color: 'var(--ink-3)' }}>
-          34 Tomas Morato Ave, Quezon City. Bring valid ID.
-        </div>
-      </div>
+          {/* Fulfilment */}
+          <section>
+            <h2 style={{ fontFamily: serif, fontWeight: 700, fontSize: 22, margin: '0 0 16px' }}>How you&rsquo;ll receive it</h2>
+            <div role="radiogroup" aria-label="Fulfilment" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
+              <button type="button" role="radio" aria-checked={fulfilment === 'pickup'} onClick={() => setFulfilment('pickup')} style={choice(fulfilment === 'pickup')}>
+                <div style={{ fontWeight: 600, fontSize: 14.5 }}>Pick up at the gallery</div>
+                <div style={{ fontSize: 12.5, color: muted, marginTop: 3 }}>{[biz.address, biz.city].filter(Boolean).join(', ') || 'We’ll send the address when we confirm'}</div>
+              </button>
+              <button type="button" role="radio" aria-checked={fulfilment === 'delivery'} onClick={() => setFulfilment('delivery')} style={choice(fulfilment === 'delivery')}>
+                <div style={{ fontWeight: 600, fontSize: 14.5 }}>Delivery</div>
+                <div style={{ fontSize: 12.5, color: muted, marginTop: 3 }}>We&rsquo;ll quote the delivery fee when we confirm</div>
+              </button>
+            </div>
+            {fulfilment === 'delivery' && (
+              <div style={{ marginTop: 16 }}>{label('Delivery address', 'co-address')}<textarea id="co-address" className="dc-input" rows={3} autoComplete="street-address" placeholder="House no., street, barangay, city, province" value={address} onChange={(e) => setAddress(e.target.value)} /></div>
+            )}
+          </section>
 
-      <div className="flex gap-3 flex-wrap">
-        <button type="button" onClick={() => router.push('/account')} className="b b-primary">
-          Track in account <ArrowRight size={14} />
-        </button>
-        <button type="button" onClick={() => router.push('/catalog')} className="b">
-          Back to gallery
-        </button>
+          {/* Payment */}
+          <section>
+            <h2 style={{ fontFamily: serif, fontWeight: 700, fontSize: 22, margin: '0 0 6px' }}>Preferred payment</h2>
+            <p style={{ fontSize: 13, color: muted, margin: '0 0 16px' }}>You&rsquo;ll pay after we confirm your order.</p>
+            <div role="radiogroup" aria-label="Payment method" style={{ display: 'grid', gap: 10 }}>
+              {paymentOptions.map((m) => (
+                <button key={m.id} type="button" role="radio" aria-checked={paymentMethod === m.id} onClick={() => setPaymentMethod(m.id)} style={choice(paymentMethod === m.id)}>
+                  <div style={{ fontWeight: 600, fontSize: 14.5 }}>{m.label}</div>
+                  <div style={{ fontSize: 12.5, color: muted, marginTop: 3 }}>{m.hint}</div>
+                </button>
+              ))}
+            </div>
+            {paymentMethod === 'bank_transfer' && biz.bankDetails && (
+              <div style={{ marginTop: 12, padding: '12px 14px', borderRadius: 8, background: 'oklch(0.955 0.010 74)', border: `1px solid ${line}`, fontFamily: mono, fontSize: 12.5, whiteSpace: 'pre-line' }}>{biz.bankDetails}</div>
+            )}
+          </section>
+
+          <section>{label('Notes', 'co-notes', true)}<textarea id="co-notes" className="dc-input" rows={3} placeholder="Preferred pickup day, tank size, anything we should know" value={notes} onChange={(e) => setNotes(e.target.value)} /></section>
+        </div>
+
+        {/* Summary */}
+        <aside style={{ position: 'sticky', top: 96, background: 'oklch(0.985 0.006 80)', border: `1px solid ${line}`, borderRadius: 14, padding: 22 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 14 }}>
+            <h2 style={{ fontFamily: serif, fontWeight: 700, fontSize: 20, margin: 0 }}>Your order</h2>
+            <button type="button" onClick={() => setOpen(true)} style={{ border: 'none', background: 'transparent', color: red, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Edit cart</button>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 16 }}>
+            {cartItems.map((l) => (
+              <div key={l.productId} style={{ display: 'grid', gridTemplateColumns: '48px 1fr auto', gap: 12, alignItems: 'center' }}>
+                <div style={{ width: 48, height: 48, borderRadius: 6, overflow: 'hidden', background: 'oklch(0.93 0.012 70)' }}>
+                  {l.image && <img src={l.image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+                </div>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 13.5, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.name}</div>
+                  <div style={{ fontFamily: mono, fontSize: 11, color: 'oklch(0.54 0.02 40)' }}>{l.qty} × {fmt(l.price)}</div>
+                </div>
+                <div style={{ fontFamily: mono, fontSize: 13.5, fontWeight: 600 }}>{fmt(l.price * l.qty)}</div>
+              </div>
+            ))}
+          </div>
+          <div style={{ borderTop: `1px solid ${line}`, paddingTop: 14, display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13.5 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', color: muted }}><span>Subtotal ({count} item{count === 1 ? '' : 's'})</span><span style={{ fontFamily: mono }}>{fmt(subtotal)}</span></div>
+            {fulfilment === 'delivery' && <div style={{ display: 'flex', justifyContent: 'space-between', color: muted }}><span>Delivery</span><span>Quoted on confirmation</span></div>}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginTop: 6 }}>
+              <span style={{ fontWeight: 600 }}>Total</span>
+              <span style={{ fontFamily: serif, fontWeight: 700, fontSize: 24 }}>{fmt(subtotal)}</span>
+            </div>
+          </div>
+
+          {error && <div role="alert" style={{ marginTop: 14, fontSize: 13, color: 'oklch(0.50 0.20 27)' }}>{error}</div>}
+
+          <button type="button" onClick={submit} disabled={submitting} className="dc-btn-primary" style={{ marginTop: 18, width: '100%', border: 'none', background: red, color: 'oklch(0.98 0.012 82)', fontSize: 15, fontWeight: 600, padding: '16px 24px', borderRadius: 999, cursor: submitting ? 'default' : 'pointer', opacity: submitting ? 0.7 : 1 }}>
+            {submitting ? 'Placing order…' : 'Place order'}
+          </button>
+          <p style={{ fontSize: 11.5, color: 'oklch(0.54 0.02 40)', textAlign: 'center', margin: '10px 0 0', lineHeight: 1.5 }}>
+            Nothing is charged now. We&rsquo;ll confirm stock, payment and {fulfilment === 'pickup' ? 'pickup' : 'delivery'} with you.
+          </p>
+        </aside>
       </div>
-    </div>
+    </>,
   );
 }

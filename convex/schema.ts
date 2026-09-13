@@ -67,6 +67,9 @@ export default defineSchema({
       v.literal("AA"),
       v.literal("A"),
     )),
+    // Storefront sales channel: "enquire" (showcase + WhatsApp, e.g. live fish) or "cart"
+    // (add to cart + checkout). Unset = default by category (see convex/lib/purchaseMode.ts).
+    purchaseMode: v.optional(v.union(v.literal("enquire"), v.literal("cart"))),
     isActive: v.boolean(),
     createdAt: v.number(),
     updatedAt: v.number(),
@@ -601,4 +604,48 @@ export default defineSchema({
   })
     .index("by_token_hash", ["tokenHash"])
     .index("by_user", ["userId"]),
+
+  // Public business details shown across the storefront (singleton; managed in
+  // Admin → Business Details). Read via services/business.ts, which fills defaults.
+  businessProfile: defineTable({
+    storeName: v.string(),
+    tagline: v.optional(v.string()),
+    establishedYear: v.optional(v.string()),
+    whatsappNumber: v.string(), // international digits, e.g. 639171234567
+    phone: v.string(),
+    landline: v.optional(v.string()),
+    email: v.string(),
+    addressLine: v.string(),
+    city: v.string(),
+    mapUrl: v.optional(v.string()),
+    gcashNumber: v.optional(v.string()),
+    gcashName: v.optional(v.string()),
+    bankDetails: v.optional(v.string()),
+    facebookUrl: v.optional(v.string()),
+    instagramUrl: v.optional(v.string()),
+    tiktokUrl: v.optional(v.string()),
+    hours: v.array(v.object({
+      day: v.string(),
+      open: v.string(),
+      close: v.string(),
+      closed: v.boolean(),
+    })),
+    hoursNote: v.optional(v.string()),
+    updatedAt: v.number(),
+    updatedBy: v.optional(v.id("users")),
+  }),
+
+  // Client testimonials with photos, shown on the storefront home page when published.
+  testimonials: defineTable({
+    clientName: v.string(),
+    clientLocation: v.optional(v.string()), // e.g. "Collector · Makati"
+    quote: v.string(),
+    photoUrl: v.optional(v.string()),
+    productName: v.optional(v.string()), // what they bought, e.g. "Super Red, Grade AAA"
+    rating: v.optional(v.number()), // 1–5
+    isPublished: v.boolean(),
+    sortOrder: v.number(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_published", ["isPublished", "sortOrder"]),
 });

@@ -1,5 +1,14 @@
 import { query, mutation } from "../_generated/server";
 import { v } from "convex/values";
+import { QueryCtx } from "../_generated/server";
+import { Id } from "../_generated/dataModel";
+import { getViewer, isStaffRole, requireSelfOrStaff } from "../lib/authz";
+
+// Queries: the signed-in user may read their own wishlist; staff may read anyone's.
+async function canReadWishlist(ctx: QueryCtx, userId: Id<"users">): Promise<boolean> {
+  const viewer = await getViewer(ctx);
+  return !!viewer && (viewer._id === userId || isStaffRole(viewer.role));
+}
 
 // Get user's wishlist with product details
 export const getWishlist = query({
@@ -7,6 +16,7 @@ export const getWishlist = query({
     userId: v.id("users"),
   },
   handler: async (ctx, { userId }) => {
+    if (!(await canReadWishlist(ctx, userId))) return [];
     const wishlistItems = await ctx.db
       .query("wishlist")
       .withIndex("by_user", (q) => q.eq("userId", userId))
@@ -35,6 +45,7 @@ export const isInWishlist = query({
     productId: v.id("products"),
   },
   handler: async (ctx, { userId, productId }) => {
+    if (!(await canReadWishlist(ctx, userId))) return false;
     const item = await ctx.db
       .query("wishlist")
       .withIndex("by_user_product", (q) =>
@@ -53,6 +64,7 @@ export const addToWishlist = mutation({
     productId: v.id("products"),
   },
   handler: async (ctx, { userId, productId }) => {
+    await requireSelfOrStaff(ctx, userId);
     // Check if already in wishlist
     const existing = await ctx.db
       .query("wishlist")
@@ -88,6 +100,7 @@ export const removeFromWishlist = mutation({
     productId: v.id("products"),
   },
   handler: async (ctx, { userId, productId }) => {
+    await requireSelfOrStaff(ctx, userId);
     const item = await ctx.db
       .query("wishlist")
       .withIndex("by_user_product", (q) =>
@@ -111,6 +124,7 @@ export const toggleWishlist = mutation({
     productId: v.id("products"),
   },
   handler: async (ctx, { userId, productId }) => {
+    await requireSelfOrStaff(ctx, userId);
     const existing = await ctx.db
       .query("wishlist")
       .withIndex("by_user_product", (q) =>
@@ -145,6 +159,7 @@ export const getWishlistCount = query({
     userId: v.id("users"),
   },
   handler: async (ctx, { userId }) => {
+    if (!(await canReadWishlist(ctx, userId))) return 0;
     const items = await ctx.db
       .query("wishlist")
       .withIndex("by_user", (q) => q.eq("userId", userId))

@@ -346,6 +346,18 @@ npx cap run android      # Build and run on device/emulator
 
 ## 11. Business Rules & Constraints
 
+### Storefront Sales Channels & Content
+- **Purchase mode:** `products.purchaseMode` is `"enquire"` (showcase + WhatsApp/viewing, e.g. live fish)
+  or `"cart"` (add to cart + checkout, e.g. food, lights, gear). Unset = default by category
+  (`convex/lib/purchaseMode.ts`). Set per product in the admin product form.
+- **Checkout** (`app/(site)/checkout`) accepts cart-mode products only (`orders.placeWebOrder` enforces it);
+  orders are created pending/unpaid — no online payment.
+- **Business Details** (Admin → Business Details, `convex/services/business.ts`): the single source for
+  phone, WhatsApp, email, address, hours, GCash/bank details. Storefront reads it via
+  `components/dc/business.ts` (`useBusiness`). Never hardcode contact details in pages; unset values are hidden.
+- **Testimonials** (Admin → Testimonials, `convex/services/testimonials.ts`): client photo + quote; only
+  published ones show on the home page.
+
 ### Product Management
 - **Live Fish:** Require reservations with pickup scheduling
 - **Stock Tracking:** Real-time inventory management

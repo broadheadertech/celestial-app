@@ -20,6 +20,8 @@ import {
   Gauge,
   Award,
   ScrollText,
+  Store,
+  MessageSquareQuote,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/auth';
 import { useTheme } from '@/store/theme';
@@ -161,6 +163,18 @@ export default function AdminSidebar() {
           label: 'Settings',
           icon: Settings,
           href: '/admin/settings',
+        },
+        {
+          id: 'business',
+          label: 'Business Details',
+          icon: Store,
+          href: '/admin/business',
+        },
+        {
+          id: 'testimonials',
+          label: 'Testimonials',
+          icon: MessageSquareQuote,
+          href: '/admin/testimonials',
         },
         {
           id: 'app-settings',

@@ -6,6 +6,7 @@ import { useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { Id } from '@/convex/_generated/dataModel';
 import { useAuthStore } from '@/store/auth';
+import { useBusiness } from '@/components/dc/business';
 
 const FAQ = [
   {
@@ -33,6 +34,13 @@ const FAQ = [
 export default function ContactPage() {
   const { user } = useAuthStore();
   const createContactMessage = useMutation(api.services.contact.createContactMessage);
+  const biz = useBusiness();
+  const directLines = [
+    { icon: Phone, label: 'Phone', value: biz.landline },
+    { icon: MessageCircle, label: 'Mobile / WhatsApp', value: biz.phone },
+    { icon: Mail, label: 'Email', value: biz.email },
+    { icon: MapPin, label: 'Gallery', value: [biz.address, biz.city].filter(Boolean).join('\n') },
+  ].filter((l) => l.value);
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -220,12 +228,7 @@ export default function ContactPage() {
               </h3>
 
               <div className="flex flex-col gap-5">
-                {[
-                  { icon: Phone, label: 'Phone', value: '(02) 8851 4928' },
-                  { icon: MessageCircle, label: 'Mobile / Viber', value: '+63 917 234 5678' },
-                  { icon: Mail, label: 'Email', value: 'mark@dragonscave.ph' },
-                  { icon: MapPin, label: 'Studio', value: '34 Tomas Morato Ave\nQuezon City 1103' },
-                ].map(({ icon: Icon, label, value }) => (
+                {directLines.map(({ icon: Icon, label, value }) => (
                   <div key={label} className="flex items-start gap-3">
                     <span
                       className="inline-flex items-center justify-center w-9 h-9 rounded-full flex-shrink-0"

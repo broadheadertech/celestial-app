@@ -1,18 +1,21 @@
 'use client';
+/* eslint-disable @next/next/no-img-element -- product images are remote Convex storage URLs */
 
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowRight, X } from 'lucide-react';
-import {
-  useSiteCart,
-  siteCartSubtotal,
-  siteCartDepositToday,
-  siteCartLiveItems,
-} from '@/store/siteCart';
-import ArowanaSilhouette, { SpecimenPlate, GearPlate } from './ArowanaSilhouette';
+import { useSiteCart, siteCartSubtotal } from '@/store/siteCart';
 
 const fmt = (n: number) =>
-  `₱${n.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  `₱${n.toLocaleString('en-PH', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
 
+const mono = "'Geist Mono', monospace";
+const serif = "'Noto Serif Display', serif";
+
+/**
+ * Slide-over cart for shop products (gear, food, lights…). Live fish are enquiry-only and
+ * never enter the cart. Styled with the storefront's own palette so it doesn't follow the
+ * admin light/dark theme.
+ */
 export default function CartDrawer() {
   const router = useRouter();
   const items = useSiteCart((s) => s.items);
@@ -21,153 +24,64 @@ export default function CartDrawer() {
   const remove = useSiteCart((s) => s.remove);
   const setQty = useSiteCart((s) => s.setQty);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false);
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [isOpen, setOpen]);
+
   if (!isOpen) return null;
 
   const subtotal = siteCartSubtotal(items);
-  const hasLive = siteCartLiveItems(items).length > 0;
-  const dueToday = siteCartDepositToday(items);
+  const count = items.reduce((n, l) => n + l.qty, 0);
 
   return (
-    <div className="fixed inset-0 z-[90]" role="dialog" aria-modal="true">
-      <div
-        className="absolute inset-0"
-        onClick={() => setOpen(false)}
-        style={{ background: 'oklch(0 0 0 / 0.55)', backdropFilter: 'blur(8px)' }}
-      />
-      <aside
-        className="absolute right-0 top-0 bottom-0 flex flex-col"
-        style={{
-          width: 'min(440px, 95vw)',
-          background: 'var(--bg)',
-          borderLeft: '1px solid var(--line)',
-          animation: 'fadeUp 0.25s ease-out',
-        }}
-      >
-        <div
-          className="flex items-center justify-between"
-          style={{ padding: '20px 22px', borderBottom: '1px solid var(--line)' }}
-        >
+    <div style={{ position: 'fixed', inset: 0, zIndex: 90, fontFamily: "'Geist', system-ui, sans-serif" }} role="dialog" aria-modal="true" aria-label="Your cart">
+      <div onClick={() => setOpen(false)} style={{ position: 'absolute', inset: 0, background: 'oklch(0.19 0.012 32 / 0.45)', backdropFilter: 'blur(6px)' }} />
+      <aside style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 'min(440px, 100vw)', display: 'flex', flexDirection: 'column', background: 'oklch(0.972 0.008 78)', borderLeft: '1px solid oklch(0.84 0.012 66)', color: 'oklch(0.19 0.012 32)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 22px', borderBottom: '1px solid oklch(0.86 0.012 68)' }}>
           <div>
-            <div
-              className="display"
-              style={{ fontSize: 22, fontVariationSettings: '"opsz" 24, "wght" 700' }}
-            >
-              Your selection
-            </div>
-            <div className="placard mt-0.5">
-              {items.length} item{items.length === 1 ? '' : 's'}
+            <div style={{ fontFamily: serif, fontWeight: 700, fontSize: 22 }}>Your cart</div>
+            <div style={{ fontFamily: mono, fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'oklch(0.54 0.02 40)', marginTop: 3 }}>
+              {count} item{count === 1 ? '' : 's'}
             </div>
           </div>
-          <button onClick={() => setOpen(false)} className="b b-icon" aria-label="Close">
-            <X size={16} />
+          <button type="button" onClick={() => setOpen(false)} aria-label="Close cart" style={{ width: 38, height: 38, borderRadius: 999, border: '1px solid oklch(0.84 0.012 66)', background: 'oklch(0.985 0.006 80)', fontSize: 18, cursor: 'pointer', color: 'oklch(0.30 0.012 34)' }}>
+            &times;
           </button>
         </div>
 
-        <div className="flex-1 overflow-auto p-5">
+        <div style={{ flex: 1, overflow: 'auto', padding: 20 }}>
           {items.length === 0 ? (
-            <div className="flex flex-col items-center text-center py-10 px-4 gap-3.5">
-              <ArowanaSilhouette size={120} color="var(--ink-5)" />
-              <div className="display" style={{ fontSize: 18, color: 'var(--ink-2)' }}>
-                An empty case
-              </div>
-              <div className="text-[13px] max-w-[240px]" style={{ color: 'var(--ink-4)' }}>
-                Browse the catalog or our shop to start a selection.
-              </div>
-              <button
-                className="b"
-                onClick={() => {
-                  setOpen(false);
-                  router.push('/catalog');
-                }}
-              >
-                Open catalog <ArrowRight size={12} />
+            <div style={{ textAlign: 'center', padding: '48px 16px' }}>
+              <div style={{ fontFamily: serif, fontSize: 19, marginBottom: 8 }}>Your cart is empty</div>
+              <p style={{ fontSize: 13.5, color: 'oklch(0.48 0.012 34)', margin: '0 auto 20px', maxWidth: 280, lineHeight: 1.5 }}>
+                Add food, lights and gear from the shop. Live fish are reserved by enquiry.
+              </p>
+              <button type="button" onClick={() => { setOpen(false); router.push('/shop'); }} style={{ border: '1px solid oklch(0.78 0.02 40)', background: 'transparent', color: 'oklch(0.34 0.012 34)', fontSize: 14, fontWeight: 600, padding: '12px 20px', borderRadius: 999, cursor: 'pointer' }}>
+                Browse the shop &rarr;
               </button>
             </div>
           ) : (
-            <div className="flex flex-col gap-3.5">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               {items.map((l) => (
-                <div
-                  key={l.productId}
-                  className="grid items-center gap-3.5"
-                  style={{
-                    gridTemplateColumns: '72px 1fr auto',
-                    paddingBottom: 14,
-                    borderBottom: '1px solid var(--line-soft)',
-                  }}
-                >
-                  <div className="w-[72px] h-[72px] overflow-hidden rounded">
-                    {l.isLive ? (
-                      <SpecimenPlate
-                        product={{
-                          _id: l.productId,
-                          sku: l.sku,
-                          name: l.name,
-                          categoryName: l.categoryName,
-                          image: l.image,
-                        }}
-                        ratio="1 / 1"
-                        size={60}
-                        showMeta={false}
-                      />
-                    ) : (
-                      <GearPlate product={{ sku: l.sku, name: l.name, image: l.image }} ratio="1 / 1" />
-                    )}
+                <div key={l.productId} style={{ display: 'grid', gridTemplateColumns: '64px 1fr auto', gap: 14, alignItems: 'center', paddingBottom: 14, borderBottom: '1px solid oklch(0.90 0.012 70)' }}>
+                  <div style={{ width: 64, height: 64, borderRadius: 8, overflow: 'hidden', background: 'oklch(0.93 0.012 70)' }}>
+                    {l.image && <img src={l.image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} draggable={false} />}
                   </div>
-                  <div className="min-w-0">
-                    {l.sku && (
-                      <div className="placard" style={{ fontSize: 9 }}>
-                        {l.sku}
-                      </div>
-                    )}
-                    <div className="text-[13px] font-semibold mt-0.5 truncate">{l.name}</div>
-                    {l.isLive ? (
-                      <div className="placard mt-1" style={{ color: 'var(--red-hi)' }}>
-                        Single specimen · 20% deposit
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-2 mt-1.5">
-                        <div
-                          className="inline-flex items-center rounded-full"
-                          style={{ border: '1px solid var(--line)', padding: 2 }}
-                        >
-                          <button
-                            onClick={() => setQty(l.productId, l.qty - 1)}
-                            className="w-[22px] h-[22px] border-0 bg-transparent cursor-pointer"
-                            style={{ color: 'var(--ink-2)' }}
-                            aria-label="Decrease quantity"
-                          >
-                            −
-                          </button>
-                          <span
-                            className="font-mono-tabular text-center font-semibold text-[12px]"
-                            style={{ width: 26 }}
-                          >
-                            {l.qty}
-                          </span>
-                          <button
-                            onClick={() => setQty(l.productId, l.qty + 1)}
-                            className="w-[22px] h-[22px] border-0 bg-transparent cursor-pointer"
-                            style={{ color: 'var(--ink-2)' }}
-                            aria-label="Increase quantity"
-                          >
-                            +
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                  <div className="text-right">
-                    <div
-                      className="font-mono-tabular font-bold text-[13px]"
-                      style={{ color: 'var(--ink)' }}
-                    >
-                      {fmt(l.price * l.qty)}
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 13.5, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.name}</div>
+                    <div style={{ fontFamily: mono, fontSize: 11, color: 'oklch(0.54 0.02 40)', marginTop: 2 }}>{fmt(l.price)} each</div>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', border: '1px solid oklch(0.82 0.02 50)', borderRadius: 999, marginTop: 8 }}>
+                      <button type="button" onClick={() => setQty(l.productId, l.qty - 1)} aria-label={`Decrease quantity of ${l.name}`} style={{ width: 28, height: 28, border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 15 }}>&minus;</button>
+                      <span style={{ minWidth: 26, textAlign: 'center', fontFamily: mono, fontSize: 12.5, fontWeight: 600 }}>{l.qty}</span>
+                      <button type="button" onClick={() => setQty(l.productId, l.qty + 1)} disabled={l.stock > 0 && l.qty >= l.stock} aria-label={`Increase quantity of ${l.name}`} style={{ width: 28, height: 28, border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 15 }}>+</button>
                     </div>
-                    <button
-                      onClick={() => remove(l.productId)}
-                      className="bg-transparent border-0 text-[10px] mt-1 cursor-pointer uppercase"
-                      style={{ color: 'var(--ink-4)', letterSpacing: '0.08em' }}
-                    >
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontFamily: mono, fontSize: 13.5, fontWeight: 700 }}>{fmt(l.price * l.qty)}</div>
+                    <button type="button" onClick={() => remove(l.productId)} style={{ marginTop: 6, border: 'none', background: 'transparent', fontFamily: mono, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'oklch(0.54 0.02 40)', cursor: 'pointer' }}>
                       Remove
                     </button>
                   </div>
@@ -178,45 +92,16 @@ export default function CartDrawer() {
         </div>
 
         {items.length > 0 && (
-          <div
-            className="p-5.5"
-            style={{
-              padding: 22,
-              borderTop: '1px solid var(--line)',
-              background: 'var(--bg-2)',
-            }}
-          >
-            <div
-              className="flex justify-between text-[12.5px]"
-              style={{ color: 'var(--ink-3)' }}
-            >
-              <span>Subtotal</span>
-              <span className="font-mono-tabular">{fmt(subtotal)}</span>
+          <div style={{ padding: 22, borderTop: '1px solid oklch(0.86 0.012 68)', background: 'oklch(0.955 0.010 74)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14 }}>
+              <span style={{ color: 'oklch(0.42 0.012 34)' }}>Subtotal</span>
+              <span style={{ fontFamily: mono, fontWeight: 700 }}>{fmt(subtotal)}</span>
             </div>
-            {hasLive && (
-              <div
-                className="flex justify-between text-[12.5px] mt-1"
-                style={{ color: 'var(--ink-3)' }}
-              >
-                <span>Due today (deposit 20% + gear)</span>
-                <span className="font-mono-tabular">{fmt(dueToday)}</span>
-              </div>
-            )}
-            <button
-              className="b b-primary b-lg w-full justify-center"
-              onClick={() => {
-                setOpen(false);
-                router.push('/checkout');
-              }}
-              style={{ marginTop: 16 }}
-            >
-              Continue to checkout <ArrowRight size={14} />
+            <button type="button" onClick={() => { setOpen(false); router.push('/checkout'); }} className="dc-btn-primary" style={{ marginTop: 16, width: '100%', border: 'none', background: 'oklch(0.52 0.216 27)', color: 'oklch(0.98 0.012 82)', fontSize: 15, fontWeight: 600, padding: '15px 24px', borderRadius: 999, cursor: 'pointer' }}>
+              Continue to checkout &rarr;
             </button>
-            <div
-              className="text-center mt-2.5 text-[11px]"
-              style={{ color: 'var(--ink-4)' }}
-            >
-              Live specimens reserved with deposit · gear pays in full
+            <div style={{ textAlign: 'center', marginTop: 10, fontSize: 11.5, color: 'oklch(0.54 0.02 40)' }}>
+              No payment is taken online — we confirm your order first.
             </div>
           </div>
         )}

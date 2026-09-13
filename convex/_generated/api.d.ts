@@ -16,6 +16,7 @@ import type {
 import type * as files from "../files.js";
 import type * as http from "../http.js";
 import type * as lib_authz from "../lib/authz.js";
+import type * as lib_purchaseMode from "../lib/purchaseMode.js";
 import type * as migrations_fix_login_method from "../migrations/fix_login_method.js";
 import type * as seed from "../seed.js";
 import type * as services_admin from "../services/admin.js";
@@ -23,6 +24,7 @@ import type * as services_aiInsights from "../services/aiInsights.js";
 import type * as services_analytics from "../services/analytics.js";
 import type * as services_audit from "../services/audit.js";
 import type * as services_auth from "../services/auth.js";
+import type * as services_business from "../services/business.js";
 import type * as services_cart from "../services/cart.js";
 import type * as services_cashAdjustments from "../services/cashAdjustments.js";
 import type * as services_categories from "../services/categories.js";
@@ -38,6 +40,7 @@ import type * as services_reservations from "../services/reservations.js";
 import type * as services_session from "../services/session.js";
 import type * as services_settings from "../services/settings.js";
 import type * as services_stock from "../services/stock.js";
+import type * as services_testimonials from "../services/testimonials.js";
 import type * as services_users from "../services/users.js";
 import type * as services_viewings from "../services/viewings.js";
 import type * as services_wishlist from "../services/wishlist.js";
@@ -54,6 +57,7 @@ declare const fullApi: ApiFromModules<{
   files: typeof files;
   http: typeof http;
   "lib/authz": typeof lib_authz;
+  "lib/purchaseMode": typeof lib_purchaseMode;
   "migrations/fix_login_method": typeof migrations_fix_login_method;
   seed: typeof seed;
   "services/admin": typeof services_admin;
@@ -61,6 +65,7 @@ declare const fullApi: ApiFromModules<{
   "services/analytics": typeof services_analytics;
   "services/audit": typeof services_audit;
   "services/auth": typeof services_auth;
+  "services/business": typeof services_business;
   "services/cart": typeof services_cart;
   "services/cashAdjustments": typeof services_cashAdjustments;
   "services/categories": typeof services_categories;
@@ -76,6 +81,7 @@ declare const fullApi: ApiFromModules<{
   "services/session": typeof services_session;
   "services/settings": typeof services_settings;
   "services/stock": typeof services_stock;
+  "services/testimonials": typeof services_testimonials;
   "services/users": typeof services_users;
   "services/viewings": typeof services_viewings;
   "services/wishlist": typeof services_wishlist;

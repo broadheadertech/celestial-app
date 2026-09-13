@@ -17,11 +17,14 @@ export type DcProduct = {
   grade?: string;
   tankNumber?: string;
   sku?: string | number;
+  categoryId?: string;
   categoryName?: string;
   isActive?: boolean;
   createdAt?: number;
   description?: string;
   certificate?: string;
+  /** Resolved by the backend: "enquire" (showcase only) or "cart" (can be bought online). */
+  purchaseMode?: 'enquire' | 'cart';
 };
 
 export const fmtPeso = (n: number) =>
@@ -88,8 +91,5 @@ export function buildChips(products: DcProduct[], keyOf: (p: DcProduct) => strin
   return ['all', ...Array.from(seen)];
 }
 
-const WA = '639172345678';
-export function waEnquire(name: string, extra = '') {
-  const text = "Hi Dragon's Cave — I'd like to enquire about " + name + (extra ? ' (' + extra + ')' : '') + '. Is it still available?';
-  return 'https://wa.me/' + WA + '?text=' + encodeURIComponent(text);
-}
+// WhatsApp enquiry links live in ./business.ts (useBusiness().enquireHref), which reads the
+// number from Admin → Business Details.

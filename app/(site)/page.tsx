@@ -12,9 +12,8 @@ import { useMemo } from 'react';
 import { useQuery } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { WaIcon } from '@/components/dc/styles';
-import { bloodlineOf, DcProduct, fmtPeso, gradeRank, isArowana, isFish, waEnquire } from '@/components/dc/fish';
-
-const WA_VISIT = 'https://wa.me/639172345678?text=Hi%20Dragon%27s%20Cave%20%E2%80%94%20I%27d%20like%20to%20arrange%20a%20gallery%20visit.';
+import { bloodlineOf, DcProduct, fmtPeso, gradeRank, isArowana, isFish } from '@/components/dc/fish';
+import { hoursSummary, useBusiness } from '@/components/dc/business';
 
 const PROMISE = [
   { n: '01', t: 'Provenance', b: 'Every fish carries a microchip, a CITES certificate, and our hand-written lineage card.' },
@@ -22,16 +21,23 @@ const PROMISE = [
   { n: '03', t: 'Husbandry', b: 'Tank parameters monitored daily. Diet planned per specimen. We sweat the small things.' },
   { n: '04', t: 'Continuity', b: 'We answer the phone five years after the sale. Your fish has a long life to live.' },
 ];
-const TESTIMONIALS = [
-  { q: 'Mark put a fish on hold for me for three weeks while I finished my display tank. That kind of patience is rare.', in: 'KR', name: 'Karlo Reyes', role: 'Collector · Makati' },
-  { q: 'The lineage card on my Chili Red traces back four generations. I have never seen that kind of documentation from any other dealer.', in: 'DL', name: 'Daniel Lim', role: 'Aquarist · Cebu' },
-];
+const initialsOf = (name: string) =>
+  name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]!.toUpperCase()).join('') || '龍';
 
 const mono = "'Geist Mono', monospace";
 const serif = "'Noto Serif Display', serif";
 
 export default function HomePage() {
   const products = useQuery(api.services.products.getCatalogProducts, {}) as DcProduct[] | undefined;
+  const testimonials = useQuery(api.services.testimonials.listPublished, {});
+  const biz = useBusiness();
+  const waVisit = biz.wa(`Hi ${biz.storeName} — I'd like to arrange a gallery visit.`);
+  const [hoursDays, hoursTime] = hoursSummary(biz.hours);
+  const visitFacts = [
+    ['Address', biz.address, biz.city],
+    ['Hours', hoursDays, hoursTime],
+    ['Phone', biz.landline || biz.phone, biz.landline ? biz.phone : ''],
+  ].filter(([, a]) => a);
 
   const arowana = useMemo(
     () => (products ?? []).filter((p) => p.isActive && isFish(p) && p.stock > 0 && isArowana(p.name)).sort((a, b) => gradeRank(a.grade) - gradeRank(b.grade) || b.price - a.price),
@@ -80,7 +86,7 @@ export default function HomePage() {
             <p style={{ fontSize: 'clamp(16px,1.35vw,19px)', lineHeight: 1.6, maxWidth: 452, color: 'oklch(0.40 0.012 34)', margin: '0 0 34px' }}>Museum-grade Asian arowana &mdash; the fish the old texts call a living dragon. Chosen for bloodline, raised for temperament, and kept in our gallery water until the right hands arrive.</p>
 
             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
-              <a href={waEnquire(heroName)} target="_blank" rel="noopener" className="dc-btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: 9, background: 'oklch(0.52 0.216 27)', color: 'oklch(0.98 0.012 82)', fontSize: 14, fontWeight: 600, padding: '15px 24px', borderRadius: 999, transition: 'background .2s', boxShadow: '0 14px 32px -14px oklch(0.52 0.216 27 / 0.7)' }}>
+              <a href={biz.enquireHref(heroName)} target="_blank" rel="noopener" className="dc-btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: 9, background: 'oklch(0.52 0.216 27)', color: 'oklch(0.98 0.012 82)', fontSize: 14, fontWeight: 600, padding: '15px 24px', borderRadius: 999, transition: 'background .2s', boxShadow: '0 14px 32px -14px oklch(0.52 0.216 27 / 0.7)' }}>
                 <WaIcon size={16} />
                 Enquire on WhatsApp
               </a>
@@ -241,10 +247,10 @@ export default function HomePage() {
               <p style={{ fontSize: 16.5, lineHeight: 1.6, color: 'oklch(0.90 0.01 70 / 0.82)', maxWidth: 440, margin: '0 0 34px' }}>Tuesday through Saturday, by appointment only. Bring a friend. We will pour tea. Take as long as you need with the fish.</p>
               <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 44 }}>
                 <Link href="/visit" className="dc-btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'oklch(0.55 0.22 28)', color: 'oklch(0.98 0.012 82)', fontSize: 14, fontWeight: 600, padding: '15px 24px', borderRadius: 999, transition: '.2s' }}>Book a viewing &rarr;</Link>
-                <a href={WA_VISIT} target="_blank" rel="noopener" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, border: '1px solid oklch(0.70 0.06 60 / 0.4)', color: 'oklch(0.95 0.01 74)', fontSize: 14, fontWeight: 600, padding: '15px 22px', borderRadius: 999 }}>Message us</a>
+                {waVisit && <a href={waVisit} target="_blank" rel="noopener" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, border: '1px solid oklch(0.70 0.06 60 / 0.4)', color: 'oklch(0.95 0.01 74)', fontSize: 14, fontWeight: 600, padding: '15px 22px', borderRadius: 999 }}>Message us</a>}
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 20, maxWidth: 520 }}>
-                {[['Address', '34 Tomas Morato Ave', 'Quezon City'], ['Hours', 'Tue–Sat', '10:00–18:00'], ['Phone', '(02) 8851 4928', '+63 917 234 5678']].map(([h, a, b]) => (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 20, maxWidth: 520 }}>
+                {visitFacts.map(([h, a, b]) => (
                   <div key={h}>
                     <div style={{ fontFamily: mono, fontSize: 9.5, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'oklch(0.85 0.02 60 / 0.5)', marginBottom: 8 }}>{h}</div>
                     <div style={{ fontFamily: mono, fontSize: 12, lineHeight: 1.5, color: 'oklch(0.92 0.01 70 / 0.85)' }}>{a}<br />{b}</div>
@@ -256,26 +262,51 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ══════════ TESTIMONIALS ══════════ */}
-      <section style={{ background: 'oklch(0.955 0.010 74)', borderTop: '1px solid oklch(0.86 0.012 68)', padding: '96px 0' }}>
-        <div style={{ maxWidth: 1180, margin: '0 auto', padding: '0 28px' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 56 }}>
-            {TESTIMONIALS.map((t) => (
-              <div key={t.name} style={{ position: 'relative' }}>
-                <div style={{ fontFamily: serif, fontStyle: 'italic', fontSize: 90, lineHeight: 0.6, color: 'oklch(0.52 0.216 27 / 0.28)', position: 'absolute', top: -14, left: -6 }}>&ldquo;</div>
-                <p style={{ position: 'relative', fontFamily: serif, fontWeight: 500, fontSize: 23, lineHeight: 1.42, color: 'oklch(0.22 0.012 32)', margin: '0 0 24px' }}>{t.q}</p>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <span style={{ width: 36, height: 36, borderRadius: 99, background: 'oklch(0.52 0.216 27 / 0.12)', color: 'oklch(0.50 0.216 27)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700 }}>{t.in}</span>
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: 'oklch(0.22 0.012 32)' }}>{t.name}</div>
-                    <div style={{ fontFamily: mono, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'oklch(0.54 0.02 40)', marginTop: 2 }}>{t.role}</div>
+      {/* ══════════ TESTIMONIALS (Admin → Testimonials; hidden until one is published) ══════════ */}
+      {testimonials && testimonials.length > 0 && (
+        <section style={{ background: 'oklch(0.955 0.010 74)', borderTop: '1px solid oklch(0.86 0.012 68)', padding: '96px 0' }}>
+          <div style={{ maxWidth: 1180, margin: '0 auto', padding: '0 28px' }}>
+            <div style={{ fontFamily: mono, fontSize: 11, letterSpacing: '0.26em', textTransform: 'uppercase', color: 'oklch(0.50 0.14 30)', marginBottom: 14 }}>From our keepers</div>
+            <h2 style={{ fontFamily: serif, fontWeight: 700, fontSize: 'clamp(30px,4vw,48px)', lineHeight: 1, letterSpacing: '-0.02em', margin: '0 0 48px', color: 'oklch(0.19 0.012 32)' }}>Dragons in <span style={{ fontStyle: 'italic', color: 'oklch(0.50 0.216 27)' }}>good hands.</span></h2>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 32 }}>
+              {testimonials.map((t) => (
+                <figure key={t._id} style={{ margin: 0, background: 'oklch(0.985 0.006 80)', border: '1px solid oklch(0.86 0.012 68)', borderRadius: 12, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                  {t.photoUrl && (
+                    <div style={{ position: 'relative', aspectRatio: '4/3', background: 'oklch(0.90 0.02 66)' }}>
+                      <img src={t.photoUrl} alt={`${t.clientName} with their fish`} loading="lazy" decoding="async" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} draggable={false} />
+                    </div>
+                  )}
+                  <div style={{ position: 'relative', padding: '28px 26px 24px', display: 'flex', flexDirection: 'column', flex: 1 }}>
+                    <div aria-hidden="true" style={{ fontFamily: serif, fontStyle: 'italic', fontSize: 72, lineHeight: 0.6, color: 'oklch(0.52 0.216 27 / 0.28)', position: 'absolute', top: 18, left: 16 }}>&ldquo;</div>
+                    {t.rating ? (() => {
+                      const stars = Math.max(1, Math.min(5, Math.round(t.rating)));
+                      return (
+                        <div role="img" aria-label={`${stars} out of 5 stars`} style={{ color: 'oklch(0.70 0.14 75)', fontSize: 14, letterSpacing: 2, marginBottom: 10, textAlign: 'right' }}>
+                          {'★'.repeat(stars)}<span style={{ color: 'oklch(0.85 0.02 60)' }}>{'★'.repeat(5 - stars)}</span>
+                        </div>
+                      );
+                    })() : null}
+                    <blockquote style={{ position: 'relative', fontFamily: serif, fontWeight: 500, fontSize: 19, lineHeight: 1.45, color: 'oklch(0.22 0.012 32)', margin: '0 0 22px', flex: 1 }}>{t.quote}</blockquote>
+                    <figcaption style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                      {!t.photoUrl && (
+                        <span style={{ width: 36, height: 36, borderRadius: 99, background: 'oklch(0.52 0.216 27 / 0.12)', color: 'oklch(0.50 0.216 27)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, flex: '0 0 auto' }}>{initialsOf(t.clientName)}</span>
+                      )}
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: 'oklch(0.22 0.012 32)' }}>{t.clientName}</div>
+                        {(t.clientLocation || t.productName) && (
+                          <div style={{ fontFamily: mono, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'oklch(0.54 0.02 40)', marginTop: 2 }}>
+                            {[t.clientLocation, t.productName].filter(Boolean).join(' · ')}
+                          </div>
+                        )}
+                      </div>
+                    </figcaption>
                   </div>
-                </div>
-              </div>
-            ))}
+                </figure>
+              ))}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
     </main>
   );
 }

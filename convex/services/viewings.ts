@@ -1,5 +1,13 @@
 import { v } from "convex/values";
 import { mutation, query } from "../_generated/server";
+import { getViewer, requireStaff } from "../lib/authz";
+
+const MAX_NAME = 100;
+const MAX_EMAIL = 254;
+const MAX_PHONE = 40;
+const MAX_DATE_TIME = 40;
+const MAX_INTEREST = 200;
+const MAX_NOTES = 2000;
 
 // Create a viewing request from the public /visit page.
 export const createViewing = mutation({
@@ -12,6 +20,7 @@ export const createViewing = mutation({
     partySize: v.number(),
     interest: v.optional(v.string()),
     notes: v.optional(v.string()),
+    // Kept for client compatibility; the requester is derived from the session instead.
     userId: v.optional(v.id("users")),
   },
   handler: async (ctx, args) => {
@@ -19,9 +28,19 @@ export const createViewing = mutation({
     if (!/.+@.+\..+/.test(args.email)) throw new Error("Valid email is required");
     if (args.phone.trim().length < 7) throw new Error("Valid phone is required");
     if (!args.date || !args.time) throw new Error("Date and time are required");
-    if (args.partySize < 1 || args.partySize > 10) {
+    if (!Number.isInteger(args.partySize) || args.partySize < 1 || args.partySize > 10) {
       throw new Error("Party size must be between 1 and 10");
     }
+    if (args.name.trim().length > MAX_NAME) throw new Error(`Name must be at most ${MAX_NAME} characters`);
+    if (args.email.trim().length > MAX_EMAIL) throw new Error("Email is too long");
+    if (args.phone.trim().length > MAX_PHONE) throw new Error("Phone number is too long");
+    if (args.date.length > MAX_DATE_TIME || args.time.length > MAX_DATE_TIME) {
+      throw new Error("Invalid date or time");
+    }
+    if ((args.interest?.length ?? 0) > MAX_INTEREST) throw new Error(`Interest must be at most ${MAX_INTEREST} characters`);
+    if ((args.notes?.length ?? 0) > MAX_NOTES) throw new Error(`Notes must be at most ${MAX_NOTES} characters`);
+
+    const viewer = await getViewer(ctx);
 
     const now = Date.now();
     const id = await ctx.db.insert("viewings", {
@@ -34,7 +53,7 @@ export const createViewing = mutation({
       interest: args.interest,
       notes: args.notes,
       status: "requested",
-      userId: args.userId,
+      userId: viewer?._id,
       createdAt: now,
       updatedAt: now,
     });
@@ -56,6 +75,7 @@ export const getViewings = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, { status, limit = 100 }) => {
+    await requireStaff(ctx);
     const all = status
       ? await ctx.db
           .query("viewings")
@@ -78,6 +98,7 @@ export const updateViewingStatus = mutation({
     ),
   },
   handler: async (ctx, { id, status }) => {
+    await requireStaff(ctx);
     const v = await ctx.db.get(id);
     if (!v) throw new Error("Viewing not found");
     await ctx.db.patch(id, { status, updatedAt: Date.now() });

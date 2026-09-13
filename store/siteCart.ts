@@ -47,7 +47,7 @@ export const useSiteCart = create<SiteCartStore>()(
           if (existing && item.isLive) return { isOpen: true };
           return {
             isOpen: true,
-            items: [...state.items, { ...item, qty: 1 }],
+            items: [...state.items, { ...item, qty: item.isLive ? 1 : Math.max(1, Math.min(qty, item.stock || 999)) }],
           };
         }),
 

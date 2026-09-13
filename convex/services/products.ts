@@ -1,8 +1,28 @@
 import { v } from "convex/values";
-import { mutation, query } from "../_generated/server";
+import { mutation, query, QueryCtx } from "../_generated/server";
+import { Doc } from "../_generated/dataModel";
 import { recordAudit } from "./audit";
+import { getViewer, isStaffRole, requireStaff } from "../lib/authz";
+import { resolvePurchaseMode } from "../lib/purchaseMode";
 
-// Get all products
+const PURCHASE_MODE = v.optional(v.union(v.literal("enquire"), v.literal("cart")));
+
+/** Public shape of a product: internal cost fields removed, sales channel resolved. */
+function toPublicProduct(product: Doc<"products">, categoryName: string | undefined) {
+  const { costPrice, movingAverageCost, ...rest } = product;
+  return {
+    ...rest,
+    categoryName: categoryName || "Unknown",
+    purchaseMode: resolvePurchaseMode(product, categoryName),
+  };
+}
+
+async function categoryNameMap(ctx: QueryCtx) {
+  const names = new Map<string, string>();
+  for (const c of await ctx.db.query("categories").collect()) names.set(c._id, c.name);
+  return names;
+}
+
 // Public storefront catalog: active products with their category name. Internal cost
 // fields are stripped — use admin.getAllProductsAdmin (staff only) for the full records.
 export const getCatalogProducts = query({
@@ -12,15 +32,9 @@ export const getCatalogProducts = query({
       .query("products")
       .withIndex("by_active", (q) => q.eq("isActive", true))
       .collect();
-    const categoryNames = new Map<string, string>();
-    for (const c of await ctx.db.query("categories").collect()) {
-      categoryNames.set(c._id, c.name);
-    }
+    const names = await categoryNameMap(ctx);
     return products
-      .map(({ costPrice, movingAverageCost, ...product }) => ({
-        ...product,
-        categoryName: categoryNames.get(product.categoryId) || "Unknown",
-      }))
+      .map((p) => toPublicProduct(p, names.get(p.categoryId)))
       .sort((a, b) => b.updatedAt - a.updatedAt);
   },
 });
@@ -32,44 +46,57 @@ export const getProducts = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, { categoryId, isActive = true, limit }) => {
+    // Only staff may list inactive products.
+    const viewer = await getViewer(ctx);
+    const staff = !!viewer && isStaffRole(viewer.role);
     let products;
-    
+
     if (categoryId) {
       products = await ctx.db
         .query("products")
         .withIndex("by_category", (q) => q.eq("categoryId", categoryId))
         .collect();
+      if (!staff) products = products.filter((p) => p.isActive);
     } else {
       products = await ctx.db
         .query("products")
-        .withIndex("by_active", (q) => q.eq("isActive", isActive))
+        .withIndex("by_active", (q) => q.eq("isActive", staff ? isActive : true))
         .collect();
     }
-    
-    if (limit) {
-      return products.slice(0, limit);
-    }
-    
-    return products;
+
+    const names = await categoryNameMap(ctx);
+    const shaped = products.map((p) => toPublicProduct(p, names.get(p.categoryId)));
+    return limit ? shaped.slice(0, limit) : shaped;
   },
 });
 
-// Get product by ID
+// Get product by ID. Returns null (instead of throwing) for unknown or malformed ids, and
+// for inactive products unless the caller is staff, so pages can show "not found".
 export const getProduct = query({
   args: {
     productId: v.union(v.id("products"), v.string()),
   },
   handler: async (ctx, { productId }) => {
-    // Handle both Convex ID and string formats
-    const productIdValue = typeof productId === 'string' ? productId as any : productId;
+    const id = ctx.db.normalizeId("products", productId);
+    if (!id) return null;
+    const product = await ctx.db.get(id);
+    if (!product) return null;
 
-    const product = await ctx.db.get(productIdValue);
-    
-    if (!product) {
-      throw new Error("Product not found");
+    const viewer = await getViewer(ctx);
+    const staff = !!viewer && isStaffRole(viewer.role);
+    if (!product.isActive && !staff) return null;
+
+    const category = await ctx.db.get(product.categoryId);
+    if (staff) {
+      // Admin edit form needs cost fields and whether purchaseMode was explicitly set.
+      return {
+        ...product,
+        categoryName: category?.name || "Unknown",
+        purchaseMode: resolvePurchaseMode(product, category?.name),
+        purchaseModeSetting: product.purchaseMode ?? null,
+      };
     }
-    
-    return product;
+    return { ...toPublicProduct(product, category?.name), purchaseModeSetting: null };
   },
 });
 // Get tank data by product ID
@@ -78,19 +105,10 @@ export const getTankByProductId = query({
     productId: v.id("products"),
   },
   handler: async (ctx, { productId }) => {
-    console.log("getTankByProductId called with productId:", productId);
-    
-    const tankData = await ctx.db
+    return await ctx.db
       .query("tank")
       .withIndex("by_product", (q) => q.eq("productId", productId))
       .first();
-      
-    console.log("Tank data found:", tankData ? "Yes" : "No");
-    if (tankData) {
-      console.log("Tank type:", tankData.tankType);
-    }
-    
-    return tankData;
   },
 });
 
@@ -101,19 +119,10 @@ export const getFishByProductId = query({
     productId: v.id("products"),
   },
   handler: async (ctx, { productId }) => {
-    console.log("getFishByProductId called with productId:", productId);
-    
-    const fishData = await ctx.db
+    return await ctx.db
       .query("fish")
       .withIndex("by_product", (q) => q.eq("productId", productId))
       .first();
-      
-    console.log("Fish data found:", fishData ? "Yes" : "No");
-    if (fishData) {
-      console.log("Fish scientific name:", fishData.scientificName);
-    }
-    
-    return fishData;
   },
 });
 
@@ -127,9 +136,10 @@ export const getFeaturedProducts = query({
       .query("products")
       .withIndex("by_active", (q) => q.eq("isActive", true))
       .filter((q) => q.neq(q.field("badge"), undefined))
-      .take(limit);
+      .take(Math.min(limit, 50));
 
-    return products;
+    const names = await categoryNameMap(ctx);
+    return products.map((p) => toPublicProduct(p, names.get(p.categoryId)));
   },
 });
 
@@ -173,9 +183,10 @@ export const getTopRatedProducts = query({
     }
 
     // Sort products by reservation count (most reserved first)
+    const names = await categoryNameMap(ctx);
     const topRatedProducts = products
       .map(product => ({
-        ...product,
+        ...toPublicProduct(product, names.get(product.categoryId)),
         reservationCount: reservationCounts.get(product._id) || 0
       }))
       .sort((a, b) => {
@@ -220,6 +231,7 @@ export const createProduct = mutation({
       v.literal("AA"),
       v.literal("A"),
     )),
+    purchaseMode: PURCHASE_MODE,
     isActive: v.boolean(),
 
     // Category-specific data (optional)
@@ -252,6 +264,7 @@ export const createProduct = mutation({
   },
 
   handler: async (ctx, args) => {
+    await requireStaff(ctx);
     // Enhanced validation
     if (!args.name?.trim()) {
       throw new Error("Product name is required and cannot be empty");
@@ -550,8 +563,9 @@ export const updateProduct = mutation({
       v.literal("AA"),
       v.literal("A"),
     )),
+    purchaseMode: PURCHASE_MODE,
     isActive: v.optional(v.boolean()),
-    userId: v.optional(v.id("users")), // acting admin (for audit)
+    userId: v.optional(v.id("users")), // ignored; the acting admin comes from the session
 
     // Category-specific data (optional)
     fishData: v.optional(v.object({
@@ -583,7 +597,9 @@ export const updateProduct = mutation({
   },
 
   handler: async (ctx, args) => {
-    const { productId, fishData, tankData, userId: actorId, ...updates } = args;
+    const staff = await requireStaff(ctx);
+    const { productId, fishData, tankData, userId: _ignoredActor, ...updates } = args;
+    const actorId = staff._id;
 
     // Fetch the existing product
     const product = await ctx.db.get(productId);

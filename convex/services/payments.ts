@@ -1,6 +1,7 @@
 import { mutation } from "../_generated/server";
 import { v } from "convex/values";
 import { recordAudit } from "./audit";
+import { requireStaff } from "../lib/authz";
 
 const peso = (n: number) => `₱${n.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
@@ -19,7 +20,8 @@ export const updateOrderPayment = mutation({
     amountPaid: v.optional(v.number()),
     userId: v.optional(v.id("users")),
   },
-  handler: async (ctx, { orderId, paymentStatus, amountPaid, userId }) => {
+  handler: async (ctx, { orderId, paymentStatus, amountPaid }) => {
+    const staff = await requireStaff(ctx);
     const order = await ctx.db.get(orderId);
     if (!order) throw new Error("Order not found");
     const prevStatus = order.paymentStatus || "unpaid";
@@ -44,7 +46,7 @@ export const updateOrderPayment = mutation({
     });
 
     await recordAudit(ctx, {
-      actorId: userId,
+      actorId: staff._id,
       action: paymentStatus === "refunded" ? "order.refund" : "order.payment",
       category: "sales",
       summary: `Order #${(orderId as string).slice(-6)} payment ${prevStatus} → ${paymentStatus}${finalAmount ? ` (${peso(finalAmount)})` : ""}`,
@@ -66,7 +68,8 @@ export const updateReservationPayment = mutation({
     amountPaid: v.optional(v.number()),
     userId: v.optional(v.id("users")),
   },
-  handler: async (ctx, { reservationId, paymentStatus, amountPaid, userId }) => {
+  handler: async (ctx, { reservationId, paymentStatus, amountPaid }) => {
+    const staff = await requireStaff(ctx);
     const reservation = await ctx.db.get(reservationId);
     if (!reservation) throw new Error("Reservation not found");
     const prevStatus = reservation.paymentStatus || "unpaid";
@@ -92,7 +95,7 @@ export const updateReservationPayment = mutation({
     });
 
     await recordAudit(ctx, {
-      actorId: userId,
+      actorId: staff._id,
       action: paymentStatus === "refunded" ? "reservation.refund" : "reservation.payment",
       category: "sales",
       summary: `Reservation ${reservation.reservationCode || "#" + (reservationId as string).slice(-6)} payment ${prevStatus} → ${paymentStatus}${finalAmount ? ` (${peso(finalAmount)})` : ""}`,

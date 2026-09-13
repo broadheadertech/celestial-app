@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "../_generated/server";
 import { recordAudit } from "./audit";
+import { requireStaff } from "../lib/authz";
 
 const peso = (n: number) => `₱${n.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
@@ -62,7 +63,9 @@ export const createCashAdjustment = mutation({
     // Only required when type === "correction": the operator re-types their password.
     password: v.optional(v.string()),
   },
-  handler: async (ctx, { type, amount, reason, notes, date, userId, password }) => {
+  handler: async (ctx, { type, amount, reason, notes, date, password }) => {
+    const staff = await requireStaff(ctx);
+    const userId = staff._id;
     if (!reason.trim()) throw new Error("Reason is required");
     if (amount === 0) throw new Error("Amount must not be zero");
 
@@ -84,17 +87,14 @@ export const createCashAdjustment = mutation({
 
     // Corrections require a password re-confirmation against the recording user.
     if (normalized === "correction") {
-      if (!userId) {
-        throw new Error("Sign in to record a correction");
-      }
       if (reason.trim().length < 10) {
         throw new Error("Reason must be at least 10 characters for corrections");
       }
       if (!password || !password.trim()) {
         throw new Error("Password required to confirm a correction");
       }
-      const user = await ctx.db.get(userId);
-      if (!user) throw new Error("User not found");
+      // Verify against the signed-in staff member, never a client-supplied userId.
+      const user = staff;
       if (!user.passwordHash) {
         throw new Error("This account has no password set — corrections are blocked");
       }
@@ -152,6 +152,7 @@ export const getCashAdjustments = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, { type, startDate, endDate, limit = 100 }) => {
+    await requireStaff(ctx);
     const all = type
       ? await ctx.db.query("cashAdjustments").withIndex("by_type", (q) => q.eq("type", type)).collect()
       : await ctx.db.query("cashAdjustments").collect();
@@ -178,6 +179,7 @@ export const getCashAdjustmentReport = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, { tzOffsetMinutes = -480, startDate, endDate, limit = 370 }) => {
+    await requireStaff(ctx);
     const adjustments = await ctx.db.query("cashAdjustments").collect();
 
     const now = Date.now();
@@ -252,7 +254,9 @@ export const getCashAdjustmentReport = query({
 // Delete an adjustment (mistakes happen). The deletion itself is recorded in the audit log.
 export const deleteCashAdjustment = mutation({
   args: { id: v.id("cashAdjustments"), userId: v.optional(v.id("users")) },
-  handler: async (ctx, { id, userId }) => {
+  handler: async (ctx, { id }) => {
+    const staff = await requireStaff(ctx);
+    const userId = staff._id;
     const row = await ctx.db.get(id);
     if (!row) throw new Error("Adjustment not found");
     await ctx.db.delete(id);

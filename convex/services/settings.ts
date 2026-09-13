@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "../_generated/server";
 import { recordAudit } from "./audit";
+import { requireStaff } from "../lib/authz";
 
 const DEFAULTS = {
   siteName: "Dragon Cave Inventory",
@@ -14,9 +15,11 @@ const DEFAULTS = {
   lowStockThreshold: 10,
 };
 
+// Admin: read app settings (only the admin settings page reads these).
 export const getAppSettings = query({
   args: {},
   handler: async (ctx) => {
+    await requireStaff(ctx);
     const row = await ctx.db.query("appSettings").first();
     if (!row) {
       return {
@@ -40,10 +43,13 @@ export const updateAppSettings = mutation({
     notifyNewOrders: v.optional(v.boolean()),
     notifyNewUsers: v.optional(v.boolean()),
     lowStockThreshold: v.optional(v.number()),
+    // Kept for client compatibility; the actor is derived from the session instead.
     userId: v.optional(v.id("users")),
   },
   handler: async (ctx, args) => {
-    const { userId: actorId, ...updates } = args;
+    const staff = await requireStaff(ctx);
+    const { userId: _ignoredUserId, ...updates } = args;
+    const actorId = staff._id;
     const now = Date.now();
     const existing = await ctx.db.query("appSettings").first();
 

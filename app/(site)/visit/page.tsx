@@ -9,6 +9,7 @@
 import { useState } from 'react';
 import { useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
+import { groupHours, hoursSummary, useBusiness } from '@/components/dc/business';
 
 const mono = "'Geist Mono', monospace";
 const serif = "'Noto Serif Display', serif";
@@ -25,6 +26,9 @@ function Slot({ label, ratio }: { label: string; ratio: string }) {
 
 export default function VisitPage() {
   const createViewing = useMutation(api.services.viewings.createViewing);
+  const biz = useBusiness();
+  const [hoursDays, hoursTime] = hoursSummary(biz.hours);
+  const hourGroups = groupHours(biz.hours);
   const [s, setS] = useState({ name: '', email: '', contact: '', date: '', time: '10:00', guests: '1', interest: '', notes: '' });
   const [status, setStatus] = useState<'idle' | 'sending' | 'done' | 'error'>('idle');
   const [error, setError] = useState('');
@@ -40,7 +44,13 @@ export default function VisitPage() {
     s.interest ? 'Interested in: ' + s.interest : null,
     s.notes ? 'Note: ' + s.notes : null,
   ].filter(Boolean);
-  const waHref = 'https://wa.me/639172345678?text=' + encodeURIComponent(lines.join('\n'));
+  const waHref = biz.wa(lines.join('\n'));
+  const waQuestion = biz.wa(`Hi ${biz.storeName} — I'd like to ask a question before visiting.`);
+  const heroFacts = [
+    ['Address', biz.address, biz.city],
+    ['Hours', hoursDays, hoursTime],
+    ['Phone', biz.phone, biz.landline],
+  ].filter(([, a]) => a);
 
   async function submit() {
     setError('');
@@ -78,7 +88,7 @@ export default function VisitPage() {
             <h1 style={{ fontFamily: serif, fontWeight: 800, fontSize: 'clamp(46px,6.6vw,92px)', lineHeight: 0.92, letterSpacing: '-0.02em', margin: '0 0 22px', color: 'oklch(0.19 0.012 32)' }}>Visit the <span style={{ fontStyle: 'italic', fontWeight: 600, color: 'oklch(0.50 0.216 27)' }}>gallery.</span></h1>
             <p style={{ fontSize: 17.5, lineHeight: 1.6, maxWidth: 480, color: 'oklch(0.40 0.012 34)', margin: '0 0 34px' }}>Tuesday through Saturday, by appointment only. Bring a friend. We&rsquo;ll pour tea and you can take as long as you need with the fish &mdash; there&rsquo;s never any pressure to buy.</p>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,auto)', gap: 34, justifyContent: 'start' }}>
-              {[['Address', '34 Tomas Morato Ave', 'Quezon City'], ['Hours', 'Tue–Sat', '10:00–18:00'], ['Phone', '+63 917 234 5678', '']].map(([h, a, b]) => (
+              {heroFacts.map(([h, a, b]) => (
                 <div key={h}>
                   <div style={{ fontFamily: mono, fontSize: 9.5, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'oklch(0.56 0.02 40)', marginBottom: 8 }}>{h}</div>
                   <div style={{ fontFamily: mono, fontSize: 13, lineHeight: 1.5, color: 'oklch(0.26 0.012 32)' }}>{a}{b && <><br />{b}</>}</div>
@@ -107,10 +117,12 @@ export default function VisitPage() {
                 <div style={{ width: 56, height: 56, borderRadius: 999, margin: '0 auto 20px', background: 'oklch(0.52 0.13 150 / 0.14)', color: 'oklch(0.46 0.14 150)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26 }}>✓</div>
                 <h2 style={{ fontFamily: serif, fontWeight: 700, fontSize: 28, margin: '0 0 10px', color: 'oklch(0.19 0.012 32)' }}>Request received</h2>
                 <p style={{ fontSize: 14.5, lineHeight: 1.6, color: 'oklch(0.44 0.012 34)', maxWidth: 380, margin: '0 auto 24px' }}>Thank you, {s.name.split(' ')[0] || 'friend'}. We&rsquo;ll confirm your {s.date || 'preferred'} slot within the day. Watch your phone &mdash; we usually reply on WhatsApp.</p>
-                <a href={waHref} target="_blank" rel="noopener" className="dc-btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: 9, background: 'oklch(0.52 0.216 27)', color: 'oklch(0.98 0.012 82)', fontSize: 14, fontWeight: 600, padding: '13px 22px', borderRadius: 999 }}>
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v7A2.5 2.5 0 0 1 17.5 15H9l-4 3.5V15H6.5A2.5 2.5 0 0 1 4 12.5v-7Z" fill="oklch(0.98 0.012 82)" /></svg>
-                  Message us to confirm faster
-                </a>
+                {waHref && (
+                  <a href={waHref} target="_blank" rel="noopener" className="dc-btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: 9, background: 'oklch(0.52 0.216 27)', color: 'oklch(0.98 0.012 82)', fontSize: 14, fontWeight: 600, padding: '13px 22px', borderRadius: 999 }}>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v7A2.5 2.5 0 0 1 17.5 15H9l-4 3.5V15H6.5A2.5 2.5 0 0 1 4 12.5v-7Z" fill="oklch(0.98 0.012 82)" /></svg>
+                    Message us to confirm faster
+                  </a>
+                )}
               </div>
             ) : (
               <>
@@ -143,8 +155,8 @@ export default function VisitPage() {
                   {status === 'sending' ? 'Sending…' : 'Send viewing request'}
                 </button>
                 <div style={{ textAlign: 'center', fontFamily: mono, fontSize: 10.5, letterSpacing: '0.06em', color: 'oklch(0.56 0.02 40)', marginTop: 14 }}>
-                  No deposit needed &middot; viewings are free &middot; or{' '}
-                  <a href={waHref} target="_blank" rel="noopener" style={{ color: 'oklch(0.50 0.216 27)', fontWeight: 600 }}>send on WhatsApp</a>
+                  No deposit needed &middot; viewings are free
+                  {waHref && <> &middot; or{' '}<a href={waHref} target="_blank" rel="noopener" style={{ color: 'oklch(0.50 0.216 27)', fontWeight: 600 }}>send on WhatsApp</a></>}
                 </div>
               </>
             )}
@@ -157,26 +169,29 @@ export default function VisitPage() {
                 <Slot label="Map" ratio="16/10" />
               </div>
               <div style={{ padding: '20px 22px' }}>
-                <div style={{ fontFamily: serif, fontWeight: 700, fontSize: 19, color: 'oklch(0.19 0.012 32)', marginBottom: 4 }}>Dragon&rsquo;s Cave Gallery</div>
-                <div style={{ fontSize: 13.5, lineHeight: 1.55, color: 'oklch(0.44 0.012 34)', marginBottom: 14 }}>34 Tomas Morato Ave, Diliman<br />Quezon City, Metro Manila 1103</div>
-                <a href="https://www.google.com/maps/search/?api=1&query=34+Tomas+Morato+Ave+Quezon+City" target="_blank" rel="noopener" style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 13, fontWeight: 600, color: 'oklch(0.50 0.216 27)' }}>Open in Maps &rarr;</a>
+                <div style={{ fontFamily: serif, fontWeight: 700, fontSize: 19, color: 'oklch(0.19 0.012 32)', marginBottom: 4 }}>{biz.storeName} Gallery</div>
+                {(biz.address || biz.city) && <div style={{ fontSize: 13.5, lineHeight: 1.55, color: 'oklch(0.44 0.012 34)', marginBottom: 14 }}>{biz.address}{biz.address && biz.city && <br />}{biz.city}</div>}
+                {biz.mapUrl && <a href={biz.mapUrl} target="_blank" rel="noopener" style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 13, fontWeight: 600, color: 'oklch(0.50 0.216 27)' }}>Open in Maps &rarr;</a>}
               </div>
             </div>
 
             <div style={{ background: 'oklch(0.99 0.005 80)', border: '1px solid oklch(0.87 0.012 68)', borderRadius: 14, padding: '22px 22px' }}>
               <div style={{ fontFamily: mono, fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'oklch(0.55 0.05 40)', marginBottom: 16 }}>Opening hours</div>
-              {([['Tuesday – Friday', '10:00 – 18:00', true], ['Saturday', '10:00 – 16:00', true], ['Sun – Mon', 'By request', false]] as [string, string, boolean][]).map(([d, h, border], i) => (
-                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '9px 0', borderBottom: border ? '1px solid oklch(0.91 0.012 70)' : 'none', fontSize: 13.5 }}>
-                  <span style={{ color: 'oklch(0.30 0.012 32)' }}>{d}</span>
-                  <span style={{ fontFamily: mono, color: h === 'By request' ? 'oklch(0.60 0.02 40)' : 'oklch(0.42 0.012 34)' }}>{h}</span>
+              {hourGroups.map(({ days, hours, closed }, i) => (
+                <div key={days} style={{ display: 'flex', justifyContent: 'space-between', padding: '9px 0', borderBottom: i < hourGroups.length - 1 ? '1px solid oklch(0.91 0.012 70)' : 'none', fontSize: 13.5 }}>
+                  <span style={{ color: 'oklch(0.30 0.012 32)' }}>{days}</span>
+                  <span style={{ fontFamily: mono, color: closed ? 'oklch(0.60 0.02 40)' : 'oklch(0.42 0.012 34)' }}>{hours}</span>
                 </div>
               ))}
+              {biz.hoursNote && <div style={{ marginTop: 12, fontSize: 12.5, color: 'oklch(0.50 0.02 40)' }}>{biz.hoursNote}</div>}
             </div>
 
-            <a href="https://wa.me/639172345678?text=Hi%20Dragon%27s%20Cave%20%E2%80%94%20I%27d%20like%20to%20ask%20a%20question%20before%20visiting." target="_blank" rel="noopener" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9, border: '1px solid oklch(0.52 0.216 27 / 0.5)', color: 'oklch(0.50 0.216 27)', fontSize: 13.5, fontWeight: 600, padding: 14, borderRadius: 999 }}>
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v7A2.5 2.5 0 0 1 17.5 15H9l-4 3.5V15H6.5A2.5 2.5 0 0 1 4 12.5v-7Z" fill="oklch(0.50 0.216 27)" /></svg>
-              Just have a question?
-            </a>
+            {waQuestion && (
+              <a href={waQuestion} target="_blank" rel="noopener" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9, border: '1px solid oklch(0.52 0.216 27 / 0.5)', color: 'oklch(0.50 0.216 27)', fontSize: 13.5, fontWeight: 600, padding: 14, borderRadius: 999 }}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v7A2.5 2.5 0 0 1 17.5 15H9l-4 3.5V15H6.5A2.5 2.5 0 0 1 4 12.5v-7Z" fill="oklch(0.50 0.216 27)" /></svg>
+                Just have a question?
+              </a>
+            )}
           </div>
         </div>
       </section>

@@ -38,6 +38,8 @@ interface ProductFormData {
   featured: boolean;
   lifespan: string;
   grade: '' | 'S' | 'AAA' | 'AA' | 'A';
+  // '' = automatic (storefront decides by category)
+  purchaseMode: '' | 'enquire' | 'cart';
 
   // Fish specific fields
   scientificName: string;
@@ -88,6 +90,7 @@ const initialFormData: ProductFormData = {
   featured: false,
   lifespan: '',
   grade: '',
+  purchaseMode: '',
 
   // Fish specific fields
   scientificName: '',
@@ -225,6 +228,7 @@ export function ProductFormContentInner({ editProductId, onSuccess, isDrawer }: 
         status: existingProduct.productStatus || 'active',
         lifespan: existingProduct.lifespan || '',
         grade: (existingProduct as { grade?: 'S' | 'AAA' | 'AA' | 'A' }).grade || '',
+        purchaseMode: existingProduct.purchaseModeSetting ?? '',
       }));
     }
   }, [existingProduct, isEditing, categories]);
@@ -428,6 +432,7 @@ export function ProductFormContentInner({ editProductId, onSuccess, isDrawer }: 
         sku: skuString,
         lifespan: formData.lifespan || undefined,
         grade: formData.grade || undefined,
+        purchaseMode: formData.purchaseMode || undefined,
         isActive: formData.status === 'active',
         userId: user?._id as Id<'users'> | undefined,
       };
@@ -767,6 +772,69 @@ export function ProductFormContentInner({ editProductId, onSuccess, isDrawer }: 
               />
             </>
           )}
+
+          {/* How the storefront sells this product — shown for every product type */}
+          {(() => {
+            const cat = formData.category.toLowerCase();
+            const autoMode: 'enquire' | 'cart' =
+              cat.includes('fish') || cat.includes('aquatic') || cat.includes('live') ? 'enquire' : 'cart';
+            const options = [
+              { value: '' as const, label: 'Auto (by category)' },
+              { value: 'enquire' as const, label: 'Enquire only' },
+              { value: 'cart' as const, label: 'Add to cart' },
+            ];
+            return (
+              <div className="mb-4">
+                <label className="block text-sm font-semibold text-foreground mb-2">
+                  How customers buy it
+                </label>
+                <div
+                  className="grid grid-cols-3 gap-1 p-1 rounded-lg border"
+                  style={{ background: 'var(--surface)', borderColor: 'var(--line)' }}
+                  role="radiogroup"
+                  aria-label="Purchase mode"
+                >
+                  {options.map((o) => {
+                    const active = formData.purchaseMode === o.value;
+                    return (
+                      <button
+                        key={o.value || 'auto'}
+                        type="button"
+                        role="radio"
+                        aria-checked={active}
+                        onClick={() => handleInputChange('purchaseMode', o.value)}
+                        className="px-2 py-2 rounded-md text-xs sm:text-sm font-semibold border transition-all leading-tight"
+                        style={{
+                          background: active ? 'var(--red-wash)' : 'transparent',
+                          borderColor: active ? 'var(--red)' : 'transparent',
+                          color: active ? 'var(--red-hi)' : 'var(--ink-3)',
+                        }}
+                      >
+                        {o.label}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="mt-2 space-y-1 text-xs leading-relaxed" style={{ color: 'var(--ink-3)' }}>
+                  {formData.purchaseMode === '' && (
+                    <p style={{ color: 'var(--ink-2)' }}>
+                      Currently applies:{' '}
+                      <strong>{autoMode === 'enquire' ? 'Enquire only' : 'Add to cart'}</strong>
+                      {formData.category
+                        ? ` (based on the “${formData.category}” category)`
+                        : ' (pick a category — Fish/aquatic/live categories default to Enquire only)'}
+                    </p>
+                  )}
+                  <p>
+                    <strong>Enquire only</strong> — shown as a showcase with WhatsApp / viewing buttons (live fish).
+                  </p>
+                  <p>
+                    <strong>Add to cart</strong> — customers can buy it online (food, lights, gear).
+                  </p>
+                </div>
+              </div>
+            );
+          })()}
 
           {/* Grade picker — only meaningful for fish/livestock */}
           {isFishProduct && (

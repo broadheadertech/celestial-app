@@ -2,6 +2,7 @@ import { ReactNode } from 'react';
 import DcHeader from '@/components/dc/DcHeader';
 import DcFooter from '@/components/dc/DcFooter';
 import { DC_CSS } from '@/components/dc/styles';
+import CartDrawer from '@/components/site/CartDrawer';
 
 /**
  * Storefront shell — the imported Dragon's Cave design, verbatim.
@@ -26,6 +27,7 @@ export default function SiteLayout({ children }: { children: ReactNode }) {
       <DcHeader />
       <div style={{ flex: 1 }}>{children}</div>
       <DcFooter />
+      <CartDrawer />
     </div>
   );
 }

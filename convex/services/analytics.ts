@@ -1,5 +1,6 @@
 import { query } from "../_generated/server";
 import { v } from "convex/values";
+import { requireStaff } from "../lib/authz";
 
 // Get top performing products sorted by revenue (high to low)
 export const getTopProducts = query({
@@ -8,6 +9,7 @@ export const getTopProducts = query({
     categoryId: v.optional(v.id("categories")),
   },
   handler: async (ctx, { limit = 8, categoryId }) => {
+    await requireStaff(ctx);
     // Get all products, optionally filtered by category
     let products;
     if (categoryId) {
@@ -148,6 +150,7 @@ export const getTopProducts = query({
 export const getDashboardKPIs = query({
   args: {},
   handler: async (ctx) => {
+    await requireStaff(ctx);
     // Get all data needed for KPIs
     const [products, orders, users, reservations] = await Promise.all([
       ctx.db.query("products").withIndex("by_active", (q) => q.eq("isActive", true)).collect(),
@@ -228,6 +231,7 @@ export const getDashboardKPIs = query({
 export const getRevenueData = query({
   args: {},
   handler: async (ctx) => {
+    await requireStaff(ctx);
     try {
       const reservations = await ctx.db.query("reservations").collect();
 
@@ -292,6 +296,7 @@ export const getRevenueData = query({
 export const getCategoryData = query({
   args: {},
   handler: async (ctx) => {
+    await requireStaff(ctx);
     const [products, categories] = await Promise.all([
       ctx.db.query("products").withIndex("by_active", (q) => q.eq("isActive", true)).collect(),
       ctx.db.query("categories").collect()
@@ -327,6 +332,7 @@ export const getCategoryData = query({
 export const getCustomerGrowth = query({
   args: {},
   handler: async (ctx) => {
+    await requireStaff(ctx);
     const users = await ctx.db.query("users").collect();
 
     if (users.length === 0) {
@@ -371,6 +377,7 @@ export const getRecentActivity = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, { limit = 5 }) => {
+    await requireStaff(ctx);
     const [orders, reservations, products] = await Promise.all([
       ctx.db.query("orders").order("desc").take(5),
       ctx.db.query("reservations").order("desc").take(3),
@@ -466,6 +473,7 @@ export const getProductPerformance = query({
     endDate: v.optional(v.number()),            // explicit range end (ms, inclusive)
   },
   handler: async (ctx, { velocityWindowDays = 90, startDate, endDate }) => {
+    await requireStaff(ctx);
     const [products, orders, reservations, stockRecords, categories] = await Promise.all([
       ctx.db.query("products").withIndex("by_active", (q) => q.eq("isActive", true)).collect(),
       ctx.db.query("orders").collect(),
@@ -697,6 +705,7 @@ export const getAssociatePerformance = query({
     windowDays: v.optional(v.number()),
   },
   handler: async (ctx, { windowDays }) => {
+    await requireStaff(ctx);
     const [orders, reservations, products, stockRecords, admins, superAdmins] = await Promise.all([
       ctx.db.query("orders").collect(),
       ctx.db.query("reservations").collect(),

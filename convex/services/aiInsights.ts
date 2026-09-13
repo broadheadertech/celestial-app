@@ -1,5 +1,6 @@
 import { query } from "../_generated/server";
 import { v } from "convex/values";
+import { requireStaff } from "../lib/authz";
 
 // Generate insights purely from data — no external API needed
 export const generateInsights = query({
@@ -7,6 +8,7 @@ export const generateInsights = query({
     focus: v.optional(v.string()),
   },
   handler: async (ctx, { focus }) => {
+    await requireStaff(ctx);
     const [orders, reservations, products, users, stockRecords, categories] = await Promise.all([
       ctx.db.query("orders").collect(),
       ctx.db.query("reservations").collect(),

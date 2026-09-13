@@ -2,7 +2,8 @@ import { query, mutation } from "../_generated/server";
 import { v } from "convex/values";
 import { recordSaleHelper, restoreStockHelper } from "./stock";
 import { recordAudit } from "./audit";
-import { getViewer, isStaffRole, requireSelfOrStaff, requireStaff, requireUser } from "../lib/authz";
+import { getViewer, isStaffRole, requireStaff, requireUser } from "../lib/authz";
+import { resolvePurchaseMode } from "../lib/purchaseMode";
 
 // Get user's orders
 export const getUserOrders = query({
@@ -528,6 +529,10 @@ export const placeWebOrder = mutation({
       const product = await ctx.db.get(item.productId);
       if (!product || !product.isActive) {
         throw new Error(`Product ${product?.name || "unknown"} is not available`);
+      }
+      const category = await ctx.db.get(product.categoryId);
+      if (resolvePurchaseMode(product, category?.name) !== "cart") {
+        throw new Error(`${product.name} is available by enquiry only — message us to reserve it.`);
       }
       if (product.stock < item.quantity) {
         throw new Error(`Insufficient stock for ${product.name}. Available: ${product.stock}`);

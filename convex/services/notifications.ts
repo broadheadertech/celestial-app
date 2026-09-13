@@ -1,5 +1,36 @@
-import { query, mutation } from "../_generated/server";
-import { v } from "convex/values";
+import { query, mutation, MutationCtx } from "../_generated/server";
+import { v, ConvexError } from "convex/values";
+import { Doc } from "../_generated/dataModel";
+import { getViewer, isStaffRole, requireStaff, requireUser } from "../lib/authz";
+
+/*
+ * Authorization model for the (single, shared) notifications table:
+ * - Staff (admin/super_admin) manage every notification.
+ * - A signed-in client sees global promotions plus notifications addressed to their own
+ *   account (their user id or their account email). Identity comes from the session, never
+ *   from userId/userEmail arguments.
+ * - Guests have no notification access.
+ * - Internal notifications raised by business flows (reservations, sign-up, low stock) are
+ *   plain helpers below, not public mutations, so they can't be spammed from the client.
+ */
+
+function isPromotion(notification: Doc<"notifications">): boolean {
+  return notification.type === "system" && notification.relatedType === "promotion";
+}
+
+function isAddressedToUser(notification: Doc<"notifications">, viewer: Doc<"users">): boolean {
+  if (notification.relatedType === "user" && notification.relatedId === viewer._id) {
+    return true;
+  }
+  if (viewer.email && notification.metadata?.customerEmail === viewer.email) {
+    return true;
+  }
+  return false;
+}
+
+function forbidden() {
+  return new ConvexError({ code: "FORBIDDEN", message: "You don't have permission to do that." });
+}
 
 // Create a new notification
 export const createNotification = mutation({
@@ -34,8 +65,9 @@ export const createNotification = mutation({
     })),
   },
   handler: async (ctx, args) => {
+    await requireStaff(ctx);
     const now = Date.now();
-    
+
     const notificationId = await ctx.db.insert("notifications", {
       title: args.title,
       message: args.message,
@@ -60,8 +92,9 @@ export const getAdminNotifications = query({
     onlyUnread: v.optional(v.boolean()),
   },
   handler: async (ctx, { limit = 50, onlyUnread = false }) => {
+    await requireStaff(ctx);
     let notifications;
-    
+
     if (onlyUnread) {
       notifications = await ctx.db
         .query("notifications")
@@ -81,11 +114,11 @@ export const getAdminNotifications = query({
       const priorityOrder = { urgent: 4, high: 3, medium: 2, low: 1 };
       const aPriority = priorityOrder[a.priority as keyof typeof priorityOrder] || 1;
       const bPriority = priorityOrder[b.priority as keyof typeof priorityOrder] || 1;
-      
+
       if (aPriority !== bPriority) {
         return bPriority - aPriority;
       }
-      
+
       // Then sort by creation date
       return b.createdAt - a.createdAt;
     });
@@ -96,11 +129,12 @@ export const getAdminNotifications = query({
 export const getNotificationCounts = query({
   args: {},
   handler: async (ctx) => {
+    await requireStaff(ctx);
     const allNotifications = await ctx.db.query("notifications").collect();
-    
+
     const unreadCount = allNotifications.filter(n => !n.isRead).length;
     const totalCount = allNotifications.length;
-    
+
     return {
       unread: unreadCount,
       total: totalCount,
@@ -115,10 +149,19 @@ export const markAsRead = mutation({
     notificationId: v.id("notifications"),
   },
   handler: async (ctx, { notificationId }) => {
+    const viewer = await requireUser(ctx);
     const notification = await ctx.db.get(notificationId);
-    
+
     if (!notification) {
       throw new Error("Notification not found");
+    }
+
+    if (
+      !isStaffRole(viewer.role) &&
+      !isPromotion(notification) &&
+      !isAddressedToUser(notification, viewer)
+    ) {
+      throw forbidden();
     }
 
     await ctx.db.patch(notificationId, {
@@ -134,13 +177,19 @@ export const markAsRead = mutation({
 export const markAllAsRead = mutation({
   args: {},
   handler: async (ctx) => {
-    const unreadNotifications = await ctx.db
+    const viewer = await requireUser(ctx);
+    const allUnread = await ctx.db
       .query("notifications")
       .withIndex("by_read", (q) => q.eq("isRead", false))
       .collect();
 
+    // Staff mark the whole feed; clients only their own notifications (and promotions).
+    const unreadNotifications = isStaffRole(viewer.role)
+      ? allUnread
+      : allUnread.filter((n) => isPromotion(n) || isAddressedToUser(n, viewer));
+
     const now = Date.now();
-    
+
     for (const notification of unreadNotifications) {
       await ctx.db.patch(notification._id, {
         isRead: true,
@@ -158,10 +207,16 @@ export const deleteNotification = mutation({
     notificationId: v.id("notifications"),
   },
   handler: async (ctx, { notificationId }) => {
+    const viewer = await requireUser(ctx);
     const notification = await ctx.db.get(notificationId);
-    
+
     if (!notification) {
       throw new Error("Notification not found");
+    }
+
+    // Clients may only delete notifications addressed to them (not shared promotions).
+    if (!isStaffRole(viewer.role) && !isAddressedToUser(notification, viewer)) {
+      throw forbidden();
     }
 
     await ctx.db.delete(notificationId);
@@ -173,8 +228,14 @@ export const deleteNotification = mutation({
 export const clearAllNotifications = mutation({
   args: {},
   handler: async (ctx) => {
-    const allNotifications = await ctx.db.query("notifications").collect();
-    
+    const viewer = await requireUser(ctx);
+    const everyNotification = await ctx.db.query("notifications").collect();
+
+    // Staff clear the whole feed; clients only notifications addressed to them.
+    const allNotifications = isStaffRole(viewer.role)
+      ? everyNotification
+      : everyNotification.filter((n) => isAddressedToUser(n, viewer));
+
     for (const notification of allNotifications) {
       await ctx.db.delete(notification._id);
     }
@@ -187,6 +248,7 @@ export const clearAllNotifications = mutation({
 export const clearReadNotifications = mutation({
   args: {},
   handler: async (ctx) => {
+    await requireStaff(ctx);
     const readNotifications = await ctx.db
       .query("notifications")
       .withIndex("by_read", (q) => q.eq("isRead", true))
@@ -201,171 +263,171 @@ export const clearReadNotifications = mutation({
 });
 
 // Helper function to create reservation notifications
-export const notifyReservationCreated = mutation({
+export async function notifyReservationCreated(
+  ctx: MutationCtx,
   args: {
-    reservationId: v.string(),
-    customerName: v.string(),
-    customerEmail: v.optional(v.string()),
-    productName: v.string(),
-    quantity: v.number(),
-    isGuest: v.boolean(),
+    reservationId: string;
+    customerName: string;
+    customerEmail?: string;
+    productName: string;
+    quantity: number;
+    isGuest: boolean;
   },
-  handler: async (ctx, args) => {
-    const title = args.isGuest ? "New Guest Reservation" : "New Reservation Created";
-    const message = `${args.customerName} reserved ${args.quantity} x ${args.productName}${args.isGuest ? " (Guest booking)" : ""}`;
-    
-    await ctx.db.insert("notifications", {
-      title,
-      message,
-      type: "reservation",
-      isRead: false,
-      priority: args.isGuest ? "high" : "medium",
-      relatedId: args.reservationId,
-      relatedType: "reservation",
-      metadata: {
-        customerName: args.customerName,
-        customerEmail: args.customerEmail,
-        productName: args.productName,
-      },
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    });
-  },
-});
+): Promise<void> {
+  const title = args.isGuest ? "New Guest Reservation" : "New Reservation Created";
+  const message = `${args.customerName} reserved ${args.quantity} x ${args.productName}${args.isGuest ? " (Guest booking)" : ""}`;
+
+  await ctx.db.insert("notifications", {
+    title,
+    message,
+    type: "reservation",
+    isRead: false,
+    priority: args.isGuest ? "high" : "medium",
+    relatedId: args.reservationId,
+    relatedType: "reservation",
+    metadata: {
+      customerName: args.customerName,
+      customerEmail: args.customerEmail,
+      productName: args.productName,
+    },
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  });
+}
 
 // Helper function to create reservation status update notifications
-export const notifyReservationStatusChanged = mutation({
+export async function notifyReservationStatusChanged(
+  ctx: MutationCtx,
   args: {
-    reservationId: v.string(),
-    customerName: v.string(),
-    productName: v.string(),
-    oldStatus: v.string(),
-    newStatus: v.string(),
+    reservationId: string;
+    customerName: string;
+    productName: string;
+    oldStatus: string;
+    newStatus: string;
   },
-  handler: async (ctx, args) => {
-    const title = "Reservation Status Updated";
-    const message = `Reservation by ${args.customerName} for ${args.productName} changed from ${args.oldStatus} to ${args.newStatus}`;
-    
-    const priority = args.newStatus === "cancelled" ? "high" : "medium";
-    
-    await ctx.db.insert("notifications", {
-      title,
-      message,
-      type: "reservation",
-      isRead: false,
-      priority,
-      relatedId: args.reservationId,
-      relatedType: "reservation",
-      metadata: {
-        customerName: args.customerName,
-        productName: args.productName,
-        status: args.newStatus,
-      },
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    });
-  },
-});
+): Promise<void> {
+  const title = "Reservation Status Updated";
+  const message = `Reservation by ${args.customerName} for ${args.productName} changed from ${args.oldStatus} to ${args.newStatus}`;
+
+  const priority = args.newStatus === "cancelled" ? "high" : "medium";
+
+  await ctx.db.insert("notifications", {
+    title,
+    message,
+    type: "reservation",
+    isRead: false,
+    priority,
+    relatedId: args.reservationId,
+    relatedType: "reservation",
+    metadata: {
+      customerName: args.customerName,
+      productName: args.productName,
+      status: args.newStatus,
+    },
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  });
+}
 
 // Helper function to notify customers when their reservation is ready for pickup
-export const notifyReservationReadyForPickup = mutation({
+export async function notifyReservationReadyForPickup(
+  ctx: MutationCtx,
   args: {
-    reservationId: v.string(),
-    customerName: v.string(),
-    customerEmail: v.optional(v.string()),
-    productName: v.string(),
-    quantity: v.number(),
-    pickupLocation: v.optional(v.string()),
-    notes: v.optional(v.string()),
-    pickupDate: v.optional(v.string()),
-    pickupTime: v.optional(v.string()),
+    reservationId: string;
+    customerName: string;
+    customerEmail?: string;
+    productName: string;
+    quantity: number;
+    pickupLocation?: string;
+    notes?: string;
+    pickupDate?: string;
+    pickupTime?: string;
   },
-  handler: async (ctx, args) => {
-    const title = "🎉 Your Reservation is Ready for Pickup!";
-    const pickupInfo = args.pickupLocation ? ` at ${args.pickupLocation}` : "";
-    const pickupDateTime = args.pickupDate && args.pickupTime ? `\n\n📅 Pickup Schedule: ${args.pickupDate} at ${args.pickupTime}` : "";
-    const additionalNotes = args.notes ? `\n\nNote: ${args.notes}` : "";
+): Promise<void> {
+  const title = "🎉 Your Reservation is Ready for Pickup!";
+  const pickupInfo = args.pickupLocation ? ` at ${args.pickupLocation}` : "";
+  const pickupDateTime = args.pickupDate && args.pickupTime ? `\n\n📅 Pickup Schedule: ${args.pickupDate} at ${args.pickupTime}` : "";
+  const additionalNotes = args.notes ? `\n\nNote: ${args.notes}` : "";
 
-    const message = `Hello ${args.customerName}! Your reservation for ${args.quantity}x ${args.productName} is now ready for pickup${pickupInfo}. Please visit us to collect your items.${pickupDateTime}${additionalNotes}`;
+  const message = `Hello ${args.customerName}! Your reservation for ${args.quantity}x ${args.productName} is now ready for pickup${pickupInfo}. Please visit us to collect your items.${pickupDateTime}${additionalNotes}`;
 
-    await ctx.db.insert("notifications", {
-      title,
-      message,
-      type: "reservation",
-      isRead: false,
-      priority: "high",
-      relatedId: args.reservationId,
-      relatedType: "reservation",
-      metadata: {
-        customerName: args.customerName,
-        customerEmail: args.customerEmail,
-        productName: args.productName,
-        status: "ready_for_pickup",
-      },
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    });
-  },
-});
+  await ctx.db.insert("notifications", {
+    title,
+    message,
+    type: "reservation",
+    isRead: false,
+    priority: "high",
+    relatedId: args.reservationId,
+    relatedType: "reservation",
+    metadata: {
+      customerName: args.customerName,
+      customerEmail: args.customerEmail,
+      productName: args.productName,
+      status: "ready_for_pickup",
+    },
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  });
+}
 
 // Helper function to create user registration notifications
-export const notifyUserRegistered = mutation({
+export async function notifyUserRegistered(
+  ctx: MutationCtx,
   args: {
-    userId: v.string(),
-    userName: v.string(),
-    userEmail: v.string(),
+    userId: string;
+    userName: string;
+    userEmail: string;
   },
-  handler: async (ctx, args) => {
-    const title = "New User Registration";
-    const message = `${args.userName} (${args.userEmail}) has registered an account`;
-    
-    await ctx.db.insert("notifications", {
-      title,
-      message,
-      type: "user",
-      isRead: false,
-      priority: "low",
-      relatedId: args.userId,
-      relatedType: "user",
-      metadata: {
-        customerName: args.userName,
-        customerEmail: args.userEmail,
-      },
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    });
-  },
-});
+): Promise<void> {
+  const title = "New User Registration";
+  const message = `${args.userName} (${args.userEmail}) has registered an account`;
+
+  await ctx.db.insert("notifications", {
+    title,
+    message,
+    type: "user",
+    isRead: false,
+    priority: "low",
+    relatedId: args.userId,
+    relatedType: "user",
+    metadata: {
+      customerName: args.userName,
+      customerEmail: args.userEmail,
+    },
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  });
+}
 
 // Helper function to create low stock alerts
-export const notifyLowStock = mutation({
+export async function notifyLowStock(
+  ctx: MutationCtx,
   args: {
-    productId: v.string(),
-    productName: v.string(),
-    currentStock: v.number(),
-    threshold: v.optional(v.number()),
+    productId: string;
+    productName: string;
+    currentStock: number;
+    threshold?: number;
   },
-  handler: async (ctx, args) => {
-    const threshold = args.threshold || 5;
-    const title = "Low Stock Alert";
-    const message = `${args.productName} is running low (${args.currentStock} left)`;
-    
-    await ctx.db.insert("notifications", {
-      title,
-      message,
-      type: "alert",
-      isRead: false,
-      priority: args.currentStock <= 1 ? "urgent" : "high",
-      relatedId: args.productId,
-      relatedType: "product",
-      metadata: {
-        productName: args.productName,
-      },
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    });
-  },
-});
+): Promise<void> {
+  const threshold = args.threshold || 5;
+  const title = "Low Stock Alert";
+  const message = `${args.productName} is running low (${args.currentStock} left)`;
+
+  await ctx.db.insert("notifications", {
+    title,
+    message,
+    type: "alert",
+    isRead: false,
+    priority: args.currentStock <= 1 ? "urgent" : "high",
+    relatedId: args.productId,
+    relatedType: "product",
+    metadata: {
+      productName: args.productName,
+    },
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  });
+}
 
 // Helper function to create order notifications
 export const notifyOrderCreated = mutation({
@@ -377,9 +439,10 @@ export const notifyOrderCreated = mutation({
     itemCount: v.number(),
   },
   handler: async (ctx, args) => {
+    await requireStaff(ctx);
     const title = "New Order Received";
     const message = `${args.customerName} placed an order with ${args.itemCount} item${args.itemCount > 1 ? 's' : ''} worth ₱${args.totalAmount.toFixed(2)}`;
-    
+
     await ctx.db.insert("notifications", {
       title,
       message,
@@ -407,7 +470,11 @@ export const getClientNotifications = query({
     limit: v.optional(v.number()),
     onlyUnread: v.optional(v.boolean()),
   },
-  handler: async (ctx, { userId, userEmail, limit = 50, onlyUnread = false }) => {
+  // userId/userEmail are kept for client compatibility but ignored: identity comes from the session.
+  handler: async (ctx, { limit = 50, onlyUnread = false }) => {
+    const viewer = await getViewer(ctx);
+    if (!viewer) return [];
+
     // Build query for notifications
     let allNotifications;
 
@@ -424,33 +491,10 @@ export const getClientNotifications = query({
         .collect();
     }
 
-    // Filter notifications relevant to the specific client
-    const clientNotifications = allNotifications.filter(notification => {
-      // Include general promotional/system notifications (for all users)
-      if (notification.type === "system" && notification.relatedType === "promotion") {
-        return true;
-      }
-
-      // If user is authenticated, include their specific notifications
-      if (userId) {
-        // Include user-specific notifications by user ID
-        if (notification.relatedId === userId && notification.relatedType === "user") {
-          return true;
-        }
-
-        // Include notifications for this user's email
-        if (userEmail && notification.metadata?.customerEmail === userEmail) {
-          return true;
-        }
-      }
-
-      // If user is guest (no userId), only include notifications by email
-      if (!userId && userEmail && notification.metadata?.customerEmail === userEmail) {
-        return true;
-      }
-
-      return false;
-    });
+    // Filter notifications relevant to the signed-in client: promotions + their own
+    const clientNotifications = allNotifications.filter(
+      (notification) => isPromotion(notification) || isAddressedToUser(notification, viewer),
+    );
 
     // Sort by creation date (newest first) and apply limit
     return clientNotifications
@@ -465,36 +509,19 @@ export const getClientNotificationCounts = query({
     userId: v.optional(v.string()),
     userEmail: v.optional(v.string()),
   },
-  handler: async (ctx, { userId, userEmail }) => {
+  // userId/userEmail are kept for client compatibility but ignored: identity comes from the session.
+  handler: async (ctx) => {
+    const viewer = await getViewer(ctx);
+    if (!viewer) {
+      return { unread: 0, total: 0, read: 0 };
+    }
+
     const allNotifications = await ctx.db.query("notifications").collect();
 
-    // Filter notifications relevant to the specific client (same logic as getClientNotifications)
-    const clientNotifications = allNotifications.filter(notification => {
-      // Include general promotional/system notifications (for all users)
-      if (notification.type === "system" && notification.relatedType === "promotion") {
-        return true;
-      }
-
-      // If user is authenticated, include their specific notifications
-      if (userId) {
-        // Include user-specific notifications by user ID
-        if (notification.relatedId === userId && notification.relatedType === "user") {
-          return true;
-        }
-
-        // Include notifications for this user's email
-        if (userEmail && notification.metadata?.customerEmail === userEmail) {
-          return true;
-        }
-      }
-
-      // If user is guest (no userId), only include notifications by email
-      if (!userId && userEmail && notification.metadata?.customerEmail === userEmail) {
-        return true;
-      }
-
-      return false;
-    });
+    // Filter notifications relevant to the signed-in client (same logic as getClientNotifications)
+    const clientNotifications = allNotifications.filter(
+      (notification) => isPromotion(notification) || isAddressedToUser(notification, viewer),
+    );
 
     const unreadCount = clientNotifications.filter(n => !n.isRead).length;
     const totalCount = clientNotifications.length;
@@ -517,6 +544,7 @@ export const createPromotionNotification = mutation({
     expiryDate: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    await requireStaff(ctx);
     const now = Date.now();
 
     const notificationId = await ctx.db.insert("notifications", {
@@ -548,6 +576,7 @@ export const notifyClientReservationConfirmed = mutation({
     expiryDate: v.number(),
   },
   handler: async (ctx, args) => {
+    await requireStaff(ctx);
     const title = "✅ Reservation Confirmed";
     const message = `Your reservation for ${args.quantity} x ${args.productName} has been confirmed. Please pick up within 48 hours.`;
 
@@ -581,6 +610,7 @@ export const notifyClientOrderUpdate = mutation({
     message: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    await requireStaff(ctx);
     const statusMessages: Record<string, string> = {
       confirmed: "Your order has been confirmed and is being prepared.",
       ready: "Your order is ready for pickup at our store.",
@@ -617,6 +647,7 @@ export const cleanupOldNotifications = mutation({
     daysToKeep: v.optional(v.number()),
   },
   handler: async (ctx, { daysToKeep = 30 }) => {
+    await requireStaff(ctx);
     const cutoffDate = Date.now() - (daysToKeep * 24 * 60 * 60 * 1000);
 
     const oldNotifications = await ctx.db
@@ -642,6 +673,7 @@ export const createTestNotification = mutation({
     type: v.optional(v.string()),
   },
   handler: async (ctx, { type = "order" }) => {
+    await requireStaff(ctx);
     const now = Date.now();
 
     const sampleNotifications = {
@@ -719,6 +751,7 @@ export const schedulePushNotification = mutation({
     immediate: v.optional(v.boolean()),
   },
   handler: async (ctx, { notificationId, scheduledTime, immediate = false }) => {
+    await requireStaff(ctx);
     const notification = await ctx.db.get(notificationId);
     if (!notification) {
       throw new Error("Notification not found");
@@ -744,6 +777,7 @@ export const markPushNotificationSent = mutation({
     localNotificationId: v.optional(v.number()),
   },
   handler: async (ctx, { notificationId, localNotificationId }) => {
+    await requireStaff(ctx);
     const notification = await ctx.db.get(notificationId);
     if (!notification) {
       throw new Error("Notification not found");
@@ -765,6 +799,7 @@ export const getPendingPushNotifications = query({
     currentTime: v.optional(v.number()),
   },
   handler: async (ctx, { currentTime = Date.now() }) => {
+    await requireStaff(ctx);
     const pendingNotifications = await ctx.db
       .query("notifications")
       .withIndex("by_push_scheduled")
@@ -823,6 +858,7 @@ export const createNotificationWithPush = mutation({
     })),
   },
   handler: async (ctx, args) => {
+    await requireStaff(ctx);
     const now = Date.now();
 
     const notificationId = await ctx.db.insert("notifications", {
@@ -857,6 +893,7 @@ export const cancelPushNotifications = mutation({
     relatedId: v.string(),
   },
   handler: async (ctx, { relatedType, relatedId }) => {
+    await requireStaff(ctx);
     const notifications = await ctx.db
       .query("notifications")
       .filter((q) =>
@@ -913,7 +950,8 @@ export const updatePushNotificationPreferences = mutation({
       newArrivals: v.optional(v.boolean()),
     }),
   },
-  handler: async (ctx, { userId, preferences }) => {
+  handler: async (ctx, { preferences }) => {
+    await requireUser(ctx);
     // This would typically update a user preferences table
     // For now, just return success
     return { success: true, preferences };

@@ -48,9 +48,6 @@ export const DC_CSS = `
 @keyframes dcSheen { 0%{ opacity:0.25;} 50%{ opacity:0.6;} 100%{ opacity:0.25;} }
 `;
 
-export const WA_ENQUIRE =
-  'https://wa.me/639172345678?text=Hi%20Dragon%27s%20Cave%20%E2%80%94%20I%27d%20like%20to%20enquire%20about%20your%20arowana.';
-
 export function WaIcon({ size = 14 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">

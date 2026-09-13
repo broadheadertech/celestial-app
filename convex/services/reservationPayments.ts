@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { mutation, query, MutationCtx } from "../_generated/server";
 import { Id } from "../_generated/dataModel";
 import { recordAudit } from "./audit";
+import { requireStaff } from "../lib/authz";
 
 const peso = (n: number) =>
   `₱${n.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -80,7 +81,9 @@ export const addReservationPayment = mutation({
     date: v.optional(v.number()), // defaults to now; allow backdating a payment that came in earlier
     userId: v.optional(v.id("users")),
   },
-  handler: async (ctx, { reservationId, amount, method, kind, note, date, userId }) => {
+  handler: async (ctx, { reservationId, amount, method, kind, note, date }) => {
+    const staff = await requireStaff(ctx);
+    const userId = staff._id;
     const reservation = await ctx.db.get(reservationId);
     if (!reservation) throw new Error("Reservation not found");
     if (!Number.isFinite(amount) || amount <= 0) {
@@ -107,11 +110,7 @@ export const addReservationPayment = mutation({
           : "partial");
 
     const now = Date.now();
-    let recordedByName: string | undefined;
-    if (userId) {
-      const u = await ctx.db.get(userId);
-      if (u) recordedByName = `${u.firstName} ${u.lastName}`.trim();
-    }
+    const recordedByName: string | undefined = `${staff.firstName} ${staff.lastName}`.trim() || undefined;
 
     const id = await ctx.db.insert("reservationPayments", {
       reservationId,
@@ -157,7 +156,9 @@ export const deleteReservationPayment = mutation({
     paymentId: v.id("reservationPayments"),
     userId: v.optional(v.id("users")),
   },
-  handler: async (ctx, { paymentId, userId }) => {
+  handler: async (ctx, { paymentId }) => {
+    const staff = await requireStaff(ctx);
+    const userId = staff._id;
     const entry = await ctx.db.get(paymentId);
     if (!entry) throw new Error("Payment entry not found");
     const reservationId = entry.reservationId;
@@ -200,7 +201,9 @@ export const refundReservationPayment = mutation({
     note: v.optional(v.string()),
     userId: v.optional(v.id("users")),
   },
-  handler: async (ctx, { reservationId, amount, method, note, userId }) => {
+  handler: async (ctx, { reservationId, amount, method, note }) => {
+    const staff = await requireStaff(ctx);
+    const userId = staff._id;
     const reservation = await ctx.db.get(reservationId);
     if (!reservation) throw new Error("Reservation not found");
 
@@ -215,11 +218,7 @@ export const refundReservationPayment = mutation({
 
     const m = method || "cash";
     const now = Date.now();
-    let recordedByName: string | undefined;
-    if (userId) {
-      const u = await ctx.db.get(userId);
-      if (u) recordedByName = `${u.firstName} ${u.lastName}`.trim();
-    }
+    const recordedByName: string | undefined = `${staff.firstName} ${staff.lastName}`.trim() || undefined;
 
     const id = await ctx.db.insert("reservationPayments", {
       reservationId,
@@ -261,7 +260,9 @@ export const clearReservationPayments = mutation({
     reservationId: v.id("reservations"),
     userId: v.optional(v.id("users")),
   },
-  handler: async (ctx, { reservationId, userId }) => {
+  handler: async (ctx, { reservationId }) => {
+    const staff = await requireStaff(ctx);
+    const userId = staff._id;
     const reservation = await ctx.db.get(reservationId);
     if (!reservation) throw new Error("Reservation not found");
 
@@ -296,7 +297,9 @@ export const clearReservationPayments = mutation({
  */
 export const backfillReservationPaymentsLedger = mutation({
   args: { userId: v.optional(v.id("users")) },
-  handler: async (ctx, { userId }) => {
+  handler: async (ctx) => {
+    const staff = await requireStaff(ctx);
+    const userId = staff._id;
     const reservations = await ctx.db.query("reservations").collect();
     let created = 0;
     let skipped = 0;
@@ -352,6 +355,7 @@ export const backfillReservationPaymentsLedger = mutation({
 export const getReservationPayments = query({
   args: { reservationId: v.id("reservations") },
   handler: async (ctx, { reservationId }) => {
+    await requireStaff(ctx);
     const reservation = await ctx.db.get(reservationId);
     const entries = await ctx.db
       .query("reservationPayments")

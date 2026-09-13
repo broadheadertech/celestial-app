@@ -3,21 +3,27 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { LayoutDashboard, LogOut, User as UserIcon } from 'lucide-react';
+import { LayoutDashboard, LogOut, ShoppingBag, User as UserIcon } from 'lucide-react';
 import { useAuthStore } from '@/store/auth';
-import { WA_ENQUIRE, WaIcon } from './styles';
+import { useSiteCart } from '@/store/siteCart';
+import { WaIcon } from './styles';
+import { useBusiness } from './business';
 
 /** Verbatim port of site-header.dc.html */
 export default function DcHeader() {
   const pathname = usePathname();
+  const biz = useBusiness();
   const active =
     pathname === '/cave'
       ? 'cave'
       : pathname.startsWith('/catalog')
         ? 'catalog'
-        : pathname.startsWith('/visit')
-          ? 'visit'
-          : 'home';
+        : pathname.startsWith('/shop')
+          ? 'shop'
+          : pathname.startsWith('/visit')
+            ? 'visit'
+            : 'home';
+  const subline = [biz.establishedYear && `Est. ${biz.establishedYear}`, biz.city].filter(Boolean).join(' · ');
 
   const dot = (
     <span
@@ -61,7 +67,7 @@ export default function DcHeader() {
           <img src="/img/dc-logo-light.png" alt="Dragon's Cave" height={40} style={{ display: 'block', height: 40, width: 'auto' }} draggable={false} />
           <span style={{ display: 'flex', flexDirection: 'column', lineHeight: 1 }}>
             <span style={{ fontFamily: "'Noto Serif Display', serif", fontWeight: 800, fontSize: 16, letterSpacing: '0.01em', color: 'oklch(0.19 0.012 32)' }}>Dragon&rsquo;s Cave</span>
-            <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 8.5, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'oklch(0.52 0.10 30)', marginTop: 4 }}>Est. 2021 &middot; Quezon City</span>
+            {subline && <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 8.5, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'oklch(0.52 0.10 30)', marginTop: 4 }}>{subline}</span>}
           </span>
         </Link>
 
@@ -75,6 +81,10 @@ export default function DcHeader() {
             {active === 'cave' && dot}
           </span>
           <span style={{ position: 'relative', display: 'inline-flex' }}>
+            <Link href="/shop" className="dc-navlink" style={linkStyle}>Shop</Link>
+            {active === 'shop' && dot}
+          </span>
+          <span style={{ position: 'relative', display: 'inline-flex' }}>
             <Link href="/visit" className="dc-navlink" style={linkStyle}>Visit</Link>
             {active === 'visit' && dot}
           </span>
@@ -82,16 +92,71 @@ export default function DcHeader() {
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, flex: '0 0 auto' }}>
           <AccountMenu linkStyle={linkStyle} />
+          <CartButton />
           <div style={{ width: 38, height: 38, borderRadius: 8, background: 'oklch(0.52 0.216 27)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 6px 16px -8px oklch(0.52 0.216 27 / 0.7)', transform: 'rotate(-3deg)' }}>
             <span style={{ fontFamily: "'Noto Serif TC', serif", fontWeight: 900, fontSize: 22, lineHeight: 1, color: 'oklch(0.97 0.012 82)' }}>龍</span>
           </div>
-          <a href={WA_ENQUIRE} target="_blank" rel="noopener" className="dc-enquire" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'oklch(0.52 0.216 27)', color: 'oklch(0.98 0.012 82)', fontSize: 12.5, fontWeight: 600, letterSpacing: '0.01em', padding: '10px 16px', borderRadius: 999, transition: 'background .2s' }}>
+          <a href={biz.generalHref} target={biz.generalHref.startsWith('http') ? '_blank' : undefined} rel="noopener" className="dc-enquire" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'oklch(0.52 0.216 27)', color: 'oklch(0.98 0.012 82)', fontSize: 12.5, fontWeight: 600, letterSpacing: '0.01em', padding: '10px 16px', borderRadius: 999, transition: 'background .2s' }}>
             <WaIcon size={14} />
             Enquire
           </a>
         </div>
       </div>
     </header>
+  );
+}
+
+/** Opens the cart drawer; shows the item count once the persisted cart has loaded. */
+function CartButton() {
+  const count = useSiteCart((s) => s.items.reduce((n, l) => n + l.qty, 0));
+  const setOpen = useSiteCart((s) => s.setOpen);
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  const shown = mounted ? count : 0;
+
+  return (
+    <button
+      type="button"
+      onClick={() => setOpen(true)}
+      aria-label={shown ? `Cart, ${shown} item${shown === 1 ? '' : 's'}` : 'Cart'}
+      style={{
+        position: 'relative',
+        width: 38,
+        height: 38,
+        borderRadius: 999,
+        border: '1px solid oklch(0.84 0.012 66)',
+        background: 'oklch(0.985 0.006 80)',
+        color: 'oklch(0.30 0.012 34)',
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        cursor: 'pointer',
+      }}
+    >
+      <ShoppingBag size={16} />
+      {shown > 0 && (
+        <span
+          style={{
+            position: 'absolute',
+            top: -4,
+            right: -4,
+            minWidth: 18,
+            height: 18,
+            padding: '0 5px',
+            borderRadius: 999,
+            background: 'oklch(0.52 0.216 27)',
+            color: 'oklch(0.98 0.012 82)',
+            fontSize: 10,
+            fontWeight: 700,
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          {shown > 99 ? '99+' : shown}
+        </span>
+      )}
+    </button>
   );
 }
 

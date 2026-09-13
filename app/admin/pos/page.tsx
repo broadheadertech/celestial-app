@@ -407,7 +407,8 @@ function PosPageContent() {
 
       const reservationRes = await createReservation({
         userId: selectedUserId ? (selectedUserId as Id<'users'>) : undefined,
-        guestId: !selectedUserId ? `walkin-${Date.now()}` : undefined,
+        // Guest IDs act as access keys to the guest's reservations, so they must be unguessable.
+        guestId: !selectedUserId ? `walkin-${crypto.randomUUID()}` : undefined,
         guestInfo,
         items: cart.map((l) => ({
           productId: l.productId as Id<'products'>,

@@ -3,6 +3,7 @@ import { mutation, query, MutationCtx } from "../_generated/server";
 import { Id } from "../_generated/dataModel";
 import { createInternalUseExpenseHelper, createMortalityExpenseHelper } from "./finance";
 import { recordAudit } from "./audit";
+import { requireStaff } from "../lib/authz";
 
 // ==================== HELPER FUNCTIONS (callable from other mutations) ====================
 
@@ -241,6 +242,7 @@ export const getStockRecords = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, { category, status, limit }) => {
+    await requireStaff(ctx);
     let stockRecords;
 
     if (category && status) {
@@ -293,6 +295,7 @@ export const getStockRecord = query({
     stockRecordId: v.id("stockRecords"),
   },
   handler: async (ctx, { stockRecordId }) => {
+    await requireStaff(ctx);
     const stockRecord = await ctx.db.get(stockRecordId);
     
     if (!stockRecord) {
@@ -331,6 +334,7 @@ export const getStockRecordsByProduct = query({
     )),
   },
   handler: async (ctx, { productId, status }) => {
+    await requireStaff(ctx);
     let stockRecords;
 
     if (status) {
@@ -357,6 +361,7 @@ export const getStockHistoryByProduct = query({
     productId: v.id("products"),
   },
   handler: async (ctx, { productId }) => {
+    await requireStaff(ctx);
     // Get product details
     const product = await ctx.db.get(productId);
     if (!product) {
@@ -432,6 +437,7 @@ export const getStockComparison = query({
     productId: v.id("products"),
   },
   handler: async (ctx, { productId }) => {
+    await requireStaff(ctx);
     const history = await ctx.db
       .query("stockRecords")
       .withIndex("by_product", (q) => q.eq("productId", productId))
@@ -473,6 +479,7 @@ export const getStockRecordByBatchCode = query({
     batchCode: v.string(),
   },
   handler: async (ctx, { batchCode }) => {
+    await requireStaff(ctx);
     const stockRecord = await ctx.db
       .query("stockRecords")
       .withIndex("by_batch_code", (q) => q.eq("batchCode", batchCode))
@@ -498,6 +505,7 @@ export const getLowStockAlerts = query({
     category: v.optional(v.union(v.literal("fish"), v.literal("tank"), v.literal("accessory"))),
   },
   handler: async (ctx, { threshold = 10, category }) => {
+    await requireStaff(ctx);
     let stockRecords;
 
     if (category) {
@@ -542,6 +550,7 @@ export const getExpiringStock = query({
     daysAhead: v.optional(v.number()), // Default: 30 days
   },
   handler: async (ctx, { daysAhead = 30 }) => {
+    await requireStaff(ctx);
     const now = Date.now();
     const futureDate = now + (daysAhead * 24 * 60 * 60 * 1000);
 
@@ -599,6 +608,7 @@ export const getStockMovements = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, { productId, batchCode, movementType, limit = 50 }) => {
+    await requireStaff(ctx);
     let movements;
 
     if (productId) {
@@ -652,6 +662,7 @@ export const getStockMovementsByRecord = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, { stockRecordId, limit = 50 }) => {
+    await requireStaff(ctx);
     const movements = await ctx.db
       .query("stockMovements")
       .withIndex("by_stock_record", (q) => q.eq("stockRecordId", stockRecordId))
@@ -680,7 +691,9 @@ export const restockProduct = mutation({
     fundingSource: v.optional(v.union(v.literal("coh"), v.literal("investment"))),
     supplier: v.optional(v.string()),
   },
-  handler: async (ctx, { productId, quantity, notes, qualityGrade, userId, actualCostPrice, fundingSource, supplier }) => {
+  handler: async (ctx, { productId, quantity, notes, qualityGrade, actualCostPrice, fundingSource, supplier }) => {
+    // Actor comes from the verified session, never the userId argument.
+    const userId = (await requireStaff(ctx))._id;
     if (quantity <= 0) {
       throw new Error("Quantity must be greater than 0");
     }
@@ -886,7 +899,9 @@ export const logInternalUse = mutation({
       v.literal("other"),
     )),
   },
-  handler: async (ctx, { productId, quantity, notes, userId, internalUseCategory }) => {
+  handler: async (ctx, { productId, quantity, notes, internalUseCategory }) => {
+    // Actor comes from the verified session, never the userId argument.
+    const userId = (await requireStaff(ctx))._id;
     if (quantity <= 0) {
       throw new Error("Quantity must be greater than 0");
     }
@@ -1008,7 +1023,9 @@ export const updateStockStatus = mutation({
     notes: v.optional(v.string()),
     userId: v.optional(v.id("users")),
   },
-  handler: async (ctx, { stockRecordId, status, notes, userId }) => {
+  handler: async (ctx, { stockRecordId, status, notes }) => {
+    // Actor comes from the verified session, never the userId argument.
+    const userId = (await requireStaff(ctx))._id;
     const stockRecord = await ctx.db.get(stockRecordId);
     
     if (!stockRecord) {
@@ -1034,7 +1051,9 @@ export const reserveStock = mutation({
     batchCode: v.optional(v.string()),
     userId: v.optional(v.id("users")),
   },
-  handler: async (ctx, { productId, quantity, batchCode, userId }) => {
+  handler: async (ctx, { productId, quantity, batchCode }) => {
+    // Actor comes from the verified session, never the userId argument.
+    const userId = (await requireStaff(ctx))._id;
     if (quantity <= 0) {
       throw new Error("Quantity must be greater than 0");
     }
@@ -1106,7 +1125,9 @@ export const releaseReservedStock = mutation({
     quantity: v.number(),
     userId: v.optional(v.id("users")),
   },
-  handler: async (ctx, { stockRecordId, quantity, userId }) => {
+  handler: async (ctx, { stockRecordId, quantity }) => {
+    // Actor comes from the verified session, never the userId argument.
+    const userId = (await requireStaff(ctx))._id;
     if (quantity <= 0) {
       throw new Error("Quantity must be greater than 0");
     }
@@ -1159,7 +1180,9 @@ export const processSale = mutation({
     fromReserved: v.boolean(), // If true, convert from reserved; if false, direct sale
     userId: v.optional(v.id("users")),
   },
-  handler: async (ctx, { stockRecordId, quantity, fromReserved, userId }) => {
+  handler: async (ctx, { stockRecordId, quantity, fromReserved }) => {
+    // Actor comes from the verified session, never the userId argument.
+    const userId = (await requireStaff(ctx))._id;
     if (quantity <= 0) {
       throw new Error("Quantity must be greater than 0");
     }
@@ -1246,7 +1269,9 @@ export const markStockDamaged = mutation({
     notes: v.optional(v.string()),
     userId: v.optional(v.id("users")),
   },
-  handler: async (ctx, { stockRecordId, quantity, notes, userId }) => {
+  handler: async (ctx, { stockRecordId, quantity, notes }) => {
+    // Actor comes from the verified session, never the userId argument.
+    const userId = (await requireStaff(ctx))._id;
     if (quantity <= 0) {
       throw new Error("Quantity must be greater than 0");
     }
@@ -1321,7 +1346,9 @@ export const processReturn = mutation({
     notes: v.optional(v.string()),
     userId: v.optional(v.id("users")),
   },
-  handler: async (ctx, { stockRecordId, quantity, restockable, notes, userId }) => {
+  handler: async (ctx, { stockRecordId, quantity, restockable, notes }) => {
+    // Actor comes from the verified session, never the userId argument.
+    const userId = (await requireStaff(ctx))._id;
     if (quantity <= 0) {
       throw new Error("Quantity must be greater than 0");
     }
@@ -1411,7 +1438,9 @@ export const adjustStock = mutation({
     reason: v.string(),
     userId: v.optional(v.id("users")),
   },
-  handler: async (ctx, { stockRecordId, quantityChange, reason, userId }) => {
+  handler: async (ctx, { stockRecordId, quantityChange, reason }) => {
+    // Actor comes from the verified session, never the userId argument.
+    const userId = (await requireStaff(ctx))._id;
     if (quantityChange === 0) {
       throw new Error("Quantity change must be non-zero");
     }
@@ -1494,7 +1523,9 @@ export const deleteStockBatch = mutation({
     stockRecordId: v.id("stockRecords"),
     userId: v.optional(v.id("users")),
   },
-  handler: async (ctx, { stockRecordId, userId }) => {
+  handler: async (ctx, { stockRecordId }) => {
+    // Actor comes from the verified session, never the userId argument.
+    const userId = (await requireStaff(ctx))._id;
     const rec = await ctx.db.get(stockRecordId);
     if (!rec) throw new Error("Stock record not found");
 
@@ -1535,6 +1566,7 @@ export const deleteStockBatch = mutation({
 export const getStockSummary = query({
   args: {},
   handler: async (ctx) => {
+    await requireStaff(ctx);
     const allStockRecords = await ctx.db.query("stockRecords").collect();
 
     const summary = {
@@ -1598,6 +1630,7 @@ export const getStockAging = query({
     category: v.optional(v.union(v.literal("fish"), v.literal("tank"), v.literal("accessory"))),
   },
   handler: async (ctx, { category }) => {
+    await requireStaff(ctx);
     const records = category
       ? await ctx.db
           .query("stockRecords")
@@ -1720,7 +1753,9 @@ export const recordMortalityLossByProduct = mutation({
     notes: v.optional(v.string()),
     userId: v.optional(v.id("users")),
   },
-  handler: async (ctx, { productId, quantity, notes, userId }) => {
+  handler: async (ctx, { productId, quantity, notes }) => {
+    // Actor comes from the verified session, never the userId argument.
+    const userId = (await requireStaff(ctx))._id;
     if (quantity <= 0) {
       throw new Error("Quantity must be greater than 0");
     }
@@ -1868,6 +1903,7 @@ export const recordMortalityLossByProduct = mutation({
 export const migrateToIndependentBatches = mutation({
   args: {},
   handler: async (ctx) => {
+    await requireStaff(ctx);
     const allProducts = await ctx.db.query("products").collect();
     const results: { product: string; before: number; after: number; batches: number }[] = [];
 

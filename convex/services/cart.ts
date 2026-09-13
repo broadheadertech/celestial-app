@@ -1,5 +1,45 @@
-import { query, mutation } from "../_generated/server";
-import { v } from "convex/values";
+import { query, mutation, QueryCtx, MutationCtx } from "../_generated/server";
+import { v, ConvexError } from "convex/values";
+import { Doc, Id } from "../_generated/dataModel";
+import { getViewer, isStaffRole, requireSelfOrStaff } from "../lib/authz";
+
+/*
+ * Cart access rules:
+ * - A user cart (userId) belongs to that signed-in user; staff may also access it.
+ * - A guest cart (guestId) is reachable by whoever holds the guestId (bearer capability).
+ * Identity always comes from the session, never from the userId argument alone.
+ */
+
+// Queries: return false instead of throwing so pages don't crash during sign-in.
+async function canReadCart(
+  ctx: QueryCtx,
+  userId: Id<"users"> | undefined,
+  guestId: string | undefined,
+): Promise<boolean> {
+  if (userId) {
+    const viewer = await getViewer(ctx);
+    return !!viewer && (viewer._id === userId || isStaffRole(viewer.role));
+  }
+  return !!guestId;
+}
+
+// Mutations on a single cart row: owner (user or guestId holder) or staff.
+async function assertCartItemAccess(
+  ctx: MutationCtx,
+  cartItem: Doc<"cart">,
+  guestId: string | undefined,
+): Promise<void> {
+  if (cartItem.userId) {
+    await requireSelfOrStaff(ctx, cartItem.userId);
+    return;
+  }
+  if (cartItem.guestId && guestId && cartItem.guestId === guestId) {
+    return;
+  }
+  const viewer = await getViewer(ctx);
+  if (viewer && isStaffRole(viewer.role)) return;
+  throw new ConvexError({ code: "FORBIDDEN", message: "You don't have permission to do that." });
+}
 
 // Get cart items for user or guest
 export const getCartItems = query({
@@ -11,6 +51,8 @@ export const getCartItems = query({
     if (!userId && !guestId) {
       throw new Error("Either userId or guestId must be provided");
     }
+
+    if (!(await canReadCart(ctx, userId, guestId))) return [];
 
     let cartItems;
     if (userId) {
@@ -55,7 +97,11 @@ export const addToCart = mutation({
       throw new Error("Either userId or guestId must be provided");
     }
 
-    if (quantity <= 0) {
+    if (userId) {
+      await requireSelfOrStaff(ctx, userId);
+    }
+
+    if (!Number.isInteger(quantity) || quantity <= 0) {
       throw new Error("Quantity must be greater than 0");
     }
 
@@ -121,17 +167,26 @@ export const updateCartItem = mutation({
   args: {
     cartItemId: v.id("cart"),
     quantity: v.number(),
+    // Required for guest cart rows: proves the caller owns this guest cart.
+    guestId: v.optional(v.string()),
   },
-  handler: async (ctx, { cartItemId, quantity }) => {
+  handler: async (ctx, { cartItemId, quantity, guestId }) => {
+    const cartItem = await ctx.db.get(cartItemId);
+    if (!cartItem) {
+      if (quantity <= 0) return null;
+      throw new Error("Cart item not found");
+    }
+
+    await assertCartItemAccess(ctx, cartItem, guestId);
+
     if (quantity <= 0) {
       // Remove item if quantity is 0 or negative
       await ctx.db.delete(cartItemId);
       return null;
     }
 
-    const cartItem = await ctx.db.get(cartItemId);
-    if (!cartItem) {
-      throw new Error("Cart item not found");
+    if (!Number.isInteger(quantity)) {
+      throw new Error("Quantity must be a whole number");
     }
 
     // Check product stock
@@ -157,12 +212,16 @@ export const updateCartItem = mutation({
 export const removeFromCart = mutation({
   args: {
     cartItemId: v.id("cart"),
+    // Required for guest cart rows: proves the caller owns this guest cart.
+    guestId: v.optional(v.string()),
   },
-  handler: async (ctx, { cartItemId }) => {
+  handler: async (ctx, { cartItemId, guestId }) => {
     const cartItem = await ctx.db.get(cartItemId);
     if (!cartItem) {
       throw new Error("Cart item not found");
     }
+
+    await assertCartItemAccess(ctx, cartItem, guestId);
 
     await ctx.db.delete(cartItemId);
     return true;
@@ -178,6 +237,10 @@ export const clearCart = mutation({
   handler: async (ctx, { userId, guestId }) => {
     if (!userId && !guestId) {
       throw new Error("Either userId or guestId must be provided");
+    }
+
+    if (userId) {
+      await requireSelfOrStaff(ctx, userId);
     }
 
     let cartItems;
@@ -214,6 +277,8 @@ export const getCartItemCount = query({
       return 0;
     }
 
+    if (!(await canReadCart(ctx, userId, guestId))) return 0;
+
     let cartItems;
     if (userId) {
       cartItems = await ctx.db
@@ -240,6 +305,9 @@ export const migrateGuestCartToUser = mutation({
     userId: v.id("users"),
   },
   handler: async (ctx, { guestId, userId }) => {
+    // Only the account owner (or staff) may receive items; guestId is the guest cart's capability.
+    await requireSelfOrStaff(ctx, userId);
+
     // Get guest cart items
     const guestCartItems = await ctx.db
       .query("cart")

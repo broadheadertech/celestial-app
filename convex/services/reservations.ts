@@ -1,6 +1,6 @@
-import { query, mutation } from "../_generated/server";
-import { v } from "convex/values";
-import { api } from "../_generated/api";
+import { query, mutation, MutationCtx } from "../_generated/server";
+import { v, ConvexError } from "convex/values";
+import { Doc, Id } from "../_generated/dataModel";
 import {
   notifyLowStock,
   notifyReservationCreated,
@@ -9,6 +9,94 @@ import {
 } from './notifications';
 import { reserveStockHelper, releaseReservedStockHelper } from './stock';
 import { recordAudit } from './audit';
+import { getViewer, isStaffRole, requireStaff, requireUser } from "../lib/authz";
+
+// ==================== AUTHORIZATION HELPERS ====================
+// Identity always comes from the verified session (getViewer). userId/guestId arguments are
+// only used to pick which records to act on: a userId must be the caller's own account (or the
+// caller must be staff), and a guestId acts as a bearer capability for that guest's own records.
+
+function forbidden(message = "You don't have permission to do that.") {
+  return new ConvexError({ code: "FORBIDDEN", message });
+}
+
+// Reservation userIds are Convex user ids, or legacy Facebook ids for older records.
+function isViewerUserId(viewer: Doc<"users">, userId: string | undefined): boolean {
+  if (!userId) return false;
+  return userId === viewer._id || (!!viewer.facebookId && userId === viewer.facebookId);
+}
+
+function canAccessReservation(
+  viewer: Doc<"users"> | null,
+  reservation: Doc<"reservations">,
+  guestId: string | undefined,
+): boolean {
+  if (viewer && isStaffRole(viewer.role)) return true;
+  if (viewer && isViewerUserId(viewer, reservation.userId)) return true;
+  if (guestId && reservation.guestId && reservation.guestId === guestId) return true;
+  return false;
+}
+
+// Creating a reservation for a userId requires being that user (or staff, e.g. POS).
+async function assertCanReserveAs(
+  ctx: MutationCtx,
+  userId: string | undefined,
+): Promise<Doc<"users"> | null> {
+  if (!userId) return await getViewer(ctx);
+  const viewer = await requireUser(ctx);
+  if (!isStaffRole(viewer.role) && !isViewerUserId(viewer, userId)) {
+    throw forbidden("You can only create reservations for your own account");
+  }
+  return viewer;
+}
+
+const LIMITS = {
+  name: 100,
+  email: 254,
+  phone: 40,
+  address: 500,
+  guestNotes: 2000,
+  schedule: 40,
+  notes: 4000,
+  items: 100,
+};
+
+function assertReservationInputLimits(
+  guestInfo:
+    | {
+        name: string;
+        email: string;
+        phone: string;
+        address?: string;
+        completeAddress?: string;
+        notes?: string;
+        pickupSchedule?: { date: string; time: string };
+      }
+    | undefined,
+  notes: string | undefined,
+) {
+  if (guestInfo) {
+    if (!guestInfo.name.trim()) throw new Error("Name is required");
+    if (guestInfo.name.length > LIMITS.name) throw new Error(`Name must be at most ${LIMITS.name} characters`);
+    if (guestInfo.email.length > LIMITS.email) throw new Error("Email is too long");
+    if (guestInfo.phone.length > LIMITS.phone) throw new Error("Phone number is too long");
+    if ((guestInfo.address?.length ?? 0) > LIMITS.address || (guestInfo.completeAddress?.length ?? 0) > LIMITS.address) {
+      throw new Error(`Address must be at most ${LIMITS.address} characters`);
+    }
+    if ((guestInfo.notes?.length ?? 0) > LIMITS.guestNotes) {
+      throw new Error(`Notes must be at most ${LIMITS.guestNotes} characters`);
+    }
+    if (
+      guestInfo.pickupSchedule &&
+      (guestInfo.pickupSchedule.date.length > LIMITS.schedule || guestInfo.pickupSchedule.time.length > LIMITS.schedule)
+    ) {
+      throw new Error("Invalid pickup schedule");
+    }
+  }
+  if ((notes?.length ?? 0) > LIMITS.notes) {
+    throw new Error(`Notes must be at most ${LIMITS.notes} characters`);
+  }
+}
 
 // Helper function to generate unique reservation codes
 function generateReservationCode(): string {
@@ -43,6 +131,9 @@ export const createReservationFromCart = mutation({
       throw new Error("Guest information is required for guest reservations");
     }
 
+    await assertCanReserveAs(ctx, userId);
+    assertReservationInputLimits(guestInfo, notes);
+
     // Get cart items
     let cartItems;
     if (userId) {
@@ -66,7 +157,7 @@ export const createReservationFromCart = mutation({
     const now = Date.now();
     const reservationDateTime = reservationDate || now;
     const expiryDate = reservationDateTime + (7 * 24 * 60 * 60 * 1000); // 7 days from reservation date
-    
+
     // Generate unique reservation code
     const reservationCode = generateReservationCode();
 
@@ -153,7 +244,7 @@ export const createReservationFromCart = mutation({
     // Create notification for admin
     let customerName = 'Unknown Customer';
     let customerEmail: string | undefined = undefined;
-    
+
     if (guestInfo) {
       // Guest reservation
       customerName = guestInfo.name;
@@ -166,14 +257,14 @@ export const createReservationFromCart = mutation({
         customerEmail = user.email;
       }
     }
-    
+
     const isGuest = !!guestInfo;
-    
+
     // Create consolidated notification message
-    const itemsText = items.length === 1 
+    const itemsText = items.length === 1
       ? `${items[0].quantity}x ${productNames[0]}`
       : `${items.length} items (${totalQuantity} total)`;
-    
+
     await notifyReservationCreated(ctx, {
       reservationId: reservationCode,
       customerName,
@@ -214,6 +305,15 @@ export const getReservations = query({
   handler: async (ctx, { userId, guestId, status }) => {
     if (!userId && !guestId) {
       return [];
+    }
+
+    // A userId must be the signed-in caller's own (or the caller is staff); a guestId is the
+    // guest's own capability. Return empty rather than throwing so pages survive sign-in races.
+    if (userId) {
+      const viewer = await getViewer(ctx);
+      if (!viewer || (!isStaffRole(viewer.role) && !isViewerUserId(viewer, userId))) {
+        return [];
+      }
     }
 
     let query;
@@ -277,7 +377,7 @@ export const getReservationByCode = query({
     userId: v.optional(v.union(v.id("users"), v.string())),
     guestId: v.optional(v.string()),
   },
-  handler: async (ctx, { reservationCode, userId, guestId }) => {
+  handler: async (ctx, { reservationCode, guestId }) => {
     const reservation = await ctx.db
       .query("reservations")
       .withIndex("by_reservation_code", (q) => q.eq("reservationCode", reservationCode))
@@ -287,19 +387,19 @@ export const getReservationByCode = query({
       return null;
     }
 
-    // Verify ownership
-    if (userId) {
-      const userIdValue = typeof userId === 'string' ? userId as any : userId;
-      if (reservation.userId !== userIdValue) {
-        throw new Error("You can only view your own reservations");
-      }
-    } else if (guestId && reservation.guestId !== guestId) {
-      throw new Error("You can only view your own reservations");
+    // Verify ownership from the session (or the guest's own guestId). Callers who merely hold
+    // the code (e.g. the post-checkout overlay) only learn its status, never its details.
+    const viewer = await getViewer(ctx);
+    if (!canAccessReservation(viewer, reservation, guestId)) {
+      return {
+        reservationCode: reservation.reservationCode,
+        status: reservation.status,
+      };
     }
 
     // Get product details (handle both new and legacy format)
     let itemsWithProducts = [];
-    
+
     // Handle new multi-item format
     if (reservation.items && reservation.items.length > 0) {
       itemsWithProducts = await Promise.all(
@@ -328,26 +428,23 @@ export const cancelReservation = mutation({
     userId: v.optional(v.union(v.id("users"), v.string())),
     guestId: v.optional(v.string()),
   },
-  handler: async (ctx, { reservationCode, userId, guestId }) => {
+  handler: async (ctx, { reservationCode, guestId }) => {
     const reservation = await ctx.db
       .query("reservations")
       .withIndex("by_reservation_code", (q) => q.eq("reservationCode", reservationCode))
       .first();
-    
+
     if (!reservation) {
       throw new Error("Reservation not found");
     }
 
-    // Verify ownership
-    if (userId) {
-      const userIdValue = typeof userId === 'string' ? userId as any : userId;
-      if (reservation.userId !== userIdValue) {
-        throw new Error("You can only cancel your own reservations");
+    // Verify ownership from the session (or the guest's own guestId), never the userId argument.
+    const viewer = await getViewer(ctx);
+    if (!canAccessReservation(viewer, reservation, guestId)) {
+      if (!viewer && !guestId) {
+        await requireUser(ctx); // throws UNAUTHENTICATED
       }
-    } else if (guestId && reservation.guestId !== guestId) {
-      throw new Error("You can only cancel your own reservations");
-    } else if (!userId && !guestId) {
-      throw new Error("Authentication required");
+      throw forbidden("You can only cancel your own reservations");
     }
 
     if (reservation.status === "cancelled") {
@@ -385,7 +482,7 @@ export const cancelReservation = mutation({
 
     // Create notification for cancellation
     let customerName = 'Unknown Customer';
-    
+
     if (reservation.guestInfo) {
       // Guest reservation
       customerName = reservation.guestInfo.name;
@@ -396,7 +493,7 @@ export const cancelReservation = mutation({
         customerName = `${user.firstName} ${user.lastName}`;
       }
     }
-    
+
     let itemsText = 'items';
     if (reservation.items && reservation.items.length > 0) {
       itemsText = reservation.items.length === 1
@@ -413,11 +510,11 @@ export const cancelReservation = mutation({
     });
 
     const updatedReservation = await ctx.db.get(reservation._id);
-    
+
     // Get product details for the response (handle both formats)
     if (updatedReservation) {
       let itemsWithProducts = [];
-      
+
       if (updatedReservation.items && updatedReservation.items.length > 0) {
         // New multi-item format
         itemsWithProducts = await Promise.all(
@@ -452,8 +549,9 @@ export const markReservationReadyForPickup = mutation({
     pickupTime: v.optional(v.string()),
   },
   handler: async (ctx, { reservationId, pickupLocation, notes, pickupDate, pickupTime }) => {
+    await requireStaff(ctx);
     const reservation = await ctx.db.get(reservationId);
-    
+
     if (!reservation) {
       throw new Error("Reservation not found");
     }
@@ -475,7 +573,7 @@ export const markReservationReadyForPickup = mutation({
     // Get customer information for notification
     let customerName = 'Unknown Customer';
     let customerEmail: string | undefined = undefined;
-    
+
     if (reservation.guestInfo) {
       // Guest reservation
       customerName = reservation.guestInfo.name;
@@ -492,7 +590,7 @@ export const markReservationReadyForPickup = mutation({
     // Get product information for notification
     let productName = 'Your items';
     let totalQuantity = reservation.totalQuantity || 1;
-    
+
     if (reservation.items && reservation.items.length > 0) {
       // Multi-item reservation
       if (reservation.items.length === 1) {
@@ -550,8 +648,9 @@ export const updateReservationStatus = mutation({
     adminNotes: v.optional(v.string()),
   },
   handler: async (ctx, { reservationId, status, adminNotes }) => {
+    await requireStaff(ctx);
     const reservation = await ctx.db.get(reservationId);
-    
+
     if (!reservation) {
       throw new Error("Reservation not found");
     }
@@ -589,7 +688,7 @@ export const updateReservationStatus = mutation({
     if (oldStatus !== status) {
       let customerName = 'Unknown Customer';
       let customerEmail: string | undefined = undefined;
-      
+
       if (reservation.guestInfo) {
         // Guest reservation
         customerName = reservation.guestInfo.name;
@@ -602,7 +701,7 @@ export const updateReservationStatus = mutation({
           customerEmail = user.email;
         }
       }
-      
+
       let itemsText = 'items';
       let totalQuantity = reservation.totalQuantity || 1;
       if (reservation.items && reservation.items.length > 0) {
@@ -633,6 +732,7 @@ export const getReservationByIdAdmin = query({
     reservationId: v.id("reservations"),
   },
   handler: async (ctx, { reservationId }) => {
+    await requireStaff(ctx);
     const reservation = await ctx.db.get(reservationId);
 
     if (!reservation) {
@@ -697,8 +797,9 @@ export const getAllReservationsAdmin = query({
     search: v.optional(v.string()),
   },
   handler: async (ctx, { status, search }) => {
+    await requireStaff(ctx);
     let reservations = await ctx.db.query("reservations").collect();
-    
+
     if (status && status !== 'all') {
       reservations = reservations.filter(reservation => reservation.status === status);
     }
@@ -707,7 +808,7 @@ export const getAllReservationsAdmin = query({
     const reservationsWithDetails = await Promise.all(
       reservations.map(async (reservation) => {
         let itemsWithProducts = [];
-        
+
         // Handle new multi-item format
         if (reservation.items && reservation.items.length > 0) {
           itemsWithProducts = await Promise.all(
@@ -766,7 +867,7 @@ export const getAllReservationsAdmin = query({
         const userName = `${reservation.user?.firstName || ''} ${reservation.user?.lastName || ''}`.toLowerCase();
         const guestName = reservation.guestInfo?.name?.toLowerCase() || '';
         const guestEmail = reservation.guestInfo?.email?.toLowerCase() || '';
-        
+
         return productNames.includes(searchLower) ||
                userEmail.includes(searchLower) ||
                userName.includes(searchLower) ||
@@ -823,6 +924,21 @@ export const createReservation = mutation({
       throw new Error("No items provided for reservation");
     }
 
+    if (items.length > LIMITS.items) {
+      throw new Error(`A reservation can include at most ${LIMITS.items} items`);
+    }
+    for (const item of items) {
+      if (!Number.isInteger(item.quantity) || item.quantity <= 0) {
+        throw new Error("Item quantities must be whole numbers greater than 0");
+      }
+    }
+
+    const viewer = await assertCanReserveAs(ctx, userId);
+    // Only staff (e.g. POS) may set custom prices or discounts; customers and guests always
+    // reserve at the current catalog price, with totals recomputed server-side.
+    const callerIsStaff = !!viewer && isStaffRole(viewer.role);
+    assertReservationInputLimits(guestInfo, notes);
+
     const now = Date.now();
     const reservationDateTime = reservationDate || now;
     const expiryDate = reservationDateTime + (7 * 24 * 60 * 60 * 1000); // 7 days from reservation date
@@ -832,11 +948,18 @@ export const createReservation = mutation({
 
     // Check stock availability and reduce stock for each item
     const productNames = [];
+    const catalogPricedItems: { productId: Id<"products">; quantity: number; reservedPrice: number }[] = [];
     for (const item of items) {
       const product = await ctx.db.get(item.productId);
       if (!product || !product.isActive) {
         throw new Error(`Product not available`);
       }
+
+      catalogPricedItems.push({
+        productId: item.productId,
+        quantity: item.quantity,
+        reservedPrice: product.price,
+      });
 
       if (product.stock < item.quantity) {
         throw new Error(`Insufficient stock for ${product.name}. Available: ${product.stock}, Requested: ${item.quantity}`);
@@ -868,17 +991,27 @@ export const createReservation = mutation({
       }
     }
 
+    const finalItems = callerIsStaff ? items : catalogPricedItems;
+    const finalSubtotal = callerIsStaff ? subtotal : undefined;
+    const finalOrderDiscount = callerIsStaff ? orderDiscount : undefined;
+    const finalTotalAmount = callerIsStaff
+      ? totalAmount
+      : catalogPricedItems.reduce((sum, item) => sum + item.reservedPrice * item.quantity, 0);
+    const finalTotalQuantity = callerIsStaff
+      ? totalQuantity
+      : catalogPricedItems.reduce((sum, item) => sum + item.quantity, 0);
+
     // Create reservation - handle userId as string for Facebook users
     const reservationId = await ctx.db.insert("reservations", {
       reservationCode,
       userId: typeof userId === 'string' ? userId as any : userId,
       guestId,
       guestInfo,
-      items,
-      ...(subtotal !== undefined ? { subtotal } : {}),
-      ...(orderDiscount && orderDiscount > 0 ? { orderDiscount } : {}),
-      totalAmount,
-      totalQuantity,
+      items: finalItems,
+      ...(finalSubtotal !== undefined ? { subtotal: finalSubtotal } : {}),
+      ...(finalOrderDiscount && finalOrderDiscount > 0 ? { orderDiscount: finalOrderDiscount } : {}),
+      totalAmount: finalTotalAmount,
+      totalQuantity: finalTotalQuantity,
       reservationDate: reservationDateTime,
       expiryDate,
       status: "pending",
@@ -918,14 +1051,14 @@ export const createReservation = mutation({
 
     const itemsText = items.length === 1
       ? `${items[0].quantity}x ${productNames[0]}`
-      : `${items.length} items (${totalQuantity} total)`;
+      : `${items.length} items (${finalTotalQuantity} total)`;
 
     await notifyReservationCreated(ctx, {
       reservationId: reservationCode,
       customerName,
       customerEmail,
       productName: itemsText,
-      quantity: totalQuantity,
+      quantity: finalTotalQuantity,
       isGuest: !!guestInfo,
     });
 
@@ -933,7 +1066,7 @@ export const createReservation = mutation({
       reservationId,
       reservationCode,
       message: userId ? "Reservation created successfully" : "Reservation request submitted. You will receive a confirmation email shortly.",
-      totalAmount,
+      totalAmount: finalTotalAmount,
       totalItems: items.length,
     };
   },
@@ -943,6 +1076,7 @@ export const createReservation = mutation({
 export const cleanupExpiredReservations = mutation({
   args: {},
   handler: async (ctx) => {
+    await requireStaff(ctx);
     const now = Date.now();
 
     // Find expired reservations that are still confirmed (not yet completed)
@@ -993,6 +1127,7 @@ export const acknowledgeReservation = mutation({
     adminNotes: v.optional(v.string()),
   },
   handler: async (ctx, { reservationId, adminNotes }) => {
+    await requireStaff(ctx);
     const reservation = await ctx.db.get(reservationId);
     if (!reservation) throw new Error("Reservation not found");
     if (reservation.status !== "pending") throw new Error("Only pending reservations can be acknowledged");
@@ -1063,6 +1198,7 @@ export const releaseReservation = mutation({
     adminNotes: v.optional(v.string()),
   },
   handler: async (ctx, { reservationId, adminNotes }) => {
+    await requireStaff(ctx);
     const reservation = await ctx.db.get(reservationId);
     if (!reservation) throw new Error("Reservation not found");
     if (reservation.status !== "confirmed" && reservation.status !== "ready_for_pickup") {
@@ -1139,7 +1275,8 @@ export const releaseReservation = mutation({
  */
 export const migrateLegacyReservations = mutation({
   args: { userId: v.optional(v.id("users")) },
-  handler: async (ctx, { userId }) => {
+  handler: async (ctx) => {
+    const staff = await requireStaff(ctx);
     const reservations = await ctx.db.query("reservations").collect();
     let migrated = 0;
     let skipped = 0;
@@ -1173,7 +1310,7 @@ export const migrateLegacyReservations = mutation({
     }
 
     await recordAudit(ctx, {
-      actorId: userId,
+      actorId: staff._id,
       action: "reservation.migrate_legacy",
       category: "system",
       summary: `Migrated ${migrated} legacy single-item reservation(s) to items[] and cleared legacy fields`,
