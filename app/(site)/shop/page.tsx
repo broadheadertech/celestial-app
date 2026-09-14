@@ -8,6 +8,7 @@ import { api } from '@/convex/_generated/api';
 import type { FunctionReturnType } from 'convex/server';
 import { GearPlate } from '@/components/site/ArowanaSilhouette';
 import { useSiteCart } from '@/store/siteCart';
+import VideoBadge from '@/components/dc/VideoBadge';
 
 const fmt = (n: number) =>
   `₱${n.toLocaleString('en-PH', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
@@ -219,7 +220,10 @@ function GearTile({ product, onAdd }: { product: CatalogProduct; onAdd: () => vo
       style={{ background: 'transparent', color: 'var(--ink)' }}
     >
       <Link href={`/specimen-detail?id=${product._id}`}>
-        <GearPlate product={{ sku: product.sku ? String(product.sku) : undefined, name: product.name, image: product.image }} ratio="1 / 1" />
+        <span style={{ position: 'relative', display: 'block' }}>
+          <GearPlate product={{ sku: product.sku ? String(product.sku) : undefined, name: product.name, image: product.image }} ratio="1 / 1" />
+          {product.videos?.length ? <VideoBadge count={product.videos.length} /> : null}
+        </span>
       </Link>
       <div style={{ padding: '18px 4px 8px' }}>
         <Link href={`/specimen-detail?id=${product._id}`} className="block">

@@ -3,6 +3,7 @@ import { getViewer, isStaffRole, requireStaff, requireSuperAdmin } from "../lib/
 import { getReservationUser } from "../lib/reservationUser";
 import { uniqueProductSlug } from "../lib/slug";
 import { isListedPublicly } from "../lib/purchaseMode";
+import { normalizeVideos, productVideoValidator } from "../lib/video";
 import { mutation, query } from "../_generated/server";
 import { Doc, Id } from "../_generated/dataModel";
 import { hashPassword } from "./auth";
@@ -339,15 +340,21 @@ export const createProduct = mutation({
     lifespan: v.optional(v.string()),
     tankNumber: v.optional(v.string()),
     grade: v.optional(v.union(v.literal("S"), v.literal("AAA"), v.literal("AA"), v.literal("A"))),
-    purchaseMode: v.optional(v.union(v.literal("enquire"), v.literal("cart"))),
+    purchaseMode: v.optional(v.union(v.literal("enquire"), v.literal("cart"), v.literal("auto"))),
     visibility: v.optional(v.union(v.literal("public"), v.literal("internal"))),
+    videos: v.optional(v.array(productVideoValidator)),
     userId: v.optional(v.id("users")), // acting admin (for audit) — excluded from the product doc
   },
   handler: async (ctx, args) => {
     const staff = await requireStaff(ctx);
     const now = Date.now();
     // Keep the actor out of the product document spread.
-    const { userId: actorId, ...productFields } = args;
+    const { userId: actorId, ...rawFields } = args;
+    const productFields = {
+      ...rawFields,
+      purchaseMode: rawFields.purchaseMode === "auto" ? undefined : rawFields.purchaseMode,
+      videos: normalizeVideos(rawFields.videos),
+    };
 
     // Generate batch code: BATCH-YYYYMMDD-RANDOM
     const generateBatchCode = () => {

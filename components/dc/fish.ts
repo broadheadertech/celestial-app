@@ -21,8 +21,11 @@ export type DcProduct = {
   categoryName?: string;
   isActive?: boolean;
   createdAt?: number;
+  updatedAt?: number;
   description?: string;
   certificate?: string;
+  /** Showcase videos (uploaded clips or YouTube/Facebook links), in display order. */
+  videos?: import('./video').ProductVideo[];
   /** URL slug for the readable /specimen/<slug> address (set once, kept on rename). */
   slug?: string;
   /** Resolved by the backend: "enquire" (showcase only) or "cart" (can be bought online). */

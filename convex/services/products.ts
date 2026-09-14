@@ -6,9 +6,12 @@ import { recordAudit } from "./audit";
 import { getViewer, isStaffRole, requireStaff } from "../lib/authz";
 import { isListedPublicly, resolvePurchaseMode } from "../lib/purchaseMode";
 import { uniqueProductSlug } from "../lib/slug";
+import { normalizeVideos, productVideoValidator } from "../lib/video";
 
-const PURCHASE_MODE = v.optional(v.union(v.literal("enquire"), v.literal("cart")));
+// "auto" clears an explicit setting (default by category).
+const PURCHASE_MODE = v.optional(v.union(v.literal("enquire"), v.literal("cart"), v.literal("auto")));
 const VISIBILITY = v.optional(v.union(v.literal("public"), v.literal("internal")));
+const VIDEOS = v.optional(v.array(productVideoValidator));
 
 /** Public shape of a product: internal cost fields removed, sales channel resolved. */
 function toPublicProduct(product: Doc<"products">, categoryName: string | undefined) {
@@ -285,6 +288,7 @@ export const createProduct = mutation({
     )),
     purchaseMode: PURCHASE_MODE,
     visibility: VISIBILITY,
+    videos: VIDEOS,
     isActive: v.boolean(),
 
     // Category-specific data (optional)
@@ -490,8 +494,9 @@ export const createProduct = mutation({
         tankNumber: args.tankNumber,
         batchCode: batchCode,
         grade: args.grade,
-        purchaseMode: args.purchaseMode,
+        purchaseMode: args.purchaseMode === "auto" ? undefined : args.purchaseMode,
         visibility: args.visibility,
+        videos: normalizeVideos(args.videos),
         slug: await uniqueProductSlug(ctx, args.name.trim()),
         isActive: args.isActive,
         createdAt: now,
@@ -621,6 +626,7 @@ export const updateProduct = mutation({
     )),
     purchaseMode: PURCHASE_MODE,
     visibility: VISIBILITY,
+    videos: VIDEOS,
     isActive: v.optional(v.boolean()),
     userId: v.optional(v.id("users")), // ignored; the acting admin comes from the session
 
@@ -663,7 +669,22 @@ export const updateProduct = mutation({
     if (!product) {
       throw new Error("Product not found");
     }
-    
+
+    if (updates.videos !== undefined) {
+      updates.videos = normalizeVideos(updates.videos);
+      // Delete uploaded clips that were removed from the product so storage doesn't fill up.
+      const kept = new Set((updates.videos ?? []).map((vid) => vid.storageId).filter(Boolean));
+      for (const old of product.videos ?? []) {
+        if (old.storageId && !kept.has(old.storageId)) {
+          try {
+            await ctx.storage.delete(old.storageId);
+          } catch {
+            // Already gone — nothing to clean up.
+          }
+        }
+      }
+    }
+
     // Enhanced validation for core fields
     if (updates.name !== undefined && !updates.name.trim()) {
       throw new Error("Product name cannot be empty");
@@ -855,7 +876,11 @@ export const updateProduct = mutation({
       if (updates.tankNumber !== undefined) updateData.tankNumber = updates.tankNumber;
       if (updates.grade !== undefined) updateData.grade = updates.grade;
       if (updates.isActive !== undefined) updateData.isActive = updates.isActive;
-      
+      if (updates.lifespan !== undefined) updateData.lifespan = updates.lifespan;
+      if (updates.purchaseMode !== undefined) updateData.purchaseMode = updates.purchaseMode === "auto" ? undefined : updates.purchaseMode;
+      if (updates.visibility !== undefined) updateData.visibility = updates.visibility;
+      if (updates.videos !== undefined) updateData.videos = updates.videos;
+
       // Update the main product
       await ctx.db.patch(productId, updateData);
       

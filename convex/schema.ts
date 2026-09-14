@@ -1,5 +1,6 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
+import { productVideoValidator } from "./lib/video";
 
 export default defineSchema({
   users: defineTable({
@@ -73,6 +74,8 @@ export default defineSchema({
     // "internal" = inventory/POS only, never shown or sold on the storefront or client app.
     // Unset = "public". (isActive still controls whether the product is in use at all.)
     visibility: v.optional(v.union(v.literal("public"), v.literal("internal"))),
+    // Showcase videos in display order (uploaded clips or YouTube/Facebook links; convex/lib/video.ts).
+    videos: v.optional(v.array(productVideoValidator)),
     // URL-safe unique name for readable links (/specimen/<slug>); generated from the name.
     slug: v.optional(v.string()),
     isActive: v.boolean(),

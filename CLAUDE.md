@@ -353,6 +353,12 @@ npx cap run android      # Build and run on device/emulator
 - **Visibility:** `products.visibility` `"internal"` = inventory/POS only. Use `isListedPublicly()` from
   `convex/lib/purchaseMode.ts` in every customer-facing query/mutation (catalog, product lookups, cart,
   wishlist, web orders, customer reservations); staff paths may still use internal products.
+- **Videos:** `products.videos` (max 5) — uploaded clips in Convex storage (`kind: "file"`, poster
+  frame captured in the browser) or YouTube/Facebook links, validated by `convex/lib/video.ts`.
+  Admin: `components/admin/ProductVideosField.tsx`. Storefront gallery + player in the product page;
+  `components/dc/VideoBadge.tsx` on tiles. Removing an uploaded clip deletes it from storage.
+- **updateProduct saves an explicit field list** — when adding a product field, add it there too
+  (`purchaseMode: "auto"` clears the explicit setting).
 - **Checkout** (`app/(site)/checkout`) accepts cart-mode products only (`orders.placeWebOrder` enforces it);
   orders are created pending/unpaid — no online payment.
 - **Business Details** (Admin → Business Details, `convex/services/business.ts`): the single source for

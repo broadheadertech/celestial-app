@@ -13,6 +13,8 @@ import {
   Loader
 } from 'lucide-react';
 import { api } from '@/convex/_generated/api';
+import ProductVideosField from '@/components/admin/ProductVideosField';
+import type { ProductVideo } from '@/components/dc/video';
 import { Id } from '@/convex/_generated/dataModel';
 import { useAuthStore } from '@/store/auth';
 import ConfirmationModal from '@/components/ui/ConfirmationModal';
@@ -40,6 +42,7 @@ interface ProductFormData {
   // '' = automatic (storefront decides by category)
   purchaseMode: '' | 'enquire' | 'cart';
   visibility: 'public' | 'internal';
+  videos: ProductVideo[];
 
   // Fish specific fields
   scientificName: string;
@@ -92,6 +95,7 @@ const initialFormData: ProductFormData = {
   grade: '',
   purchaseMode: '',
   visibility: 'public',
+  videos: [],
 
   // Fish specific fields
   scientificName: '',
@@ -233,6 +237,7 @@ export function ProductFormContentInner({ editProductId, onSuccess, isDrawer }: 
         grade: (existingProduct as { grade?: 'S' | 'AAA' | 'AA' | 'A' }).grade || '',
         purchaseMode: existingProduct.purchaseModeSetting ?? '',
         visibility: existingProduct.visibility === 'internal' ? 'internal' : 'public',
+        videos: existingProduct.videos ?? [],
       }));
     }
   }, [existingProduct, isEditing, categories]);
@@ -436,8 +441,10 @@ export function ProductFormContentInner({ editProductId, onSuccess, isDrawer }: 
         sku: skuString,
         lifespan: formData.lifespan || undefined,
         grade: formData.grade || undefined,
-        purchaseMode: formData.purchaseMode || undefined,
+        // 'auto' clears an explicit setting so the category default applies again.
+        purchaseMode: formData.purchaseMode === '' ? ('auto' as const) : formData.purchaseMode,
         visibility: formData.visibility,
+        videos: formData.videos,
         isActive: formData.status === 'active',
         userId: user?._id as Id<'users'> | undefined,
       };
@@ -968,6 +975,12 @@ export function ProductFormContentInner({ editProductId, onSuccess, isDrawer }: 
             </div>
           ))}
         </div>
+
+        {/* Videos */}
+        <ProductVideosField
+          value={formData.videos}
+          onChange={(videos) => setFormData((prev) => ({ ...prev, videos }))}
+        />
 
         {/* Certificate Images */}
         <div className="mb-6">

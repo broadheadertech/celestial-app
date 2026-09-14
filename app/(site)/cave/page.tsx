@@ -12,6 +12,7 @@ import { useQuery } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { buildChips, DcProduct, familyOf, fmtPeso, gradeRank, isArowana, isFish, tintFor } from '@/components/dc/fish';
 import { useBusiness } from '@/components/dc/business';
+import VideoBadge from '@/components/dc/VideoBadge';
 
 const mono = "'Geist Mono', monospace";
 const serif = "'Noto Serif Display', serif";
@@ -94,6 +95,7 @@ export default function CavePage() {
             {items.map((item) => (
               <div key={item._id} className="dc-card" style={{ display: 'flex', flexDirection: 'column' }}>
                 <Link href={`/specimen-detail?id=${item._id}`} className="dc-card-media" style={{ position: 'relative', aspectRatio: '3/4', background: 'radial-gradient(circle at 50% 42%, oklch(0.30 0.015 50), oklch(0.145 0.01 40) 100%)', boxShadow: '0 22px 46px -28px oklch(0.16 0.02 40 / 0.7), inset 0 0 0 1px oklch(0.70 0.12 80 / 0.28)' }}>
+                  {item.videos?.length ? <VideoBadge count={item.videos.length} /> : null}
                   <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse 66% 46% at 50% 47%, oklch(0.86 0.08 68 / 0.16), transparent 70%)' }} />
                   <div style={{ position: 'absolute', inset: 0, opacity: 0.38, backgroundImage: 'radial-gradient(circle at 50% 0, transparent 0 7px, oklch(1 0 0 / 0.05) 7px 8px, transparent 8px)', backgroundSize: '24px 12px' }} />
                   {item.image ? (

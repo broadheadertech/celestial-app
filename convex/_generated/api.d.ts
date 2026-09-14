@@ -17,6 +17,7 @@ import type * as lib_purchaseMode from "../lib/purchaseMode.js";
 import type * as lib_reservationUser from "../lib/reservationUser.js";
 import type * as lib_slug from "../lib/slug.js";
 import type * as lib_throttle from "../lib/throttle.js";
+import type * as lib_video from "../lib/video.js";
 import type * as migrations_fix_login_method from "../migrations/fix_login_method.js";
 import type * as seed from "../seed.js";
 import type * as services_admin from "../services/admin.js";
@@ -64,6 +65,7 @@ declare const fullApi: ApiFromModules<{
   "lib/reservationUser": typeof lib_reservationUser;
   "lib/slug": typeof lib_slug;
   "lib/throttle": typeof lib_throttle;
+  "lib/video": typeof lib_video;
   "migrations/fix_login_method": typeof migrations_fix_login_method;
   seed: typeof seed;
   "services/admin": typeof services_admin;

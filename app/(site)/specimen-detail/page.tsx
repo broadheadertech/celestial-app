@@ -16,6 +16,7 @@ import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { bloodlineOf, DcProduct, familyOf, fmtPeso, gradeRank, isArowana, isFish, tintFor } from '@/components/dc/fish';
 import { useBusiness } from '@/components/dc/business';
+import { facebookEmbedUrl, formatDuration, videoThumb, youtubeEmbedUrl, type ProductVideo } from '@/components/dc/video';
 import { useSiteCart } from '@/store/siteCart';
 
 /** The product form stores certificate image URLs comma-separated (or a "none" sentence). */
@@ -70,6 +71,17 @@ function useProductSeo(product: DcProduct | null | undefined, storeName: string)
         availability: product.stock > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
         seller: { '@type': 'Organization', name: storeName },
       },
+      subjectOf: (product.videos ?? []).map((video) => ({
+        '@type': 'VideoObject',
+        name: `${product.name} — video`,
+        description,
+        thumbnailUrl: videoThumb(video) ?? (product.image ? [product.image] : undefined),
+        uploadDate: new Date(product.updatedAt ?? Date.now()).toISOString(),
+        ...(video.kind === 'file'
+          ? { contentUrl: video.url }
+          : { embedUrl: video.kind === 'youtube' ? youtubeEmbedUrl(video.url) ?? video.url : facebookEmbedUrl(video.url) }),
+        ...(video.durationSec ? { duration: `PT${Math.floor(video.durationSec / 60)}M${video.durationSec % 60}S` } : {}),
+      })),
     };
     const script = upsert('script#product-jsonld', () => Object.assign(document.createElement('script'), { id: 'product-jsonld', type: 'application/ld+json' }));
     script.textContent = JSON.stringify(jsonLd);
@@ -151,7 +163,17 @@ function SpecimenInner() {
 
   const label = isArowana(product.name) ? bloodlineOf(product.name) : isLiveFish ? familyOf(product.name) : product.categoryName || 'Shop';
   const images = (product.images && product.images.length ? product.images : product.image ? [product.image] : []).filter(Boolean) as string[];
-  const shownImage = images[Math.min(activeImage, Math.max(images.length - 1, 0))];
+  const videos = product.videos ?? [];
+  // Gallery order: cover photo, then videos, then the remaining photos.
+  type Media = { type: 'image'; src: string } | { type: 'video'; video: ProductVideo };
+  const media: Media[] = [
+    ...images.slice(0, 1).map((src) => ({ type: 'image' as const, src })),
+    ...videos.map((video) => ({ type: 'video' as const, video })),
+    ...images.slice(1).map((src) => ({ type: 'image' as const, src })),
+  ];
+  const active = media[Math.min(activeImage, Math.max(media.length - 1, 0))];
+  const firstVideoIndex = media.findIndex((m) => m.type === 'video');
+  const showingVideo = active?.type === 'video';
   const certs = certificateUrls(product.certificate);
   const inStock = product.stock > 0;
   const specs: [string, string][] = isLiveFish
@@ -216,10 +238,26 @@ function SpecimenInner() {
             <div style={{ position: 'relative', aspectRatio: '5/4', borderRadius: 12, overflow: 'hidden', background: 'radial-gradient(ellipse 92% 82% at 50% 42%, oklch(0.30 0.015 50), oklch(0.145 0.01 40) 100%)', boxShadow: 'inset 0 0 0 1px oklch(0.70 0.12 80 / 0.4), 0 44px 90px -48px oklch(0.16 0.02 40 / 0.6)' }}>
               <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse 66% 46% at 50% 47%, oklch(0.86 0.08 68 / 0.16), transparent 70%)' }} />
               <div style={{ position: 'absolute', inset: 0, opacity: 0.4, backgroundImage: 'radial-gradient(circle at 50% 0, transparent 0 9px, oklch(1 0 0 / 0.05) 9px 10px, transparent 10px)', backgroundSize: '30px 15px' }} />
+              {showingVideo && active.type === 'video' ? (
+                <div style={{ position: 'absolute', inset: 0, background: 'black' }}>
+                  {active.video.kind === 'file' ? (
+                    <video key={active.video.url} src={active.video.url} poster={active.video.posterUrl} controls autoPlay playsInline preload="metadata" aria-label={`Video of ${product.name}`} style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
+                  ) : (
+                    <iframe
+                      key={active.video.url}
+                      title={`Video of ${product.name}`}
+                      src={active.video.kind === 'youtube' ? `${youtubeEmbedUrl(active.video.url)}&autoplay=1` : facebookEmbedUrl(active.video.url)}
+                      allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+                      allowFullScreen
+                      style={{ width: '100%', height: '100%', border: 0, display: 'block' }}
+                    />
+                  )}
+                </div>
+              ) : (
               <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6%' }}>
-                {shownImage ? (
+                {active?.type === 'image' ? (
                   <div style={{ position: 'relative', width: '100%', height: '100%', animation: isLiveFish ? 'dcSwim 8s ease-in-out infinite' : undefined }}>
-                    <img src={shownImage} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'contain', filter: 'drop-shadow(0 24px 40px oklch(0 0 0 / 0.5))' }} draggable={false} />
+                    <img src={active.src} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'contain', filter: 'drop-shadow(0 24px 40px oklch(0 0 0 / 0.5))' }} draggable={false} />
                   </div>
                 ) : (
                   <span className="dc-sil" style={{ color: tintFor(product._id) }}>
@@ -227,23 +265,38 @@ function SpecimenInner() {
                   </span>
                 )}
               </div>
-              {product.sku && <div style={{ position: 'absolute', top: 18, left: 20, fontFamily: mono, fontSize: 10, letterSpacing: '0.14em', color: 'oklch(0.9 0.02 60 / 0.7)' }}>#{product.sku}</div>}
-              {product.grade && <div style={{ position: 'absolute', top: 16, right: 18, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 38, height: 30, borderRadius: 7, background: 'oklch(0.50 0.216 27)', fontFamily: serif, fontWeight: 700, fontSize: 16, color: 'oklch(0.98 0.012 82)', boxShadow: '0 8px 20px -8px oklch(0.52 0.216 27 / 0.6)' }}>{product.grade}</div>}
-              <div style={{ position: 'absolute', bottom: 16, right: 18, width: 44, height: 44, borderRadius: 9, background: 'oklch(0.52 0.216 27)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 10px 22px -10px oklch(0.52 0.216 27 / 0.7)', transform: 'rotate(-5deg)' }}>
+              )}
+              {!showingVideo && product.sku && <div style={{ position: 'absolute', top: 18, left: 20, fontFamily: mono, fontSize: 10, letterSpacing: '0.14em', color: 'oklch(0.9 0.02 60 / 0.7)' }}>#{product.sku}</div>}
+              {!showingVideo && product.grade && <div style={{ position: 'absolute', top: 16, right: 18, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 38, height: 30, borderRadius: 7, background: 'oklch(0.50 0.216 27)', fontFamily: serif, fontWeight: 700, fontSize: 16, color: 'oklch(0.98 0.012 82)', boxShadow: '0 8px 20px -8px oklch(0.52 0.216 27 / 0.6)' }}>{product.grade}</div>}
+              <div style={{ display: showingVideo ? 'none' : 'flex', position: 'absolute', bottom: 16, right: 18, width: 44, height: 44, borderRadius: 9, background: 'oklch(0.52 0.216 27)', alignItems: 'center', justifyContent: 'center', boxShadow: '0 10px 22px -10px oklch(0.52 0.216 27 / 0.7)', transform: 'rotate(-5deg)' }}>
                 <span style={{ fontFamily: "'Noto Serif TC', serif", fontWeight: 900, fontSize: 24, color: 'oklch(0.97 0.012 82)' }}>龍</span>
               </div>
             </div>
             {/* thumbs */}
             <div style={{ display: 'flex', gap: 12, marginTop: 14, alignItems: 'center', flexWrap: 'wrap' }}>
-              {images.length > 1 && images.slice(0, 6).map((src, i) => {
-                const selected = src === shownImage;
+              {media.length > 1 && media.slice(0, 8).map((m, i) => {
+                const selected = m === active;
+                const thumb = m.type === 'image' ? m.src : videoThumb(m.video);
                 return (
-                  <button key={src + i} type="button" onClick={() => setActiveImage(i)} aria-label={`Show photo ${i + 1} of ${images.length}`} aria-pressed={selected} className="dc-thumb" style={{ position: 'relative', width: 76, aspectRatio: '1/1', borderRadius: 8, overflow: 'hidden', padding: 0, cursor: 'pointer', background: 'radial-gradient(circle at 50% 42%, oklch(0.30 0.015 50), oklch(0.15 0.01 40))', border: selected ? '2px solid oklch(0.52 0.216 27)' : '1px solid oklch(0.82 0.02 50)' }}>
-                    <img src={src} alt="" loading="lazy" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', padding: 6 }} draggable={false} />
+                  <button key={(m.type === 'image' ? m.src : m.video.url) + i} type="button" onClick={() => setActiveImage(i)} aria-label={m.type === 'image' ? `Show photo ${i + 1}` : `Play video${m.video.durationSec ? ` (${formatDuration(m.video.durationSec)})` : ''}`} aria-pressed={selected} className="dc-thumb" style={{ position: 'relative', width: 76, aspectRatio: '1/1', borderRadius: 8, overflow: 'hidden', padding: 0, cursor: 'pointer', background: 'radial-gradient(circle at 50% 42%, oklch(0.30 0.015 50), oklch(0.15 0.01 40))', border: selected ? '2px solid oklch(0.52 0.216 27)' : '1px solid oklch(0.82 0.02 50)' }}>
+                    {thumb && <img src={thumb} alt="" loading="lazy" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: m.type === 'image' ? 'contain' : 'cover', padding: m.type === 'image' ? 6 : 0 }} draggable={false} />}
+                    {m.type === 'video' && (
+                      <>
+                        <span aria-hidden="true" style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%,-50%)', width: 28, height: 28, borderRadius: 99, background: 'oklch(0.52 0.216 27 / 0.92)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px oklch(0 0 0 / 0.4)' }}>
+                          <svg width="11" height="11" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z" fill="white" /></svg>
+                        </span>
+                        {m.video.durationSec ? <span style={{ position: 'absolute', right: 4, bottom: 4, fontFamily: mono, fontSize: 9, color: 'white', background: 'oklch(0 0 0 / 0.6)', padding: '1px 4px', borderRadius: 3 }}>{formatDuration(m.video.durationSec)}</span> : null}
+                      </>
+                    )}
                   </button>
                 );
               })}
-              {isLiveFish && (
+              {firstVideoIndex >= 0 ? (
+                <button type="button" onClick={() => setActiveImage(firstVideoIndex)} className="dc-btn-primary" style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 8, fontFamily: mono, fontSize: 10.5, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'oklch(0.98 0.012 82)', background: 'oklch(0.52 0.216 27)', border: 'none', borderRadius: 999, padding: '10px 15px', cursor: 'pointer' }}>
+                  <svg width="10" height="10" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z" fill="currentColor" /></svg>
+                  Watch video{videos.length > 1 ? `s (${videos.length})` : ''}
+                </button>
+              ) : isLiveFish && (
                 <a href={enquireHref} target={external ? '_blank' : undefined} rel="noopener" style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 7, fontFamily: mono, fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'oklch(0.50 0.216 27)', border: '1px solid oklch(0.52 0.216 27 / 0.4)', borderRadius: 999, padding: '9px 13px' }}>
                   <span style={{ width: 6, height: 6, borderRadius: 99, background: 'oklch(0.52 0.216 27)' }} /> Full video on request
                 </a>
