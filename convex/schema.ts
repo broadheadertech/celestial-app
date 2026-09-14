@@ -70,6 +70,9 @@ export default defineSchema({
     // Storefront sales channel: "enquire" (showcase + WhatsApp, e.g. live fish) or "cart"
     // (add to cart + checkout). Unset = default by category (see convex/lib/purchaseMode.ts).
     purchaseMode: v.optional(v.union(v.literal("enquire"), v.literal("cart"))),
+    // "internal" = inventory/POS only, never shown or sold on the storefront or client app.
+    // Unset = "public". (isActive still controls whether the product is in use at all.)
+    visibility: v.optional(v.union(v.literal("public"), v.literal("internal"))),
     // URL-safe unique name for readable links (/specimen/<slug>); generated from the name.
     slug: v.optional(v.string()),
     isActive: v.boolean(),

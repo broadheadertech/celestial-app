@@ -899,6 +899,15 @@ function AdminProductsContent() {
                             }`}>
                               {itemStatus === 'active' ? 'Active' : itemStatus === 'inactive' ? 'Inactive' : 'Out of Stock'}
                             </span>
+                            {product.visibility === 'internal' && (
+                              <span
+                                className="ml-1 inline-flex items-center px-2 py-1 rounded-lg text-xs font-medium"
+                                style={{ background: 'var(--surface-2)', color: 'var(--ink-3)', border: '1px solid var(--line)' }}
+                                title="Inventory only — hidden from the website and customer app"
+                              >
+                                Internal
+                              </span>
+                            )}
                           </td>
                           {/* Actions */}
                           <td className="px-4 py-3 text-center">

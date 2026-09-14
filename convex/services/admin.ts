@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { getViewer, isStaffRole, requireStaff, requireSuperAdmin } from "../lib/authz";
 import { getReservationUser } from "../lib/reservationUser";
 import { uniqueProductSlug } from "../lib/slug";
+import { isListedPublicly } from "../lib/purchaseMode";
 import { mutation, query } from "../_generated/server";
 import { Doc, Id } from "../_generated/dataModel";
 import { hashPassword } from "./auth";
@@ -247,7 +248,7 @@ export const getAllProductsAdmin = query({
     // Apply filters
     let products = await query.collect();
     if (!isStaff) {
-      products = products.filter((p) => p.isActive);
+      products = products.filter(isListedPublicly);
     }
     
     if (category && category !== 'All') {
@@ -339,6 +340,7 @@ export const createProduct = mutation({
     tankNumber: v.optional(v.string()),
     grade: v.optional(v.union(v.literal("S"), v.literal("AAA"), v.literal("AA"), v.literal("A"))),
     purchaseMode: v.optional(v.union(v.literal("enquire"), v.literal("cart"))),
+    visibility: v.optional(v.union(v.literal("public"), v.literal("internal"))),
     userId: v.optional(v.id("users")), // acting admin (for audit) — excluded from the product doc
   },
   handler: async (ctx, args) => {

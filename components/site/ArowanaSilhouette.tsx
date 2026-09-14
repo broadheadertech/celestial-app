@@ -295,19 +295,6 @@ export function GearPlate({
           </svg>
         )}
       </div>
-      <div
-        className="placard"
-        style={{
-          position: 'absolute',
-          bottom: 14,
-          right: 14,
-          color: 'var(--ink-4)',
-          fontSize: 9,
-          letterSpacing: '0.18em',
-        }}
-      >
-        [ Product plate · {product.sku || 'PRD'} ]
-      </div>
     </div>
   );
 }

@@ -3,7 +3,7 @@ import { v } from "convex/values";
 import { recordSaleHelper, restoreStockHelper } from "./stock";
 import { recordAudit } from "./audit";
 import { getViewer, isStaffRole, requireStaff, requireUser } from "../lib/authz";
-import { resolvePurchaseMode } from "../lib/purchaseMode";
+import { isListedPublicly, resolvePurchaseMode } from "../lib/purchaseMode";
 import { internal } from "../_generated/api";
 import { loadStoreContact, normalizeCustomerEmail, notifyWebOrderPlaced } from "./notifications";
 
@@ -146,7 +146,7 @@ export const createOrderFromCart = mutation({
     for (const cartItem of cartItems) {
       const product = await ctx.db.get(cartItem.productId);
 
-      if (!product || !product.isActive) {
+      if (!product || !isListedPublicly(product)) {
         throw new Error(`Product ${product?.name || 'unknown'} is not available`);
       }
 
@@ -530,8 +530,8 @@ export const placeWebOrder = mutation({
         throw new Error("Invalid quantity");
       }
       const product = await ctx.db.get(item.productId);
-      if (!product || !product.isActive) {
-        throw new Error(`Product ${product?.name || "unknown"} is not available`);
+      if (!product || !isListedPublicly(product)) {
+        throw new Error(`Product ${product && product.visibility !== "internal" ? product.name : "unknown"} is not available`);
       }
       const category = await ctx.db.get(product.categoryId);
       if (resolvePurchaseMode(product, category?.name) !== "cart") {

@@ -39,6 +39,7 @@ interface ProductFormData {
   grade: '' | 'S' | 'AAA' | 'AA' | 'A';
   // '' = automatic (storefront decides by category)
   purchaseMode: '' | 'enquire' | 'cart';
+  visibility: 'public' | 'internal';
 
   // Fish specific fields
   scientificName: string;
@@ -90,6 +91,7 @@ const initialFormData: ProductFormData = {
   lifespan: '',
   grade: '',
   purchaseMode: '',
+  visibility: 'public',
 
   // Fish specific fields
   scientificName: '',
@@ -230,6 +232,7 @@ export function ProductFormContentInner({ editProductId, onSuccess, isDrawer }: 
         lifespan: existingProduct.lifespan || '',
         grade: (existingProduct as { grade?: 'S' | 'AAA' | 'AA' | 'A' }).grade || '',
         purchaseMode: existingProduct.purchaseModeSetting ?? '',
+        visibility: existingProduct.visibility === 'internal' ? 'internal' : 'public',
       }));
     }
   }, [existingProduct, isEditing, categories]);
@@ -434,6 +437,7 @@ export function ProductFormContentInner({ editProductId, onSuccess, isDrawer }: 
         lifespan: formData.lifespan || undefined,
         grade: formData.grade || undefined,
         purchaseMode: formData.purchaseMode || undefined,
+        visibility: formData.visibility,
         isActive: formData.status === 'active',
         userId: user?._id as Id<'users'> | undefined,
       };
@@ -775,6 +779,46 @@ export function ProductFormContentInner({ editProductId, onSuccess, isDrawer }: 
           )}
 
           {/* How the storefront sells this product — shown for every product type */}
+          {/* Where the product appears: storefront/client app, or inventory & POS only */}
+          <div className="mb-4">
+            <label className="block text-sm font-semibold text-foreground mb-2">Visibility</label>
+            <div
+              className="grid grid-cols-2 gap-1 p-1 rounded-lg border"
+              style={{ background: 'var(--surface)', borderColor: 'var(--line)' }}
+              role="radiogroup"
+              aria-label="Visibility"
+            >
+              {([
+                { value: 'public' as const, label: 'For sale on website' },
+                { value: 'internal' as const, label: 'Internal (inventory only)' },
+              ]).map((o) => {
+                const active = formData.visibility === o.value;
+                return (
+                  <button
+                    key={o.value}
+                    type="button"
+                    role="radio"
+                    aria-checked={active}
+                    onClick={() => handleInputChange('visibility', o.value)}
+                    className="px-2 py-2 rounded-md text-xs sm:text-sm font-semibold border transition-all leading-tight"
+                    style={{
+                      background: active ? 'var(--red-wash)' : 'transparent',
+                      borderColor: active ? 'var(--red)' : 'transparent',
+                      color: active ? 'var(--red-hi)' : 'var(--ink-3)',
+                    }}
+                  >
+                    {o.label}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="mt-2 text-xs leading-relaxed" style={{ color: 'var(--ink-3)' }}>
+              {formData.visibility === 'internal'
+                ? 'Hidden from the website and customer app (no cart, checkout, reservations or search). Still available in inventory, POS and admin reports.'
+                : 'Shown on the website and customer app when the product is active.'}
+            </p>
+          </div>
+
           {(() => {
             const cat = formData.category.toLowerCase();
             const autoMode: 'enquire' | 'cart' =

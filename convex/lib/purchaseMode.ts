@@ -14,6 +14,16 @@ export function defaultPurchaseMode(categoryName: string | undefined): PurchaseM
   return n.includes("fish") || n.includes("aquatic") || n.includes("live") ? "enquire" : "cart";
 }
 
+export type ProductVisibility = "public" | "internal";
+
+/**
+ * Whether customers may see or buy a product anywhere (storefront, client app, cart,
+ * wishlist, reservations, sitemap). Internal products stay usable by staff (POS, inventory).
+ */
+export function isListedPublicly(product: { isActive: boolean; visibility?: ProductVisibility }): boolean {
+  return product.isActive && product.visibility !== "internal";
+}
+
 export function resolvePurchaseMode(
   product: { purchaseMode?: PurchaseMode },
   categoryName: string | undefined,

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
-import { newTest, seedCatalog } from "./setup";
+import { newTest, seedCatalog, signedInAs } from "./setup";
 
 // placeWebOrder schedules a confirmation email; fake timers keep scheduled functions from
 // running after a test has finished.
@@ -90,6 +90,42 @@ describe("web checkout", () => {
         t.mutation(api.services.orders.placeWebOrder, { ...customer, items: [{ productId: ids.gear as Id<"products">, quantity }] }),
       ).rejects.toThrow();
     }
+  });
+});
+
+describe("internal-only products", () => {
+  test("are hidden from customers but visible to staff, and can't be bought or reserved", async () => {
+    const t = newTest();
+    const ids = await seedCatalog(t);
+    await t.run((ctx) => ctx.db.patch(ids.gear as Id<"products">, { visibility: "internal" }));
+
+    const catalog = await t.query(api.services.products.getCatalogProducts, {});
+    expect(catalog.map((p) => p.name)).not.toContain("Aquarium Light");
+    await expect(t.query(api.services.products.getProduct, { productId: ids.gear })).resolves.toBeNull();
+
+    await expect(
+      t.mutation(api.services.orders.placeWebOrder, {
+        paymentMethod: "cash",
+        customerName: "Juan",
+        customerEmail: "juan@example.test",
+        items: [{ productId: ids.gear as Id<"products">, quantity: 1 }],
+      }),
+    ).rejects.toThrow(/not available/i);
+
+    await expect(
+      t.mutation(api.services.reservations.createReservation, {
+        guestId: "guest_test-internal",
+        guestInfo: { name: "Juan", email: "juan@example.test", phone: "09171234567" },
+        items: [{ productId: ids.gear as Id<"products">, quantity: 1, reservedPrice: 1 }],
+        totalAmount: 1,
+        totalQuantity: 1,
+      }),
+    ).rejects.toThrow(/not available/i);
+
+    const admin = await signedInAs(t, "admin");
+    await expect(admin.as.query(api.services.products.getProduct, { productId: ids.gear })).resolves.toMatchObject({ name: "Aquarium Light" });
+    const adminList = await admin.as.query(api.services.admin.getAllProductsAdmin, {});
+    expect(adminList.map((p) => p.name)).toContain("Aquarium Light");
   });
 });
 

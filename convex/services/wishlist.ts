@@ -1,5 +1,6 @@
 import { query, mutation } from "../_generated/server";
 import { v } from "convex/values";
+import { isListedPublicly } from "../lib/purchaseMode";
 import { QueryCtx } from "../_generated/server";
 import { Id } from "../_generated/dataModel";
 import { getViewer, isStaffRole, requireSelfOrStaff } from "../lib/authz";
@@ -79,7 +80,7 @@ export const addToWishlist = mutation({
 
     // Verify product exists
     const product = await ctx.db.get(productId);
-    if (!product) {
+    if (!product || !isListedPublicly(product)) {
       throw new Error("Product not found");
     }
 

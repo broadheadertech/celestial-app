@@ -4,10 +4,11 @@ import { Doc } from "../_generated/dataModel";
 import type { WithoutSystemFields } from "convex/server";
 import { recordAudit } from "./audit";
 import { getViewer, isStaffRole, requireStaff } from "../lib/authz";
-import { resolvePurchaseMode } from "../lib/purchaseMode";
+import { isListedPublicly, resolvePurchaseMode } from "../lib/purchaseMode";
 import { uniqueProductSlug } from "../lib/slug";
 
 const PURCHASE_MODE = v.optional(v.union(v.literal("enquire"), v.literal("cart")));
+const VISIBILITY = v.optional(v.union(v.literal("public"), v.literal("internal")));
 
 /** Public shape of a product: internal cost fields removed, sales channel resolved. */
 function toPublicProduct(product: Doc<"products">, categoryName: string | undefined) {
@@ -25,8 +26,9 @@ async function categoryNameMap(ctx: QueryCtx) {
   return names;
 }
 
-// Public storefront catalog: active products with their category name. Internal cost
-// fields are stripped — use admin.getAllProductsAdmin (staff only) for the full records.
+// Public storefront catalog: active, publicly listed products with their category name.
+// Internal-only products and cost fields are excluded — use admin.getAllProductsAdmin
+// (staff only) for the full records.
 export const getCatalogProducts = query({
   args: {},
   handler: async (ctx) => {
@@ -36,6 +38,7 @@ export const getCatalogProducts = query({
       .collect();
     const names = await categoryNameMap(ctx);
     return products
+      .filter(isListedPublicly)
       .map((p) => toPublicProduct(p, names.get(p.categoryId)))
       .sort((a, b) => b.updatedAt - a.updatedAt);
   },
@@ -58,13 +61,14 @@ export const getProducts = query({
         .query("products")
         .withIndex("by_category", (q) => q.eq("categoryId", categoryId))
         .collect();
-      if (!staff) products = products.filter((p) => p.isActive);
     } else {
       products = await ctx.db
         .query("products")
         .withIndex("by_active", (q) => q.eq("isActive", staff ? isActive : true))
         .collect();
     }
+    // Customers only ever see active, publicly listed products.
+    if (!staff) products = products.filter(isListedPublicly);
 
     const names = await categoryNameMap(ctx);
     const shaped = products.map((p) => toPublicProduct(p, names.get(p.categoryId)));
@@ -104,7 +108,7 @@ async function productForViewer(ctx: QueryCtx, product: Doc<"products"> | null) 
   if (!product) return null;
   const viewer = await getViewer(ctx);
   const staff = !!viewer && isStaffRole(viewer.role);
-  if (!product.isActive && !staff) return null;
+  if (!staff && !isListedPublicly(product)) return null;
 
   const category = await ctx.db.get(product.categoryId);
   if (staff) {
@@ -140,12 +144,22 @@ export const getTankByProductId = query({
     productId: v.id("products"),
   },
   handler: async (ctx, { productId }) => {
+    if (!(await canViewProduct(ctx, productId))) return null;
     return await ctx.db
       .query("tank")
       .withIndex("by_product", (q) => q.eq("productId", productId))
       .first();
   },
 });
+
+/** Specs for internal-only or inactive products are only visible to staff. */
+async function canViewProduct(ctx: QueryCtx, productId: Doc<"products">["_id"]) {
+  const product = await ctx.db.get(productId);
+  if (!product) return false;
+  if (isListedPublicly(product)) return true;
+  const viewer = await getViewer(ctx);
+  return !!viewer && isStaffRole(viewer.role);
+}
 
 
 // Get fish data by product ID
@@ -154,6 +168,7 @@ export const getFishByProductId = query({
     productId: v.id("products"),
   },
   handler: async (ctx, { productId }) => {
+    if (!(await canViewProduct(ctx, productId))) return null;
     return await ctx.db
       .query("fish")
       .withIndex("by_product", (q) => q.eq("productId", productId))
@@ -170,7 +185,7 @@ export const getFeaturedProducts = query({
     const products = await ctx.db
       .query("products")
       .withIndex("by_active", (q) => q.eq("isActive", true))
-      .filter((q) => q.neq(q.field("badge"), undefined))
+      .filter((q) => q.and(q.neq(q.field("badge"), undefined), q.neq(q.field("visibility"), "internal")))
       .take(Math.min(limit, 50));
 
     const names = await categoryNameMap(ctx);
@@ -185,11 +200,13 @@ export const getTopRatedProducts = query({
     minRating: v.optional(v.number()),
   },
   handler: async (ctx, { limit = 10 }) => {
-    // Get all active products
-    const products = await ctx.db
-      .query("products")
-      .withIndex("by_active", (q) => q.eq("isActive", true))
-      .collect();
+    // Get all active, publicly listed products
+    const products = (
+      await ctx.db
+        .query("products")
+        .withIndex("by_active", (q) => q.eq("isActive", true))
+        .collect()
+    ).filter(isListedPublicly);
 
     // Get all reservations to count by product
     const allReservations = await ctx.db.query("reservations").collect();
@@ -267,6 +284,7 @@ export const createProduct = mutation({
       v.literal("A"),
     )),
     purchaseMode: PURCHASE_MODE,
+    visibility: VISIBILITY,
     isActive: v.boolean(),
 
     // Category-specific data (optional)
@@ -473,6 +491,7 @@ export const createProduct = mutation({
         batchCode: batchCode,
         grade: args.grade,
         purchaseMode: args.purchaseMode,
+        visibility: args.visibility,
         slug: await uniqueProductSlug(ctx, args.name.trim()),
         isActive: args.isActive,
         createdAt: now,
@@ -601,6 +620,7 @@ export const updateProduct = mutation({
       v.literal("A"),
     )),
     purchaseMode: PURCHASE_MODE,
+    visibility: VISIBILITY,
     isActive: v.optional(v.boolean()),
     userId: v.optional(v.id("users")), // ignored; the acting admin comes from the session
 

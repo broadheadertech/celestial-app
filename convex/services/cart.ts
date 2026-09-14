@@ -1,5 +1,6 @@
 import { query, mutation, QueryCtx, MutationCtx } from "../_generated/server";
 import { v, ConvexError } from "convex/values";
+import { isListedPublicly } from "../lib/purchaseMode";
 import { Doc, Id } from "../_generated/dataModel";
 import { getViewer, isStaffRole, requireSelfOrStaff } from "../lib/authz";
 
@@ -107,7 +108,7 @@ export const addToCart = mutation({
 
     // Check if product exists and is active
     const product = await ctx.db.get(productId);
-    if (!product || !product.isActive) {
+    if (!product || !isListedPublicly(product)) {
       throw new Error("Product not found or not available");
     }
 

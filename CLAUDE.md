@@ -350,6 +350,9 @@ npx cap run android      # Build and run on device/emulator
 - **Purchase mode:** `products.purchaseMode` is `"enquire"` (showcase + WhatsApp/viewing, e.g. live fish)
   or `"cart"` (add to cart + checkout, e.g. food, lights, gear). Unset = default by category
   (`convex/lib/purchaseMode.ts`). Set per product in the admin product form.
+- **Visibility:** `products.visibility` `"internal"` = inventory/POS only. Use `isListedPublicly()` from
+  `convex/lib/purchaseMode.ts` in every customer-facing query/mutation (catalog, product lookups, cart,
+  wishlist, web orders, customer reservations); staff paths may still use internal products.
 - **Checkout** (`app/(site)/checkout`) accepts cart-mode products only (`orders.placeWebOrder` enforces it);
   orders are created pending/unpaid — no online payment.
 - **Business Details** (Admin → Business Details, `convex/services/business.ts`): the single source for

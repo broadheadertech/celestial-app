@@ -1,5 +1,6 @@
 import { query, mutation, QueryCtx, MutationCtx } from "../_generated/server";
 import { v, ConvexError } from "convex/values";
+import { isListedPublicly } from "../lib/purchaseMode";
 import { Doc, Id } from "../_generated/dataModel";
 import { getReservationUser } from "../lib/reservationUser";
 import {
@@ -150,7 +151,8 @@ export const createReservationFromCart = mutation({
       throw new Error("Guest information is required for guest reservations");
     }
 
-    await assertCanReserveAs(ctx, userId);
+    const reserver = await assertCanReserveAs(ctx, userId);
+    const reserverIsStaff = !!reserver && isStaffRole(reserver.role);
     assertReservationInputLimits(guestInfo, notes);
 
     // Get cart items
@@ -189,7 +191,8 @@ export const createReservationFromCart = mutation({
     for (const cartItem of cartItems) {
       // Check product availability
       const product = await ctx.db.get(cartItem.productId);
-      if (!product || !product.isActive) {
+      // Internal-only (inventory) products can't be reserved by customers; staff may use them.
+      if (!product || !product.isActive || (!reserverIsStaff && !isListedPublicly(product))) {
         throw new Error(`Product ${product?.name || 'unknown'} is not available`);
       }
 
@@ -871,7 +874,7 @@ export const createReservation = mutation({
     const catalogPricedItems: { productId: Id<"products">; quantity: number; reservedPrice: number }[] = [];
     for (const item of items) {
       const product = await ctx.db.get(item.productId);
-      if (!product || !product.isActive) {
+      if (!product || !product.isActive || (!callerIsStaff && !isListedPublicly(product))) {
         throw new Error(`Product not available`);
       }
 
