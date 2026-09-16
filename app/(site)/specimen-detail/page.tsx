@@ -176,18 +176,21 @@ function SpecimenInner() {
   const showingVideo = active?.type === 'video';
   const certs = certificateUrls(product.certificate);
   const inStock = product.stock > 0;
-  const specs: [string, string][] = isLiveFish
-    ? [
-        ['SKU', product.sku ? '#' + product.sku : '—'],
-        ['Tank', product.tankNumber || '—'],
-        ['Origin', fish?.origin || '—'],
-        ['Grade', product.grade || '—'],
-      ]
-    : [
-        ['SKU', product.sku ? '#' + product.sku : '—'],
-        ['Category', product.categoryName || '—'],
-        ['Stock', inStock ? String(product.stock) : 'Out of stock'],
-      ];
+  // Only details that are filled in; empty ones are left out rather than shown as dashes.
+  const specs = (
+    isLiveFish
+      ? [
+          ['SKU', product.sku ? '#' + product.sku : ''],
+          ['Tank', product.tankNumber || ''],
+          ['Origin', fish?.origin || ''],
+          ['Grade', product.grade || ''],
+        ]
+      : [
+          ['SKU', product.sku ? '#' + product.sku : ''],
+          ['Category', product.categoryName || ''],
+          ['Stock', inStock ? String(product.stock) : 'Out of stock'],
+        ]
+  ).filter(([, v]) => v) as [string, string][];
   const husbandry: [string, string, string?][] = [
     ['Length · Age', [fish?.size ? fish.size + ' cm' : null, fish?.age ? fish.age + ' yr' : null].filter(Boolean).join(' · ') || '—'],
     ['Water', [fish?.temperature ? fish.temperature + '°C' : null, fish?.phLevel ? 'pH ' + fish.phLevel : null].filter(Boolean).join(' · ') || '—'],
@@ -311,14 +314,16 @@ function SpecimenInner() {
             {product.description && <p style={{ fontSize: 17, lineHeight: 1.62, color: 'oklch(0.40 0.012 34)', maxWidth: 520, margin: '0 0 24px' }}>{product.description}</p>}
             <div style={{ fontFamily: serif, fontWeight: 700, fontSize: 30, color: 'oklch(0.50 0.216 27)', margin: '0 0 26px' }}>{fmtPeso(product.price)}</div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: '14px 20px', padding: '24px 0', borderTop: '1px solid oklch(0.86 0.012 68)', borderBottom: '1px solid oklch(0.86 0.012 68)', marginBottom: 30 }}>
-              {specs.map(([k, v]) => (
-                <div key={k}>
-                  <div style={{ fontFamily: mono, fontSize: 9, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'oklch(0.50 0.02 40)', marginBottom: 6 }}>{k}</div>
-                  <div style={{ fontFamily: mono, fontSize: 14, color: 'oklch(0.24 0.012 32)' }}>{v}</div>
-                </div>
-              ))}
-            </div>
+            {specs.length > 0 && (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: '14px 20px', padding: '24px 0', borderTop: '1px solid oklch(0.86 0.012 68)', borderBottom: '1px solid oklch(0.86 0.012 68)', marginBottom: 30 }}>
+                {specs.map(([k, v]) => (
+                  <div key={k}>
+                    <div style={{ fontFamily: mono, fontSize: 9, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'oklch(0.50 0.02 40)', marginBottom: 6 }}>{k}</div>
+                    <div style={{ fontFamily: mono, fontSize: 14, color: 'oklch(0.24 0.012 32)' }}>{v}</div>
+                  </div>
+                ))}
+              </div>
+            )}
 
             {isCartProduct ? (
               <>

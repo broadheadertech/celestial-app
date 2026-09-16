@@ -107,7 +107,7 @@ export default function HomePage() {
               <>
                 <div style={{ height: 1, background: 'oklch(0.84 0.012 66)', maxWidth: 452, margin: '44px 0 24px' }} />
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 20, maxWidth: 452 }}>
-                  {[['Grade', heroGrade || '—'], ['Tank', featured.tankNumber || '—'], ['Price', fmtPeso(featured.price)]].map(([k, v]) => (
+                  {[['Grade', heroGrade], ['Tank', featured.tankNumber || ''], ['Price', fmtPeso(featured.price)]].filter(([, v]) => v).map(([k, v]) => (
                     <div key={k}>
                       <div style={{ fontFamily: mono, fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'oklch(0.50 0.02 40)', marginBottom: 6 }}>{k}</div>
                       <div style={{ fontFamily: serif, fontWeight: 700, fontSize: k === 'Price' ? 22 : 26, color: 'oklch(0.19 0.012 32)' }}>{v}</div>
