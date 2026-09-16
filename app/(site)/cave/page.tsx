@@ -10,7 +10,7 @@ import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { useQuery } from 'convex/react';
 import { api } from '@/convex/_generated/api';
-import { buildChips, DcProduct, familyOf, fmtPeso, gradeRank, isArowana, isFish, tintFor } from '@/components/dc/fish';
+import { buildChips, DcProduct, familyOf, fmtPeso, gradeRank, isArowana, isFish, tintFor, kindName } from '@/components/dc/fish';
 import { useBusiness } from '@/components/dc/business';
 import VideoBadge from '@/components/dc/VideoBadge';
 
@@ -24,16 +24,16 @@ export default function CavePage() {
   const [grade, setGrade] = useState('all');
 
   const cave = useMemo(
-    () => (products ?? []).filter((p) => p.isActive && isFish(p) && p.stock > 0 && !isArowana(p.name)),
+    () => (products ?? []).filter((p) => p.isActive && isFish(p) && p.stock > 0 && !isArowana(kindName(p))),
     [products],
   );
-  const familyChips = useMemo(() => buildChips(cave, (p) => familyOf(p.name)), [cave]);
+  const familyChips = useMemo(() => buildChips(cave, (p) => familyOf(kindName(p))), [cave]);
   const gradeChips = useMemo(() => ['all', ...Array.from(new Set(cave.filter((p) => p.grade).map((p) => p.grade!)))], [cave]);
 
   const items = useMemo(
     () =>
       cave
-        .filter((p) => (family === 'all' || familyOf(p.name) === family) && (grade === 'all' || p.grade === grade))
+        .filter((p) => (family === 'all' || familyOf(kindName(p)) === family) && (grade === 'all' || p.grade === grade))
         .sort((a, b) => gradeRank(a.grade) - gradeRank(b.grade) || b.price - a.price),
     [cave, family, grade],
   );
@@ -112,7 +112,7 @@ export default function CavePage() {
                   {item.grade && <div style={{ position: 'absolute', top: 11, right: 12, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 26, height: 22, padding: '0 6px', borderRadius: 6, background: 'oklch(0.72 0.14 82 / 0.14)', border: '1px solid oklch(0.72 0.13 82 / 0.45)', fontFamily: serif, fontWeight: 700, fontSize: 12, color: 'oklch(0.82 0.13 84)' }}>{item.grade}</div>}
                 </Link>
                 <div style={{ padding: '15px 4px 4px', display: 'flex', flexDirection: 'column', flex: 1 }}>
-                  <div style={{ fontFamily: mono, fontSize: 9.5, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'oklch(0.50 0.03 34)', marginBottom: 6 }}>{familyOf(item.name)}</div>
+                  <div style={{ fontFamily: mono, fontSize: 9.5, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'oklch(0.50 0.03 34)', marginBottom: 6 }}>{familyOf(kindName(item))}</div>
                   <Link href={`/specimen-detail?id=${item._id}`} style={{ fontFamily: serif, fontWeight: 600, fontSize: 19, lineHeight: 1.15, color: 'oklch(0.19 0.012 32)', marginBottom: 5 }}>{item.name}</Link>
                   <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, paddingTop: 13, borderTop: '1px solid oklch(0.88 0.012 68)' }}>
                     <span style={{ fontFamily: mono, fontSize: 14.5, fontWeight: 600, color: 'oklch(0.22 0.012 32)', letterSpacing: '0.01em' }}>{fmtPeso(item.price)}</span>

@@ -1,5 +1,6 @@
 import { query, mutation, QueryCtx, MutationCtx } from "../_generated/server";
 import { v, ConvexError } from "convex/values";
+import { customerProduct } from "../lib/productName";
 import { isListedPublicly } from "../lib/purchaseMode";
 import { Doc, Id } from "../_generated/dataModel";
 import { getViewer, isStaffRole, requireSelfOrStaff } from "../lib/authz";
@@ -76,7 +77,7 @@ export const getCartItems = query({
         const product = await ctx.db.get(item.productId);
         return {
           ...item,
-          product,
+          product: product ? customerProduct(product) : null,
         };
       })
     );

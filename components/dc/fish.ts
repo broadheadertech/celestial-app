@@ -9,7 +9,12 @@
 
 export type DcProduct = {
   _id: string;
+  /** Customer-facing name (the backend puts the display name here for public payloads). */
   name: string;
+  /** Optional display name; staff payloads carry it separately from the internal `name`. */
+  displayName?: string;
+  /** Internal inventory name — use for classification (bloodline, Catalog vs Cave), never for display. */
+  internalName?: string;
   price: number;
   stock: number;
   image?: string;
@@ -31,6 +36,12 @@ export type DcProduct = {
   /** Resolved by the backend: "enquire" (showcase only) or "cart" (can be bought online). */
   purchaseMode?: 'enquire' | 'cart';
 };
+
+/** Name to show customers. */
+export const titleOf = (p: { name: string; displayName?: string }) => p.displayName?.trim() || p.name;
+
+/** Name to classify by (the internal inventory name, which carries codes like SR / RTG / XB). */
+export const kindName = (p: { name: string; internalName?: string }) => p.internalName ?? p.name;
 
 export const fmtPeso = (n: number) =>
   '₱' + Math.round(n || 0).toLocaleString('en-PH');

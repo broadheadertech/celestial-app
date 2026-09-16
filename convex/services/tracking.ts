@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { publicName } from "../lib/productName";
 import { query, QueryCtx } from "../_generated/server";
 import { Doc } from "../_generated/dataModel";
 
@@ -27,7 +28,7 @@ async function itemLines(ctx: QueryCtx, items: { productId: Doc<"products">["_id
   return Promise.all(
     items.map(async (item) => {
       const product = await ctx.db.get(item.productId);
-      return { name: product?.name ?? "Item", image: product?.image ?? null, quantity: item.quantity, price: item.price };
+      return { name: product ? publicName(product) : "Item", image: product?.image ?? null, quantity: item.quantity, price: item.price };
     }),
   );
 }

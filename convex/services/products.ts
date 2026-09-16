@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { publicName } from "../lib/productName";
 import { internalMutation, mutation, query, QueryCtx } from "../_generated/server";
 import { Doc } from "../_generated/dataModel";
 import type { WithoutSystemFields } from "convex/server";
@@ -12,12 +13,23 @@ import { normalizeVideos, productVideoValidator } from "../lib/video";
 const PURCHASE_MODE = v.optional(v.union(v.literal("enquire"), v.literal("cart"), v.literal("auto")));
 const VISIBILITY = v.optional(v.union(v.literal("public"), v.literal("internal")));
 const VIDEOS = v.optional(v.array(productVideoValidator));
+const DISPLAY_NAME = v.optional(v.string());
+
+/** Trims a display name; empty clears it (falls back to the internal name). */
+function cleanDisplayName(value: string | undefined): string | undefined {
+  const trimmed = value?.trim().slice(0, 120);
+  return trimmed ? trimmed : undefined;
+}
 
 /** Public shape of a product: internal cost fields removed, sales channel resolved. */
 function toPublicProduct(product: Doc<"products">, categoryName: string | undefined) {
   const { costPrice, movingAverageCost, ...rest } = product;
   return {
     ...rest,
+    // Customers see the display name; the internal name is kept only for storefront classification.
+    name: publicName(product),
+    displayName: publicName(product),
+    internalName: product.name,
     categoryName: categoryName || "Unknown",
     purchaseMode: resolvePurchaseMode(product, categoryName),
   };
@@ -289,6 +301,7 @@ export const createProduct = mutation({
     purchaseMode: PURCHASE_MODE,
     visibility: VISIBILITY,
     videos: VIDEOS,
+    displayName: DISPLAY_NAME,
     isActive: v.boolean(),
 
     // Category-specific data (optional)
@@ -497,7 +510,8 @@ export const createProduct = mutation({
         purchaseMode: args.purchaseMode === "auto" ? undefined : args.purchaseMode,
         visibility: args.visibility,
         videos: normalizeVideos(args.videos),
-        slug: await uniqueProductSlug(ctx, args.name.trim()),
+        displayName: cleanDisplayName(args.displayName),
+        slug: await uniqueProductSlug(ctx, cleanDisplayName(args.displayName) || args.name.trim()),
         isActive: args.isActive,
         createdAt: now,
         updatedAt: now,
@@ -627,6 +641,7 @@ export const updateProduct = mutation({
     purchaseMode: PURCHASE_MODE,
     visibility: VISIBILITY,
     videos: VIDEOS,
+    displayName: DISPLAY_NAME,
     isActive: v.optional(v.boolean()),
     userId: v.optional(v.id("users")), // ignored; the acting admin comes from the session
 
@@ -880,6 +895,13 @@ export const updateProduct = mutation({
       if (updates.purchaseMode !== undefined) updateData.purchaseMode = updates.purchaseMode === "auto" ? undefined : updates.purchaseMode;
       if (updates.visibility !== undefined) updateData.visibility = updates.visibility;
       if (updates.videos !== undefined) updateData.videos = updates.videos;
+      if (updates.displayName !== undefined) {
+        updateData.displayName = cleanDisplayName(updates.displayName);
+        // The first time a customer-facing name is added, give the product a matching readable URL.
+        if (updateData.displayName && !product.displayName?.trim()) {
+          updateData.slug = await uniqueProductSlug(ctx, updateData.displayName, productId);
+        }
+      }
 
       // Update the main product
       await ctx.db.patch(productId, updateData);

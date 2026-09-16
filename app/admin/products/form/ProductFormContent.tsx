@@ -43,6 +43,7 @@ interface ProductFormData {
   purchaseMode: '' | 'enquire' | 'cart';
   visibility: 'public' | 'internal';
   videos: ProductVideo[];
+  displayName: string;
 
   // Fish specific fields
   scientificName: string;
@@ -96,6 +97,7 @@ const initialFormData: ProductFormData = {
   purchaseMode: '',
   visibility: 'public',
   videos: [],
+  displayName: '',
 
   // Fish specific fields
   scientificName: '',
@@ -219,7 +221,7 @@ export function ProductFormContentInner({ editProductId, onSuccess, isDrawer }: 
         name: existingProduct.name,
         description: existingProduct.description || '',
         price: existingProduct.price.toString(),
-        costPrice: existingProduct.costPrice?.toString() || '',
+        costPrice: 'costPrice' in existingProduct ? existingProduct.costPrice?.toString() || '' : '',
         // Blank when there's no real discount (matches the "Leave blank if no discount" hint);
         // pre-filling it with the selling price made price increases trip the compare-at check.
         originalPrice: existingProduct.originalPrice?.toString() || '',
@@ -238,6 +240,8 @@ export function ProductFormContentInner({ editProductId, onSuccess, isDrawer }: 
         purchaseMode: existingProduct.purchaseModeSetting ?? '',
         visibility: existingProduct.visibility === 'internal' ? 'internal' : 'public',
         videos: existingProduct.videos ?? [],
+        // Staff get the raw record (no internalName); displayName is empty unless one was saved.
+        displayName: 'internalName' in existingProduct ? '' : existingProduct.displayName ?? '',
       }));
     }
   }, [existingProduct, isEditing, categories]);
@@ -445,6 +449,7 @@ export function ProductFormContentInner({ editProductId, onSuccess, isDrawer }: 
         purchaseMode: formData.purchaseMode === '' ? ('auto' as const) : formData.purchaseMode,
         visibility: formData.visibility,
         videos: formData.videos,
+        displayName: formData.displayName.trim(),
         isActive: formData.status === 'active',
         userId: user?._id as Id<'users'> | undefined,
       };
@@ -657,13 +662,30 @@ export function ProductFormContentInner({ editProductId, onSuccess, isDrawer }: 
           <h2 className="text-lg font-bold text-white mb-4">Basic Information</h2>
 
           {/* Product Name */}
-          {renderFormField('Product Name', true)}
+          {renderFormField('Product Name (internal)', true)}
           <input
-            className="w-full p-4 rounded-lg bg-secondary border border-primary/10 text-white placeholder:text-muted mb-4"
+            className="w-full p-4 rounded-lg bg-secondary border border-primary/10 text-white placeholder:text-muted mb-1"
             placeholder="Enter product name"
             value={formData.name}
             onChange={(e) => handleInputChange('name', e.target.value)}
           />
+          <p className="text-xs mb-4" style={{ color: 'var(--ink-3)' }}>
+            Used in inventory, POS, orders and reports.
+          </p>
+
+          {/* Display Name */}
+          {renderFormField('Display Name (shown to customers)')}
+          <input
+            className="w-full p-4 rounded-lg bg-secondary border border-primary/10 text-white placeholder:text-muted mb-1"
+            placeholder={formData.name ? `Leave blank to show “${formData.name}”` : 'e.g. Super Red Arowana — Competition Grade'}
+            value={formData.displayName}
+            maxLength={120}
+            onChange={(e) => handleInputChange('displayName', e.target.value)}
+          />
+          <p className="text-xs mb-4 leading-relaxed" style={{ color: 'var(--ink-3)' }}>
+            The friendly name customers see on the website, app, cart, tracking and emails.
+            {isEditing && formData.displayName.trim() === '' ? ' Adding one for the first time also gives the product a matching web address.' : ''}
+          </p>
 
           {/* Description */}
           {renderFormField('Description')}

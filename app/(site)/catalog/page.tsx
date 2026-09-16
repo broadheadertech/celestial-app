@@ -10,7 +10,7 @@ import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { useQuery } from 'convex/react';
 import { api } from '@/convex/_generated/api';
-import { bloodlineOf, buildChips, DcProduct, fmtPeso, gradeRank, isArowana, isFish, tintFor } from '@/components/dc/fish';
+import { bloodlineOf, buildChips, DcProduct, fmtPeso, gradeRank, isArowana, isFish, tintFor, kindName } from '@/components/dc/fish';
 import { useBusiness } from '@/components/dc/business';
 import VideoBadge from '@/components/dc/VideoBadge';
 
@@ -24,16 +24,16 @@ export default function CatalogPage() {
   const [grade, setGrade] = useState('all');
 
   const arowana = useMemo(
-    () => (products ?? []).filter((p) => p.isActive && isFish(p) && p.stock > 0 && isArowana(p.name)),
+    () => (products ?? []).filter((p) => p.isActive && isFish(p) && p.stock > 0 && isArowana(kindName(p))),
     [products],
   );
-  const bloodlineChips = useMemo(() => buildChips(arowana, (p) => bloodlineOf(p.name)), [arowana]);
+  const bloodlineChips = useMemo(() => buildChips(arowana, (p) => bloodlineOf(kindName(p))), [arowana]);
   const gradeChips = useMemo(() => ['all', ...Array.from(new Set(arowana.filter((p) => p.grade).map((p) => p.grade!)))], [arowana]);
 
   const items = useMemo(
     () =>
       arowana
-        .filter((p) => (bloodline === 'all' || bloodlineOf(p.name) === bloodline) && (grade === 'all' || p.grade === grade))
+        .filter((p) => (bloodline === 'all' || bloodlineOf(kindName(p)) === bloodline) && (grade === 'all' || p.grade === grade))
         .sort((a, b) => gradeRank(a.grade) - gradeRank(b.grade) || b.price - a.price),
     [arowana, bloodline, grade],
   );
@@ -87,7 +87,7 @@ export default function CatalogPage() {
                   {item.grade && <div style={{ position: 'absolute', top: 11, right: 12, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 26, height: 22, padding: '0 6px', borderRadius: 6, background: 'oklch(0.72 0.14 82 / 0.14)', border: '1px solid oklch(0.72 0.13 82 / 0.45)', fontFamily: serif, fontWeight: 700, fontSize: 12, color: 'oklch(0.82 0.13 84)' }}>{item.grade}</div>}
                 </Link>
                 <div style={{ padding: '15px 4px 4px', display: 'flex', flexDirection: 'column', flex: 1 }}>
-                  <div style={{ fontFamily: mono, fontSize: 9.5, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'oklch(0.50 0.03 34)', marginBottom: 6 }}>{bloodlineOf(item.name)}</div>
+                  <div style={{ fontFamily: mono, fontSize: 9.5, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'oklch(0.50 0.03 34)', marginBottom: 6 }}>{bloodlineOf(kindName(item))}</div>
                   <Link href={`/specimen-detail?id=${item._id}`} style={{ fontFamily: serif, fontWeight: 600, fontSize: 19, lineHeight: 1.15, color: 'oklch(0.19 0.012 32)', marginBottom: 4 }}>{item.name}</Link>
                   <div style={{ fontFamily: mono, fontSize: 13, color: 'oklch(0.22 0.012 32)', fontWeight: 600, marginBottom: 14 }}>{fmtPeso(item.price)}</div>
                   <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 13, borderTop: '1px solid oklch(0.88 0.012 68)' }}>

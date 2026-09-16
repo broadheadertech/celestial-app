@@ -343,6 +343,7 @@ export const createProduct = mutation({
     purchaseMode: v.optional(v.union(v.literal("enquire"), v.literal("cart"), v.literal("auto"))),
     visibility: v.optional(v.union(v.literal("public"), v.literal("internal"))),
     videos: v.optional(v.array(productVideoValidator)),
+    displayName: v.optional(v.string()),
     userId: v.optional(v.id("users")), // acting admin (for audit) — excluded from the product doc
   },
   handler: async (ctx, args) => {
@@ -354,6 +355,7 @@ export const createProduct = mutation({
       ...rawFields,
       purchaseMode: rawFields.purchaseMode === "auto" ? undefined : rawFields.purchaseMode,
       videos: normalizeVideos(rawFields.videos),
+      displayName: rawFields.displayName?.trim().slice(0, 120) || undefined,
     };
 
     // Generate batch code: BATCH-YYYYMMDD-RANDOM
@@ -422,7 +424,7 @@ export const createProduct = mutation({
       productStatus: args.productStatus || "active",
       tankNumber: args.tankNumber,
       batchCode: batchCode,
-      slug: await uniqueProductSlug(ctx, args.name),
+      slug: await uniqueProductSlug(ctx, productFields.displayName || args.name),
       createdAt: now,
       updatedAt: now,
     });

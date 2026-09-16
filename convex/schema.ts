@@ -74,6 +74,8 @@ export default defineSchema({
     // "internal" = inventory/POS only, never shown or sold on the storefront or client app.
     // Unset = "public". (isActive still controls whether the product is in use at all.)
     visibility: v.optional(v.union(v.literal("public"), v.literal("internal"))),
+    // Customer-facing name shown on the storefront/client app; unset = use `name` (internal).
+    displayName: v.optional(v.string()),
     // Showcase videos in display order (uploaded clips or YouTube/Facebook links; convex/lib/video.ts).
     videos: v.optional(v.array(productVideoValidator)),
     // URL-safe unique name for readable links (/specimen/<slug>); generated from the name.

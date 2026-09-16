@@ -14,7 +14,7 @@ import { useSearchParams } from 'next/navigation';
 import { useQuery } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
-import { bloodlineOf, DcProduct, familyOf, fmtPeso, gradeRank, isArowana, isFish, tintFor } from '@/components/dc/fish';
+import { bloodlineOf, DcProduct, familyOf, fmtPeso, gradeRank, isArowana, isFish, tintFor, kindName, titleOf } from '@/components/dc/fish';
 import { useBusiness } from '@/components/dc/business';
 import { facebookEmbedUrl, formatDuration, videoThumb, youtubeEmbedUrl, type ProductVideo } from '@/components/dc/video';
 import { useSiteCart } from '@/store/siteCart';
@@ -39,8 +39,8 @@ function useProductSeo(product: DcProduct | null | undefined, storeName: string)
   useEffect(() => {
     if (!product) return;
     const url = product.slug ? `${SITE_URL}/specimen/${product.slug}` : `${SITE_URL}/specimen-detail?id=${product._id}`;
-    const description = (product.description || `${product.name} — available at ${storeName}.`).slice(0, 300);
-    document.title = `${product.name} · ${storeName}`;
+    const description = (product.description || `${titleOf(product)} — available at ${storeName}.`).slice(0, 300);
+    document.title = `${titleOf(product)} · ${storeName}`;
 
     const upsert = (selector: string, create: () => HTMLElement) => {
       let el = document.head.querySelector<HTMLElement>(selector);
@@ -56,7 +56,7 @@ function useProductSeo(product: DcProduct | null | undefined, storeName: string)
     const jsonLd = {
       '@context': 'https://schema.org',
       '@type': 'Product',
-      name: product.name,
+      name: titleOf(product),
       description,
       image: (product.images?.length ? product.images : product.image ? [product.image] : []).slice(0, 5),
       sku: product.sku ? String(product.sku) : undefined,
@@ -73,7 +73,7 @@ function useProductSeo(product: DcProduct | null | undefined, storeName: string)
       },
       subjectOf: (product.videos ?? []).map((video) => ({
         '@type': 'VideoObject',
-        name: `${product.name} — video`,
+        name: `${titleOf(product)} — video`,
         description,
         thumbnailUrl: videoThumb(video) ?? (product.image ? [product.image] : undefined),
         uploadDate: new Date(product.updatedAt ?? Date.now()).toISOString(),
@@ -117,7 +117,7 @@ function SpecimenInner() {
   const fetched = idParam ? byId : bySlug;
 
   const fallback = useMemo(
-    () => (all ?? []).filter((p) => p.isActive && isFish(p) && isArowana(p.name)).sort((a, b) => gradeRank(a.grade) - gradeRank(b.grade) || b.price - a.price)[0],
+    () => (all ?? []).filter((p) => p.isActive && isFish(p) && isArowana(kindName(p))).sort((a, b) => gradeRank(a.grade) - gradeRank(b.grade) || b.price - a.price)[0],
     [all],
   );
   const product = lookup ? fetched : fallback;
@@ -138,9 +138,9 @@ function SpecimenInner() {
         .filter((p) => p._id !== product._id && p.stock > 0 && p.purchaseMode === 'cart' && p.categoryName === product.categoryName)
         .slice(0, 3);
     }
-    const aro = isArowana(product.name);
+    const aro = isArowana(kindName(product));
     return all
-      .filter((p) => p.isActive && isFish(p) && p._id !== product._id && p.stock > 0 && isArowana(p.name) === aro)
+      .filter((p) => p.isActive && isFish(p) && p._id !== product._id && p.stock > 0 && isArowana(kindName(p)) === aro)
       .sort((a, b) => gradeRank(a.grade) - gradeRank(b.grade) || b.price - a.price)
       .slice(0, 3);
   }, [all, product, isCartProduct]);
@@ -161,7 +161,7 @@ function SpecimenInner() {
   if (!lookup && all !== undefined && !fallback) return notice('No specimens on display right now', true);
   if (!product) return notice('Loading…');
 
-  const label = isArowana(product.name) ? bloodlineOf(product.name) : isLiveFish ? familyOf(product.name) : product.categoryName || 'Shop';
+  const label = isArowana(kindName(product)) ? bloodlineOf(kindName(product)) : isLiveFish ? familyOf(kindName(product)) : product.categoryName || 'Shop';
   const images = (product.images && product.images.length ? product.images : product.image ? [product.image] : []).filter(Boolean) as string[];
   const videos = product.videos ?? [];
   // Gallery order: cover photo, then videos, then the remaining photos.
@@ -200,14 +200,14 @@ function SpecimenInner() {
     ['Certificate', certs.length ? `${certs.length} on file` : 'Available on enquiry'],
     ['Lifespan', fish?.lifespan || '—'],
   ];
-  const enquireHref = biz.enquireHref(product.name, product.tankNumber || (product.sku ? String(product.sku) : ''));
+  const enquireHref = biz.enquireHref(titleOf(product), product.tankNumber || (product.sku ? String(product.sku) : ''));
   const external = enquireHref.startsWith('http');
   const maxQty = Math.max(1, product.stock);
   const handleAdd = () =>
     addToCart(
       {
         productId: product._id,
-        name: product.name,
+        name: titleOf(product),
         sku: product.sku ? String(product.sku) : undefined,
         price: product.price,
         stock: product.stock,
@@ -224,9 +224,9 @@ function SpecimenInner() {
       {/* breadcrumb */}
       <div style={{ maxWidth: 1280, margin: '0 auto', width: '100%', padding: '22px 28px 0', boxSizing: 'border-box' }}>
         <div style={{ fontFamily: mono, fontSize: 11, letterSpacing: '0.1em', color: 'oklch(0.50 0.02 40)' }}>
-          <Link href={isCartProduct ? '/shop' : isArowana(product.name) ? '/catalog' : '/cave'} style={{ color: 'oklch(0.50 0.02 40)' }}>{isCartProduct ? 'Shop' : isArowana(product.name) ? 'Catalog' : 'The Cave'}</Link>
+          <Link href={isCartProduct ? '/shop' : isArowana(kindName(product)) ? '/catalog' : '/cave'} style={{ color: 'oklch(0.50 0.02 40)' }}>{isCartProduct ? 'Shop' : isArowana(kindName(product)) ? 'Catalog' : 'The Cave'}</Link>
           <span style={{ margin: '0 8px', color: 'oklch(0.72 0.02 50)' }}>/</span>
-          <span style={{ color: 'oklch(0.30 0.012 32)' }}>{product.name}</span>
+          <span style={{ color: 'oklch(0.30 0.012 32)' }}>{titleOf(product)}</span>
         </div>
       </div>
 
@@ -241,11 +241,11 @@ function SpecimenInner() {
               {showingVideo && active.type === 'video' ? (
                 <div style={{ position: 'absolute', inset: 0, background: 'black' }}>
                   {active.video.kind === 'file' ? (
-                    <video key={active.video.url} src={active.video.url} poster={active.video.posterUrl} controls autoPlay playsInline preload="metadata" aria-label={`Video of ${product.name}`} style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
+                    <video key={active.video.url} src={active.video.url} poster={active.video.posterUrl} controls autoPlay playsInline preload="metadata" aria-label={`Video of ${titleOf(product)}`} style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
                   ) : (
                     <iframe
                       key={active.video.url}
-                      title={`Video of ${product.name}`}
+                      title={`Video of ${titleOf(product)}`}
                       src={active.video.kind === 'youtube' ? `${youtubeEmbedUrl(active.video.url)}&autoplay=1` : facebookEmbedUrl(active.video.url)}
                       allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
                       allowFullScreen
@@ -257,7 +257,7 @@ function SpecimenInner() {
               <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6%' }}>
                 {active?.type === 'image' ? (
                   <div style={{ position: 'relative', width: '100%', height: '100%', animation: isLiveFish ? 'dcSwim 8s ease-in-out infinite' : undefined }}>
-                    <img src={active.src} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'contain', filter: 'drop-shadow(0 24px 40px oklch(0 0 0 / 0.5))' }} draggable={false} />
+                    <img src={active.src} alt={titleOf(product)} style={{ width: '100%', height: '100%', objectFit: 'contain', filter: 'drop-shadow(0 24px 40px oklch(0 0 0 / 0.5))' }} draggable={false} />
                   </div>
                 ) : (
                   <span className="dc-sil" style={{ color: tintFor(product._id) }}>
@@ -307,7 +307,7 @@ function SpecimenInner() {
           {/* RIGHT: details */}
           <div>
             <div style={{ fontFamily: mono, fontSize: 11, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'oklch(0.50 0.14 30)', marginBottom: 14 }}>{label}{product.grade ? ' · Grade ' + product.grade : ''}</div>
-            <h1 style={{ fontFamily: serif, fontWeight: 800, fontSize: 'clamp(38px,4.6vw,60px)', lineHeight: 0.98, letterSpacing: '-0.02em', margin: '0 0 20px', color: 'oklch(0.19 0.012 32)' }}>{product.name}</h1>
+            <h1 style={{ fontFamily: serif, fontWeight: 800, fontSize: 'clamp(38px,4.6vw,60px)', lineHeight: 0.98, letterSpacing: '-0.02em', margin: '0 0 20px', color: 'oklch(0.19 0.012 32)' }}>{titleOf(product)}</h1>
             {product.description && <p style={{ fontSize: 17, lineHeight: 1.62, color: 'oklch(0.40 0.012 34)', maxWidth: 520, margin: '0 0 24px' }}>{product.description}</p>}
             <div style={{ fontFamily: serif, fontWeight: 700, fontSize: 30, color: 'oklch(0.50 0.216 27)', margin: '0 0 26px' }}>{fmtPeso(product.price)}</div>
 
@@ -397,7 +397,7 @@ function SpecimenInner() {
           <div style={{ maxWidth: 1280, margin: '0 auto', padding: '0 28px' }}>
             <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 20, marginBottom: 34, flexWrap: 'wrap' }}>
               <h3 style={{ fontFamily: serif, fontWeight: 700, fontSize: 'clamp(26px,3.4vw,40px)', margin: 0, color: 'oklch(0.19 0.012 32)', letterSpacing: '-0.015em' }}>More from the <span style={{ fontStyle: 'italic', color: 'oklch(0.50 0.216 27)' }}>{isCartProduct ? 'shop.' : 'gallery.'}</span></h3>
-              <Link href={isCartProduct ? '/shop' : isArowana(product.name) ? '/catalog' : '/cave'} className="dc-btn-ghost" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, border: '1px solid oklch(0.78 0.02 40)', color: 'oklch(0.34 0.012 34)', fontSize: 13, fontWeight: 600, padding: '11px 18px', borderRadius: 999, transition: '.2s' }}>See all &rarr;</Link>
+              <Link href={isCartProduct ? '/shop' : isArowana(kindName(product)) ? '/catalog' : '/cave'} className="dc-btn-ghost" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, border: '1px solid oklch(0.78 0.02 40)', color: 'oklch(0.34 0.012 34)', fontSize: 13, fontWeight: 600, padding: '11px 18px', borderRadius: 999, transition: '.2s' }}>See all &rarr;</Link>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 22 }}>
               {more.map((m) => (
@@ -407,7 +407,7 @@ function SpecimenInner() {
                     {m.image && <img className="dc-more-img" src={m.image} alt={m.name} style={{ position: 'absolute', left: '50%', top: '47%', transform: 'translate(-50%,-50%)', width: '100%', height: '100%', objectFit: 'contain', padding: '10%' }} draggable={false} />}
                   </div>
                   <div style={{ padding: '14px 4px 0' }}>
-                    <div style={{ fontFamily: mono, fontSize: 9.5, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'oklch(0.50 0.03 34)', marginBottom: 5 }}>{isCartProduct ? m.categoryName : isArowana(m.name) ? bloodlineOf(m.name) : familyOf(m.name)}{m.grade ? ' · ' + m.grade : ''}</div>
+                    <div style={{ fontFamily: mono, fontSize: 9.5, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'oklch(0.50 0.03 34)', marginBottom: 5 }}>{isCartProduct ? m.categoryName : isArowana(kindName(m)) ? bloodlineOf(kindName(m)) : familyOf(kindName(m))}{m.grade ? ' · ' + m.grade : ''}</div>
                     <div style={{ fontFamily: serif, fontWeight: 600, fontSize: 18, color: 'oklch(0.19 0.012 32)' }}>{m.name}</div>
                   </div>
                 </Link>

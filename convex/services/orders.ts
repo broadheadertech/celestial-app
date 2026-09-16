@@ -1,5 +1,6 @@
 import { query, mutation } from "../_generated/server";
 import { v } from "convex/values";
+import { customerProduct, publicName } from "../lib/productName";
 import { recordSaleHelper, restoreStockHelper } from "./stock";
 import { recordAudit } from "./audit";
 import { getViewer, isStaffRole, requireStaff, requireUser } from "../lib/authz";
@@ -45,7 +46,7 @@ export const getUserOrders = query({
             const product = await ctx.db.get(item.productId);
             return {
               ...item,
-              product,
+              product: product ? customerProduct(product) : null,
             };
           })
         );
@@ -531,14 +532,14 @@ export const placeWebOrder = mutation({
       }
       const product = await ctx.db.get(item.productId);
       if (!product || !isListedPublicly(product)) {
-        throw new Error(`Product ${product && product.visibility !== "internal" ? product.name : "unknown"} is not available`);
+        throw new Error(`Product ${product && product.visibility !== "internal" ? publicName(product) : "unknown"} is not available`);
       }
       const category = await ctx.db.get(product.categoryId);
       if (resolvePurchaseMode(product, category?.name) !== "cart") {
-        throw new Error(`${product.name} is available by enquiry only — message us to reserve it.`);
+        throw new Error(`${publicName(product)} is available by enquiry only — message us to reserve it.`);
       }
       if (product.stock < item.quantity) {
-        throw new Error(`Insufficient stock for ${product.name}. Available: ${product.stock}`);
+        throw new Error(`Insufficient stock for ${publicName(product)}. Available: ${product.stock}`);
       }
 
       orderItems.push({
@@ -548,7 +549,7 @@ export const placeWebOrder = mutation({
         originalPrice: product.price,
         discount: 0,
       });
-      emailItems.push({ name: product.name, quantity: item.quantity, unitPrice: product.price });
+      emailItems.push({ name: publicName(product), quantity: item.quantity, unitPrice: product.price });
       totalAmount += product.price * item.quantity;
 
       await ctx.db.patch(item.productId, { stock: product.stock - item.quantity, updatedAt: now });

@@ -13,6 +13,7 @@ import type * as files from "../files.js";
 import type * as http from "../http.js";
 import type * as lib_authz from "../lib/authz.js";
 import type * as lib_password from "../lib/password.js";
+import type * as lib_productName from "../lib/productName.js";
 import type * as lib_purchaseMode from "../lib/purchaseMode.js";
 import type * as lib_reservationUser from "../lib/reservationUser.js";
 import type * as lib_slug from "../lib/slug.js";
@@ -61,6 +62,7 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   "lib/authz": typeof lib_authz;
   "lib/password": typeof lib_password;
+  "lib/productName": typeof lib_productName;
   "lib/purchaseMode": typeof lib_purchaseMode;
   "lib/reservationUser": typeof lib_reservationUser;
   "lib/slug": typeof lib_slug;

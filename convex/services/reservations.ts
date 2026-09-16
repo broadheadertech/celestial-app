@@ -1,5 +1,6 @@
 import { query, mutation, QueryCtx, MutationCtx } from "../_generated/server";
 import { v, ConvexError } from "convex/values";
+import { customerProduct } from "../lib/productName";
 import { isListedPublicly } from "../lib/purchaseMode";
 import { Doc, Id } from "../_generated/dataModel";
 import { getReservationUser } from "../lib/reservationUser";
@@ -116,6 +117,11 @@ async function withProducts(
       product: await ctx.db.get(item.productId),
     })),
   );
+}
+
+/** Customer-facing items: display names, no cost fields (see convex/lib/productName.ts). */
+function customerItems(items: ReservationItemWithProduct[]) {
+  return items.map((item) => ({ ...item, product: item.product ? customerProduct(item.product) : null }));
 }
 
 // Helper function to generate unique reservation codes
@@ -363,7 +369,7 @@ export const getReservations = query({
       reservations.map(async (reservation) => {
         return {
           ...reservation,
-          items: await withProducts(ctx, reservation),
+          items: customerItems(await withProducts(ctx, reservation)),
         };
       })
     );
@@ -400,7 +406,7 @@ export const getReservationByCode = query({
     }
 
     // Get product details
-    const itemsWithProducts = await withProducts(ctx, reservation);
+    const itemsWithProducts = customerItems(await withProducts(ctx, reservation));
 
     return {
       ...reservation,

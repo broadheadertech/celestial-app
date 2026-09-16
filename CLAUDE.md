@@ -357,6 +357,12 @@ npx cap run android      # Build and run on device/emulator
   frame captured in the browser) or YouTube/Facebook links, validated by `convex/lib/video.ts`.
   Admin: `components/admin/ProductVideosField.tsx`. Storefront gallery + player in the product page;
   `components/dc/VideoBadge.tsx` on tiles. Removing an uploaded clip deletes it from storage.
+- **Display names:** `products.name` is the internal inventory name; optional `displayName` is what
+  customers see. Public payloads put `publicName()` (`convex/lib/productName.ts`) in `name` and add
+  `internalName`; embedded products in cart/wishlist/orders/reservations use `customerProduct()`.
+  Storefront classification (Catalog vs Cave, bloodline) must use `kindName(p)` from
+  `components/dc/fish.ts`, display must use `titleOf(p)`. Staff/admin payloads keep the raw `name`.
+  Setting a display name for the first time regenerates the product slug.
 - **updateProduct saves an explicit field list** — when adding a product field, add it there too
   (`purchaseMode: "auto"` clears the explicit setting).
 - **Checkout** (`app/(site)/checkout`) accepts cart-mode products only (`orders.placeWebOrder` enforces it);

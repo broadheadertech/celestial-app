@@ -866,6 +866,11 @@ function AdminProductsContent() {
                           <td className="px-4 py-3">
                             <div className="min-w-0">
                               <p className="text-sm font-semibold text-white truncate max-w-[200px]">{product.name || 'Unnamed Product'}</p>
+                              {product.displayName && (
+                                <p className="text-xs truncate max-w-[200px]" style={{ color: 'var(--ink-3)' }} title="Display name shown to customers">
+                                  Shown as: {product.displayName}
+                                </p>
+                              )}
                               <p className="text-xs text-white/40">ID: {product._id.slice(-6).toUpperCase()}</p>
                             </div>
                           </td>

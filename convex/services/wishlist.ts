@@ -1,5 +1,6 @@
 import { query, mutation } from "../_generated/server";
 import { v } from "convex/values";
+import { customerProduct } from "../lib/productName";
 import { isListedPublicly } from "../lib/purchaseMode";
 import { QueryCtx } from "../_generated/server";
 import { Id } from "../_generated/dataModel";
@@ -29,7 +30,7 @@ export const getWishlist = query({
         const product = await ctx.db.get(item.productId);
         return {
           ...item,
-          product,
+          product: product ? customerProduct(product) : null,
         };
       })
     );

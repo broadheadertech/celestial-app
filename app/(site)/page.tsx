@@ -12,7 +12,7 @@ import { useMemo } from 'react';
 import { useQuery } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { WaIcon } from '@/components/dc/styles';
-import { bloodlineOf, DcProduct, fmtPeso, gradeRank, isArowana, isFish } from '@/components/dc/fish';
+import { bloodlineOf, DcProduct, fmtPeso, gradeRank, isArowana, isFish, kindName } from '@/components/dc/fish';
 import { hoursSummary, useBusiness } from '@/components/dc/business';
 
 const PROMISE = [
@@ -40,7 +40,7 @@ export default function HomePage() {
   ].filter(([, a]) => a);
 
   const arowana = useMemo(
-    () => (products ?? []).filter((p) => p.isActive && isFish(p) && p.stock > 0 && isArowana(p.name)).sort((a, b) => gradeRank(a.grade) - gradeRank(b.grade) || b.price - a.price),
+    () => (products ?? []).filter((p) => p.isActive && isFish(p) && p.stock > 0 && isArowana(kindName(p))).sort((a, b) => gradeRank(a.grade) - gradeRank(b.grade) || b.price - a.price),
     [products],
   );
   const featured = arowana[0];
@@ -50,7 +50,7 @@ export default function HomePage() {
     const seen = new Set<string>();
     const out: DcProduct[] = [];
     for (const p of arowana) {
-      const b = bloodlineOf(p.name);
+      const b = bloodlineOf(kindName(p));
       if (seen.has(b)) continue;
       seen.add(b);
       out.push(p);
@@ -215,7 +215,7 @@ export default function HomePage() {
                   {b.tankNumber && <div style={{ position: 'absolute', top: 12, right: 12, fontFamily: mono, fontSize: 9, letterSpacing: '0.14em', color: 'oklch(0.9 0.02 60 / 0.7)' }}>{b.tankNumber}</div>}
                 </div>
                 <div style={{ padding: '16px 4px 0' }}>
-                  <div style={{ fontFamily: mono, fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'oklch(0.50 0.03 34)', marginBottom: 5 }}>{bloodlineOf(b.name)}</div>
+                  <div style={{ fontFamily: mono, fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'oklch(0.50 0.03 34)', marginBottom: 5 }}>{bloodlineOf(kindName(b))}</div>
                   <div style={{ fontFamily: serif, fontWeight: 600, fontSize: 19, color: 'oklch(0.19 0.012 32)' }}>{b.name}</div>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 }}>
                     <span style={{ fontSize: 12, color: 'oklch(0.50 0.216 27)', fontWeight: 600 }}>{fmtPeso(b.price)}</span>
