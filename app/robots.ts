@@ -7,7 +7,7 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: '*',
       allow: '/',
-      disallow: ['/admin', '/client', '/auth', '/account', '/checkout', '/onboarding'],
+      disallow: ['/admin', '/client', '/auth', '/account', '/checkout'],
     },
     sitemap: 'https://dc.broadheader.com/sitemap.xml',
   };

@@ -26,33 +26,17 @@ function LoginContent() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [hasRedirected, setHasRedirected] = useState(false);
 
-  // Check if user has completed onboarding
+  // Signed-in users go straight to their dashboard.
   useEffect(() => {
-    const checkOnboardingStatus = () => {
-      const hasCompletedOnboarding = localStorage.getItem('onboarding_completed');
-      const isFirstVisit = !hasCompletedOnboarding;
-
-      // If it's the first visit and we haven't redirected yet, go to onboarding
-      if (isFirstVisit && !hasRedirected && !isAuthenticated) {
-        setHasRedirected(true);
-        router.push('/onboarding');
-        return;
-      }
-
-      // If user is authenticated, redirect to appropriate dashboard
-      if (isAuthenticated && user && !hasRedirected) {
-        const role = user.role;
-        // Associates land on the client app for now; their dedicated performance/KPI
-        // view (e.g. /associate/dashboard) will replace this branch once it's built.
-        const path = role === 'admin' || role === 'super_admin'
-          ? '/admin/dashboard'
-          : '/client/dashboard';
-        setHasRedirected(true);
-        router.push(path);
-      }
-    };
-
-    checkOnboardingStatus();
+    if (isAuthenticated && user && !hasRedirected) {
+      // Associates land on the client app for now; their dedicated performance/KPI
+      // view (e.g. /associate/dashboard) will replace this branch once it's built.
+      const path = user.role === 'admin' || user.role === 'super_admin'
+        ? '/admin/dashboard'
+        : '/client/dashboard';
+      setHasRedirected(true);
+      router.push(path);
+    }
   }, [user, isAuthenticated, router, hasRedirected]);
 
   // Show loading while determining redirect
@@ -123,10 +107,10 @@ function LoginContent() {
     }
   };
 
-  const handleBackToOnboarding = () => {
-    // Allow users to go back to onboarding if needed
-    localStorage.removeItem('onboarding_completed');
-    router.push('/onboarding');
+  const handleBack = () => {
+    // Return to where the user came from, or the storefront home when opened directly.
+    if (window.history.length > 1) router.back();
+    else router.push('/');
   };
 
   return (
@@ -135,9 +119,9 @@ function LoginContent() {
       <div className="ml-2 sticky top-0 z-10 bg-gradient-to-br from-background to-background-dark/95 backdrop-blur-sm border-b border-white/5 safe-area-top">
         <div className="flex items-center justify-between px-4 sm:px-6 py-4 safe-area-horizontal">
           <button
-            onClick={handleBackToOnboarding}
+            onClick={handleBack}
             className="flex items-center justify-center w-11 h-11 sm:w-12 sm:h-12"
-            aria-label="Back to Onboarding"
+            aria-label="Back"
           >
             <ArrowLeft className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
           </button>

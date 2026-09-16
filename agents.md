@@ -82,7 +82,6 @@ celestial-app/
 │   │   ├── forgot_password/ # Password reset request (NEW)
 │   │   └── reset_password/  # Password reset form (NEW)
 │   ├── landing/             # Landing page (public)
-│   ├── onboarding/          # Onboarding flow
 │   ├── layout.tsx           # Root layout with providers
 │   ├── globals.css          # Global styles
 │   ├── page.tsx             # Root redirect
