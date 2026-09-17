@@ -368,6 +368,9 @@ npx cap run android      # Build and run on device/emulator
   `components/dc/MessengerButton.tsx` copies the enquiry first. Product pages have
   `components/dc/ShareButton.tsx` (native share sheet, else Facebook/WhatsApp/copy link); shared
   links always use `productUrl()` (the live site's readable URL).
+- **Recently rehomed:** `products.getRehomedSpecimens` lists public live fish at 0 stock that are in an active
+  reservation ("reserved") or whose last stock decrease was a sale/reservation ("sold"); damage, adjustments or
+  no recorded movement never count as sold. Shown by `components/dc/RehomedStrip.tsx` under Catalog and Cave.
 - **Image uploads:** every admin photo upload goes through `uploadOptimizedImage()` (`lib/optimizeImage.ts`):
   max 1600px, WebP, EXIF (incl. GPS) stripped, HEIC rejected with instructions. Use it for new upload fields.
 - **updateProduct saves an explicit field list** — when adding a product field, add it there too

@@ -59,6 +59,66 @@ export const getCatalogProducts = query({
   },
 });
 
+const ACTIVE_RESERVATION_STATUSES = ["pending", "confirmed", "ready_for_pickup"] as const;
+
+/**
+ * Public: live fish that recently left the gallery, for "Recently rehomed" on the storefront.
+ * A fish is listed only when its stock is 0 because of a real sale or reservation:
+ *  - "reserved": an active reservation (pending / confirmed / ready for pickup) includes it
+ *  - "sold": its most recent stock decrease was a sale, or a reservation that is no longer active
+ * Stock lost to damage, adjustments or with no recorded movement is never shown as sold.
+ */
+export const getRehomedSpecimens = query({
+  args: { limit: v.optional(v.number()) },
+  handler: async (ctx, { limit = 12 }) => {
+    const max = Math.min(Math.max(Math.floor(limit), 1), 24);
+    const names = await categoryNameMap(ctx);
+    const candidates = (
+      await ctx.db
+        .query("products")
+        .withIndex("by_active", (q) => q.eq("isActive", true))
+        .collect()
+    ).filter((p) => p.stock <= 0 && isListedPublicly(p) && names.get(p.categoryId) === "Fish");
+    if (candidates.length === 0) return [];
+
+    const reservedAt = new Map<string, number>();
+    for (const status of ACTIVE_RESERVATION_STATUSES) {
+      const reservations = await ctx.db
+        .query("reservations")
+        .withIndex("by_status", (q) => q.eq("status", status))
+        .collect();
+      for (const reservation of reservations) {
+        for (const item of reservation.items ?? []) {
+          reservedAt.set(item.productId, Math.max(reservedAt.get(item.productId) ?? 0, reservation.createdAt));
+        }
+      }
+    }
+
+    const rehomed = [];
+    for (const product of candidates) {
+      let status: "reserved" | "sold";
+      let at: number;
+      const reserved = reservedAt.get(product._id);
+      if (reserved !== undefined) {
+        status = "reserved";
+        at = reserved;
+      } else {
+        const recent = await ctx.db
+          .query("stockMovements")
+          .withIndex("by_product", (q) => q.eq("productId", product._id))
+          .order("desc")
+          .take(10);
+        const lastDecrease = recent.find((m) => m.quantityChange < 0);
+        if (!lastDecrease || (lastDecrease.movementType !== "sale" && lastDecrease.movementType !== "reservation")) continue;
+        status = "sold";
+        at = lastDecrease.createdAt;
+      }
+      rehomed.push({ ...toPublicProduct(product, names.get(product.categoryId)), rehomedStatus: status, rehomedAt: at });
+    }
+    return rehomed.sort((a, b) => b.rehomedAt - a.rehomedAt).slice(0, max);
+  },
+});
+
 export const getProducts = query({
   args: {
     categoryId: v.optional(v.id("categories")),

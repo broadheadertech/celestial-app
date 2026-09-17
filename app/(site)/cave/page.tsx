@@ -14,6 +14,7 @@ import { buildChips, DcProduct, familyOf, fmtPeso, isArowana, isFish, tintFor, k
 import { useBusiness } from '@/components/dc/business';
 import VideoBadge from '@/components/dc/VideoBadge';
 import CatalogSearchBar from '@/components/dc/CatalogSearchBar';
+import RehomedStrip from '@/components/dc/RehomedStrip';
 import { matchesSearch, sortProducts, type CatalogSort } from '@/components/dc/catalogFilters';
 
 const mono = "'Geist Mono', monospace";
@@ -152,6 +153,8 @@ export default function CavePage() {
           {loading && <div style={{ textAlign: 'center', padding: '80px 0', fontFamily: mono, fontSize: 12, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'oklch(0.50 0.02 40)' }}>Loading the cave&hellip;</div>}
         </div>
       </section>
+
+      <RehomedStrip arowana={false} />
     </>
   );
 }
