@@ -35,6 +35,7 @@ export const DC_CSS = `
 .dc-thumb { cursor:pointer; transition:.2s; }
 .dc-thumb:hover { border-color:oklch(0.52 0.216 27) !important; }
 .dc-share-item:hover, .dc-share-item:focus-visible { background: oklch(0.95 0.012 74) !important; }
+.dc-search:focus { border-color: oklch(0.52 0.216 27) !important; box-shadow: 0 0 0 3px oklch(0.52 0.216 27 / 0.12); }
 .dc-more-img { transition:transform .5s cubic-bezier(.2,.8,.2,1); }
 .dc-more:hover .dc-more-img { transform:translate(-50%,-50%) scale(1.05) !important; }
 

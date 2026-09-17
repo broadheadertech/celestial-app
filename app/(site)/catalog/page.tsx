@@ -10,9 +10,11 @@ import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { useQuery } from '@/components/dc/useQuery';
 import { api } from '@/convex/_generated/api';
-import { bloodlineOf, buildChips, DcProduct, fmtPeso, gradeRank, isArowana, isFish, tintFor, kindName } from '@/components/dc/fish';
+import { bloodlineOf, buildChips, DcProduct, fmtPeso, isArowana, isFish, tintFor, kindName } from '@/components/dc/fish';
 import { useBusiness } from '@/components/dc/business';
 import VideoBadge from '@/components/dc/VideoBadge';
+import CatalogSearchBar from '@/components/dc/CatalogSearchBar';
+import { matchesSearch, sortProducts, type CatalogSort } from '@/components/dc/catalogFilters';
 
 const mono = "'Geist Mono', monospace";
 const serif = "'Noto Serif Display', serif";
@@ -22,6 +24,8 @@ export default function CatalogPage() {
   const biz = useBusiness();
   const [bloodline, setBloodline] = useState('all');
   const [grade, setGrade] = useState('all');
+  const [query, setQuery] = useState('');
+  const [sort, setSort] = useState<CatalogSort>('featured');
 
   const arowana = useMemo(
     () => (products ?? []).filter((p) => p.isActive && isFish(p) && p.stock > 0 && isArowana(kindName(p))),
@@ -32,10 +36,16 @@ export default function CatalogPage() {
 
   const items = useMemo(
     () =>
-      arowana
-        .filter((p) => (bloodline === 'all' || bloodlineOf(kindName(p)) === bloodline) && (grade === 'all' || p.grade === grade))
-        .sort((a, b) => gradeRank(a.grade) - gradeRank(b.grade) || b.price - a.price),
-    [arowana, bloodline, grade],
+      sortProducts(
+        arowana.filter(
+          (p) =>
+            (bloodline === 'all' || bloodlineOf(kindName(p)) === bloodline) &&
+            (grade === 'all' || p.grade === grade) &&
+            matchesSearch(p, query, bloodlineOf(kindName(p))),
+        ),
+        sort,
+      ),
+    [arowana, bloodline, grade, query, sort],
   );
 
   const loading = products === undefined;
@@ -61,8 +71,9 @@ export default function CatalogPage() {
       </section>
 
       {/* FILTERS */}
-      <section style={{ position: 'sticky', top: 70, zIndex: 40, background: 'oklch(0.972 0.008 78 / 0.9)', backdropFilter: 'blur(14px)', borderBottom: '1px solid oklch(0.87 0.012 68)' }}>
+      <section className="dc-sticky-md" style={{ position: 'sticky', top: 70, zIndex: 40, background: 'oklch(0.972 0.008 78 / 0.9)', backdropFilter: 'blur(14px)', borderBottom: '1px solid oklch(0.87 0.012 68)' }}>
         <div style={{ maxWidth: 1280, margin: '0 auto', padding: '16px 28px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <CatalogSearchBar query={query} onQuery={setQuery} sort={sort} onSort={setSort} placeholder="Search by name, bloodline, grade…" />
           <ChipRow label="Bloodline" chips={bloodlineChips} value={bloodline} onChange={setBloodline} />
           {gradeChips.length > 1 && <ChipRow label="Grade" chips={gradeChips} value={grade} onChange={setGrade} />}
         </div>
@@ -107,6 +118,11 @@ export default function CatalogPage() {
               <div style={{ fontFamily: "'Noto Serif TC', serif", fontSize: 56, color: 'oklch(0.52 0.216 27 / 0.3)', marginBottom: 12 }}>龍</div>
               <div style={{ fontFamily: serif, fontSize: 22, color: 'oklch(0.30 0.012 32)', marginBottom: 8 }}>No specimens match those filters</div>
               <div style={{ fontSize: 14 }}>Message us &mdash; we often have unlisted fish in quarantine.</div>
+              {(query || bloodline !== 'all' || grade !== 'all') && (
+                <button type="button" className="dc-chip" style={{ marginTop: 18 }} onClick={() => { setQuery(''); setBloodline('all'); setGrade('all'); }}>
+                  Clear search &amp; filters
+                </button>
+              )}
             </div>
           )}
           {loading && <div style={{ textAlign: 'center', padding: '80px 0', fontFamily: mono, fontSize: 12, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'oklch(0.50 0.02 40)' }}>Loading the gallery&hellip;</div>}

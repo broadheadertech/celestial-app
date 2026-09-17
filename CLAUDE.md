@@ -382,8 +382,10 @@ npx cap run android      # Build and run on device/emulator
 - **Order tracking** (`/track`, `convex/services/tracking.ts`): guests look up ORD-/RES- codes with the
   email used at checkout; returns customer-safe fields only.
 - **Product URLs:** every product has a unique `slug` (set on create, kept on rename; `convex/lib/slug.ts`).
-  Readable URLs `/specimen/<slug>` are rewritten by `vercel.json` to the prerendered `/specimen-detail`
-  page, which also accepts `?id=`. In-app links keep using `?id=` because the Capacitor app has no
+  Readable URLs `/specimen/<slug>` are prerendered per product at build time (`app/(site)/specimen/[slug]`,
+  per-product title/description/og:image for link previews; catalog fetched via `lib/buildCatalog.ts`).
+  Products created after the last deploy fall back to the `vercel.json` rewrite to `/specimen-detail`
+  (Vercel serves files before rewrites). The page UI is `components/dc/SpecimenView.tsx`, which also accepts `?id=`. In-app links keep using `?id=` because the Capacitor app has no
   rewrites. The page sets title/description/canonical + Product JSON-LD client-side, and
   `app/sitemap.ts` lists in-stock product URLs at build time (fetched via node:https to avoid Next's
   build fetch cache). Hosting is **Vercel** (`public/_redirects` is ignored).
