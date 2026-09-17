@@ -58,14 +58,17 @@ const rewrites = (() => {
   }
 })();
 const server = http.createServer((req, res) => {
-  let p = decodeURIComponent((req.url || '/').split('?')[0]);
-  p = rewrites.find((r) => r.re.test(p))?.destination ?? p;
-  for (const c of [p, `${p}.html`, path.join(p, 'index.html')]) {
-    const f = path.join(ROOT, c);
-    if (f.startsWith(ROOT) && fs.existsSync(f) && fs.statSync(f).isFile()) {
-      res.writeHead(200, { 'Content-Type': types[path.extname(f)] || 'application/octet-stream' });
-      return fs.createReadStream(f).pipe(res);
-    }
+  const requested = decodeURIComponent((req.url || '/').split('?')[0]);
+  // Like Vercel: files first (e.g. prerendered /specimen/<slug>.html), rewrites only when nothing matches.
+  const resolve = (p) =>
+    [p, `${p}.html`, path.join(p, 'index.html')]
+      .map((c) => path.join(ROOT, c))
+      .find((f) => f.startsWith(ROOT) && fs.existsSync(f) && fs.statSync(f).isFile());
+  const rewritten = rewrites.find((r) => r.re.test(requested))?.destination;
+  const f = resolve(requested) ?? (rewritten ? resolve(rewritten) : undefined);
+  if (f) {
+    res.writeHead(200, { 'Content-Type': types[path.extname(f)] || 'application/octet-stream' });
+    return fs.createReadStream(f).pipe(res);
   }
   res.writeHead(404);
   res.end('not found');

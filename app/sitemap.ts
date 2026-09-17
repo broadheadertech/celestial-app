@@ -1,29 +1,5 @@
 import type { MetadataRoute } from 'next';
-import https from 'node:https';
-import { ConvexHttpClient } from 'convex/browser';
-import { api } from '@/convex/_generated/api';
-
-/** Minimal fetch over node:https (not intercepted or cached by Next.js). Build-time only. */
-const uncachedFetch: typeof fetch = (input, init) =>
-  new Promise<Response>((resolve, reject) => {
-    const url = new URL(typeof input === 'string' ? input : input instanceof URL ? input.href : input.url);
-    const headers = Object.fromEntries(new Headers(init?.headers).entries());
-    const req = https.request(url, { method: init?.method ?? 'GET', headers }, (res) => {
-      const chunks: Buffer[] = [];
-      res.on('data', (chunk: Buffer) => chunks.push(chunk));
-      res.on('end', () => {
-        const responseHeaders = new Headers();
-        for (const [key, value] of Object.entries(res.headers)) {
-          if (typeof value === 'string') responseHeaders.set(key, value);
-          else if (Array.isArray(value)) value.forEach((v) => responseHeaders.append(key, v));
-        }
-        resolve(new Response(Buffer.concat(chunks), { status: res.statusCode ?? 500, headers: responseHeaders }));
-      });
-    });
-    req.on('error', reject);
-    if (typeof init?.body === 'string') req.write(init.body);
-    req.end();
-  });
+import { getBuildCatalog } from '@/lib/buildCatalog';
 
 export const dynamic = 'force-static';
 
@@ -52,27 +28,19 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority,
   }));
 
-  const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
-  if (!convexUrl) return entries;
-  try {
-    // Bypass Next's patched fetch: its build-time data cache would reuse the catalog from an
-    // older build (locally and in Vercel's build cache), and `no-store` isn't allowed here.
-    const client = new ConvexHttpClient(convexUrl, { fetch: uncachedFetch });
-    const products = await Promise.race([
-      client.query(api.services.products.getCatalogProducts, {}),
-      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 15_000)),
-    ]);
-    for (const p of products) {
-      if (!p.slug || p.stock <= 0) continue;
-      entries.push({
-        url: `${BASE}/specimen/${p.slug}`,
-        lastModified: new Date(p.updatedAt),
-        changeFrequency: 'weekly',
-        priority: 0.6,
-      });
-    }
-  } catch (error) {
-    console.warn('[sitemap] could not load products, listing static pages only:', error);
+  const products = await getBuildCatalog();
+  if (!products) {
+    console.warn('[sitemap] could not load products, listing static pages only');
+    return entries;
+  }
+  for (const p of products) {
+    if (!p.slug || p.stock <= 0) continue;
+    entries.push({
+      url: `${BASE}/specimen/${p.slug}`,
+      lastModified: new Date(p.updatedAt),
+      changeFrequency: 'weekly',
+      priority: 0.6,
+    });
   }
   return entries;
 }
