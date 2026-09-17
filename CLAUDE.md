@@ -363,6 +363,13 @@ npx cap run android      # Build and run on device/emulator
   Storefront classification (Catalog vs Cave, bloodline) must use `kindName(p)` from
   `components/dc/fish.ts`, display must use `titleOf(p)`. Staff/admin payloads keep the raw `name`.
   Setting a display name for the first time regenerates the product slug.
+- **Messenger & sharing:** the Facebook page link in Business Details also drives the Messenger
+  buttons (`messengerUrl()` in `components/dc/links.ts` → m.me). Messenger can't prefill text, so
+  `components/dc/MessengerButton.tsx` copies the enquiry first. Product pages have
+  `components/dc/ShareButton.tsx` (native share sheet, else Facebook/WhatsApp/copy link); shared
+  links always use `productUrl()` (the live site's readable URL).
+- **Image uploads:** every admin photo upload goes through `uploadOptimizedImage()` (`lib/optimizeImage.ts`):
+  max 1600px, WebP, EXIF (incl. GPS) stripped, HEIC rejected with instructions. Use it for new upload fields.
 - **updateProduct saves an explicit field list** — when adding a product field, add it there too
   (`purchaseMode: "auto"` clears the explicit setting).
 - **Checkout** (`app/(site)/checkout`) accepts cart-mode products only (`orders.placeWebOrder` enforces it);
@@ -441,6 +448,8 @@ npx cap run android      # Build and run on device/emulator
 - **Prerendered storefront:** `components/ConvexProvider.tsx` renders public pages (`PUBLIC_PATHS`) during
   static export so their HTML has real content; other routes wait for mount. Public pages must not read
   localStorage-backed stores (auth, cart) during render — gate those parts behind a mounted flag.
+  Storefront code must import `useQuery` from `components/dc/useQuery.ts`, not `convex/react`: it reports
+  "loading" until hydration finishes, so query results arriving mid-hydration can't cause React error #418.
 - **Responsive storefront:** inline grid templates are overridden on small screens by utility classes in
   `components/dc/styles.tsx` (`dc-split`, `dc-cols-2/3/4`, `dc-hide-md/sm`, `dc-sticky-md`).
 - **Turbopack:** Faster builds and development
@@ -461,7 +470,8 @@ npx cap run android      # Build and run on device/emulator
   `tests/convex/`. Covers staff-only access, revoked/deactivated sessions, role changes, sign-up
   role, login lockout + PBKDF2 storage, public catalog (no cost fields, purchase modes), web
   checkout rules, and order tracking. Helpers in `tests/convex/setup.ts` (`signedInAs`,
-  `seedCatalog`). Use fake timers in tests that trigger scheduled functions.
+  `seedCatalog`). Use fake timers in tests that trigger scheduled functions. Pure storefront helpers
+  are tested in `tests/site/`.
 - **Storefront smoke test:** `npm run build && npm run test:smoke` — serves `out/`, opens key pages
   in headless Chrome at phone and desktop widths, fails on console errors or horizontal overflow.
 - **TypeScript:** builds fail on type errors (`next.config.ts` `ignoreBuildErrors: false`).

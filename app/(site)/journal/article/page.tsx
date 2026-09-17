@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Suspense, useEffect } from 'react';
-import { useQuery } from 'convex/react';
+import { useQuery } from '@/components/dc/useQuery';
 import { api } from '@/convex/_generated/api';
 import JournalBody, { formatJournalDate } from '@/components/dc/JournalBody';
 

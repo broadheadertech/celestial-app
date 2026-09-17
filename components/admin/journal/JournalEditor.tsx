@@ -7,6 +7,7 @@ import { Doc, Id } from '@/convex/_generated/dataModel';
 import { Camera, Eye, ImageIcon, PenLine, RefreshCw, X, XCircle } from 'lucide-react';
 import ConfirmationModal from '@/components/ui/ConfirmationModal';
 import JournalBody from '@/components/dc/JournalBody';
+import { uploadOptimizedImage } from '@/lib/optimizeImage';
 
 /** Keep in sync with the server-side limits in convex/services/journal.ts. */
 export const JOURNAL_LIMITS = { title: 140, excerpt: 300, kicker: 40, body: 50_000, author: 80, slug: 80 } as const;
@@ -131,10 +132,7 @@ function JournalForm({ post, onClose }: { post: Doc<'journalPosts'> | null; onCl
       setUploading(true);
       setError(null);
       try {
-        const uploadUrl = await generateUploadUrl();
-        const res = await fetch(uploadUrl, { method: 'POST', headers: { 'Content-Type': file.type }, body: file });
-        if (!res.ok) throw new Error(`Upload failed: ${res.statusText}`);
-        const { storageId } = await res.json();
+        const storageId = await uploadOptimizedImage(await generateUploadUrl(), file);
         const url = await getFileUrl({ storageId });
         if (!url) throw new Error('Failed to get image URL');
         set('coverImageUrl', url);

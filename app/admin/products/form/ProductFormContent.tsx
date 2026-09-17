@@ -18,6 +18,7 @@ import type { ProductVideo } from '@/components/dc/video';
 import { Id } from '@/convex/_generated/dataModel';
 import { useAuthStore } from '@/store/auth';
 import ConfirmationModal from '@/components/ui/ConfirmationModal';
+import { uploadOptimizedImage } from '@/lib/optimizeImage';
 
 interface ProductFormData {
   // Base product fields
@@ -287,21 +288,8 @@ export function ProductFormContentInner({ editProductId, onSuccess, isDrawer }: 
 
   const uploadImageToConvex = async (file: File): Promise<string> => {
     try {
-      // Generate upload URL
-      const uploadUrl = await generateUploadUrl();
-
-      // Upload to Convex
-      const result = await fetch(uploadUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': file.type },
-        body: file,
-      });
-
-      if (!result.ok) {
-        throw new Error(`Upload failed: ${result.statusText}`);
-      }
-
-      const { storageId } = await result.json();
+      // Resized/compressed in the browser first (lib/optimizeImage.ts)
+      const storageId = await uploadOptimizedImage(await generateUploadUrl(), file);
 
       // Get the public URL
       const fileUrl = await getFileUrl({ storageId });
@@ -360,8 +348,8 @@ export function ProductFormContentInner({ editProductId, onSuccess, isDrawer }: 
           }
 
           showConfirmation('Success', 'Image uploaded successfully!', 'success');
-        } catch {
-          showConfirmation('Upload Failed', 'Failed to upload image. Please try again.', 'error');
+        } catch (err) {
+          showConfirmation('Upload Failed', err instanceof Error && err.message.startsWith('HEIC') ? err.message : 'Failed to upload image. Please try again.', 'error');
 
           // Remove from uploading state
           if (type === 'certificate') {

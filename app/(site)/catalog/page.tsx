@@ -8,7 +8,7 @@
 
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
-import { useQuery } from 'convex/react';
+import { useQuery } from '@/components/dc/useQuery';
 import { api } from '@/convex/_generated/api';
 import { bloodlineOf, buildChips, DcProduct, fmtPeso, gradeRank, isArowana, isFish, tintFor, kindName } from '@/components/dc/fish';
 import { useBusiness } from '@/components/dc/business';

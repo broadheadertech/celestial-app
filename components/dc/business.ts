@@ -7,8 +7,9 @@
  * the corresponding line/button instead of showing a placeholder.
  */
 
-import { useQuery } from 'convex/react';
+import { useQuery } from './useQuery';
 import { api } from '@/convex/_generated/api';
+import { messengerUrl } from './links';
 
 export type BusinessHours = { day: string; open: string; close: string; closed: boolean };
 
@@ -48,6 +49,9 @@ export function hoursSummary(hours: BusinessHours[]): [string, string] {
   return [days, same ? `${open[0].open}–${open[0].close}` : 'See hours'];
 }
 
+const enquiryText = (storeName: string, name: string, extra: string) =>
+  `Hi ${storeName} — I'd like to enquire about ${name}${extra ? ` (${extra})` : ''}. Is it still available?`;
+
 export function useBusiness() {
   const profile = useQuery(api.services.business.getBusinessProfile, {});
 
@@ -76,12 +80,14 @@ export function useBusiness() {
       (profile?.addressLine
         ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${profile.addressLine} ${profile.city}`)}`
         : null),
+    /** Messenger chat with the Facebook page, or null when no usable Facebook link is set. */
+    messenger: messengerUrl(profile?.facebookUrl),
     /** wa.me link with a prefilled message, or null when no WhatsApp number is set. */
     wa,
+    /** Enquiry message about a specific product (prefilled on WhatsApp, copied for Messenger). */
+    enquiryText: (name: string, extra = '') => enquiryText(storeName, name, extra),
     /** Enquiry about a specific product; falls back to the contact page. */
-    enquireHref: (name: string, extra = '') =>
-      wa(`Hi ${storeName} — I'd like to enquire about ${name}${extra ? ` (${extra})` : ''}. Is it still available?`) ??
-      '/contact',
+    enquireHref: (name: string, extra = '') => wa(enquiryText(storeName, name, extra)) ?? '/contact',
     generalHref:
       wa(`Hi ${storeName} — I'd like to enquire about your arowana.`) ?? '/contact',
   };

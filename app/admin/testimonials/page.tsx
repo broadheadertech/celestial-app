@@ -26,6 +26,7 @@ import {
 import BottomNavbar from '@/components/common/BottomNavbar';
 import SafeAreaProvider from '@/components/provider/SafeAreaProvider';
 import ConfirmationModal from '@/components/ui/ConfirmationModal';
+import { uploadOptimizedImage } from '@/lib/optimizeImage';
 
 type Testimonial = Doc<'testimonials'>;
 
@@ -335,14 +336,7 @@ function TestimonialFormModal({ testimonial, onClose }: { testimonial: Testimoni
       setUploading(true);
       setError(null);
       try {
-        const uploadUrl = await generateUploadUrl();
-        const res = await fetch(uploadUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': file.type },
-          body: file,
-        });
-        if (!res.ok) throw new Error(`Upload failed: ${res.statusText}`);
-        const { storageId } = await res.json();
+        const storageId = await uploadOptimizedImage(await generateUploadUrl(), file);
         const url = await getFileUrl({ storageId });
         if (!url) throw new Error('Failed to get image URL');
         setPhotoUrl(url);

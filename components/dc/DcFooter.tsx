@@ -4,6 +4,7 @@ import type { CSSProperties } from 'react';
 import Link from 'next/link';
 import { WaIcon } from './styles';
 import { hoursSummary, useBusiness } from './business';
+import { MessengerIcon } from './MessengerButton';
 
 const footLink: CSSProperties = { color: 'oklch(0.34 0.012 32)', transition: 'color .2s' };
 const colHead: CSSProperties = {
@@ -88,6 +89,14 @@ export default function DcFooter() {
               <Link href="/contact" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'oklch(0.52 0.216 27)', color: 'oklch(0.98 0.012 82)', fontSize: 13, fontWeight: 600, padding: '11px 18px', borderRadius: 999 }}>
                 Contact us
               </Link>
+            )}
+            {biz.messenger && (
+              <div style={{ marginTop: 10 }}>
+                <a href={biz.messenger} target="_blank" rel="noopener" className="dc-btn-ghost" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, border: '1px solid oklch(0.78 0.02 40)', color: 'oklch(0.34 0.012 34)', fontSize: 13, fontWeight: 600, padding: '10px 17px', borderRadius: 999 }}>
+                  <MessengerIcon size={15} />
+                  Message us on Messenger
+                </a>
+              </div>
             )}
           </div>
         </div>

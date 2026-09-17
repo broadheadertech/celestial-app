@@ -35,10 +35,11 @@ export default function ContactPage() {
   const { user } = useAuthStore();
   const createContactMessage = useMutation(api.services.contact.createContactMessage);
   const biz = useBusiness();
-  const directLines = [
+  const directLines: { icon: typeof Phone; label: string; value: string; href?: string }[] = [
     { icon: Phone, label: 'Phone', value: biz.landline },
     { icon: MessageCircle, label: 'Mobile / WhatsApp', value: biz.phone },
-    { icon: Mail, label: 'Email', value: biz.email },
+    { icon: MessageCircle, label: 'Messenger', value: biz.messenger ? biz.messenger.replace('https://', '') : '', href: biz.messenger ?? undefined },
+    { icon: Mail, label: 'Email', value: biz.email, href: biz.email ? `mailto:${biz.email}` : undefined },
     { icon: MapPin, label: 'Gallery', value: [biz.address, biz.city].filter(Boolean).join('\n') },
   ].filter((l) => l.value);
 
@@ -238,7 +239,7 @@ export default function ContactPage() {
               </h3>
 
               <div className="flex flex-col gap-5">
-                {directLines.map(({ icon: Icon, label, value }) => (
+                {directLines.map(({ icon: Icon, label, value, href }) => (
                   <div key={label} className="flex items-start gap-3">
                     <span
                       className="inline-flex items-center justify-center w-9 h-9 rounded-full flex-shrink-0"
@@ -257,7 +258,11 @@ export default function ContactPage() {
                         className="font-mono-tabular text-[13px] mt-1 whitespace-pre-line"
                         style={{ color: 'oklch(0.99 0 0 / 0.92)' }}
                       >
-                        {value}
+                        {href ? (
+                          <a href={href} target={href.startsWith('http') ? '_blank' : undefined} rel="noopener" style={{ color: 'inherit', textDecoration: 'underline', textUnderlineOffset: 3 }}>{value}</a>
+                        ) : (
+                          value
+                        )}
                       </div>
                     </div>
                   </div>

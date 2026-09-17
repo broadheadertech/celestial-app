@@ -26,6 +26,7 @@ import {
 import Card from '@/components/ui/Card';
 import BottomNavbar from '@/components/common/BottomNavbar';
 import SafeAreaProvider from '@/components/provider/SafeAreaProvider';
+import { uploadOptimizedImage } from '@/lib/optimizeImage';
 
 type Basis = 'revenue' | 'profit';
 type Role = 'admin' | 'super_admin' | 'associate';
@@ -560,14 +561,7 @@ function AvatarPicker({ value, onChange, name }: { value?: string; onChange: (ur
       if (!file) return;
       setUploading(true);
       try {
-        const uploadUrl = await generateUploadUrl();
-        const res = await fetch(uploadUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': file.type },
-          body: file,
-        });
-        if (!res.ok) throw new Error(`Upload failed: ${res.statusText}`);
-        const { storageId } = await res.json();
+        const storageId = await uploadOptimizedImage(await generateUploadUrl(), file);
         const url = await getFileUrl({ storageId });
         if (!url) throw new Error('Failed to get image URL');
         onChange(url);

@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { Plus, Search, X } from 'lucide-react';
-import { useQuery } from 'convex/react';
+import { useQuery } from '@/components/dc/useQuery';
 import { api } from '@/convex/_generated/api';
 import type { FunctionReturnType } from 'convex/server';
 import { GearPlate } from '@/components/site/ArowanaSilhouette';

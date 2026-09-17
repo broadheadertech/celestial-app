@@ -512,7 +512,7 @@ function BusinessContent() {
               <div className="grid grid-cols-1 gap-3">
                 {(
                   [
-                    { key: 'facebookUrl', label: 'Facebook', placeholder: 'https://facebook.com/yourpage' },
+                    { key: 'facebookUrl', label: 'Facebook page (also powers the Messenger buttons)', placeholder: 'https://facebook.com/yourpage' },
                     { key: 'instagramUrl', label: 'Instagram', placeholder: 'https://instagram.com/yourhandle' },
                     { key: 'tiktokUrl', label: 'TikTok', placeholder: 'https://tiktok.com/@yourhandle' },
                   ] as const

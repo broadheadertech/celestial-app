@@ -11,13 +11,16 @@
 import Link from 'next/link';
 import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { useQuery } from 'convex/react';
+import { useQuery } from '@/components/dc/useQuery';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { bloodlineOf, DcProduct, familyOf, fmtPeso, gradeRank, isArowana, isFish, tintFor, kindName, titleOf } from '@/components/dc/fish';
 import { useBusiness } from '@/components/dc/business';
 import { facebookEmbedUrl, formatDuration, videoThumb, youtubeEmbedUrl, type ProductVideo } from '@/components/dc/video';
 import { useSiteCart } from '@/store/siteCart';
+import { productUrl } from '@/components/dc/links';
+import MessengerButton, { MessengerIcon } from '@/components/dc/MessengerButton';
+import ShareButton from '@/components/dc/ShareButton';
 
 /** The product form stores certificate image URLs comma-separated (or a "none" sentence). */
 const certificateUrls = (certificate?: string) =>
@@ -25,7 +28,6 @@ const certificateUrls = (certificate?: string) =>
 
 const mono = "'Geist Mono', monospace";
 const serif = "'Noto Serif Display', serif";
-const SITE_URL = 'https://dc.broadheader.com';
 
 /** Slug from a rewritten /specimen/<slug> URL (read from the real browser location). */
 function slugFromLocation(): string | null {
@@ -38,7 +40,7 @@ function slugFromLocation(): string | null {
 function useProductSeo(product: DcProduct | null | undefined, storeName: string) {
   useEffect(() => {
     if (!product) return;
-    const url = product.slug ? `${SITE_URL}/specimen/${product.slug}` : `${SITE_URL}/specimen-detail?id=${product._id}`;
+    const url = productUrl(product);
     const description = (product.description || `${titleOf(product)} — available at ${storeName}.`).slice(0, 300);
     document.title = `${titleOf(product)} · ${storeName}`;
 
@@ -203,7 +205,9 @@ function SpecimenInner() {
     ['Certificate', certs.length ? `${certs.length} on file` : 'Available on enquiry'],
     ['Lifespan', fish?.lifespan || '—'],
   ];
-  const enquireHref = biz.enquireHref(titleOf(product), product.tankNumber || (product.sku ? String(product.sku) : ''));
+  const enquiryExtra = product.tankNumber || (product.sku ? String(product.sku) : '');
+  const enquireHref = biz.enquireHref(titleOf(product), enquiryExtra);
+  const shareUrl = productUrl(product);
   const external = enquireHref.startsWith('http');
   const maxQty = Math.max(1, product.stock);
   const handleAdd = () =>
@@ -312,7 +316,10 @@ function SpecimenInner() {
             <div style={{ fontFamily: mono, fontSize: 11, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'oklch(0.50 0.14 30)', marginBottom: 14 }}>{label}{product.grade ? ' · Grade ' + product.grade : ''}</div>
             <h1 style={{ fontFamily: serif, fontWeight: 800, fontSize: 'clamp(38px,4.6vw,60px)', lineHeight: 0.98, letterSpacing: '-0.02em', margin: '0 0 20px', color: 'oklch(0.19 0.012 32)' }}>{titleOf(product)}</h1>
             {product.description && <p style={{ fontSize: 17, lineHeight: 1.62, color: 'oklch(0.40 0.012 34)', maxWidth: 520, margin: '0 0 24px' }}>{product.description}</p>}
-            <div style={{ fontFamily: serif, fontWeight: 700, fontSize: 30, color: 'oklch(0.50 0.216 27)', margin: '0 0 26px' }}>{fmtPeso(product.price)}</div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', margin: '0 0 26px' }}>
+              <div style={{ fontFamily: serif, fontWeight: 700, fontSize: 30, color: 'oklch(0.50 0.216 27)' }}>{fmtPeso(product.price)}</div>
+              <ShareButton url={shareUrl} title={titleOf(product)} text={`${titleOf(product)} at ${biz.storeName}`} />
+            </div>
 
             {specs.length > 0 && (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: '14px 20px', padding: '24px 0', borderTop: '1px solid oklch(0.86 0.012 68)', borderBottom: '1px solid oklch(0.86 0.012 68)', marginBottom: 30 }}>
@@ -349,6 +356,11 @@ function SpecimenInner() {
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v7A2.5 2.5 0 0 1 17.5 15H9l-4 3.5V15H6.5A2.5 2.5 0 0 1 4 12.5v-7Z" fill="oklch(0.98 0.012 82)" /><circle cx="9" cy="9" r="1.2" fill="oklch(0.52 0.216 27)" /><circle cx="12.5" cy="9" r="1.2" fill="oklch(0.52 0.216 27)" /><circle cx="16" cy="9" r="1.2" fill="oklch(0.52 0.216 27)" /></svg>
                 {external ? 'Enquire on WhatsApp' : 'Enquire about this fish'}
               </a>
+              {biz.messenger && (
+                <MessengerButton href={biz.messenger} message={`${biz.enquiryText(titleOf(product), enquiryExtra)} ${shareUrl}`} className="dc-btn-ghost" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, border: '1px solid oklch(0.78 0.02 40)', color: 'oklch(0.34 0.012 34)', fontSize: 14.5, fontWeight: 600, padding: '16px 22px', borderRadius: 999, transition: '.2s' }}>
+                  <MessengerIcon size={16} /> Messenger
+                </MessengerButton>
+              )}
               <Link href="/visit" className="dc-btn-ghost" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, border: '1px solid oklch(0.78 0.02 40)', color: 'oklch(0.34 0.012 34)', fontSize: 14.5, fontWeight: 600, padding: '16px 22px', borderRadius: 999, transition: '.2s' }}>Book a viewing</Link>
             </div>
             <div style={{ fontFamily: mono, fontSize: 11, color: 'oklch(0.50 0.02 40)', marginBottom: 34 }}>&#9679; {inStock ? 'Available now — ask us to hold it while you prepare your tank.' : 'Not available right now — message us to join the waitlist.'}</div>

@@ -9,7 +9,7 @@
 
 import Link from 'next/link';
 import { useMemo } from 'react';
-import { useQuery } from 'convex/react';
+import { useQuery } from '@/components/dc/useQuery';
 import { api } from '@/convex/_generated/api';
 import { WaIcon } from '@/components/dc/styles';
 import { bloodlineOf, DcProduct, fmtPeso, gradeRank, isArowana, isFish, kindName } from '@/components/dc/fish';
