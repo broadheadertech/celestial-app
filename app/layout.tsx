@@ -4,6 +4,7 @@ import { AuthInitializer } from "@/components/AuthInitializer";
 import { ConvexProvider } from "@/components/ConvexProvider";
 import { ReservationProvider } from "@/context/ReservationContext";
 import ClientReservationOverlay from "@/components/ui/ClientReservationOverlay";
+import SiteAnalytics from "@/components/SiteAnalytics";
 
 export const metadata: Metadata = {
   title: "Dragon's Cave",
@@ -57,6 +58,7 @@ export default function RootLayout({
               {children}
             </div>
             <ClientReservationOverlay />
+            <SiteAnalytics />
           </ReservationProvider>
         </ConvexProvider>
       </body>

@@ -32,8 +32,13 @@ import type { Id } from '@/convex/_generated/dataModel';
 import BottomNavbar from '@/components/common/BottomNavbar';
 import SafeAreaProvider from '@/components/provider/SafeAreaProvider';
 import DesktopDrawer from '@/components/admin/DesktopDrawer';
+import { OversizedPhotosBanner, SiteRebuildButton } from '@/components/admin/ProductPhotoTools';
 import { ProductFormContentInner } from '@/app/admin/products/form/ProductFormContent';
 import { Suspense } from 'react';
+
+/** Number of distinct photos on a product (cover + gallery). */
+const photoCount = (p: { image?: string; images?: string[] }) =>
+  new Set([p.image, ...(p.images ?? [])].filter((u) => typeof u === 'string' && u.trim() !== '')).size;
 
 const ITEMS_PER_PAGE = 15;
 
@@ -179,6 +184,8 @@ function AdminProductsContent() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [selectedStatus, setSelectedStatus] = useState('all');
+  const [photoFilter, setPhotoFilter] = useState<'all' | 'missing' | 'single' | 'oversized'>('all');
+  const [errorMessage, setErrorMessage] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -210,6 +217,7 @@ function AdminProductsContent() {
 
   // Convex queries
   const products = useQuery(api.services.admin.getAllProductsAdmin, {});
+  const oversizedPhotos = useQuery(api.services.productPhotos.getOversizedPhotos, {});
   const categories = useQuery(api.services.categories.getCategories, {});
 
   // Convex mutations
@@ -277,8 +285,19 @@ function AdminProductsContent() {
       });
     }
 
+    // Apply photo filter
+    if (photoFilter !== 'all') {
+      const oversizedIds = new Set((oversizedPhotos ?? []).map((p) => p.productId));
+      filtered = filtered.filter((product) => {
+        const count = photoCount(product);
+        if (photoFilter === 'missing') return count === 0;
+        if (photoFilter === 'single') return count === 1;
+        return oversizedIds.has(product._id);
+      });
+    }
+
     return filtered;
-  }, [searchQuery, selectedCategory, selectedStatus, categoryMap, products]);
+  }, [searchQuery, selectedCategory, selectedStatus, photoFilter, oversizedPhotos, categoryMap, products]);
 
   // Pagination logic
   const totalPages = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE);
@@ -291,7 +310,7 @@ function AdminProductsContent() {
   // Reset to page 1 when filters change
   useMemo(() => {
     setCurrentPage(1);
-  }, [searchQuery, selectedCategory, selectedStatus]);
+  }, [searchQuery, selectedCategory, selectedStatus, photoFilter]);
 
   // Calculate local stats from filtered data
   const localStats = useMemo(() => {
@@ -332,6 +351,17 @@ function AdminProductsContent() {
     { key: 'out_of_stock', label: 'Out of Stock', count: localStats.outOfStock },
     { key: 'low_stock', label: 'Low Stock', count: localStats.lowStock },
   ], [localStats]);
+
+  const photoFilters = useMemo(() => {
+    const list = products ?? [];
+    const oversizedIds = new Set((oversizedPhotos ?? []).map((p) => p.productId));
+    return [
+      { key: 'all' as const, label: 'All', count: list.length },
+      { key: 'missing' as const, label: 'No photo', count: list.filter((p) => photoCount(p) === 0).length },
+      { key: 'single' as const, label: 'Only 1 photo', count: list.filter((p) => photoCount(p) === 1).length },
+      { key: 'oversized' as const, label: 'Over 1 MB', count: list.filter((p) => oversizedIds.has(p._id)).length },
+    ];
+  }, [products, oversizedPhotos]);
 
   // Create stats array from calculated data
   const statsArray = useMemo(() => [
@@ -406,6 +436,7 @@ function AdminProductsContent() {
     setSearchQuery('');
     setSelectedCategory('All');
     setSelectedStatus('all');
+    setPhotoFilter('all');
     setShowFilters(false);
     setCurrentPage(1);
   };
@@ -602,6 +633,18 @@ function AdminProductsContent() {
             </div>
 
             <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+              <SiteRebuildButton
+                onMessage={(message, isError) => {
+                  if (isError) {
+                    setErrorMessage(message);
+                    setTimeout(() => setErrorMessage(''), 6000);
+                  } else {
+                    setSuccessMessage(message);
+                    setTimeout(() => setSuccessMessage(''), 5000);
+                  }
+                }}
+              />
+
               {/* Inventory Button */}
               <button
                 onClick={() => router.push('/admin/inventory')}
@@ -652,14 +695,14 @@ function AdminProductsContent() {
             <button
               onClick={() => setShowFilters(!showFilters)}
               className={`px-3 sm:px-4 py-2 sm:py-3 rounded-lg border transition-all flex items-center gap-1.5 sm:gap-2 flex-shrink-0 active:scale-95 touch-manipulation ${
-                showFilters || selectedCategory !== 'All' || selectedStatus !== 'all'
+                showFilters || selectedCategory !== 'All' || selectedStatus !== 'all' || photoFilter !== 'all'
                   ? 'bg-primary border-primary text-white'
                   : 'bg-secondary/60 border-white/10 text-white hover:bg-secondary/80'
               }`}
             >
               <Filter className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               <span className="text-xs sm:text-sm font-medium hidden xs:inline">Filters</span>
-              {(selectedCategory !== 'All' || selectedStatus !== 'all') && (
+              {(selectedCategory !== 'All' || selectedStatus !== 'all' || photoFilter !== 'all') && (
                 <span className="w-2 h-2 rounded-full bg-white flex-shrink-0" />
               )}
             </button>
@@ -706,7 +749,7 @@ function AdminProductsContent() {
             <div className="flex items-center justify-between">
               <h3 className="text-xs sm:text-sm font-medium text-white">Filters</h3>
               <div className="flex items-center gap-2">
-                {(selectedCategory !== 'All' || selectedStatus !== 'all') && (
+                {(selectedCategory !== 'All' || selectedStatus !== 'all' || photoFilter !== 'all') && (
                   <button
                     onClick={clearFilters}
                     className="text-xs text-primary hover:text-primary/80 transition-colors touch-manipulation"
@@ -768,6 +811,30 @@ function AdminProductsContent() {
                   ))}
                 </div>
               </div>
+
+              <div>
+                <label className="block text-xs sm:text-sm font-medium text-white mb-2">Photos</label>
+                <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1 sm:flex-wrap">
+                  {photoFilters.map((filter) => (
+                    <button
+                      key={filter.key}
+                      onClick={() => setPhotoFilter(filter.key)}
+                      className={`flex-shrink-0 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm border flex items-center gap-1.5 sm:gap-2 transition-all active:scale-95 touch-manipulation whitespace-nowrap ${
+                        photoFilter === filter.key
+                          ? 'bg-info border-info text-white'
+                          : 'bg-secondary/60 border-white/10 text-white/70 hover:text-white hover:border-primary/20'
+                      }`}
+                    >
+                      <span>{filter.label}</span>
+                      <div className={`px-1.5 py-0.5 rounded text-[10px] sm:text-xs font-medium ${
+                        photoFilter === filter.key ? 'bg-white/20 text-white' : 'bg-primary/10 text-primary'
+                      }`}>
+                        {filter.count}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -775,6 +842,12 @@ function AdminProductsContent() {
 
       {/* Products List / Table */}
       <div className="px-3 sm:px-6 py-3 sm:py-4 max-w-7xl mx-auto">
+        <OversizedPhotosBanner
+          onDone={(message) => {
+            setSuccessMessage(message);
+            setTimeout(() => setSuccessMessage(''), 5000);
+          }}
+        />
         <div className="flex items-center justify-between mb-3 sm:mb-4">
           <h2 className="text-sm sm:text-lg font-bold text-white">
             Products <span className="text-white/60">({filteredProducts.length})</span>
@@ -1878,6 +1951,13 @@ function AdminProductsContent() {
             </div>
           </div>
         </>
+      )}
+
+      {/* Error Toast */}
+      {errorMessage && (
+        <div className="fixed top-4 right-4 sm:top-6 sm:right-6 z-[9999] max-w-sm animate-in slide-in-from-top duration-300">
+          <div className="bg-error/90 text-white px-4 py-3 rounded-xl shadow-lg text-sm font-medium">{errorMessage}</div>
+        </div>
       )}
 
       {/* Success Toast */}

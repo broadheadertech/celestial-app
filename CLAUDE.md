@@ -373,6 +373,13 @@ npx cap run android      # Build and run on device/emulator
   no recorded movement never count as sold. Shown by `components/dc/RehomedStrip.tsx` under Catalog and Cave.
 - **Image uploads:** every admin photo upload goes through `uploadOptimizedImage()` (`lib/optimizeImage.ts`):
   max 1600px, WebP, EXIF (incl. GPS) stripped, HEIC rejected with instructions. Use it for new upload fields.
+- **Photo tools** (Admin → Products): Photos filter (no photo / only 1 / over 1 MB) and a banner that shrinks
+  photos over 1 MB in the browser and swaps them in (`convex/services/productPhotos.ts`, `components/admin/ProductPhotoTools.tsx`).
+- **Website rebuilds:** `convex/services/siteBuild.ts` calls a Vercel deploy hook (Convex env `VERCEL_DEPLOY_HOOK_URL`)
+  daily when products changed (cron) or on demand ("Update website" on Admin → Products, 10-min cooldown), so new
+  products get prerendered pages/link previews. No-op until the env var is set.
+- **Visitor stats:** `components/SiteAnalytics.tsx` loads Vercel Web Analytics on dc.broadheader.com only (not the
+  app, previews or localhost); admin/account/client/auth pages are excluded and query strings stripped.
 - **updateProduct saves an explicit field list** — when adding a product field, add it there too
   (`purchaseMode: "auto"` clears the explicit setting).
 - **Checkout** (`app/(site)/checkout`) accepts cart-mode products only (`orders.placeWebOrder` enforces it);

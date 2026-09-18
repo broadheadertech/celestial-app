@@ -694,6 +694,16 @@ export default defineSchema({
     .index("by_published", ["isPublished", "publishedAt"]),
 
   // Client testimonials with photos, shown on the storefront home page when published.
+  // Requests to rebuild the website on Vercel (deploy hook), so prerendered product pages and
+  // link previews pick up catalog changes. See convex/services/siteBuild.ts.
+  siteBuilds: defineTable({
+    reason: v.union(v.literal("scheduled"), v.literal("manual")),
+    requestedBy: v.optional(v.id("users")),
+    status: v.union(v.literal("pending"), v.literal("sent"), v.literal("failed")),
+    detail: v.optional(v.string()),
+    requestedAt: v.number(),
+  }),
+
   // Storefront FAQs (Admin → FAQs), shown on the Contact page. Only published ones are public.
   faqs: defineTable({
     question: v.string(),
