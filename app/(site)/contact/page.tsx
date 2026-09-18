@@ -1,35 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ArrowRight, ChevronDown, Mail, MapPin, MessageCircle, Phone } from 'lucide-react';
 import { useMutation } from 'convex/react';
+import { useQuery } from '@/components/dc/useQuery';
 import { api } from '@/convex/_generated/api';
 import { Id } from '@/convex/_generated/dataModel';
 import { useAuthStore } from '@/store/auth';
 import { useBusiness } from '@/components/dc/business';
-
-const FAQ = [
-  {
-    q: 'Do you ship arowanas?',
-    a: 'No. Live specimens are pickup-only at our Quezon City gallery. Gear and food ship anywhere in the Philippines via Lalamove or LBC.',
-  },
-  {
-    q: 'How does the deposit work?',
-    a: '20% of the specimen price holds the fish in your name. We refund the deposit if you withdraw before quarantine ends; the balance settles when you collect the fish.',
-  },
-  {
-    q: 'How long is quarantine?',
-    a: 'Twenty-one days minimum from import. Some specimens stay longer if we are not satisfied with their condition. We will tell you the day they\'re ready.',
-  },
-  {
-    q: 'Do you offer financing?',
-    a: 'For specimens above ₱300,000 we offer split payments across three monthly installments after the deposit. Talk to us — every collector has a different budget cycle.',
-  },
-  {
-    q: 'Can I sell a fish back to you?',
-    a: 'For specimens we placed and which have been kept according to our care guide, yes. We will quote you a fair buy-back. We do not buy fish we did not source.',
-  },
-];
 
 export default function ContactPage() {
   const { user } = useAuthStore();
@@ -50,6 +28,23 @@ export default function ContactPage() {
   const [message, setMessage] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+  // Admin → FAQs; the section is hidden when nothing is published.
+  const faqs = useQuery(api.services.faqs.listPublished, {});
+
+  // FAQPage structured data so search engines can show the answers.
+  useEffect(() => {
+    if (!faqs?.length) return;
+    const script = document.createElement('script');
+    script.type = 'application/ld+json';
+    script.id = 'faq-jsonld';
+    script.textContent = JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'FAQPage',
+      mainEntity: faqs.map((f) => ({ '@type': 'Question', name: f.question, acceptedAnswer: { '@type': 'Answer', text: f.answer } })),
+    });
+    document.head.appendChild(script);
+    return () => script.remove();
+  }, [faqs]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -274,6 +269,7 @@ export default function ContactPage() {
       </section>
 
       {/* FAQ */}
+      {faqs && faqs.length > 0 && (
       <section className="py-15" style={{ padding: '80px 0', background: 'var(--bg-2)' }}>
         <div className="site-container max-w-[760px]">
           <div className="placard mb-3">Frequently asked</div>
@@ -281,11 +277,11 @@ export default function ContactPage() {
             The usual questions.
           </h2>
           <div className="flex flex-col">
-            {FAQ.map((f, i) => (
+            {faqs.map((f, i) => (
               <div
-                key={f.q}
+                key={f._id}
                 style={{
-                  borderBottom: i === FAQ.length - 1 ? 'none' : '1px solid var(--line-soft)',
+                  borderBottom: i === faqs.length - 1 ? 'none' : '1px solid var(--line-soft)',
                 }}
               >
                 <button
@@ -303,7 +299,7 @@ export default function ContactPage() {
                       color: 'var(--ink)',
                     }}
                   >
-                    {f.q}
+                    {f.question}
                   </span>
                   <ChevronDown
                     size={18}
@@ -317,7 +313,7 @@ export default function ContactPage() {
                 {openFaq === i && (
                   <div
                     id={`faq-${i}`}
-                    className="pb-5 pr-10 text-[15px]"
+                    className="pb-5 pr-10 text-[15px] whitespace-pre-line"
                     style={{
                       color: 'var(--ink-2)',
                       lineHeight: 1.55,
@@ -326,7 +322,7 @@ export default function ContactPage() {
                       letterSpacing: '-0.012em',
                     }}
                   >
-                    {f.a}
+                    {f.answer}
                   </div>
                 )}
               </div>
@@ -334,6 +330,7 @@ export default function ContactPage() {
           </div>
         </div>
       </section>
+      )}
     </main>
   );
 }

@@ -382,6 +382,8 @@ npx cap run android      # Build and run on device/emulator
   `components/dc/business.ts` (`useBusiness`). Never hardcode contact details in pages; unset values are hidden.
 - **Testimonials** (Admin → Testimonials, `convex/services/testimonials.ts`): client photo + quote; only
   published ones show on the home page.
+- **FAQs** (Admin → FAQs, `convex/services/faqs.ts`): plain-text Q&A in display order; only published ones show
+  on the Contact page (with FAQPage JSON-LD). The section hides when none are published.
 - **Order tracking** (`/track`, `convex/services/tracking.ts`): guests look up ORD-/RES- codes with the
   email used at checkout; returns customer-safe fields only.
 - **Product URLs:** every product has a unique `slug` (set on create, kept on rename; `convex/lib/slug.ts`).

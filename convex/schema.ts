@@ -694,6 +694,16 @@ export default defineSchema({
     .index("by_published", ["isPublished", "publishedAt"]),
 
   // Client testimonials with photos, shown on the storefront home page when published.
+  // Storefront FAQs (Admin → FAQs), shown on the Contact page. Only published ones are public.
+  faqs: defineTable({
+    question: v.string(),
+    answer: v.string(), // plain text; blank lines separate paragraphs
+    isPublished: v.boolean(),
+    sortOrder: v.number(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_published", ["isPublished", "sortOrder"]),
+
   testimonials: defineTable({
     clientName: v.string(),
     clientLocation: v.optional(v.string()), // e.g. "Collector · Makati"

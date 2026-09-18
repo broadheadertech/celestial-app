@@ -19,6 +19,7 @@ import {
   Store,
   MessageSquareQuote,
   Newspaper,
+  HelpCircle,
 } from 'lucide-react';
 
 /**
@@ -118,6 +119,7 @@ export const ADMIN_NAV_SECTIONS: AdminNavSection[] = [
         icon: MessageSquareQuote,
         href: '/admin/testimonials',
       },
+      { id: 'faqs', label: 'FAQs', icon: HelpCircle, href: '/admin/faqs' },
       { id: 'journal', label: 'Journal', icon: Newspaper, href: '/admin/journal' },
       {
         id: 'app-settings',

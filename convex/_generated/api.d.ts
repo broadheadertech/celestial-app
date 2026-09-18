@@ -32,6 +32,7 @@ import type * as services_cashAdjustments from "../services/cashAdjustments.js";
 import type * as services_categories from "../services/categories.js";
 import type * as services_contact from "../services/contact.js";
 import type * as services_email from "../services/email.js";
+import type * as services_faqs from "../services/faqs.js";
 import type * as services_finance from "../services/finance.js";
 import type * as services_journal from "../services/journal.js";
 import type * as services_maintenance from "../services/maintenance.js";
@@ -81,6 +82,7 @@ declare const fullApi: ApiFromModules<{
   "services/categories": typeof services_categories;
   "services/contact": typeof services_contact;
   "services/email": typeof services_email;
+  "services/faqs": typeof services_faqs;
   "services/finance": typeof services_finance;
   "services/journal": typeof services_journal;
   "services/maintenance": typeof services_maintenance;
