@@ -612,6 +612,7 @@ export default defineSchema({
   })
     .index("by_created", ["createdAt"])
     .index("by_category", ["category"])
+    .index("by_category_and_created", ["category", "createdAt"])
     .index("by_actor", ["actorId"]),
 
   // Application-wide settings (singleton; always use first row)

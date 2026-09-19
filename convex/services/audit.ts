@@ -85,20 +85,45 @@ export const getAuditLogs = query({
   },
   handler: async (ctx, { paginationOpts, category, actorId, startDate, endDate }) => {
     await requireStaff(ctx);
-    return await ctx.db
-      .query("auditLogs")
-      .withIndex("by_created")
-      .order("desc")
-      .filter((f) => {
-        const conds = [];
-        if (category) conds.push(f.eq(f.field("category"), category));
-        if (actorId) conds.push(f.eq(f.field("actorId"), actorId));
-        if (startDate !== undefined) conds.push(f.gte(f.field("createdAt"), startDate));
-        if (endDate !== undefined) conds.push(f.lte(f.field("createdAt"), endDate));
-        // Always-true fallback when no filters are active.
-        return conds.length ? f.and(...conds) : f.eq(f.field("createdAt"), f.field("createdAt"));
-      })
-      .paginate(paginationOpts);
+    // Category uses its own index so every page is full of matching rows (filtering the
+    // newest-first stream left pages empty when a category was rare).
+    const base = category
+      ? ctx.db.query("auditLogs").withIndex("by_category_and_created", (q) => {
+          const c = q.eq("category", category);
+          if (startDate !== undefined && endDate !== undefined) return c.gte("createdAt", startDate).lte("createdAt", endDate);
+          if (startDate !== undefined) return c.gte("createdAt", startDate);
+          if (endDate !== undefined) return c.lte("createdAt", endDate);
+          return c;
+        })
+      : ctx.db.query("auditLogs").withIndex("by_created", (q) => {
+          if (startDate !== undefined && endDate !== undefined) return q.gte("createdAt", startDate).lte("createdAt", endDate);
+          if (startDate !== undefined) return q.gte("createdAt", startDate);
+          if (endDate !== undefined) return q.lte("createdAt", endDate);
+          return q;
+        });
+    const ordered = base.order("desc");
+    return await (actorId ? ordered.filter((f) => f.eq(f.field("actorId"), actorId)) : ordered).paginate(paginationOpts);
+  },
+});
+
+/**
+ * Staff: text search across the whole audit log (newest 5,000 entries, optionally one category) —
+ * matches every word against the summary, action and person. Returns up to 200 newest matches.
+ */
+export const searchAuditLogs = query({
+  args: { search: v.string(), category: v.optional(CATEGORY) },
+  handler: async (ctx, { search, category }) => {
+    await requireStaff(ctx);
+    const words = search.toLowerCase().split(/\s+/).filter(Boolean);
+    if (words.length === 0) return { rows: [], scanned: 0, limited: false };
+    const rows = category
+      ? await ctx.db.query("auditLogs").withIndex("by_category_and_created", (q) => q.eq("category", category)).order("desc").take(5000)
+      : await ctx.db.query("auditLogs").withIndex("by_created").order("desc").take(5000);
+    const matches = rows.filter((r) => {
+      const text = `${r.summary} ${r.action} ${r.actorName ?? ""} ${r.actorRole ?? ""}`.toLowerCase();
+      return words.every((w) => text.includes(w));
+    });
+    return { rows: matches.slice(0, 200), scanned: rows.length, limited: matches.length > 200 };
   },
 });
 

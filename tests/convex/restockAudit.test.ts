@@ -187,3 +187,24 @@ describe("deleting products", () => {
     expect(audit).toEqual(expect.arrayContaining(["product.delete", "product.deactivate"]));
   });
 });
+
+describe("audit log", () => {
+  test("category filter returns full pages of that category; search covers the whole log", async () => {
+    const t = newTest();
+    const admin = await signedInAs(t, "admin");
+    await t.run(async (ctx) => {
+      const now = Date.now();
+      // One old inventory entry buried under 120 newer sales entries.
+      await ctx.db.insert("auditLogs", { action: "stock.count", category: "inventory", summary: "Counted Aquarium Light", actorName: "Ana Cruz", createdAt: now - 10_000 });
+      for (let i = 0; i < 120; i++) {
+        await ctx.db.insert("auditLogs", { action: "order.create", category: "sales", summary: `POS sale #${i}`, actorName: "Ben", createdAt: now + i });
+      }
+    });
+    const page = await admin.as.query(api.services.audit.getAuditLogs, { category: "inventory", paginationOpts: { numItems: 50, cursor: null } });
+    expect(page.page.map((r) => r.summary)).toEqual(["Counted Aquarium Light"]);
+
+    const found = await admin.as.query(api.services.audit.searchAuditLogs, { search: "ana light" });
+    expect(found.rows.map((r) => r.summary)).toEqual(["Counted Aquarium Light"]);
+    expect((await admin.as.query(api.services.audit.searchAuditLogs, { search: "pos sale", category: "inventory" })).rows).toEqual([]);
+  });
+});

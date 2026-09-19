@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { usePaginatedQuery, useQuery } from 'convex/react';
 import { api } from '@/convex/_generated/api';
@@ -16,92 +16,90 @@ import {
   ShieldAlert,
   ScrollText,
   User as UserIcon,
+  RefreshCw,
 } from 'lucide-react';
 import BottomNavbar from '@/components/common/BottomNavbar';
 import SafeAreaProvider from '@/components/provider/SafeAreaProvider';
 
 type Category = 'finance' | 'inventory' | 'sales' | 'users' | 'settings' | 'system';
 
-const CATEGORIES: { id: Category | 'all'; label: string; icon: typeof Coins; cls: string; chip: string }[] = [
-  { id: 'all', label: 'All', icon: ScrollText, cls: 'text-white', chip: 'bg-white/10 text-white border-white/20' },
-  { id: 'finance', label: 'Finance', icon: Coins, cls: 'text-success', chip: 'bg-success/10 text-success border-success/30' },
-  { id: 'inventory', label: 'Inventory', icon: Package, cls: 'text-primary', chip: 'bg-primary/10 text-primary border-primary/30' },
-  { id: 'sales', label: 'Sales', icon: ShoppingCart, cls: 'text-warning', chip: 'bg-warning/10 text-warning border-warning/30' },
-  { id: 'users', label: 'Users', icon: Users, cls: 'text-violet-400', chip: 'bg-violet-500/10 text-violet-400 border-violet-500/30' },
-  { id: 'settings', label: 'Settings', icon: SettingsIcon, cls: 'text-white/70', chip: 'bg-white/10 text-white/70 border-white/20' },
-  { id: 'system', label: 'System', icon: ShieldAlert, cls: 'text-error', chip: 'bg-error/10 text-error border-error/30' },
+// Theme tokens (not hardcoded white) so the page reads correctly in the light and dark admin themes.
+const CATEGORIES: { id: Category | 'all'; label: string; icon: typeof Coins; color: string }[] = [
+  { id: 'all', label: 'All', icon: ScrollText, color: 'var(--ink-2)' },
+  { id: 'finance', label: 'Finance', icon: Coins, color: 'var(--jade)' },
+  { id: 'inventory', label: 'Inventory', icon: Package, color: 'var(--red-hi)' },
+  { id: 'sales', label: 'Sales', icon: ShoppingCart, color: 'var(--gold)' },
+  { id: 'users', label: 'Users', icon: Users, color: 'var(--indigo)' },
+  { id: 'settings', label: 'Settings', icon: SettingsIcon, color: 'var(--ink-3)' },
+  { id: 'system', label: 'System', icon: ShieldAlert, color: 'var(--red)' },
 ];
 
 const catMeta = (c: string) => CATEGORIES.find((x) => x.id === c) ?? CATEGORIES[0];
 
-const fmtTime = (ts: number) =>
-  new Date(ts).toLocaleString('en-PH', { hour: 'numeric', minute: '2-digit', hour12: true });
+const fmtTime = (ts: number) => new Date(ts).toLocaleString('en-PH', { hour: 'numeric', minute: '2-digit', hour12: true });
 const fmtDayKey = (ts: number) => new Date(ts).toLocaleDateString('en-CA');
-const fmtDayLabel = (ts: number) =>
-  new Date(ts).toLocaleDateString('en-PH', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+const fmtDayLabel = (ts: number) => new Date(ts).toLocaleDateString('en-PH', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+
+type Entry = {
+  _id: string;
+  category: string;
+  summary: string;
+  action: string;
+  actorName?: string;
+  actorRole?: string;
+  createdAt: number;
+};
 
 function AuditLogContent() {
   const router = useRouter();
   const [category, setCategory] = useState<Category | 'all'>('all');
+  const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
 
-  const summary = useQuery(api.services.audit.getAuditSummary, {});
+  // Search runs on the server over the whole log; wait for a pause in typing.
+  useEffect(() => {
+    const t = setTimeout(() => setSearch(searchInput.trim()), 300);
+    return () => clearTimeout(t);
+  }, [searchInput]);
 
+  const summary = useQuery(api.services.audit.getAuditSummary, {});
+  const categoryArg = category === 'all' ? {} : { category };
   const { results, status, loadMore, isLoading } = usePaginatedQuery(
     api.services.audit.getAuditLogs,
-    category === 'all' ? {} : { category },
+    search ? 'skip' : categoryArg,
     { initialNumItems: 50 },
   );
+  const searched = useQuery(api.services.audit.searchAuditLogs, search ? { search, ...categoryArg } : 'skip');
 
-  // Client-side text search over the loaded pages.
-  const filtered = useMemo(() => {
-    if (!search.trim()) return results;
-    const q = search.toLowerCase();
-    return results.filter(
-      (r) =>
-        r.summary.toLowerCase().includes(q) ||
-        (r.actorName ?? '').toLowerCase().includes(q) ||
-        r.action.toLowerCase().includes(q),
-    );
-  }, [results, search]);
+  const entries: Entry[] | undefined = search ? searched?.rows : isLoading && results.length === 0 ? undefined : results;
 
-  // Group by calendar day for readable day headers.
   const groups = useMemo(() => {
-    const map = new Map<string, typeof filtered>();
-    for (const r of filtered) {
+    const map = new Map<string, Entry[]>();
+    for (const r of entries ?? []) {
       const key = fmtDayKey(r.createdAt);
-      const arr = map.get(key) ?? [];
-      arr.push(r);
-      map.set(key, arr);
+      map.set(key, [...(map.get(key) ?? []), r]);
     }
     return Array.from(map.entries());
-  }, [filtered]);
+  }, [entries]);
 
   return (
-    <div className="min-h-screen bg-background text-foreground pb-24 sm:pb-6">
+    <div className="min-h-screen pb-24 sm:pb-6" style={{ background: 'var(--bg)', color: 'var(--ink)' }}>
       {/* Header */}
-      <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-white/10 safe-area-top">
-        <div className="px-3 sm:px-4 lg:px-6 py-3 sm:py-4 max-w-5xl mx-auto">
-          <div className="flex items-center gap-2 sm:gap-3">
-            <button
-              onClick={() => router.back()}
-              className="p-2 rounded-lg bg-secondary/60 border border-white/10 hover:bg-white/10 active:scale-95 transition-all flex-shrink-0"
-            >
-              <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
-            </button>
-            <div className="min-w-0 flex-1">
-              <h1 className="text-base sm:text-xl lg:text-2xl font-bold text-white truncate">Audit Log</h1>
-              <p className="text-[11px] sm:text-xs text-white/50 truncate">
-                Every admin action — who did what, and when
-              </p>
-            </div>
+      <div className="sticky top-0 z-50 backdrop-blur-sm border-b safe-area-top" style={{ background: 'color-mix(in oklch, var(--bg) 88%, transparent)', borderColor: 'var(--line)' }}>
+        <div className="px-3 sm:px-6 py-3 sm:py-4 max-w-5xl mx-auto flex items-center gap-3">
+          <button onClick={() => router.back()} className="p-2 rounded-lg border hover:opacity-90 flex-shrink-0" style={{ background: 'var(--surface-2)', borderColor: 'var(--line)' }} aria-label="Go back">
+            <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" style={{ color: 'var(--ink)' }} />
+          </button>
+          <div className="min-w-0 flex-1">
+            <p className="label-eyebrow truncate">Every admin action — who did what, and when</p>
+            <h1 className="display text-lg sm:text-2xl truncate">Audit Log</h1>
           </div>
         </div>
       </div>
 
-      <div className="px-3 sm:px-4 lg:px-6 py-3 sm:py-5 max-w-5xl mx-auto space-y-3 sm:space-y-4">
-        {/* Category filter chips (with counts) */}
-        <div className="flex gap-1.5 sm:gap-2 overflow-x-auto scrollbar-hide pb-1">
+      <div className="px-3 sm:px-6 py-4 sm:py-5 max-w-5xl mx-auto space-y-3 sm:space-y-4">
+        {/* Category chips */}
+        <div className="flex gap-1.5 sm:gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
           {CATEGORIES.map((c) => {
             const Icon = c.icon;
             const active = category === c.id;
@@ -110,14 +108,16 @@ function AuditLogContent() {
               <button
                 key={c.id}
                 onClick={() => setCategory(c.id)}
-                className={`flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs sm:text-sm font-medium border transition-all ${
-                  active ? 'bg-primary border-primary text-white shadow-md shadow-primary/20' : 'bg-secondary/40 border-white/10 text-white/70 hover:text-white hover:border-white/20'
-                }`}
+                aria-pressed={active}
+                className="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs sm:text-sm font-medium border transition-all"
+                style={active ? { background: 'var(--red)', borderColor: 'var(--red-deep)', color: 'oklch(0.99 0 0)' } : { background: 'var(--surface)', borderColor: 'var(--line)', color: 'var(--ink-2)' }}
               >
                 <Icon className="w-3.5 h-3.5" />
                 <span>{c.label}</span>
                 {count !== undefined && count > 0 && (
-                  <span className={`text-[10px] tabular-nums px-1.5 py-0.5 rounded-full ${active ? 'bg-white/20' : 'bg-white/10'}`}>{count}</span>
+                  <span className="text-[10px] font-mono-tabular px-1.5 py-0.5 rounded-full" style={{ background: active ? 'oklch(1 0 0 / 0.2)' : 'var(--surface-hi)' }}>
+                    {count}
+                  </span>
                 )}
               </button>
             );
@@ -126,57 +126,67 @@ function AuditLogContent() {
 
         {/* Search */}
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40 pointer-events-none" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style={{ color: 'var(--ink-4)' }} />
           <input
             type="text"
-            placeholder="Search action, summary, or admin..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-10 pr-10 py-2.5 bg-secondary/40 border border-white/10 rounded-xl text-sm text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-primary/50"
+            placeholder="Search action, summary or person…"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            className="input w-full pl-10 pr-10 py-2.5 rounded-xl border text-sm focus:outline-none focus:border-[var(--red)]"
+            style={{ background: 'var(--surface)', borderColor: 'var(--line)', color: 'var(--ink)' }}
           />
-          {search && (
-            <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-white/10">
-              <X className="w-3.5 h-3.5 text-white/60" />
+          {searchInput && (
+            <button onClick={() => setSearchInput('')} className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded hover:opacity-80" aria-label="Clear search">
+              <X className="w-3.5 h-3.5" style={{ color: 'var(--ink-3)' }} />
             </button>
           )}
         </div>
+        {search && searched && (
+          <p className="text-xs" style={{ color: 'var(--ink-3)' }}>
+            {searched.rows.length === 0 ? 'No matches' : `${searched.rows.length}${searched.limited ? '+' : ''} match${searched.rows.length === 1 ? '' : 'es'}`} in the latest{' '}
+            {searched.scanned.toLocaleString()} {category === 'all' ? '' : `${catMeta(category).label.toLowerCase()} `}entries
+            {searched.limited ? ' — showing the newest 200; add more words to narrow it down' : ''}.
+          </p>
+        )}
 
         {/* Log */}
-        {isLoading && results.length === 0 ? (
-          <div className="text-center py-16">
-            <div className="w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin mx-auto mb-4" />
-            <p className="text-sm text-white/60">Loading audit log...</p>
+        {entries === undefined ? (
+          <div className="text-center py-16 text-sm" style={{ color: 'var(--ink-4)' }}>
+            <RefreshCw className="w-6 h-6 mx-auto mb-3 animate-spin" />
+            {search ? 'Searching…' : 'Loading audit log…'}
           </div>
-        ) : filtered.length === 0 ? (
-          <div className="text-center py-16 rounded-2xl border border-white/10 bg-secondary/30">
-            <ScrollText className="w-12 h-12 text-white/20 mx-auto mb-3" />
-            <h3 className="text-base font-bold text-white mb-1">No activity yet</h3>
-            <p className="text-xs text-white/60">
-              {search ? 'No entries match your search.' : 'Admin actions will appear here as they happen.'}
+        ) : entries.length === 0 ? (
+          <div className="text-center py-16 rounded-2xl border" style={{ background: 'var(--surface)', borderColor: 'var(--line)' }}>
+            <ScrollText className="w-12 h-12 mx-auto mb-3" style={{ color: 'var(--ink-4)' }} />
+            <h3 className="text-base font-bold mb-1">{search ? 'No matches' : 'Nothing here yet'}</h3>
+            <p className="text-xs" style={{ color: 'var(--ink-3)' }}>
+              {search
+                ? 'No entries match your search. Try fewer or different words.'
+                : category === 'all'
+                  ? 'Admin actions will appear here as they happen.'
+                  : `No ${catMeta(category).label.toLowerCase()} actions recorded yet.`}
             </p>
           </div>
         ) : (
           <div className="space-y-5">
-            {groups.map(([dayKey, entries]) => (
+            {groups.map(([dayKey, dayEntries]) => (
               <div key={dayKey}>
-                <p className="text-[11px] font-semibold text-white/40 uppercase tracking-wider mb-2 px-1">
-                  {fmtDayLabel(entries[0].createdAt)}
+                <p className="text-[11px] font-semibold uppercase tracking-wider mb-2 px-1" style={{ color: 'var(--ink-4)' }}>
+                  {fmtDayLabel(dayEntries[0].createdAt)}
                 </p>
-                <div className="rounded-xl border border-white/10 overflow-hidden divide-y divide-white/5 bg-secondary/30">
-                  {entries.map((e) => {
+                <div className="rounded-xl border overflow-hidden divide-y" style={{ background: 'var(--surface)', borderColor: 'var(--line)' }}>
+                  {dayEntries.map((e) => {
                     const m = catMeta(e.category);
                     const Icon = m.icon;
                     return (
-                      <div key={e._id} className="flex items-start gap-3 p-3">
-                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${m.chip} border`}>
+                      <div key={e._id} className="flex items-start gap-3 p-3" style={{ borderColor: 'var(--line-soft)' }}>
+                        <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 border" style={{ color: m.color, borderColor: 'var(--line)', background: 'var(--surface-2)' }}>
                           <Icon className="w-4 h-4" />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="text-sm text-white leading-snug">{e.summary}</p>
-                          <div className="flex items-center flex-wrap gap-x-2 gap-y-0.5 mt-1 text-[11px] text-white/40">
-                            <span className={`inline-flex items-center gap-1 ${m.cls}`}>
-                              <span className="capitalize">{e.category}</span>
-                            </span>
+                          <p className="text-sm leading-snug break-words" style={{ color: 'var(--ink)' }}>{e.summary}</p>
+                          <div className="flex items-center flex-wrap gap-x-2 gap-y-0.5 mt-1 text-[11px]" style={{ color: 'var(--ink-3)' }}>
+                            <span className="capitalize font-medium" style={{ color: m.color }}>{e.category}</span>
                             <span>·</span>
                             <span className="inline-flex items-center gap-1">
                               <UserIcon className="w-3 h-3" />
@@ -184,7 +194,7 @@ function AuditLogContent() {
                               {e.actorRole ? ` (${e.actorRole.replace('_', ' ')})` : ''}
                             </span>
                             <span>·</span>
-                            <span className="tabular-nums">{fmtTime(e.createdAt)}</span>
+                            <span className="font-mono-tabular">{fmtTime(e.createdAt)}</span>
                           </div>
                         </div>
                       </div>
@@ -194,35 +204,26 @@ function AuditLogContent() {
               </div>
             ))}
 
-            {/* Load more */}
-            {status === 'CanLoadMore' && (
+            {!search && status === 'CanLoadMore' && (
               <div className="text-center pt-2">
-                <button
-                  onClick={() => loadMore(50)}
-                  className="px-4 py-2 rounded-lg bg-secondary/60 border border-white/10 text-sm text-white hover:bg-white/10 active:scale-95 transition-all"
-                >
+                <button onClick={() => loadMore(50)} className="px-4 py-2 rounded-lg border text-sm font-semibold active:scale-95 transition-all" style={{ background: 'var(--surface-2)', borderColor: 'var(--line)', color: 'var(--ink-2)' }}>
                   Load more
                 </button>
               </div>
             )}
-            {status === 'LoadingMore' && (
+            {!search && status === 'LoadingMore' && (
               <div className="text-center py-3">
-                <div className="w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin mx-auto" />
+                <RefreshCw className="w-5 h-5 mx-auto animate-spin" style={{ color: 'var(--ink-4)' }} />
               </div>
             )}
-            {status === 'Exhausted' && filtered.length > 0 && (
-              <p className="text-[11px] text-white/30 text-center pt-1">— end of log —</p>
+            {!search && status === 'Exhausted' && (
+              <p className="text-[11px] text-center pt-1" style={{ color: 'var(--ink-4)' }}>— end of log —</p>
             )}
           </div>
         )}
       </div>
 
       <BottomNavbar />
-
-      <style jsx global>{`
-        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
-        .scrollbar-hide::-webkit-scrollbar { display: none; }
-      `}</style>
     </div>
   );
 }
