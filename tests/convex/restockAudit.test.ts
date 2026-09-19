@@ -162,3 +162,28 @@ describe("restock list", () => {
     expect(suggestedOrderQty(-1, 0, 0)).toBe(1);
   });
 });
+
+describe("deleting products", () => {
+  test("only products without transactions can be deleted; others are phased out", async () => {
+    const t = newTest();
+    const ids = await seedCatalog(t);
+    const admin = await signedInAs(t, "admin");
+    const gear = ids.gear as Id<"products">;
+    const custom = ids.gearAsEnquire as Id<"products">;
+
+    // No transactions: deletable.
+    expect(await admin.as.query(api.services.admin.getProductDeleteCheck, { productId: custom })).toEqual({ canDelete: true, reasons: [], isActive: true });
+    await admin.as.mutation(api.services.admin.deleteProduct, { id: custom });
+    expect(await t.run((ctx) => ctx.db.get(custom))).toBeNull();
+
+    // A stock change makes it part of the records: delete is refused, deactivating works and is audited.
+    await admin.as.mutation(api.services.stockAudit.recordStockCount, { productId: gear, counted: 8 });
+    const check = await admin.as.query(api.services.admin.getProductDeleteCheck, { productId: gear });
+    expect(check).toMatchObject({ canDelete: false, reasons: ["1 stock change"] });
+    await expect(admin.as.mutation(api.services.admin.deleteProduct, { id: gear })).rejects.toThrow(/can't be deleted.*Deactivate/);
+    await admin.as.mutation(api.services.admin.toggleProductStatus, { productId: gear, isActive: false });
+    expect((await t.run((ctx) => ctx.db.get(gear)))?.isActive).toBe(false);
+    const audit = await t.run(async (ctx) => (await ctx.db.query("auditLogs").collect()).map((a) => a.action));
+    expect(audit).toEqual(expect.arrayContaining(["product.delete", "product.deactivate"]));
+  });
+});

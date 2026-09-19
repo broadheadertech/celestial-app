@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useMutation, useQuery } from 'convex/react';
 import {
@@ -19,6 +19,7 @@ import { Id } from '@/convex/_generated/dataModel';
 import { useAuthStore } from '@/store/auth';
 import ConfirmationModal from '@/components/ui/ConfirmationModal';
 import { uploadOptimizedImage } from '@/lib/optimizeImage';
+import { errorMessage } from '@/lib/errorMessage';
 
 interface ProductFormData {
   // Base product fields
@@ -200,9 +201,16 @@ export function ProductFormContentInner({ editProductId, onSuccess, isDrawer }: 
   const isFishProduct = formData.category.toLowerCase().includes('fish');
   const isTankProduct = formData.category.toLowerCase().includes('tank') || formData.category.toLowerCase().includes('aquarium');
 
+  // Load each record into the form once. The queries are live, so re-running on every background
+  // change (a sale, a photo swap) would overwrite what the user is typing.
+  const loaded = useRef<{ product?: string; fish?: string; tank?: string; stock?: string; sku?: string }>({});
+
   // Load basic product data
   useEffect(() => {
-    if (existingProduct && isEditing && categories.length > 0) {
+    if (existingProduct && isEditing && categories.length > 0 && loaded.current.product !== existingProduct._id) {
+      loaded.current.product = existingProduct._id;
+      loaded.current.stock = existingProduct.stock.toString();
+      loaded.current.sku = (existingProduct.sku || '').toString();
       const category = categories.find(cat => cat._id === existingProduct.categoryId);
 
       // Parse certificate images from certificate string if it contains URLs
@@ -249,7 +257,8 @@ export function ProductFormContentInner({ editProductId, onSuccess, isDrawer }: 
 
   // Load fish data when available
   useEffect(() => {
-    if (existingFishData && isEditing) {
+    if (existingFishData && isEditing && loaded.current.fish !== existingFishData._id) {
+      loaded.current.fish = existingFishData._id;
       setFormData(prev => ({
         ...prev,
         scientificName: existingFishData.scientificName || '',
@@ -266,7 +275,8 @@ export function ProductFormContentInner({ editProductId, onSuccess, isDrawer }: 
 
   // Load tank data when available
   useEffect(() => {
-    if (existingTankData && isEditing) {
+    if (existingTankData && isEditing && loaded.current.tank !== existingTankData._id) {
+      loaded.current.tank = existingTankData._id;
       setFormData(prev => ({
         ...prev,
         tankType: existingTankData.tankType || '',
@@ -478,9 +488,14 @@ export function ProductFormContentInner({ editProductId, onSuccess, isDrawer }: 
           };
         }
 
+        // Stock and SKU are sent only when edited: the stock loaded into the form may be stale
+        // (sales since it opened), and a blank SKU must not be replaced with a random one.
+        const { stock: editedStock, sku: editedSku, ...unchangedSafe } = baseProductData;
         await updateProduct({
           productId: productId as Id<'products'>,
-          ...baseProductData,
+          ...unchangedSafe,
+          ...(formData.stock !== loaded.current.stock ? { stock: editedStock } : {}),
+          ...(formData.sku.trim() && formData.sku !== loaded.current.sku ? { sku: editedSku } : {}),
           fishData: fishDataForUpdate,
           tankData: tankDataForUpdate,
         });
@@ -532,8 +547,8 @@ export function ProductFormContentInner({ editProductId, onSuccess, isDrawer }: 
       } else {
         router.push('/admin/products');
       }
-    } catch {
-      showConfirmation('Error', `Failed to ${isEditing ? 'update' : 'create'} product. Please try again.`, 'error');
+    } catch (error) {
+      showConfirmation('Error', errorMessage(error, `Failed to ${isEditing ? 'update' : 'create'} product. Please try again.`), 'error');
     } finally {
       setFormLoading(false);
     }

@@ -49,6 +49,7 @@ export const DC_CSS = `
 
 .dc-menu-btn { display: none; }
 .dc-mobile-nav a { display: block; padding: 14px 4px; border-bottom: 1px solid oklch(0.88 0.012 68); font-size: 16px; font-weight: 500; }
+.dc-mobile-signout { display: flex; align-items: center; gap: 8px; width: 100%; padding: 14px 4px; border: none; background: transparent; font: inherit; font-size: 16px; font-weight: 500; color: oklch(0.48 0.20 28); cursor: pointer; text-align: left; }
 
 /* ── Responsive: inline grid templates are overridden by these utility classes ── */
 @media (max-width: 960px) {

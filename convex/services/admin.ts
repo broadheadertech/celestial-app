@@ -4,7 +4,7 @@ import { getReservationUser } from "../lib/reservationUser";
 import { uniqueProductSlug } from "../lib/slug";
 import { isListedPublicly } from "../lib/purchaseMode";
 import { normalizeVideos, productVideoValidator } from "../lib/video";
-import { mutation, query } from "../_generated/server";
+import { mutation, query, type QueryCtx } from "../_generated/server";
 import { Doc, Id } from "../_generated/dataModel";
 import { hashPassword } from "./auth";
 import { recordAudit } from "./audit";
@@ -530,145 +530,87 @@ export const toggleProductStatus = mutation({
     isActive: v.boolean(),
   },
   handler: async (ctx, { productId, isActive }) => {
-    await requireStaff(ctx);
+    const staff = await requireStaff(ctx);
     const product = await ctx.db.get(productId);
     if (!product) {
       throw new Error("Product not found");
     }
-    
-    await ctx.db.patch(productId, { 
+    if (product.isActive === isActive) return { success: true };
+
+    await ctx.db.patch(productId, {
       isActive,
       updatedAt: Date.now(),
     });
-    
+    await recordAudit(ctx, {
+      actorId: staff._id,
+      action: isActive ? "product.activate" : "product.deactivate",
+      category: "inventory",
+      summary: `${isActive ? "Reactivated" : "Deactivated (phased out)"} product "${product.name}"`,
+      entityTable: "products",
+      entityId: productId,
+    });
     return { success: true };
   },
 });
 
+/**
+ * Everything that makes a product part of the records: sales, reservations, stock movements other
+ * than its initial stock, and expenses. A product with any of these can only be deactivated.
+ */
+async function productHistory(ctx: QueryCtx, id: Id<"products">) {
+  const [orders, reservations, movements, expenses] = await Promise.all([
+    ctx.db.query("orders").collect(),
+    ctx.db.query("reservations").collect(),
+    ctx.db.query("stockMovements").withIndex("by_product", (q) => q.eq("productId", id)).collect(),
+    ctx.db.query("expenses").withIndex("by_product", (q) => q.eq("productId", id)).collect(),
+  ]);
+  const orderCount = orders.filter((o) => o.items.some((item) => item.productId === id)).length;
+  const reservationCount = reservations.filter((r) => r.productId === id || (r.items?.some((item) => item.productId === id) ?? false)).length;
+  const stockChanges = movements.filter((m) => m.movementType !== "initial").length;
+  const reasons: string[] = [];
+  if (orderCount) reasons.push(`${orderCount} order${orderCount === 1 ? "" : "s"}`);
+  if (reservationCount) reasons.push(`${reservationCount} reservation${reservationCount === 1 ? "" : "s"}`);
+  if (stockChanges) reasons.push(`${stockChanges} stock change${stockChanges === 1 ? "" : "s"}`);
+  if (expenses.length) reasons.push(`${expenses.length} expense${expenses.length === 1 ? "" : "s"}`);
+  return { canDelete: reasons.length === 0, reasons };
+}
+
+/** Staff: whether a product can be deleted (no transactions) or should be deactivated instead. */
+export const getProductDeleteCheck = query({
+  args: { productId: v.id("products") },
+  handler: async (ctx, { productId }) => {
+    await requireStaff(ctx);
+    const product = await ctx.db.get(productId);
+    if (!product) return null;
+    return { ...(await productHistory(ctx, productId)), isActive: product.isActive };
+  },
+});
+
+/**
+ * Staff: permanently deletes a product that has NO transactions (e.g. created by mistake), with its
+ * initial stock batch, fish/tank details and cart/wishlist entries. Products with any sales,
+ * reservations, stock changes or expenses are never deleted — deactivate (phase out) them instead,
+ * so reports and the audit trail stay complete.
+ */
 export const deleteProduct = mutation({
   args: {
     id: v.id("products"),
-    forceDelete: v.optional(v.boolean()), // bypass history guard + cascade orders/reservations/expenses
-    userId: v.optional(v.id("users")),
+    userId: v.optional(v.id("users")), // ignored; the signed-in staff member is recorded
   },
-  handler: async (ctx, { id, forceDelete }) => {
+  handler: async (ctx, { id }) => {
     const staff = await requireStaff(ctx);
     const product = await ctx.db.get(id);
     if (!product) {
       throw new Error("Product not found");
     }
 
-    const [orders, reservations] = await Promise.all([
-      ctx.db.query("orders").collect(),
-      ctx.db.query("reservations").collect(),
-    ]);
-
-    // Default path: deactivate if any history exists.
-    if (!forceDelete) {
-      const hasOrders = orders.some(order =>
-        order.items.some(item => item.productId === id)
+    const history = await productHistory(ctx, id);
+    if (!history.canDelete) {
+      throw new Error(
+        `"${product.name}" can't be deleted because it has ${history.reasons.join(", ")}. Deactivate it instead to phase it out.`,
       );
-      const hasReservations = reservations.some(r => {
-        if (r.productId === id) return true;
-        return r.items?.some(item => item.productId === id) ?? false;
-      });
-
-      if (hasOrders || hasReservations) {
-        await ctx.db.patch(id, {
-          isActive: false,
-          updatedAt: Date.now(),
-        });
-        await recordAudit(ctx, {
-          actorId: staff._id,
-          action: "product.deactivate",
-          category: "inventory",
-          summary: `Deactivated product "${product.name}" (has ${hasOrders ? "order" : "reservation"} history)`,
-          entityTable: "products",
-          entityId: id,
-        });
-        return {
-          success: true,
-          deleted: false,
-          message: hasOrders
-            ? "Product deactivated (has order history)"
-            : "Product deactivated (has reservation history)",
-        };
-      }
     }
 
-    // Force delete OR no history — proceed with cascade cleanup.
-    let deletedOrders = 0;
-    let trimmedOrders = 0;
-    let deletedReservations = 0;
-    let trimmedReservations = 0;
-    let deletedExpenses = 0;
-
-    if (forceDelete) {
-      // Orders: drop the matching line item; if no items remain, delete the order.
-      for (const order of orders) {
-        const matches = order.items.some(item => item.productId === id);
-        if (!matches) continue;
-        const remaining = order.items.filter(item => item.productId !== id);
-        if (remaining.length === 0) {
-          await ctx.db.delete(order._id);
-          deletedOrders++;
-        } else {
-          const subtotal = remaining.reduce((s, it) => s + it.price * it.quantity, 0);
-          const orderDiscount = order.orderDiscount ?? 0;
-          await ctx.db.patch(order._id, {
-            items: remaining,
-            subtotal,
-            totalAmount: Math.max(0, subtotal - orderDiscount),
-            updatedAt: Date.now(),
-          });
-          trimmedOrders++;
-        }
-      }
-
-      // Reservations: same logic, plus the legacy single-item shape.
-      for (const r of reservations) {
-        const isLegacyMatch = r.productId === id;
-        const itemMatches = r.items?.some(item => item.productId === id) ?? false;
-        if (!isLegacyMatch && !itemMatches) continue;
-
-        if (isLegacyMatch && !r.items) {
-          // Legacy single-item reservation pointed at this product — delete entirely.
-          await ctx.db.delete(r._id);
-          deletedReservations++;
-          continue;
-        }
-
-        const remaining = (r.items ?? []).filter(item => item.productId !== id);
-        if (remaining.length === 0) {
-          await ctx.db.delete(r._id);
-          deletedReservations++;
-        } else {
-          const subtotal = remaining.reduce((s, it) => s + it.reservedPrice * it.quantity, 0);
-          const orderDiscount = r.orderDiscount ?? 0;
-          const totalQuantity = remaining.reduce((s, it) => s + it.quantity, 0);
-          await ctx.db.patch(r._id, {
-            items: remaining,
-            subtotal,
-            totalAmount: Math.max(0, subtotal - orderDiscount),
-            totalQuantity,
-            updatedAt: Date.now(),
-          });
-          trimmedReservations++;
-        }
-      }
-
-      // Expenses tied to this product (restocking + mortality + internal_use).
-      const productExpenses = await ctx.db
-        .query("expenses")
-        .withIndex("by_product", (q) => q.eq("productId", id))
-        .collect();
-      for (const e of productExpenses) {
-        await ctx.db.delete(e._id);
-        deletedExpenses++;
-      }
-    }
-
-    // Always-cascade: stock + movements + fish/tank metadata + cart/wishlist refs.
     const [stockRecords, fishRows, tankRows, cartRows, wishlistRows, movements] = await Promise.all([
       ctx.db.query("stockRecords").withIndex("by_product", (q) => q.eq("productId", id)).collect(),
       ctx.db.query("fish").withIndex("by_product", (q) => q.eq("productId", id)).collect(),
@@ -677,57 +619,25 @@ export const deleteProduct = mutation({
       ctx.db.query("wishlist").collect(),
       ctx.db.query("stockMovements").withIndex("by_product", (q) => q.eq("productId", id)).collect(),
     ]);
-
-    let deletedBatches = 0;
-    let deletedMovements = 0;
-    for (const m of movements) {
-      await ctx.db.delete(m._id);
-      deletedMovements++;
-    }
-    for (const rec of stockRecords) {
-      await ctx.db.delete(rec._id);
-      deletedBatches++;
-    }
+    for (const m of movements) await ctx.db.delete(m._id);
+    for (const rec of stockRecords) await ctx.db.delete(rec._id);
     for (const f of fishRows) await ctx.db.delete(f._id);
     for (const t of tankRows) await ctx.db.delete(t._id);
-    for (const c of cartRows.filter(c => c.productId === id)) await ctx.db.delete(c._id);
-    for (const w of wishlistRows.filter(w => w.productId === id)) await ctx.db.delete(w._id);
-
+    for (const c of cartRows.filter((c) => c.productId === id)) await ctx.db.delete(c._id);
+    for (const w of wishlistRows.filter((w) => w.productId === id)) await ctx.db.delete(w._id);
     await ctx.db.delete(id);
-
-    const parts = [
-      `${deletedBatches} batch${deletedBatches === 1 ? '' : 'es'}`,
-      `${deletedMovements} movement${deletedMovements === 1 ? '' : 's'}`,
-    ];
-    if (forceDelete) {
-      if (deletedOrders || trimmedOrders) parts.push(`${deletedOrders} order${deletedOrders === 1 ? '' : 's'} deleted, ${trimmedOrders} trimmed`);
-      if (deletedReservations || trimmedReservations) parts.push(`${deletedReservations} reservation${deletedReservations === 1 ? '' : 's'} deleted, ${trimmedReservations} trimmed`);
-      if (deletedExpenses) parts.push(`${deletedExpenses} expense${deletedExpenses === 1 ? '' : 's'}`);
-    }
 
     await recordAudit(ctx, {
       actorId: staff._id,
-      action: forceDelete ? "product.force_delete" : "product.delete",
+      action: "product.delete",
       category: "inventory",
-      summary: `${forceDelete ? "Force-deleted" : "Deleted"} product "${product.name}" (${parts.join(", ")})`,
+      summary: `Deleted product "${product.name}" (no transactions; stock ${product.stock})`,
       entityTable: "products",
       entityId: id,
-      metadata: { forceDelete: forceDelete ?? false, deletedBatches, deletedOrders, deletedReservations, deletedExpenses },
+      metadata: { deletedBatches: stockRecords.length },
     });
 
-    return {
-      success: true,
-      deleted: true,
-      forced: forceDelete ?? false,
-      deletedBatches,
-      deletedMovements,
-      deletedOrders,
-      trimmedOrders,
-      deletedReservations,
-      trimmedReservations,
-      deletedExpenses,
-      message: `Product ${forceDelete ? 'force-' : ''}deleted (${parts.join(', ')}).`,
-    };
+    return { success: true, deleted: true, message: `Deleted "${product.name}".` };
   },
 });
 

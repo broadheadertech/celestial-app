@@ -9,6 +9,7 @@ import React, { useState } from 'react';
 import Image from 'next/image';
 import Button from '@/components/ui/Button';
 import SafeAreaProvider from '@/components/provider/SafeAreaProvider';
+import DeleteProductDialog from '@/components/admin/DeleteProductDialog';
 
 const getStatusColor = (status: string) => {
   switch (status) {
@@ -37,7 +38,6 @@ function ProductDetailsContent() {
   const [showErrorModal, setShowErrorModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [modalMessage, setModalMessage] = useState('');
-  const [isDeleting, setIsDeleting] = useState(false);
 
   const allProducts = useQuery(api.services.admin.getAllProductsAdmin, {});
   const product = allProducts?.find(p => p._id === id);
@@ -57,7 +57,6 @@ function ProductDetailsContent() {
     product?._id ? { productId: product._id as Id<"products"> } : "skip"
   );
   
-  const deleteProduct = useMutation(api.services.admin.deleteProduct);
   
   if (allProducts === undefined) {
     return (
@@ -112,28 +111,6 @@ function ProductDetailsContent() {
   ].filter(Boolean).map(normalizeImageUrl);
 
   const displayImages = allImageUrls.length > 0 ? allImageUrls : ['/img/logo-app.png'];
-
-  const handleDelete = async () => {
-    if (!product?._id) return;
-    
-    try {
-      setIsDeleting(true);
-      // Products with order/reservation history are deactivated rather than deleted.
-      const result = await deleteProduct({ id: product._id as Id<"products"> });
-      setModalMessage(result.message || 'Product deleted successfully!');
-      setShowDeleteConfirm(false);
-      setShowSuccessModal(true);
-      setTimeout(() => {
-        router.push('/admin/products');
-      }, 1500);
-    } catch {
-      setModalMessage('Error deleting product. Please try again.');
-      setShowDeleteConfirm(false);
-      setShowErrorModal(true);
-    } finally {
-      setIsDeleting(false);
-    }
-  };
 
   const handleEdit = () => {
     router.push(`/admin/products/form?id=${product._id}`);
@@ -428,6 +405,19 @@ function ProductDetailsContent() {
       </div>
 
       {/* Success Modal */}
+      {showDeleteConfirm && (
+        <DeleteProductDialog
+          productId={product._id as Id<'products'>}
+          name={product.name}
+          onClose={() => setShowDeleteConfirm(false)}
+          onDone={(message, deleted) => {
+            setShowDeleteConfirm(false);
+            setModalMessage(message);
+            setShowSuccessModal(true);
+            if (deleted) setTimeout(() => router.push('/admin/products'), 1500);
+          }}
+        />
+      )}
       {showSuccessModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div className="bg-secondary border border-white/10 rounded-xl p-5 sm:p-6 w-full max-w-sm shadow-2xl animate-in zoom-in-95 slide-in-from-bottom-4 duration-300">

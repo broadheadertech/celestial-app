@@ -33,6 +33,7 @@ import BottomNavbar from '@/components/common/BottomNavbar';
 import SafeAreaProvider from '@/components/provider/SafeAreaProvider';
 import DesktopDrawer from '@/components/admin/DesktopDrawer';
 import { OversizedPhotosBanner, SiteRebuildButton } from '@/components/admin/ProductPhotoTools';
+import DeleteProductDialog from '@/components/admin/DeleteProductDialog';
 import { ProductFormContentInner } from '@/app/admin/products/form/ProductFormContent';
 import { Suspense } from 'react';
 
@@ -225,12 +226,10 @@ function AdminProductsContent() {
   const restockProduct = useMutation(api.services.stock.restockProduct);
   const recordMortalityLoss = useMutation(api.services.stock.recordMortalityLossByProduct);
   const logInternalUse = useMutation(api.services.stock.logInternalUse);
-  const deleteProductMutation = useMutation(api.services.admin.deleteProduct);
   const { user: actingUser } = useAuthStore();
 
   // Delete confirmation state
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
 
   // Create category mapping for better filtering
@@ -1922,35 +1921,18 @@ function AdminProductsContent() {
         </>
       )}
 
-      {/* Delete Product Confirmation */}
+      {/* Delete Product Confirmation — delete only without transactions, otherwise phase out */}
       {deleteConfirm && (
-        <>
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9998]" onClick={() => !isDeleting && setDeleteConfirm(null)} />
-          <div className="fixed inset-0 flex items-center justify-center z-[9999] p-4">
-            <div className="bg-secondary border border-white/10 rounded-2xl shadow-2xl p-6 w-full max-w-sm">
-              <h3 className="text-lg font-bold text-white mb-2">Delete Product</h3>
-              <p className="text-sm text-white/70 mb-1">Are you sure you want to delete <strong>{deleteConfirm.name}</strong>?</p>
-              <p className="text-xs text-white/50 mb-6">If this product has order history, it will be deactivated instead.</p>
-              <div className="flex gap-3">
-                <button onClick={() => setDeleteConfirm(null)} disabled={isDeleting}
-                  className="flex-1 px-4 py-3 bg-secondary border border-white/10 text-white rounded-xl font-medium hover:bg-white/10 active:scale-95 transition-all disabled:opacity-50">No</button>
-                <button onClick={async () => {
-                  setIsDeleting(true);
-                  try {
-                    const result = await deleteProductMutation({ id: deleteConfirm.id as Id<'products'>, userId: actingUser?._id as Id<'users'> | undefined });
-                    setSuccessMessage(result?.message || 'Product deleted successfully');
-                    setDeleteConfirm(null);
-                    setTimeout(() => setSuccessMessage(''), 3000);
-                  } catch (e) { alert(e instanceof Error ? e.message : 'Failed to delete'); }
-                  finally { setIsDeleting(false); }
-                }} disabled={isDeleting}
-                  className="flex-1 px-4 py-3 bg-error text-white rounded-xl font-medium hover:bg-error/90 active:scale-95 transition-all disabled:opacity-50">
-                  {isDeleting ? 'Deleting...' : 'Yes, Delete'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </>
+        <DeleteProductDialog
+          productId={deleteConfirm.id as Id<'products'>}
+          name={deleteConfirm.name}
+          onClose={() => setDeleteConfirm(null)}
+          onDone={(message) => {
+            setDeleteConfirm(null);
+            setSuccessMessage(message);
+            setTimeout(() => setSuccessMessage(''), 3500);
+          }}
+        />
       )}
 
       {/* Error Toast */}
@@ -2011,6 +1993,8 @@ function ProductFormInDrawer({ onSuccess }: { onSuccess: () => void }) {
 }
 
 // Main Export with SafeAreaProvider
+
+
 export default function AdminProductsPage() {
   return (
     <SafeAreaProvider applySafeArea={false}>

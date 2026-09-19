@@ -29,6 +29,7 @@ import { useAuthStore } from '@/store/auth';
 import Card from '@/components/ui/Card';
 import BottomNavbar from '@/components/common/BottomNavbar';
 import SafeAreaProvider from '@/components/provider/SafeAreaProvider';
+import DeleteProductDialog from '@/components/admin/DeleteProductDialog';
 
 const formatCurrency = (amount: number) => {
   return `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`;
@@ -74,7 +75,6 @@ function InventoryContent() {
 
   // Delete product confirm modal state
   const [deleteCandidate, setDeleteCandidate] = useState<{ productId: string; productName: string } | null>(null);
-  const [isDeletingProduct, setIsDeletingProduct] = useState(false);
 
   // Action menu state
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
@@ -88,7 +88,6 @@ function InventoryContent() {
   // Mutations
   const restockProduct = useMutation(api.services.stock.restockProduct);
   const adjustStock = useMutation(api.services.stock.adjustStock);
-  const deleteProductMutation = useMutation(api.services.admin.deleteProduct);
   const cleanupOrphans = useMutation(api.services.admin.cleanupOrphanedRecords);
   const { user: actingUser } = useAuthStore();
 
@@ -308,22 +307,7 @@ function InventoryContent() {
   };
 
   // Handle delete product
-  const handleDeleteProduct = async () => {
-    if (!deleteCandidate) return;
-    setIsDeletingProduct(true);
-    try {
-      const result = await deleteProductMutation({
-        id: deleteCandidate.productId as Id<"products">,
-        userId: actingUser?._id as Id<'users'> | undefined,
-      });
-      setDeleteCandidate(null);
-      showSuccess(result?.message || 'Product deleted');
-    } catch (error) {
-      alert(error instanceof Error ? error.message : 'Failed to delete product');
-    } finally {
-      setIsDeletingProduct(false);
-    }
-  };
+
 
   // Handle adjust stock submit
   const handleAdjustStock = async () => {
@@ -1422,54 +1406,15 @@ function InventoryContent() {
 
       {/* Delete Product Confirm Modal */}
       {deleteCandidate && (
-        <>
-          <div
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 animate-in fade-in duration-200"
-            onClick={() => !isDeletingProduct && setDeleteCandidate(null)}
-          />
-          <div className="fixed bottom-0 left-0 right-0 sm:inset-0 sm:flex sm:items-center sm:justify-center z-50 animate-in slide-in-from-bottom sm:animate-in sm:fade-in duration-300 safe-area-bottom">
-            <div className="bg-secondary/95 backdrop-blur-md border-t sm:border border-white/10 rounded-t-3xl sm:rounded-2xl shadow-2xl p-4 sm:p-6 sm:w-full sm:max-w-md sm:mx-4">
-              <div className="flex justify-center pt-2 pb-4 sm:hidden">
-                <div className="w-12 h-1.5 bg-white/20 rounded-full" />
-              </div>
-              <div className="flex items-start gap-3 mb-4">
-                <div className="w-10 h-10 rounded-full bg-error/15 border border-error/30 flex items-center justify-center flex-shrink-0">
-                  <Trash2 className="w-5 h-5 text-error" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-lg font-bold text-white">Delete product?</h3>
-                  <p className="text-sm text-white/70 mt-0.5 truncate">{deleteCandidate.productName}</p>
-                </div>
-              </div>
-
-              <div className="space-y-3 mb-5">
-                <div className="px-3 py-2.5 rounded-lg bg-error/5 border border-error/20 text-xs text-white/80">
-                  This permanently removes the product, all its batches, all stock movements, and any fish/tank metadata. <strong className="text-error">This cannot be undone.</strong>
-                </div>
-                <div className="px-3 py-2.5 rounded-lg bg-white/[0.04] border border-white/10 text-xs text-white/70">
-                  Allowed only because this product has <strong className="text-white">no sales</strong> and <strong className="text-white">no reservations</strong>. If history is found server-side, the product will be deactivated instead.
-                </div>
-              </div>
-
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setDeleteCandidate(null)}
-                  disabled={isDeletingProduct}
-                  className="flex-1 px-4 py-3 bg-secondary border border-white/10 text-white rounded-xl font-medium hover:bg-white/10 active:scale-95 transition-all touch-manipulation disabled:opacity-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleDeleteProduct}
-                  disabled={isDeletingProduct}
-                  className="flex-1 px-4 py-3 bg-error text-white rounded-xl font-medium hover:bg-error/90 active:scale-95 transition-all touch-manipulation disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isDeletingProduct ? 'Deleting...' : 'Delete'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </>
+        <DeleteProductDialog
+          productId={deleteCandidate.productId as Id<'products'>}
+          name={deleteCandidate.productName}
+          onClose={() => setDeleteCandidate(null)}
+          onDone={(message) => {
+            setDeleteCandidate(null);
+            showSuccess(message);
+          }}
+        />
       )}
 
       {/* Cleanup Orphans Confirm Modal */}

@@ -134,7 +134,9 @@ export default function DcHeader() {
 
 /** Account entry in the mobile menu (the avatar menu is hidden on small screens). */
 function MobileAccountLink() {
+  const router = useRouter();
   const user = useAuthStore((s) => s.user);
+  const logout = useAuthStore((s) => s.logout);
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
   if (!mounted) return null;
@@ -144,6 +146,16 @@ function MobileAccountLink() {
     <>
       <Link href="/account">My account</Link>
       {isStaff && <Link href="/admin/dashboard">Admin dashboard</Link>}
+      <button
+        type="button"
+        className="dc-mobile-signout"
+        onClick={() => {
+          logout();
+          router.push('/');
+        }}
+      >
+        <LogOut size={16} /> Sign out
+      </button>
     </>
   );
 }
