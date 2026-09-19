@@ -19,6 +19,7 @@ import {
 import BottomNavbar from '@/components/common/BottomNavbar';
 import SafeAreaProvider from '@/components/provider/SafeAreaProvider';
 import OrderReceipt, { type ReceiptData } from '@/components/admin/OrderReceipt';
+import { CorrectSaleDialog, VoidSaleDialog } from '@/components/admin/SaleCorrectionDialogs';
 
 const formatCurrency = (amount: number) =>
   `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`;
@@ -55,6 +56,8 @@ function OrderDetailContent() {
   const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
   const [confirmAction, setConfirmAction] = useState<{ label: string; action: () => Promise<void> } | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [correction, setCorrection] = useState<'void' | 'correct' | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   if (!orderId) {
     return (
@@ -228,6 +231,31 @@ function OrderDetailContent() {
           )}
         </div>
 
+        {/* Void / correction history */}
+        {(order.voidedAt || order.correctionOf || order.correctedBy || order.enteredAt) && (
+          <div className="rounded-xl p-4 border text-xs space-y-1.5" style={{ background: order.voidedAt ? 'var(--red-wash)' : 'var(--surface)', borderColor: order.voidedAt ? 'var(--red)' : 'var(--line)', color: 'var(--ink-2)' }}>
+            {order.voidedAt && (
+              <p>
+                <b style={{ color: 'var(--red-hi)' }}>Voided</b> {formatDate(order.voidedAt)}{order.voidedByName ? ` by ${order.voidedByName}` : ''}
+                {order.voidReason ? <> — &ldquo;{order.voidReason}&rdquo;</> : null}
+              </p>
+            )}
+            {order.correctedBy && (
+              <p>
+                Replaced by corrected sale{' '}
+                <button className="underline font-semibold" onClick={() => router.push(`/admin/orders/detail?id=${order.correctedBy!.orderId}`)}>{order.correctedBy.orderCode}</button>
+              </p>
+            )}
+            {order.correctionOf && (
+              <p>
+                Correction of{' '}
+                <button className="underline font-semibold" onClick={() => router.push(`/admin/orders/detail?id=${order.correctionOf!.orderId}`)}>{order.correctionOf.orderCode}</button>
+              </p>
+            )}
+            {order.enteredAt && <p>Sale dated {formatDate(order.createdAt)}, keyed in {formatDate(order.enteredAt)}.</p>}
+          </div>
+        )}
+
         {/* Actions */}
         <div className="space-y-2">
           {order.status === 'pending' && (
@@ -240,7 +268,17 @@ function OrderDetailContent() {
               <Package className="w-4 h-4" /> Release Order (Receipt)
             </button>
           )}
-          {['pending', 'confirmed'].includes(order.status) && (
+          {order.status !== 'cancelled' && (
+            <div className="grid grid-cols-2 gap-2">
+              <button onClick={() => setCorrection('correct')} className="px-4 py-3 rounded-xl border font-medium text-sm active:scale-[0.98] transition-all" style={{ background: 'var(--surface)', borderColor: 'var(--line)', color: 'var(--ink)' }}>
+                Correct sale
+              </button>
+              <button onClick={() => setCorrection('void')} className="px-4 py-3 rounded-xl border font-medium text-sm active:scale-[0.98] transition-all" style={{ background: 'var(--red-wash)', borderColor: 'var(--red)', color: 'var(--red-hi)' }}>
+                Void sale
+              </button>
+            </div>
+          )}
+          {['pending', 'confirmed'].includes(order.status) && order.paymentStatus !== 'paid' && order.paymentStatus !== 'partial' && (
             <button onClick={requestCancel} className="w-full px-4 py-3 rounded-xl bg-error/10 border border-error/20 text-error font-medium text-sm hover:bg-error/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2">
               <XCircle className="w-4 h-4" /> Cancel Order
             </button>
@@ -277,6 +315,25 @@ function OrderDetailContent() {
             </div>
           </div>
         </>
+      )}
+
+      {correction === 'void' && (
+        <VoidSaleDialog sale={order} onClose={() => setCorrection(null)} onDone={(m) => { setCorrection(null); setNotice(m); setTimeout(() => setNotice(null), 4000); }} />
+      )}
+      {correction === 'correct' && (
+        <CorrectSaleDialog
+          sale={order}
+          onClose={() => setCorrection(null)}
+          onDone={(m, newId) => {
+            setCorrection(null);
+            setNotice(m);
+            setTimeout(() => setNotice(null), 4000);
+            router.push(`/admin/orders/detail?id=${newId}`);
+          }}
+        />
+      )}
+      {notice && (
+        <div className="fixed top-4 right-4 left-4 sm:left-auto z-[10001] sm:max-w-sm px-4 py-3 rounded-xl shadow-lg text-sm font-medium" style={{ background: 'var(--jade)', color: 'oklch(0.99 0 0)' }}>{notice}</div>
       )}
 
       {/* Receipt Modal */}

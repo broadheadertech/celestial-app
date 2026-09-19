@@ -31,6 +31,7 @@ import type { FunctionReturnType } from 'convex/server';
 import BottomNavbar from '@/components/common/BottomNavbar';
 import SafeAreaProvider from '@/components/provider/SafeAreaProvider';
 import { useAuthStore } from '@/store/auth';
+import { fromDateInput, toDateInput } from '@/components/admin/SaleCorrectionDialogs';
 
 /* ─────────── HELPERS ─────────── */
 const fmt = (amount: number) =>
@@ -101,6 +102,8 @@ function PosPageContent() {
 
   // Customer / staff
   const [customerName, setCustomerName] = useState('');
+  // Sale date for entering a past sale (e.g. from a paper receipt); today = now.
+  const [saleDate, setSaleDate] = useState(() => toDateInput(Date.now()));
   const [selectedUserId, setSelectedUserId] = useState('');
   const [customerSearch, setCustomerSearch] = useState('');
   const [showCustomerPicker, setShowCustomerPicker] = useState(false);
@@ -285,6 +288,7 @@ function PosPageContent() {
   };
 
   const clearSale = () => {
+    setSaleDate(toDateInput(Date.now()));
     setCart([]);
     setOrderDiscInput('');
     setTip('');
@@ -363,6 +367,7 @@ function PosPageContent() {
         customerName: customerName || undefined,
         salesAssociateId: salesAssociateId ? (salesAssociateId as Id<'users'>) : undefined,
         salesAssociateName: salesAssociateName || undefined,
+        ...(saleDate !== toDateInput(Date.now()) ? { orderDate: fromDateInput(saleDate) } : {}),
       });
 
       const receipt = await acknowledgeOrder({
@@ -726,6 +731,8 @@ function PosPageContent() {
               clearSale={clearSale}
               customerName={customerName}
               setCustomerName={setCustomerName}
+              saleDate={saleDate}
+              setSaleDate={setSaleDate}
               selectedUserId={selectedUserId}
               setSelectedUserId={setSelectedUserId}
               setShowCustomerPicker={setShowCustomerPicker}
@@ -933,6 +940,8 @@ interface CartPanelProps {
   clearSale: () => void;
   customerName: string;
   setCustomerName: Setter<string>;
+  saleDate: string;
+  setSaleDate: Setter<string>;
   selectedUserId: string;
   setSelectedUserId: Setter<string>;
   setShowCustomerPicker: Setter<boolean>;
@@ -984,6 +993,8 @@ function CartPanel(props: CartPanelProps) {
     clearSale,
     customerName,
     setCustomerName,
+    saleDate,
+    setSaleDate,
     selectedUserId,
     setSelectedUserId,
     setShowCustomerPicker,
@@ -1162,6 +1173,24 @@ function CartPanel(props: CartPanelProps) {
             </div>
           )}
         </div>
+
+        {/* Sale date — for keying in a past sale (sale mode only) */}
+        {mode === 'sale' && cart.length > 0 && (
+          <label className="flex items-center justify-between gap-3 p-3 rounded-[12px] border" style={{ background: 'var(--surface)', borderColor: 'var(--line)' }}>
+            <span>
+              <span className="label-eyebrow block">Sale date</span>
+              {saleDate !== toDateInput(Date.now()) && <span className="text-[11px]" style={{ color: 'var(--gold)' }}>Past sale — recorded on this date</span>}
+            </span>
+            <input
+              type="date"
+              value={saleDate}
+              max={toDateInput(Date.now())}
+              onChange={(e) => setSaleDate(e.target.value || toDateInput(Date.now()))}
+              className="px-2.5 py-1.5 rounded-md border text-[13px] outline-none"
+              style={{ background: 'var(--bg-2)', borderColor: 'var(--line)', color: 'var(--ink)' }}
+            />
+          </label>
+        )}
 
         {/* Order discount (sale + reservation) · tip (sale only) */}
         {cart.length > 0 && (

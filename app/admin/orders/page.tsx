@@ -58,7 +58,20 @@ type CombinedItem = {
   notes?: string;
   paymentStatus?: 'unpaid' | 'partial' | 'paid' | 'refunded';
   amountPaid?: number;
+  /** Orders only: in-store (POS) sale, website order or app order. */
+  channel?: 'pos' | 'web' | 'app';
 };
+
+type TypeFilter = 'all' | 'pos' | 'web' | 'app' | 'reservation';
+const TYPE_FILTERS: { value: TypeFilter; label: string }[] = [
+  { value: 'all', label: 'All' },
+  { value: 'pos', label: 'In-store sales' },
+  { value: 'web', label: 'Website orders' },
+  { value: 'app', label: 'App orders' },
+  { value: 'reservation', label: 'Reservations' },
+];
+const matchesType = (item: CombinedItem, type: TypeFilter) =>
+  type === 'all' ? true : type === 'reservation' ? item.type === 'reservation' : item.type === 'order' && item.channel === type;
 
 interface ActionItem {
   icon: React.ReactNode;
@@ -271,6 +284,7 @@ function AdminOrdersContent() {
   const { user: actingUser } = useAuthStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
   const [showFilters, setShowFilters] = useState(false);
   // Default to month-to-date (1st of month → today); Clear resets to all-time.
   const [dateFrom, setDateFrom] = useState<string>(() => {
@@ -367,6 +381,7 @@ function AdminOrdersContent() {
       filtered = filtered.filter(item => item.code.toLowerCase().includes(query) || item.customer?.name.toLowerCase().includes(query) || item.customer?.email.toLowerCase().includes(query));
     }
     if (selectedStatus !== 'all') filtered = filtered.filter(item => item.status === selectedStatus);
+    if (typeFilter !== 'all') filtered = filtered.filter(item => matchesType(item, typeFilter));
 
     // Date range filter — uses createdAt; inputs are YYYY-MM-DD in local time
     if (dateFrom) {
@@ -386,7 +401,7 @@ function AdminOrdersContent() {
     }
 
     return filtered.sort((a, b) => b.updatedAt - a.updatedAt);
-  }, [searchQuery, selectedStatus, allItems, dateFrom, dateTo, productFilterIds]);
+  }, [searchQuery, selectedStatus, typeFilter, allItems, dateFrom, dateTo, productFilterIds]);
 
   const totalPages = Math.ceil(filteredItems.length / ITEMS_PER_PAGE);
   const paginatedItems = useMemo(() => {
@@ -784,6 +799,27 @@ function AdminOrdersContent() {
         </div>
       </div>
 
+      {/* Type filter — in-store sales vs website/app orders vs reservations */}
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 pt-3 flex gap-2 overflow-x-auto scrollbar-hide">
+        {TYPE_FILTERS.map((t) => {
+          const count = t.value === 'all' ? allItems.length : allItems.filter((i) => matchesType(i, t.value)).length;
+          if (t.value === 'app' && count === 0) return null;
+          const active = typeFilter === t.value;
+          return (
+            <button
+              key={t.value}
+              onClick={() => { setTypeFilter(t.value); setCurrentPage(1); }}
+              aria-pressed={active}
+              className="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium border transition-all active:scale-95 whitespace-nowrap"
+              style={active ? { background: 'var(--red)', borderColor: 'var(--red-deep)', color: 'oklch(0.99 0 0)' } : { background: 'var(--surface)', borderColor: 'var(--line)', color: 'var(--ink-2)' }}
+            >
+              {t.label}
+              <span className="text-[10px] font-mono-tabular px-1.5 py-0.5 rounded-full" style={{ background: active ? 'oklch(1 0 0 / 0.2)' : 'var(--surface-hi)' }}>{count}</span>
+            </button>
+          );
+        })}
+      </div>
+
       {/* Stats Cards */}
       <div className="max-w-7xl mx-auto px-3 sm:px-6 py-3 sm:py-4 border-b border-white/10">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
@@ -816,7 +852,7 @@ function AdminOrdersContent() {
               <div className="flex items-center justify-between">
                 <h3 className="text-xs sm:text-sm font-medium text-white">Filters</h3>
                 <div className="flex items-center gap-2">
-                  {(selectedStatus !== 'all' || dateFrom || dateTo || productFilterIds.size > 0 || searchQuery) && <button onClick={() => { setSearchQuery(''); setSelectedStatus('all'); setDateFrom(''); setDateTo(''); setProductFilterIds(new Set()); setProductSearch(''); setCurrentPage(1); }} className="text-xs text-primary hover:text-primary/80 transition-colors touch-manipulation">Clear All</button>}
+                  {(selectedStatus !== 'all' || dateFrom || dateTo || productFilterIds.size > 0 || searchQuery) && <button onClick={() => { setSearchQuery(''); setSelectedStatus('all'); setTypeFilter('all'); setDateFrom(''); setDateTo(''); setProductFilterIds(new Set()); setProductSearch(''); setCurrentPage(1); }} className="text-xs text-primary hover:text-primary/80 transition-colors touch-manipulation">Clear All</button>}
                   <button onClick={() => setShowFilters(false)} className="p-1 rounded hover:bg-white/10 transition-colors sm:hidden touch-manipulation"><X className="w-4 h-4 text-white/60" /></button>
                 </div>
               </div>
@@ -954,7 +990,7 @@ function AdminOrdersContent() {
       <div className="max-w-7xl mx-auto px-3 sm:px-6 py-3 sm:py-4">
         <div className="flex items-center justify-between mb-3 sm:mb-4">
           <h2 className="display text-base sm:text-xl" style={{ fontVariationSettings: '"opsz" 24, "wght" 700' }}>Items <span className="font-normal" style={{ color: 'var(--ink-4)' }}>({filteredItems.length})</span></h2>
-          {filteredItems.length === 0 && allItems.length > 0 && <button onClick={() => { setSearchQuery(''); setSelectedStatus('all'); setDateFrom(''); setDateTo(''); setProductFilterIds(new Set()); setProductSearch(''); setShowFilters(false); setCurrentPage(1); }} className="px-2.5 sm:px-3 py-1 rounded-lg bg-primary/10 border border-primary text-primary text-[10px] sm:text-xs hover:bg-primary/20 active:scale-95 transition-all touch-manipulation">Clear Filters</button>}
+          {filteredItems.length === 0 && allItems.length > 0 && <button onClick={() => { setSearchQuery(''); setSelectedStatus('all'); setTypeFilter('all'); setDateFrom(''); setDateTo(''); setProductFilterIds(new Set()); setProductSearch(''); setShowFilters(false); setCurrentPage(1); }} className="px-2.5 sm:px-3 py-1 rounded-lg bg-primary/10 border border-primary text-primary text-[10px] sm:text-xs hover:bg-primary/20 active:scale-95 transition-all touch-manipulation">Clear Filters</button>}
         </div>
 
         {isLoading ? (

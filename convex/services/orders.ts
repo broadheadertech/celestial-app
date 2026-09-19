@@ -1,4 +1,5 @@
-import { query, mutation } from "../_generated/server";
+import { query, mutation, type MutationCtx } from "../_generated/server";
+import type { Id } from "../_generated/dataModel";
 import { v } from "convex/values";
 import { customerProduct, publicName } from "../lib/productName";
 import { recordSaleHelper, restoreStockHelper } from "./stock";
@@ -188,6 +189,7 @@ export const createOrderFromCart = mutation({
       items: orderItems,
       totalAmount,
       shippingAddress,
+      channel: "app",
       paymentMethod,
       notes,
       createdAt: now,
@@ -226,6 +228,11 @@ export const updateOrderStatus = mutation({
     }
 
     const now = Date.now();
+
+    // Paid sales can't be cancelled from the status menu — they must be voided (password + reason).
+    if (status === "cancelled" && order.status !== "cancelled" && (order.paymentStatus === "paid" || order.paymentStatus === "partial")) {
+      throw new Error("This sale has been paid, so it can't just be cancelled. Use Void (password required) instead.");
+    }
 
     // If cancelling, restore stock for all items
     if (status === "cancelled" && order.status !== "cancelled") {
@@ -280,6 +287,10 @@ export const cancelOrder = mutation({
 
     if (order.status === "cancelled") {
       throw new Error("Order is already cancelled");
+    }
+
+    if (order.paymentStatus === "paid" || order.paymentStatus === "partial") {
+      throw new Error("This order has been paid, so it can't be cancelled here. Staff can void it (password required).");
     }
 
     const now = Date.now();
@@ -346,6 +357,7 @@ export const getAllOrdersAdmin = query({
 
         return {
           ...order,
+          channel: orderChannel(order),
           items: itemsWithProducts,
           user: user ? {
             id: user._id,
@@ -379,121 +391,177 @@ export const getAllOrdersAdmin = query({
 });
 
 // Generate order code from ID
-function generateOrderCode(id: string): string {
+/** Sales channel of an order: explicit on new orders, inferred for older ones. */
+export function orderChannel(order: { channel?: "pos" | "web" | "app"; notes?: string; shippingAddress: { street: string } }): "pos" | "web" | "app" {
+  if (order.channel) return order.channel;
+  if (/^Fulfilment:/im.test(order.notes ?? "")) return "web"; // storefront checkout always sends this line
+  if (order.shippingAddress.street === "In-Store Pickup") return "pos";
+  return "app";
+}
+
+export function generateOrderCode(id: string): string {
   return `ORD-${id.slice(-6).toUpperCase()}`;
 }
 
 // Admin: Create order on behalf of a customer (walk-in / in-store)
+const SALE_ITEMS = v.array(v.object({
+  productId: v.id("products"),
+  quantity: v.number(),
+  discount: v.optional(v.number()), // Per-unit discount amount (₱)
+}));
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** Sale date for a staff-entered order: now, or an earlier date (not in the future, at most a year back). */
+export function resolveSaleDate(orderDate: number | undefined, now: number): number {
+  if (orderDate === undefined) return now;
+  if (!Number.isFinite(orderDate)) throw new Error("Invalid sale date");
+  if (orderDate > now + 5 * 60 * 1000) throw new Error("The sale date can't be in the future");
+  if (orderDate < now - 366 * DAY_MS) throw new Error("The sale date can't be more than a year ago");
+  return orderDate;
+}
+
+export type StaffSaleInput = {
+  userId?: Id<"users">;
+  /** listPrice: keep this unit price instead of today's (used when re-entering a corrected sale). */
+  items: { productId: Id<"products">; quantity: number; discount?: number; listPrice?: number }[];
+  orderDiscount?: number;
+  paymentMethod: string;
+  notes?: string;
+  customerName?: string;
+  salesAssociateId?: Id<"users">;
+  salesAssociateName?: string;
+};
+
+/**
+ * Creates a walk-in/POS sale: checks stock, deducts it (FIFO batches + audit trail), records the
+ * order as paid. Shared by adminCreateOrder and sale corrections (salesCorrections.ts).
+ */
+export async function createStaffSale(
+  ctx: MutationCtx,
+  input: StaffSaleInput,
+  opts: { createdAt: number; correctionOf?: Id<"orders"> },
+) {
+  const { userId, items, orderDiscount, paymentMethod, notes, customerName, salesAssociateId, salesAssociateName } = input;
+  if (items.length === 0) {
+    throw new Error("No items provided");
+  }
+  const now = Date.now();
+  const orderItems = [];
+  let subtotal = 0;
+
+  for (const item of items) {
+    if (!Number.isInteger(item.quantity) || item.quantity <= 0) throw new Error("Quantities must be whole numbers above 0");
+    const product = await ctx.db.get(item.productId);
+
+    if (!product || !product.isActive) {
+      throw new Error(`Product ${product?.name || 'unknown'} is not available`);
+    }
+
+    if (product.stock < item.quantity) {
+      throw new Error(`Insufficient stock for ${product.name}. Available: ${product.stock}, Requested: ${item.quantity}`);
+    }
+
+    const originalPrice = item.listPrice ?? product.price;
+    const discount = Math.max(0, Math.min(item.discount || 0, originalPrice));
+    const finalPrice = originalPrice - discount;
+
+    orderItems.push({
+      productId: item.productId,
+      quantity: item.quantity,
+      price: finalPrice,
+      originalPrice,
+      discount,
+    });
+
+    subtotal += finalPrice * item.quantity;
+
+    // Deduct stock
+    await ctx.db.patch(item.productId, {
+      stock: product.stock - item.quantity,
+      updatedAt: now,
+    });
+
+    await recordSaleHelper(ctx, {
+      productId: item.productId,
+      quantity: item.quantity,
+    });
+  }
+
+  const clampedOrderDiscount = Math.max(0, Math.min(orderDiscount || 0, subtotal));
+  const totalAmount = subtotal - clampedOrderDiscount;
+  const backdated = now - opts.createdAt > 60 * 60 * 1000;
+
+  // Use a placeholder address for in-store orders
+  const orderId = await ctx.db.insert("orders", {
+    userId: userId || undefined,
+    status: "pending",
+    items: orderItems,
+    subtotal,
+    orderDiscount: clampedOrderDiscount,
+    totalAmount,
+    shippingAddress: {
+      street: "In-Store Pickup",
+      city: "N/A",
+      state: "N/A",
+      zipCode: "N/A",
+      country: "Philippines",
+    },
+    paymentMethod,
+    customerName: customerName || undefined,
+    notes,
+    // Walk-in orders: assume paid immediately (cash on the spot)
+    paymentStatus: "paid",
+    amountPaid: totalAmount,
+    salesAssociateId,
+    salesAssociateName,
+    correctionOf: opts.correctionOf,
+    enteredAt: backdated ? now : undefined,
+    channel: "pos",
+    createdAt: opts.createdAt,
+    updatedAt: now,
+  });
+
+  return { orderId, orderItems, subtotal, orderDiscount: clampedOrderDiscount, totalAmount, backdated };
+}
+
 export const adminCreateOrder = mutation({
   args: {
     userId: v.optional(v.id("users")),
-    items: v.array(v.object({
-      productId: v.id("products"),
-      quantity: v.number(),
-      discount: v.optional(v.number()), // Per-unit discount amount (₱)
-    })),
+    items: SALE_ITEMS,
     orderDiscount: v.optional(v.number()), // Order-wide flat discount (₱)
     paymentMethod: v.string(),
     notes: v.optional(v.string()),
     customerName: v.optional(v.string()),
     salesAssociateId: v.optional(v.id("users")),
     salesAssociateName: v.optional(v.string()),
+    // Sale date when entering a past sale (e.g. from a paper receipt). Omit for "now".
+    orderDate: v.optional(v.number()),
   },
-  handler: async (ctx, { userId, items, orderDiscount, paymentMethod, notes, customerName, salesAssociateId, salesAssociateName }) => {
+  handler: async (ctx, { orderDate, ...input }) => {
     const staff = await requireStaff(ctx);
-    if (items.length === 0) {
-      throw new Error("No items provided");
-    }
-
-    const orderItems = [];
-    let subtotal = 0;
-    const now = Date.now();
-
-    for (const item of items) {
-      const product = await ctx.db.get(item.productId);
-
-      if (!product || !product.isActive) {
-        throw new Error(`Product ${product?.name || 'unknown'} is not available`);
-      }
-
-      if (product.stock < item.quantity) {
-        throw new Error(`Insufficient stock for ${product.name}. Available: ${product.stock}, Requested: ${item.quantity}`);
-      }
-
-      const originalPrice = product.price;
-      const discount = Math.max(0, Math.min(item.discount || 0, originalPrice));
-      const finalPrice = originalPrice - discount;
-
-      orderItems.push({
-        productId: item.productId,
-        quantity: item.quantity,
-        price: finalPrice,
-        originalPrice,
-        discount,
-      });
-
-      subtotal += finalPrice * item.quantity;
-
-      // Deduct stock
-      await ctx.db.patch(item.productId, {
-        stock: product.stock - item.quantity,
-        updatedAt: now,
-      });
-
-      await recordSaleHelper(ctx, {
-        productId: item.productId,
-        quantity: item.quantity,
-      });
-    }
-
-    const clampedOrderDiscount = Math.max(0, Math.min(orderDiscount || 0, subtotal));
-    const totalAmount = subtotal - clampedOrderDiscount;
-
-    // Use a placeholder address for in-store orders
-    const orderId = await ctx.db.insert("orders", {
-      userId: userId || undefined,
-      status: "pending",
-      items: orderItems,
-      subtotal,
-      orderDiscount: clampedOrderDiscount,
-      totalAmount,
-      shippingAddress: {
-        street: "In-Store Pickup",
-        city: "N/A",
-        state: "N/A",
-        zipCode: "N/A",
-        country: "Philippines",
-      },
-      paymentMethod,
-      customerName: customerName || undefined,
-      notes,
-      // Walk-in orders: assume paid immediately (cash on the spot)
-      paymentStatus: "paid",
-      amountPaid: totalAmount,
-      salesAssociateId,
-      salesAssociateName,
-      createdAt: now,
-      updatedAt: now,
-    });
+    const createdAt = resolveSaleDate(orderDate, Date.now());
+    const sale = await createStaffSale(ctx, input, { createdAt });
+    const code = generateOrderCode(sale.orderId);
 
     await recordAudit(ctx, {
       actorId: staff._id,
       action: "order.create",
       category: "sales",
-      summary: `POS sale ${generateOrderCode(orderId)} — ${orderItems.length} item${orderItems.length === 1 ? "" : "s"}, ₱${totalAmount.toLocaleString("en-PH")}${customerName ? ` · ${customerName}` : ""}`,
+      summary: `POS sale ${code} — ${sale.orderItems.length} item${sale.orderItems.length === 1 ? "" : "s"}, ₱${sale.totalAmount.toLocaleString("en-PH")}${input.customerName ? ` · ${input.customerName}` : ""}${sale.backdated ? ` · dated ${new Date(createdAt).toLocaleDateString("en-PH", { timeZone: "Asia/Manila" })}` : ""}`,
       entityTable: "orders",
-      entityId: orderId,
-      amount: totalAmount,
-      metadata: { itemCount: orderItems.length, paymentMethod, salesAssociateId, salesAssociateName },
+      entityId: sale.orderId,
+      amount: sale.totalAmount,
+      metadata: { itemCount: sale.orderItems.length, paymentMethod: input.paymentMethod, salesAssociateId: input.salesAssociateId, salesAssociateName: input.salesAssociateName, saleDate: createdAt, backdated: sale.backdated },
     });
 
     return {
-      orderId,
-      orderCode: generateOrderCode(orderId),
-      subtotal,
-      orderDiscount: clampedOrderDiscount,
-      totalAmount,
-      itemCount: orderItems.length,
+      orderId: sale.orderId,
+      orderCode: code,
+      subtotal: sale.subtotal,
+      orderDiscount: sale.orderDiscount,
+      totalAmount: sale.totalAmount,
+      itemCount: sale.orderItems.length,
     };
   },
 });
@@ -583,6 +651,7 @@ export const placeWebOrder = mutation({
       notes,
       paymentStatus: "unpaid",
       amountPaid: 0,
+      channel: "web",
       createdAt: now,
       updatedAt: now,
     });
@@ -791,6 +860,17 @@ export const getOrderReceipt = query({
       createdAt: order.createdAt,
       updatedAt: order.updatedAt,
       notes: order.notes,
+      customerName: order.customerName,
+      subtotal: order.subtotal,
+      orderDiscount: order.orderDiscount,
+      paymentStatus: order.paymentStatus,
+      amountPaid: order.amountPaid,
+      enteredAt: order.enteredAt,
+      voidedAt: order.voidedAt,
+      voidedByName: order.voidedByName,
+      voidReason: order.voidReason,
+      correctionOf: order.correctionOf ? { orderId: order.correctionOf, orderCode: generateOrderCode(order.correctionOf) } : undefined,
+      correctedBy: order.correctedBy ? { orderId: order.correctedBy, orderCode: generateOrderCode(order.correctedBy) } : undefined,
     };
   },
 });

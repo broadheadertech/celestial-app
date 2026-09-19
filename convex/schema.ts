@@ -167,6 +167,17 @@ export default defineSchema({
     // Sales associate tracking (for incentive programs)
     salesAssociateId: v.optional(v.id("users")),
     salesAssociateName: v.optional(v.string()),
+    // Voids / corrections (convex/services/salesCorrections.ts). A voided sale stays on record with
+    // status "cancelled"; a correction is a new order pointing back at the one it replaced.
+    voidedAt: v.optional(v.number()),
+    voidedByName: v.optional(v.string()),
+    voidReason: v.optional(v.string()),
+    correctionOf: v.optional(v.id("orders")),
+    correctedBy: v.optional(v.id("orders")),
+    // When the sale was actually keyed in, if its date (createdAt) was set to an earlier day.
+    enteredAt: v.optional(v.number()),
+    // Where the order came from; older rows are inferred by orderChannel() in services/orders.ts.
+    channel: v.optional(v.union(v.literal("pos"), v.literal("web"), v.literal("app"))),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
@@ -411,6 +422,12 @@ export default defineSchema({
     isMortalityLoss: v.optional(v.boolean()), // Flag to identify mortality loss records
     sourceStockRecordId: v.optional(v.id("stockRecords")), // Reference to parent stock if this is a mortality loss record
     
+    // Restock corrections (convex/services/restockCorrections.ts): a voided delivery keeps its row
+    // with quantities zeroed; corrections are logged as stock movements and in the audit log.
+    voidedAt: v.optional(v.number()),
+    voidedByName: v.optional(v.string()),
+    voidReason: v.optional(v.string()),
+
     // Audit trail
     createdAt: v.number(),
     updatedAt: v.number(),
@@ -647,7 +664,7 @@ export default defineSchema({
   // applies whether or not the account exists. `count` is failures (login) or requests
   // (password_reset) since `windowStart`; `lockedUntil` is set once the limit is hit.
   loginAttempts: defineTable({
-    kind: v.union(v.literal("login"), v.literal("password_reset")),
+    kind: v.union(v.literal("login"), v.literal("password_reset"), v.literal("staff_confirm")),
     key: v.string(),
     count: v.number(),
     windowStart: v.number(),

@@ -105,7 +105,7 @@ async function lastSource(ctx: { db: import("../_generated/server").QueryCtx["db
       .withIndex("by_product", (q) => q.eq("productId", product._id))
       .collect()
   )
-    .filter((b) => !b.isMortalityLoss)
+    .filter((b) => !b.isMortalityLoss && !b.voidedAt)
     .sort((a, b) => b.receivedDate - a.receivedDate);
   return {
     supplier: batches.find((b) => b.supplier?.trim())?.supplier?.trim(),

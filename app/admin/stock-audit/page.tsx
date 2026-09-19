@@ -3,12 +3,13 @@
 import React, { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useMutation, useQuery } from 'convex/react';
-import { AlertTriangle, ArrowLeft, Check, ClipboardCheck, Download, History, Info, RefreshCw, X, XCircle } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Check, ClipboardCheck, Download, History, Info, RefreshCw, Truck, X, XCircle } from 'lucide-react';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import type { FunctionReturnType } from 'convex/server';
 import BottomNavbar from '@/components/common/BottomNavbar';
 import SafeAreaProvider from '@/components/provider/SafeAreaProvider';
+import DeliveriesTab from '@/components/admin/DeliveriesTab';
 
 type Activity = FunctionReturnType<typeof api.services.stockAudit.getStockActivity>;
 type MovementType = Activity['rows'][number]['movementType'];
@@ -47,7 +48,7 @@ const inputStyle: React.CSSProperties = { background: 'var(--bg-2)', borderColor
 
 function AuditContent() {
   const router = useRouter();
-  const [tab, setTab] = useState<'activity' | 'check'>('activity');
+  const [tab, setTab] = useState<'activity' | 'check' | 'deliveries'>('activity');
   const [notice, setNotice] = useState<{ text: string; error?: boolean } | null>(null);
   const flash = (text: string, error = false) => {
     setNotice({ text, error });
@@ -69,7 +70,7 @@ function AuditContent() {
           </div>
         </div>
         <div className="px-3 sm:px-6 max-w-6xl mx-auto flex gap-1">
-          {([['activity', 'Activity', History], ['check', 'Stock check', ClipboardCheck]] as const).map(([id, label, Icon]) => (
+          {([['activity', 'Activity', History], ['check', 'Stock check', ClipboardCheck], ['deliveries', 'Deliveries', Truck]] as const).map(([id, label, Icon]) => (
             <button
               key={id}
               onClick={() => setTab(id)}
@@ -84,7 +85,7 @@ function AuditContent() {
       </div>
 
       <div className="px-3 sm:px-6 py-4 sm:py-6 max-w-6xl mx-auto space-y-4">
-        {tab === 'activity' ? <ActivityTab /> : <StockCheckTab flash={flash} />}
+        {tab === 'activity' ? <ActivityTab /> : tab === 'check' ? <StockCheckTab flash={flash} /> : <DeliveriesTab flash={flash} />}
       </div>
 
       {notice && (

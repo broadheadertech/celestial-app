@@ -389,6 +389,14 @@ npx cap run android      # Build and run on device/emulator
 - **Inventory audit** (Admin → Inventory Audit, `convex/services/stockAudit.ts`): activity feed of stock movements
   with person/note/totals + CSV; Stock check lists products whose stock ≠ batch totals or with no batches, fixed via
   "Record count" (`recordStockCount`).
+- **Corrections need a password:** sales are never edited in place — `salesCorrections.voidSale` (cancel, stock back,
+  kept as voided) or `correctSale` (void + re-enter at the original prices/date). Deliveries use
+  `restockCorrections.correctDelivery` / `voidDelivery` (Inventory Audit → Deliveries). All call
+  `confirmStaffPassword()` (`convex/lib/staffConfirm.ts`; returns `{ok:false,error}` instead of throwing so failed
+  attempts are counted, 5 → 15-min lock) plus a reason, and are audited. Paid orders can't be cancelled via status.
+- **Sale date & channel:** `adminCreateOrder` takes an optional `orderDate` (≤ 1 year back, not future; `enteredAt`
+  records when it was keyed in). `orders.channel` is "pos" | "web" | "app" (older rows inferred by `orderChannel()`);
+  the Orders page filters by it. Products with any transactions can't be deleted — only deactivated.
 - **updateProduct saves an explicit field list** — when adding a product field, add it there too
   (`purchaseMode: "auto"` clears the explicit setting).
 - **Checkout** (`app/(site)/checkout`) accepts cart-mode products only (`orders.placeWebOrder` enforces it);

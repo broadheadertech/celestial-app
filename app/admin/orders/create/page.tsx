@@ -21,6 +21,7 @@ import BottomNavbar from '@/components/common/BottomNavbar';
 import SafeAreaProvider from '@/components/provider/SafeAreaProvider';
 import OrderReceipt, { type ReceiptData } from '@/components/admin/OrderReceipt';
 import type { FunctionReturnType } from 'convex/server';
+import { fromDateInput, toDateInput } from '@/components/admin/SaleCorrectionDialogs';
 
 type AdminProduct = FunctionReturnType<typeof api.services.admin.getAllProductsAdmin>[number];
 
@@ -47,6 +48,7 @@ function CreateOrderContent() {
   // Customer selection
   const [selectedUserId, setSelectedUserId] = useState('');
   const [customerName, setCustomerName] = useState('');
+  const [saleDate, setSaleDate] = useState(() => toDateInput(Date.now()));
 
   // New customer form
   const [showNewCustomer, setShowNewCustomer] = useState(false);
@@ -147,6 +149,7 @@ function CreateOrderContent() {
         paymentMethod,
         notes: notes || undefined,
         customerName: customerName || undefined,
+        ...(saleDate !== toDateInput(Date.now()) ? { orderDate: fromDateInput(saleDate) } : {}),
         salesAssociateId: salesAssociateId ? salesAssociateId as Id<"users"> : undefined,
         salesAssociateName: salesAssociateName || undefined,
       });
@@ -264,6 +267,17 @@ function CreateOrderContent() {
                   onChange={(e) => setCustomerName(e.target.value)}
                   placeholder="Customer name for receipt..."
                   className="w-full px-3 py-2.5 bg-background/60 border border-white/10 rounded-lg text-sm text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-white/60 mb-1">Sale date{saleDate !== toDateInput(Date.now()) ? ' (past sale)' : ''}</label>
+                <input
+                  type="date"
+                  value={saleDate}
+                  max={toDateInput(Date.now())}
+                  onChange={(e) => setSaleDate(e.target.value || toDateInput(Date.now()))}
+                  className="w-full px-3 py-2.5 rounded-lg border text-sm"
+                  style={{ background: 'var(--bg-2)', borderColor: 'var(--line)', color: 'var(--ink)' }}
                 />
               </div>
             </div>

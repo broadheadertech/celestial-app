@@ -18,6 +18,7 @@ import { api } from '@/convex/_generated/api';
 import { Id } from '@/convex/_generated/dataModel';
 import OrderReceipt, { type ReceiptData } from '@/components/admin/OrderReceipt';
 import type { FunctionReturnType } from 'convex/server';
+import { fromDateInput, toDateInput } from '@/components/admin/SaleCorrectionDialogs';
 
 type AdminProduct = FunctionReturnType<typeof api.services.admin.getAllProductsAdmin>[number];
 
@@ -44,6 +45,7 @@ export default function CreateOrderForm({ onSuccess }: CreateOrderFormProps) {
   const [orderItems, setOrderItems] = useState<CartItem[]>([]);
   const [selectedUserId, setSelectedUserId] = useState('');
   const [customerName, setCustomerName] = useState('');
+  const [saleDate, setSaleDate] = useState(() => toDateInput(Date.now()));
   const [showNewCustomer, setShowNewCustomer] = useState(false);
   const [newFirstName, setNewFirstName] = useState('');
   const [newLastName, setNewLastName] = useState('');
@@ -184,6 +186,7 @@ export default function CreateOrderForm({ onSuccess }: CreateOrderFormProps) {
         paymentMethod,
         notes: notes || undefined,
         customerName: customerName || undefined,
+        ...(saleDate !== toDateInput(Date.now()) ? { orderDate: fromDateInput(saleDate) } : {}),
         salesAssociateId: salesAssociateId ? salesAssociateId as Id<"users"> : undefined,
         salesAssociateName: salesAssociateName || undefined,
       });
@@ -221,6 +224,10 @@ export default function CreateOrderForm({ onSuccess }: CreateOrderFormProps) {
                 <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40 pointer-events-none" />
               </div>
               <input type="text" value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="Walk-in name..." className="w-full px-3 py-2.5 bg-background/60 border border-white/10 rounded-lg text-sm text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-primary" />
+              <label className="flex items-center justify-between gap-3 text-xs" style={{ color: 'var(--ink-3)' }}>
+                <span>Sale date{saleDate !== toDateInput(Date.now()) ? ' (past sale)' : ''}</span>
+                <input type="date" value={saleDate} max={toDateInput(Date.now())} onChange={(e) => setSaleDate(e.target.value || toDateInput(Date.now()))} className="px-2.5 py-1.5 rounded-lg border text-sm" style={{ background: 'var(--bg-2)', borderColor: 'var(--line)', color: 'var(--ink)' }} />
+              </label>
             </div>
           ) : (
             <div className="space-y-2 p-3 rounded-lg bg-primary/5 border border-primary/20">
