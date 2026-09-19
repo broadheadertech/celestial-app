@@ -5,7 +5,6 @@ import { isListedPublicly } from "../lib/purchaseMode";
 import { Doc, Id } from "../_generated/dataModel";
 import { getReservationUser } from "../lib/reservationUser";
 import {
-  notifyLowStock,
   notifyReservationCreated,
   notifyReservationStatusChanged,
   notifyReservationReadyForPickup
@@ -228,17 +227,6 @@ export const createReservationFromCart = mutation({
         productId: cartItem.productId,
         quantity: cartItem.quantity,
       });
-
-      // Check for low stock and create alert if needed
-      const newStock = product.stock - cartItem.quantity;
-      if (newStock <= 5 && newStock > 0) {
-        await notifyLowStock(ctx, {
-          productId: product._id as string,
-          productName: product.name,
-          currentStock: newStock,
-          threshold: 5,
-        });
-      }
     }
 
     // Create single reservation with all items
@@ -907,17 +895,6 @@ export const createReservation = mutation({
         productId: item.productId,
         quantity: item.quantity,
       });
-
-      // Check for low stock and create alert if needed
-      const newStock = product.stock - item.quantity;
-      if (newStock <= 5 && newStock > 0) {
-        await notifyLowStock(ctx, {
-          productId: product._id as string,
-          productName: product.name,
-          currentStock: newStock,
-          threshold: 5,
-        });
-      }
     }
 
     const finalItems = callerIsStaff ? items : catalogPricedItems;

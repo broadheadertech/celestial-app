@@ -20,6 +20,8 @@ import {
   MessageSquareQuote,
   Newspaper,
   HelpCircle,
+  ClipboardList,
+  History,
 } from 'lucide-react';
 
 /**
@@ -95,6 +97,8 @@ export const ADMIN_NAV_SECTIONS: AdminNavSection[] = [
         href: '/admin/inventory',
         matchPaths: ['/admin/inventory'],
       },
+      { id: 'restock', label: 'Restock List', icon: ClipboardList, href: '/admin/restock' },
+      { id: 'stock-audit', label: 'Inventory Audit', icon: History, href: '/admin/stock-audit' },
     ],
   },
   {

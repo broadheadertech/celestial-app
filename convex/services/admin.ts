@@ -8,6 +8,7 @@ import { mutation, query } from "../_generated/server";
 import { Doc, Id } from "../_generated/dataModel";
 import { hashPassword } from "./auth";
 import { recordAudit } from "./audit";
+import { logStockMovement } from "../lib/stockLog";
 
 // Regular admins manage customer accounts only; staff accounts need a super admin.
 // Mirrors the Users page, which only shows admins their client users.
@@ -462,7 +463,7 @@ export const createProduct = mutation({
     });
     
     // Log initial stock movement
-    await ctx.db.insert("stockMovements", {
+    await logStockMovement(ctx, {
       stockRecordId: stockRecordId,
       productId: productId,
       batchCode: batchCode,

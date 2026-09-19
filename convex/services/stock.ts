@@ -4,6 +4,7 @@ import { Id } from "../_generated/dataModel";
 import { createInternalUseExpenseHelper, createMortalityExpenseHelper } from "./finance";
 import { recordAudit } from "./audit";
 import { requireStaff } from "../lib/authz";
+import { logStockMovement } from "../lib/stockLog";
 
 // ==================== HELPER FUNCTIONS (callable from other mutations) ====================
 
@@ -56,7 +57,7 @@ export async function reserveStockHelper(
       updatedAt: now,
     });
 
-    await ctx.db.insert("stockMovements", {
+    await logStockMovement(ctx, {
       stockRecordId: batch._id,
       productId,
       batchCode: batch.batchCode,
@@ -110,7 +111,7 @@ export async function releaseReservedStockHelper(
       updatedAt: now,
     });
 
-    await ctx.db.insert("stockMovements", {
+    await logStockMovement(ctx, {
       stockRecordId: batch._id,
       productId,
       batchCode: batch.batchCode,
@@ -162,7 +163,7 @@ export async function recordSaleHelper(
       updatedAt: now,
     });
 
-    await ctx.db.insert("stockMovements", {
+    await logStockMovement(ctx, {
       stockRecordId: batch._id,
       productId,
       batchCode: batch.batchCode,
@@ -213,7 +214,7 @@ export async function restoreStockHelper(
     updatedAt: now,
   });
 
-  await ctx.db.insert("stockMovements", {
+  await logStockMovement(ctx, {
     stockRecordId: batch._id,
     productId,
     batchCode: batch.batchCode,
@@ -818,7 +819,7 @@ export const restockProduct = mutation({
     });
 
     // Log stock movement for this restock
-    await ctx.db.insert("stockMovements", {
+    await logStockMovement(ctx, {
       stockRecordId: stockRecordId,
       productId: productId,
       batchCode: batchCode,
@@ -827,7 +828,7 @@ export const restockProduct = mutation({
       quantityChange: quantity,
       quantityAfter: newTotalStock,
       createdAt: now,
-    });
+    }, { note: [supplier?.trim() && `Supplier: ${supplier.trim()}`, notes?.trim()].filter(Boolean).join(' · ') });
 
     // Moving Average Cost (MAC) — recompute the running weighted average for this product.
     // Only updates when actualCostPrice was supplied for this restock; otherwise leaves MAC as-is.
@@ -849,6 +850,9 @@ export const restockProduct = mutation({
       ...(nextMovingAverage !== undefined && nextMovingAverage !== product.movingAverageCost
         ? { movingAverageCost: nextMovingAverage }
         : {}),
+      // Received — no longer "ordered" on the restock list.
+      restockOrderedAt: undefined,
+      restockOrderedByName: undefined,
       updatedAt: now,
     });
 
@@ -945,7 +949,7 @@ export const logInternalUse = mutation({
       });
 
       // Log a movement per affected batch
-      await ctx.db.insert("stockMovements", {
+      await logStockMovement(ctx, {
         stockRecordId: batch._id,
         productId,
         batchCode: batch.batchCode,
@@ -954,7 +958,7 @@ export const logInternalUse = mutation({
         quantityChange: -takeFromBatch,
         quantityAfter: newBatchQty,
         createdAt: now,
-      });
+      }, { note: [internalUseCategory ? `Internal use: ${internalUseCategory}` : 'Internal use', notes?.trim()].filter(Boolean).join(' · ') });
 
       remaining -= takeFromBatch;
     }
@@ -1097,7 +1101,7 @@ export const reserveStock = mutation({
     });
 
     // Log stock movement
-    await ctx.db.insert("stockMovements", {
+    await logStockMovement(ctx, {
       stockRecordId: stockRecord._id,
       productId: productId,
       batchCode: stockRecord.batchCode,
@@ -1153,7 +1157,7 @@ export const releaseReservedStock = mutation({
     });
 
     // Log stock movement (negative change to indicate release)
-    await ctx.db.insert("stockMovements", {
+    await logStockMovement(ctx, {
       stockRecordId: stockRecordId,
       productId: stockRecord.productId,
       batchCode: stockRecord.batchCode,
@@ -1231,7 +1235,7 @@ export const processSale = mutation({
     });
 
     // Log stock movement
-    await ctx.db.insert("stockMovements", {
+    await logStockMovement(ctx, {
       stockRecordId: stockRecordId,
       productId: stockRecord.productId,
       batchCode: stockRecord.batchCode,
@@ -1308,7 +1312,7 @@ export const markStockDamaged = mutation({
     });
 
     // Log stock movement
-    await ctx.db.insert("stockMovements", {
+    await logStockMovement(ctx, {
       stockRecordId: stockRecordId,
       productId: stockRecord.productId,
       batchCode: stockRecord.batchCode,
@@ -1317,7 +1321,7 @@ export const markStockDamaged = mutation({
       quantityChange: -quantity,
       quantityAfter: newCurrentQty,
       createdAt: now,
-    });
+    }, { note: notes });
 
     // Update product stock
     const product = await ctx.db.get(stockRecord.productId);
@@ -1387,7 +1391,7 @@ export const processReturn = mutation({
     });
 
     // Log stock movement
-    await ctx.db.insert("stockMovements", {
+    await logStockMovement(ctx, {
       stockRecordId: stockRecordId,
       productId: stockRecord.productId,
       batchCode: stockRecord.batchCode,
@@ -1396,7 +1400,7 @@ export const processReturn = mutation({
       quantityChange: restockable ? quantity : 0,
       quantityAfter: newCurrentQty,
       createdAt: now,
-    });
+    }, { note: [restockable ? 'Returned to stock' : 'Returned (not resaleable)', notes?.trim()].filter(Boolean).join(' · ') });
 
     // Update product stock if restockable
     if (restockable) {
@@ -1477,7 +1481,7 @@ export const adjustStock = mutation({
     });
 
     // Log stock movement
-    await ctx.db.insert("stockMovements", {
+    await logStockMovement(ctx, {
       stockRecordId: stockRecordId,
       productId: stockRecord.productId,
       batchCode: stockRecord.batchCode,
@@ -1486,7 +1490,7 @@ export const adjustStock = mutation({
       quantityChange: quantityChange,
       quantityAfter: newCurrentQty,
       createdAt: now,
-    });
+    }, { note: reason });
 
     // Update product stock
     const product = await ctx.db.get(stockRecord.productId);
@@ -1805,7 +1809,7 @@ export const recordMortalityLossByProduct = mutation({
       });
 
       // Log per-batch movement
-      await ctx.db.insert("stockMovements", {
+      await logStockMovement(ctx, {
         stockRecordId: batch._id,
         productId: productId,
         batchCode: batch.batchCode,
@@ -1814,7 +1818,7 @@ export const recordMortalityLossByProduct = mutation({
         quantityChange: -takeFromBatch,
         quantityAfter: newCurrentQty,
         createdAt: now,
-      });
+      }, { note: ['Mortality loss', notes?.trim()].filter(Boolean).join(' · ') });
 
       affectedBatches.push({ batchCode: batch.batchCode, qty: takeFromBatch });
       remaining -= takeFromBatch;

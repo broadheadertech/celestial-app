@@ -80,6 +80,11 @@ export default defineSchema({
     videos: v.optional(v.array(productVideoValidator)),
     // URL-safe unique name for readable links (/specimen/<slug>); generated from the name.
     slug: v.optional(v.string()),
+    // Restock list (convex/services/restock.ts): alert level for this product (unset = App Settings
+    // low-stock threshold), and who marked it as ordered from the supplier (cleared on restock).
+    reorderPoint: v.optional(v.number()),
+    restockOrderedAt: v.optional(v.number()),
+    restockOrderedByName: v.optional(v.string()),
     isActive: v.boolean(),
     createdAt: v.number(),
     updatedAt: v.number(),
@@ -444,8 +449,11 @@ export default defineSchema({
     quantityBefore: v.number(),
     quantityChange: v.number(), // Positive for increase, negative for decrease
     quantityAfter: v.number(),
-    
-    // Audit
+
+    // Audit (convex/lib/stockLog.ts fills these; older rows have none)
+    performedBy: v.optional(v.id("users")), // staff member, or the signed-in customer; unset = guest/system
+    performedByName: v.optional(v.string()), // snapshot so the log stays readable
+    note: v.optional(v.string()), // reason/notes entered with the change (adjustment reason, supplier, …)
     createdAt: v.number(),
   })
     .index("by_stock_record", ["stockRecordId"])

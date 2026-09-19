@@ -8,6 +8,8 @@ import { getViewer, isStaffRole, requireStaff } from "../lib/authz";
 import { isListedPublicly, resolvePurchaseMode } from "../lib/purchaseMode";
 import { uniqueProductSlug } from "../lib/slug";
 import { normalizeVideos, productVideoValidator } from "../lib/video";
+import { logStockMovement } from "../lib/stockLog";
+import { setCountedStock } from "../lib/stockCount";
 
 // "auto" clears an explicit setting (default by category).
 const PURCHASE_MODE = v.optional(v.union(v.literal("enquire"), v.literal("cart"), v.literal("auto")));
@@ -640,7 +642,7 @@ export const createProduct = mutation({
       });
       
       // Log initial stock movement
-      await ctx.db.insert("stockMovements", {
+      await logStockMovement(ctx, {
         stockRecordId: stockRecordId,
         productId: productId,
         batchCode: batchCode,
@@ -945,7 +947,7 @@ export const updateProduct = mutation({
       if (updates.image !== undefined) updateData.image = updates.image;
       if (updates.images !== undefined) updateData.images = updates.images;
       if (updates.sku !== undefined) updateData.sku = updates.sku;
-      if (updates.stock !== undefined) updateData.stock = updates.stock;
+      // Stock edits go through setCountedStock below so batches and the audit trail stay in step.
       if (updates.rating !== undefined) updateData.rating = updates.rating;
       if (updates.reviews !== undefined) updateData.reviews = updates.reviews;
       if (updates.tankNumber !== undefined) updateData.tankNumber = updates.tankNumber;
@@ -965,6 +967,10 @@ export const updateProduct = mutation({
 
       // Update the main product
       await ctx.db.patch(productId, updateData);
+      if (updates.stock !== undefined && updates.stock !== product.stock) {
+        const fresh = await ctx.db.get(productId);
+        if (fresh) await setCountedStock(ctx, fresh, updates.stock, "Edited in product form");
+      }
       
       // Handle fish-specific data
       if (isFishCategory && fishData) {
