@@ -918,7 +918,8 @@ function AdminUsersContent() {
                                       <span>{user.isSalesAssociate ? 'Remove Sales Associate' : 'Mark as Sales Associate'}</span>
                                     </button>
                                   )}
-                                  <div className="border-t border-white/10 my-1"></div>
+                                  {isSuperAdmin && <div className="border-t border-white/10 my-1"></div>}
+                                  {isSuperAdmin && (
                                   <button
                                     onClick={() => handleDeleteUser(user._id)}
                                     className="w-full px-3 py-2 text-left text-xs text-error hover:bg-error/10 active:bg-error/15 flex items-center gap-2 transition-colors touch-manipulation"
@@ -926,6 +927,7 @@ function AdminUsersContent() {
                                     <Trash2 className="w-3.5 h-3.5" />
                                     <span>Delete User</span>
                                   </button>
+                                  )}
                                 </div>
                               </div>
                             )}
@@ -1141,7 +1143,7 @@ function AdminUsersContent() {
           }
         }
 
-        if (!isProtected) {
+        if (!isProtected && isSuperAdmin) {
           actions.push({
             icon: <Trash2 className="w-4 h-4" />,
             label: 'Delete User',

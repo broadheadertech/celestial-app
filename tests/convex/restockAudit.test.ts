@@ -167,7 +167,8 @@ describe("deleting products", () => {
   test("only products without transactions can be deleted; others are phased out", async () => {
     const t = newTest();
     const ids = await seedCatalog(t);
-    const admin = await signedInAs(t, "admin");
+    // Permanent deletion is super-admin only; admins deactivate instead.
+    const admin = await signedInAs(t, "super_admin");
     const gear = ids.gear as Id<"products">;
     const custom = ids.gearAsEnquire as Id<"products">;
 

@@ -1,6 +1,6 @@
 import type { Doc } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
-import { requireStaff } from "./authz";
+import { requireStaff, requireSuperAdmin } from "./authz";
 import { verifyPassword } from "./password";
 import { clearAttempts, getLockMinutes, recordAttempt, type ThrottlePolicy } from "./throttle";
 
@@ -17,8 +17,12 @@ const CONFIRM_POLICY: ThrottlePolicy = { max: 5, windowMs: 15 * 60 * 1000, lockM
 
 export type ConfirmResult = { ok: true; staff: Doc<"users"> } | { ok: false; error: string };
 
-export async function confirmStaffPassword(ctx: MutationCtx, password: string): Promise<ConfirmResult> {
-  const staff = await requireStaff(ctx);
+export async function confirmStaffPassword(
+  ctx: MutationCtx,
+  password: string,
+  opts: { superAdminOnly?: boolean } = {},
+): Promise<ConfirmResult> {
+  const staff = opts.superAdminOnly ? await requireSuperAdmin(ctx) : await requireStaff(ctx);
   const key = staff._id;
   const locked = await getLockMinutes(ctx, "staff_confirm", key);
   if (locked) return { ok: false, error: `Too many wrong passwords. Try again in ${locked} minute${locked === 1 ? "" : "s"}.` };

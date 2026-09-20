@@ -5,6 +5,7 @@ import { useMutation, useQuery } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { errorMessage } from '@/lib/errorMessage';
+import { useAuthStore } from '@/store/auth';
 
 /**
  * Delete a product only when it has no transactions; otherwise offer to deactivate (phase out),
@@ -15,6 +16,8 @@ export default function DeleteProductDialog({ productId, name, onClose, onDone }
   const deleteProduct = useMutation(api.services.admin.deleteProduct);
   const setActive = useMutation(api.services.admin.toggleProductStatus);
   const [busy, setBusy] = useState(false);
+  // Permanent deletion is super-admin only; admins phase products out instead.
+  const isSuperAdmin = useAuthStore((s) => s.user?.role) === 'super_admin';
   const [error, setError] = useState<string | null>(null);
 
   const run = async (action: () => Promise<unknown>, message: string, deleted: boolean) => {
@@ -38,7 +41,7 @@ export default function DeleteProductDialog({ productId, name, onClose, onDone }
             <p className="text-sm text-white/70">Checking {name}…</p>
           ) : check === null ? (
             <p className="text-sm text-white/70">This product no longer exists.</p>
-          ) : check.canDelete ? (
+          ) : check.canDelete && isSuperAdmin ? (
             <>
               <h3 className="text-lg font-bold text-white mb-2">Delete product?</h3>
               <p className="text-sm text-white/70 mb-1"><strong>{name}</strong> has no sales, reservations or stock changes, so it can be deleted permanently.</p>
@@ -47,7 +50,12 @@ export default function DeleteProductDialog({ productId, name, onClose, onDone }
           ) : (
             <>
               <h3 className="text-lg font-bold text-white mb-2">{check.isActive ? 'Phase out instead?' : 'Already phased out'}</h3>
-              <p className="text-sm text-white/70 mb-1"><strong>{name}</strong> can&apos;t be deleted because it has {check.reasons.join(', ')}.</p>
+              <p className="text-sm text-white/70 mb-1">
+                <strong>{name}</strong>{' '}
+                {check.canDelete
+                  ? 'can only be deleted permanently by a super admin.'
+                  : `can't be deleted because it has ${check.reasons.join(', ')}.`}
+              </p>
               <p className="text-xs text-white/50 mb-5">
                 {check.isActive
                   ? 'Deactivating hides it from the shop, POS and restock list but keeps its history for reports and the audit trail. You can reactivate it any time.'
@@ -60,12 +68,12 @@ export default function DeleteProductDialog({ productId, name, onClose, onDone }
             <button onClick={onClose} disabled={busy} className="flex-1 px-4 py-3 bg-secondary border border-white/10 text-white rounded-xl font-medium hover:bg-white/10 active:scale-95 transition-all disabled:opacity-50">
               {check && !check.canDelete && !check.isActive ? 'Close' : 'Cancel'}
             </button>
-            {check?.canDelete && (
+            {check?.canDelete && isSuperAdmin && (
               <button onClick={() => run(() => deleteProduct({ id: productId }), `Deleted "${name}".`, true)} disabled={busy} className="flex-1 px-4 py-3 bg-error text-white rounded-xl font-medium hover:bg-error/90 active:scale-95 transition-all disabled:opacity-50">
                 {busy ? 'Deleting…' : 'Delete'}
               </button>
             )}
-            {check && !check.canDelete && check.isActive && (
+            {check && (!check.canDelete || !isSuperAdmin) && check.isActive && (
               <button onClick={() => run(() => setActive({ productId, isActive: false }), `"${name}" deactivated (phased out).`, false)} disabled={busy} className="flex-1 px-4 py-3 bg-warning text-black rounded-xl font-semibold active:scale-95 transition-all disabled:opacity-50">
                 {busy ? 'Saving…' : 'Deactivate'}
               </button>

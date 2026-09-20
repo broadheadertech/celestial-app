@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { hashPassword } from "../../convex/lib/password";
-import { newTest, seedCatalog, signedInAs } from "./setup";
+import { authErrorCode, newTest, seedCatalog, signedInAs } from "./setup";
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -13,11 +13,12 @@ afterEach(() => {
 
 const PASSWORD = "correct horse 42";
 
-async function staffWithPassword(t: ReturnType<typeof newTest>) {
-  const admin = await signedInAs(t, "admin");
+/** Corrections are super-admin only, so these tests sign in as one. */
+async function staffWithPassword(t: ReturnType<typeof newTest>, role: "admin" | "super_admin" = "super_admin") {
+  const staff = await signedInAs(t, role);
   const passwordHash = await hashPassword(PASSWORD);
-  await t.run((ctx) => ctx.db.patch(admin.userId, { passwordHash }));
-  return admin;
+  await t.run((ctx) => ctx.db.patch(staff.userId, { passwordHash }));
+  return staff;
 }
 
 describe("sale corrections", () => {
@@ -64,7 +65,7 @@ describe("sale corrections", () => {
     const res = await admin.as.mutation(api.services.salesCorrections.voidSale, { orderId, password: PASSWORD, reason: "Rang up twice" });
     expect(res.ok).toBe(true);
     const order = await t.run((ctx) => ctx.db.get(orderId));
-    expect(order).toMatchObject({ status: "cancelled", voidReason: "Rang up twice", voidedByName: "Test admin" });
+    expect(order).toMatchObject({ status: "cancelled", voidReason: "Rang up twice", voidedByName: "Test super_admin" });
     expect((await t.run((ctx) => ctx.db.get(gear)))?.stock).toBe(10);
     const audit = await t.run(async (ctx) => (await ctx.db.query("auditLogs").collect()).map((a) => a.action));
     expect(audit).toContain("order.void");
@@ -136,7 +137,7 @@ describe("delivery corrections", () => {
     expect(product?.stock).toBe(12);
     expect(product?.movingAverageCost).toBe(950);
     const moves = (await admin.as.query(api.services.stockAudit.getStockActivity, { movementType: "adjustment" })).rows;
-    expect(moves[0]).toMatchObject({ quantityChange: -8, performedByName: "Test admin" });
+    expect(moves[0]).toMatchObject({ quantityChange: -8, performedByName: "Test super_admin" });
 
     // Sell 5 from it: it can no longer go below 5, and can't be voided.
     await admin.as.mutation(api.services.orders.adminCreateOrder, { items: [{ productId: gear, quantity: 5 }], paymentMethod: "cash" });
@@ -164,6 +165,31 @@ describe("delivery corrections", () => {
     expect((await admin.as.mutation(api.services.restockCorrections.voidDelivery, { stockRecordId: delivery.stockRecordId, password: PASSWORD, reason: "Entered twice" })).ok).toBe(true);
     expect((await t.run((ctx) => ctx.db.get(gear)))?.stock).toBe(10);
     const voided = (await admin.as.query(api.services.restockCorrections.getRecentDeliveries, {})).find((d) => d.stockRecordId === delivery.stockRecordId)!;
-    expect(voided).toMatchObject({ voidReason: "Entered twice", voidedByName: "Test admin", initialQty: 0 });
+    expect(voided).toMatchObject({ voidReason: "Entered twice", voidedByName: "Test super_admin", initialQty: 0 });
+  });
+});
+
+describe("super-admin-only actions", () => {
+  test("a plain admin can't void sales, correct deliveries, delete products or open finance", async () => {
+    const t = newTest();
+    const ids = await seedCatalog(t);
+    const boss = await staffWithPassword(t);
+    const admin = await staffWithPassword(t, "admin");
+    const gear = ids.gear as Id<"products">;
+    const { orderId } = await admin.as.mutation(api.services.orders.adminCreateOrder, { items: [{ productId: gear, quantity: 1 }], paymentMethod: "cash" });
+    await admin.as.mutation(api.services.stock.restockProduct, { productId: gear, quantity: 4, actualCostPrice: 900, fundingSource: "investment" });
+    const delivery = (await admin.as.query(api.services.restockCorrections.getRecentDeliveries, {})).find((d) => d.initialQty === 4)!;
+
+    expect(await authErrorCode(admin.as.mutation(api.services.salesCorrections.voidSale, { orderId, password: PASSWORD, reason: "test" }))).toBe("FORBIDDEN");
+    expect(await authErrorCode(admin.as.mutation(api.services.restockCorrections.voidDelivery, { stockRecordId: delivery.stockRecordId, password: PASSWORD, reason: "test" }))).toBe("FORBIDDEN");
+    expect(await authErrorCode(admin.as.mutation(api.services.admin.deleteProduct, { id: ids.gearAsEnquire as Id<"products"> }))).toBe("FORBIDDEN");
+    expect(await authErrorCode(admin.as.query(api.services.finance.getFinancialSummary, {}))).toBe("FORBIDDEN");
+    expect(await authErrorCode(admin.as.query(api.services.cashAdjustments.getCashAdjustments, {}))).toBe("FORBIDDEN");
+
+    // The super admin can do all of it.
+    expect((await boss.as.mutation(api.services.salesCorrections.voidSale, { orderId, password: PASSWORD, reason: "test" })).ok).toBe(true);
+    expect((await boss.as.mutation(api.services.restockCorrections.voidDelivery, { stockRecordId: delivery.stockRecordId, password: PASSWORD, reason: "test" })).ok).toBe(true);
+    await boss.as.mutation(api.services.admin.deleteProduct, { id: ids.gearAsEnquire as Id<"products"> });
+    expect(await boss.as.query(api.services.cashAdjustments.getCashAdjustments, {})).toEqual([]);
   });
 });

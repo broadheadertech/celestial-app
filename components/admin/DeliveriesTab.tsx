@@ -7,6 +7,7 @@ import { api } from '@/convex/_generated/api';
 import type { FunctionReturnType } from 'convex/server';
 import ConfirmCorrectionDialog from './ConfirmCorrectionDialog';
 import { fromDateInput, toDateInput } from './SaleCorrectionDialogs';
+import { useAuthStore } from '@/store/auth';
 
 type Delivery = FunctionReturnType<typeof api.services.restockCorrections.getRecentDeliveries>[number];
 
@@ -22,6 +23,8 @@ export default function DeliveriesTab({ flash }: { flash: (text: string, error?:
   const deliveries = useQuery(api.services.restockCorrections.getRecentDeliveries, { limit: 100 });
   const [search, setSearch] = useState('');
   const [editing, setEditing] = useState<{ delivery: Delivery; mode: 'correct' | 'void' } | null>(null);
+  // Correcting or voiding a delivery is super-admin only (enforced again on the server).
+  const isSuperAdmin = useAuthStore((s) => s.user?.role) === 'super_admin';
 
   const rows = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -73,7 +76,7 @@ export default function DeliveriesTab({ flash }: { flash: (text: string, error?:
                   </div>
                 )}
               </div>
-              {!d.voidedAt && (
+              {!d.voidedAt && isSuperAdmin && (
                 <div className="flex gap-1.5 flex-shrink-0">
                   <button onClick={() => setEditing({ delivery: d, mode: 'correct' })} className="px-2.5 py-1.5 rounded-md text-[11px] font-bold border" style={{ borderColor: 'var(--line)', color: 'var(--ink-2)' }}>
                     Correct

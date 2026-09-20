@@ -598,7 +598,8 @@ export const deleteProduct = mutation({
     userId: v.optional(v.id("users")), // ignored; the signed-in staff member is recorded
   },
   handler: async (ctx, { id }) => {
-    const staff = await requireStaff(ctx);
+    // Permanent deletion is super-admin only; admins deactivate (phase out) instead.
+    const staff = await requireSuperAdmin(ctx);
     const product = await ctx.db.get(id);
     if (!product) {
       throw new Error("Product not found");
@@ -1041,7 +1042,7 @@ export const deleteUser = mutation({
     userId: v.id("users"),
   },
   handler: async (ctx, { userId }) => {
-    const staff = await requireStaff(ctx);
+    const staff = await requireSuperAdmin(ctx);
     const user = await ctx.db.get(userId);
     if (!user) {
       throw new Error("User not found");

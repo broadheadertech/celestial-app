@@ -110,7 +110,7 @@ export const ADMIN_NAV_SECTIONS: AdminNavSection[] = [
   },
   {
     title: 'Finance',
-    items: [{ id: 'finance', label: 'P&L & Expenses', icon: Wallet, href: '/admin/finance' }],
+    items: [{ id: 'finance', label: 'P&L & Expenses', icon: Wallet, href: '/admin/finance', superAdminOnly: true }],
   },
   {
     title: 'Settings',

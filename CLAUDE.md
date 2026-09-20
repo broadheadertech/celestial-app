@@ -392,6 +392,10 @@ npx cap run android      # Build and run on device/emulator
 - **Inventory audit** (Admin → Inventory Audit, `convex/services/stockAudit.ts`): activity feed of stock movements
   with person/note/totals + CSV; Stock check lists products whose stock ≠ batch totals or with no batches, fixed via
   "Record count" (`recordStockCount`).
+- **Super-admin-only actions:** voiding/correcting sales, correcting/voiding deliveries, permanently deleting
+  products or customers, and everything under Finance (P&L, expenses, cash adjustments). Enforced server-side
+  (`requireSuperAdmin`, or `confirmStaffPassword(ctx, pw, { superAdminOnly: true })`), hidden in the UI for admins,
+  and `AdminGuard` blocks the super-admin-only routes (`SUPER_ADMIN_PATHS`).
 - **Corrections need a password:** sales are never edited in place — `salesCorrections.voidSale` (cancel, stock back,
   kept as voided) or `correctSale` (void + re-enter at the original prices/date). Deliveries use
   `restockCorrections.correctDelivery` / `voidDelivery` (Inventory Audit → Deliveries). All call

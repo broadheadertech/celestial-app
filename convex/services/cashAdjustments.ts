@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "../_generated/server";
 import { recordAudit } from "./audit";
-import { requireStaff } from "../lib/authz";
+import { requireSuperAdmin } from "../lib/authz";
 // Shared verifier (pbkdf2 + older formats) so corrections can require re-auth.
 import { verifyPassword } from "../lib/password";
 
@@ -38,7 +38,7 @@ export const createCashAdjustment = mutation({
     password: v.optional(v.string()),
   },
   handler: async (ctx, { type, amount, reason, notes, date, password }) => {
-    const staff = await requireStaff(ctx);
+    const staff = await requireSuperAdmin(ctx);
     const userId = staff._id;
     if (!reason.trim()) throw new Error("Reason is required");
     if (amount === 0) throw new Error("Amount must not be zero");
@@ -126,7 +126,7 @@ export const getCashAdjustments = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, { type, startDate, endDate, limit = 100 }) => {
-    await requireStaff(ctx);
+    await requireSuperAdmin(ctx);
     const all = type
       ? await ctx.db.query("cashAdjustments").withIndex("by_type", (q) => q.eq("type", type)).collect()
       : await ctx.db.query("cashAdjustments").collect();
@@ -153,7 +153,7 @@ export const getCashAdjustmentReport = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, { tzOffsetMinutes = -480, startDate, endDate, limit = 370 }) => {
-    await requireStaff(ctx);
+    await requireSuperAdmin(ctx);
     const adjustments = await ctx.db.query("cashAdjustments").collect();
 
     const now = Date.now();
@@ -229,7 +229,7 @@ export const getCashAdjustmentReport = query({
 export const deleteCashAdjustment = mutation({
   args: { id: v.id("cashAdjustments"), userId: v.optional(v.id("users")) },
   handler: async (ctx, { id }) => {
-    const staff = await requireStaff(ctx);
+    const staff = await requireSuperAdmin(ctx);
     const userId = staff._id;
     const row = await ctx.db.get(id);
     if (!row) throw new Error("Adjustment not found");

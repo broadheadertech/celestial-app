@@ -138,7 +138,7 @@ export const correctDelivery = mutation({
     const dateChanged = receivedDate !== undefined && receivedDate !== batch.receivedDate;
     if (delta === 0 && !costChanged && !dateChanged && newSupplier === batch.supplier) throw new Error("Nothing to change.");
 
-    const confirm = await confirmStaffPassword(ctx, password);
+    const confirm = await confirmStaffPassword(ctx, password, { superAdminOnly: true });
     if (!confirm.ok) return { ok: false as const, error: confirm.error };
     const staff = confirm.staff;
 
@@ -191,7 +191,7 @@ export const voidDelivery = mutation({
       throw new Error(`${used} unit${used === 1 ? " has" : "s have"} already been sold, used or reserved from this delivery, so it can't be voided. Correct the quantity instead.`);
     }
 
-    const confirm = await confirmStaffPassword(ctx, password);
+    const confirm = await confirmStaffPassword(ctx, password, { superAdminOnly: true });
     if (!confirm.ok) return { ok: false as const, error: confirm.error };
     const staff = confirm.staff;
 

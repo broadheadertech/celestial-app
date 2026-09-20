@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { requireStaff } from "../lib/authz";
+import { requireSuperAdmin } from "../lib/authz";
 import { getReservationUser } from "../lib/reservationUser";
 import { mutation, query, MutationCtx } from "../_generated/server";
 import { Doc, Id } from "../_generated/dataModel";
@@ -179,7 +179,7 @@ export const createExpense = mutation({
     userId: v.optional(v.id("users")),
   },
   handler: async (ctx, args) => {
-    const staff = await requireStaff(ctx);
+    const staff = await requireSuperAdmin(ctx);
     if (args.amount <= 0) throw new Error("Amount must be greater than 0");
     if (!args.description.trim()) throw new Error("Description is required");
 
@@ -242,7 +242,7 @@ export const updateExpense = mutation({
     userId: v.optional(v.id("users")),
   },
   handler: async (ctx, { id, userId, ...updates }) => {
-    const staff = await requireStaff(ctx);
+    const staff = await requireSuperAdmin(ctx);
     const expense = await ctx.db.get(id);
     if (!expense) throw new Error("Expense not found");
 
@@ -266,7 +266,7 @@ export const updateExpense = mutation({
 export const deleteExpense = mutation({
   args: { id: v.id("expenses"), userId: v.optional(v.id("users")) },
   handler: async (ctx, { id }) => {
-    const staff = await requireStaff(ctx);
+    const staff = await requireSuperAdmin(ctx);
     const expense = await ctx.db.get(id);
     if (!expense) throw new Error("Expense not found");
     await ctx.db.delete(id);
@@ -292,7 +292,7 @@ export const setOpeningBalance = mutation({
     userId: v.optional(v.id("users")),
   },
   handler: async (ctx, { amount }) => {
-    const staff = await requireStaff(ctx);
+    const staff = await requireSuperAdmin(ctx);
     if (amount < 0) throw new Error("Opening balance cannot be negative");
 
     const existing = await ctx.db
@@ -335,7 +335,7 @@ export const setOpeningBalance = mutation({
 export const getOpeningBalance = query({
   args: {},
   handler: async (ctx) => {
-    await requireStaff(ctx);
+    await requireSuperAdmin(ctx);
     const record = await ctx.db
       .query("financialSettings")
       .withIndex("by_key", (q) => q.eq("key", "opening_cash_balance"))
@@ -354,7 +354,7 @@ export const getExpenses = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, { type, category, startDate, endDate, limit = 100 }) => {
-    await requireStaff(ctx);
+    await requireSuperAdmin(ctx);
     let expenses;
     if (type) {
       expenses = await ctx.db
@@ -397,7 +397,7 @@ export const getFinancialSummary = query({
     endDate: v.optional(v.number()),
   },
   handler: async (ctx, { startDate, endDate }) => {
-    await requireStaff(ctx);
+    await requireSuperAdmin(ctx);
     const [orders, reservations, expenses, openingBalanceRecord, products, cashAdjustments, stockRecords, reservationPayments] =
       await Promise.all([
         ctx.db.query("orders").collect(),
@@ -752,7 +752,7 @@ export const getDailySalesReport = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, { tzOffsetMinutes = -480, startDate, endDate, limit = 370 }) => {
-    await requireStaff(ctx);
+    await requireSuperAdmin(ctx);
     const [orders, reservations, expenses, cashAdjustments, openingRecord, stockRecords, products, reservationPayments] = await Promise.all([
       ctx.db.query("orders").collect(),
       ctx.db.query("reservations").collect(),
@@ -918,7 +918,7 @@ export const getDailyReportDetail = query({
     endDate: v.number(),
   },
   handler: async (ctx, { startDate, endDate }) => {
-    await requireStaff(ctx);
+    await requireSuperAdmin(ctx);
     const [orders, reservations, expenses, products, stockRecords, categories] = await Promise.all([
       ctx.db.query("orders").collect(),
       ctx.db.query("reservations").collect(),
@@ -1092,7 +1092,7 @@ export const getStockFlowReport = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, { tzOffsetMinutes = -480, startDate, endDate, limit = 370 }) => {
-    await requireStaff(ctx);
+    await requireSuperAdmin(ctx);
     const [stockRecords, products] = await Promise.all([
       ctx.db.query("stockRecords").collect(),
       ctx.db.query("products").collect(),
@@ -1184,7 +1184,7 @@ export const getStockFlowDetail = query({
     endDate: v.number(),
   },
   handler: async (ctx, { startDate, endDate }) => {
-    await requireStaff(ctx);
+    await requireSuperAdmin(ctx);
     const [stockRecords, products] = await Promise.all([
       ctx.db.query("stockRecords").collect(),
       ctx.db.query("products").collect(),
@@ -1246,7 +1246,7 @@ export const getCollectionsFlowReport = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, { tzOffsetMinutes = -480, startDate, endDate, limit = 370 }) => {
-    await requireStaff(ctx);
+    await requireSuperAdmin(ctx);
     const payments = await ctx.db.query("reservationPayments").collect();
 
     const now = Date.now();
@@ -1326,7 +1326,7 @@ export const getCollectionsFlowDetail = query({
     endDate: v.number(),
   },
   handler: async (ctx, { startDate, endDate }) => {
-    await requireStaff(ctx);
+    await requireSuperAdmin(ctx);
     const all = await ctx.db.query("reservationPayments").collect();
     const inRange = (ts: number) => ts >= startDate && ts <= endDate;
     const scoped = all.filter((p) => inRange(p.date)).sort((a, b) => b.date - a.date);

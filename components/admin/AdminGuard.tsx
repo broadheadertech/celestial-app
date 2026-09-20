@@ -1,12 +1,14 @@
 'use client';
 
 import { ReactNode, useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useQuery } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { useAuthStore } from '@/store/auth';
 
 const STAFF_ROLES = ['admin', 'super_admin'];
+/** Routes only a super admin may open (the functions behind them check again). */
+const SUPER_ADMIN_PATHS = ['/admin/finance', '/admin/app-settings'];
 
 /**
  * Blocks /admin/* for anyone who isn't an active admin or super admin.
@@ -24,6 +26,7 @@ export default function AdminGuard({ children }: { children: ReactNode }) {
   // Static export: the first client render must match the build-time HTML (no user).
   useEffect(() => setMounted(true), []);
 
+  const pathname = usePathname() ?? '';
   const me = useQuery(api.services.session.me, mounted && sessionToken ? {} : 'skip');
 
   const status: 'checking' | 'allowed' | 'guest' | 'forbidden' = !mounted
@@ -34,18 +37,20 @@ export default function AdminGuard({ children }: { children: ReactNode }) {
         ? 'checking'
         : me === null
           ? 'guest' // session revoked/expired, or account deactivated
-          : STAFF_ROLES.includes(me.role)
-            ? 'allowed'
-            : 'forbidden';
+          : !STAFF_ROLES.includes(me.role)
+            ? 'forbidden'
+            : SUPER_ADMIN_PATHS.some((p) => pathname === p || pathname.startsWith(p + '/')) && me.role !== 'super_admin'
+              ? 'forbidden'
+              : 'allowed';
 
   useEffect(() => {
     if (status === 'guest') {
       if (user) logout();
       router.replace('/auth/login');
     } else if (status === 'forbidden') {
-      router.replace('/');
+      router.replace(STAFF_ROLES.includes(me?.role ?? '') ? '/admin/dashboard' : '/');
     }
-  }, [status, user, logout, router]);
+  }, [status, user, logout, router, me]);
 
   // Keep the cached role in sync if it was changed server-side.
   useEffect(() => {

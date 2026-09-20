@@ -44,7 +44,7 @@ export const voidSale = mutation({
     if (!order) throw new Error("Order not found");
     if (order.status === "cancelled") throw new Error("This sale is already voided or cancelled.");
 
-    const confirm = await confirmStaffPassword(ctx, password);
+    const confirm = await confirmStaffPassword(ctx, password, { superAdminOnly: true });
     if (!confirm.ok) return { ok: false as const, error: confirm.error };
     const staff = confirm.staff;
 
@@ -88,7 +88,7 @@ export const correctSale = mutation({
     if (order.status === "cancelled") throw new Error("This sale is already voided — create a new sale instead.");
     if (changes.items.length === 0) throw new Error("A corrected sale needs at least one item. To cancel the sale, use Void.");
 
-    const confirm = await confirmStaffPassword(ctx, password);
+    const confirm = await confirmStaffPassword(ctx, password, { superAdminOnly: true });
     if (!confirm.ok) return { ok: false as const, error: confirm.error };
     const staff = confirm.staff;
 

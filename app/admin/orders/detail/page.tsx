@@ -21,6 +21,7 @@ import SafeAreaProvider from '@/components/provider/SafeAreaProvider';
 import OrderReceipt, { type ReceiptData } from '@/components/admin/OrderReceipt';
 import { CorrectSaleDialog, VoidSaleDialog } from '@/components/admin/SaleCorrectionDialogs';
 import { adminToast } from '@/components/admin/AdminToaster';
+import { useAuthStore } from '@/store/auth';
 
 const formatCurrency = (amount: number) =>
   `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`;
@@ -58,6 +59,8 @@ function OrderDetailContent() {
   const [confirmAction, setConfirmAction] = useState<{ label: string; action: () => Promise<void> } | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [correction, setCorrection] = useState<'void' | 'correct' | null>(null);
+  // Voiding and correcting sales is super-admin only (enforced again on the server).
+  const isSuperAdmin = useAuthStore((s) => s.user?.role) === 'super_admin';
   const [notice, setNotice] = useState<string | null>(null);
 
   if (!orderId) {
@@ -269,7 +272,7 @@ function OrderDetailContent() {
               <Package className="w-4 h-4" /> Release Order (Receipt)
             </button>
           )}
-          {order.status !== 'cancelled' && (
+          {order.status !== 'cancelled' && isSuperAdmin && (
             <div className="grid grid-cols-2 gap-2">
               <button onClick={() => setCorrection('correct')} className="px-4 py-3 rounded-xl border font-medium text-sm active:scale-[0.98] transition-all" style={{ background: 'var(--surface)', borderColor: 'var(--line)', color: 'var(--ink)' }}>
                 Correct sale
