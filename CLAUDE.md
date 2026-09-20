@@ -384,8 +384,11 @@ npx cap run android      # Build and run on device/emulator
   `ctx.db.insert("stockMovements")` — it stamps who (`performedBy/performedByName`) and why (`note`) and raises a
   deduplicated low-stock alert (per-product `reorderPoint`, else App Settings threshold). Setting stock to a number
   (product form edit, stock count) must use `setCountedStock()` (`convex/lib/stockCount.ts`) so batches stay in step.
-- **Restock list** (Admin → Restock List, `convex/services/restock.ts`): out / low / selling-fast shop items with
-  30-day sales, suggested qty, last supplier & cost, per-item alert level, "ordered" marks (cleared by restockProduct).
+- **Restocks** (Admin → Restocks, `/admin/restock`): tab 1 "Recent restocks" = deliveries received, with
+  password-protected Correct (qty / unit cost / supplier / date) and Void for disputes
+  (`convex/services/restockCorrections.ts`, `components/admin/DeliveriesTab.tsx`); tab 2 "To reorder" = out /
+  low / selling-fast shop items with 30-day sales, suggested qty, last supplier & cost, per-item alert level and
+  "ordered" marks (`convex/services/restock.ts`).
 - **Inventory audit** (Admin → Inventory Audit, `convex/services/stockAudit.ts`): activity feed of stock movements
   with person/note/totals + CSV; Stock check lists products whose stock ≠ batch totals or with no batches, fixed via
   "Record count" (`recordStockCount`).

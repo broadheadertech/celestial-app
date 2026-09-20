@@ -6,6 +6,7 @@ import { RefreshCw } from 'lucide-react';
 import { api } from '@/convex/_generated/api';
 import type { FunctionReturnType } from 'convex/server';
 import ConfirmCorrectionDialog from './ConfirmCorrectionDialog';
+import { fromDateInput, toDateInput } from './SaleCorrectionDialogs';
 
 type Delivery = FunctionReturnType<typeof api.services.restockCorrections.getRecentDeliveries>[number];
 
@@ -31,7 +32,7 @@ export default function DeliveriesTab({ flash }: { flash: (text: string, error?:
   return (
     <>
       <p className="text-xs sm:text-sm" style={{ color: 'var(--ink-3)' }}>
-        Recent deliveries (restocks). Fix a typo with <b>Correct</b> — the difference is added to or taken from the product&apos;s stock. Use <b>Void</b> for a delivery
+        Restocks you&apos;ve received, newest first. Settle a dispute or adjustment with <b>Correct</b> — the difference is added to or taken from the product&apos;s stock. Use <b>Void</b> for a delivery
         entered by mistake (only while none of it has been sold or used). Both need your password and are logged.
       </p>
       <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search product, supplier, batch…" className={inputCls} style={inputStyle} />
@@ -108,6 +109,7 @@ function CorrectDeliveryDialog({ delivery: d, onClose, onDone }: { delivery: Del
   const [quantity, setQuantity] = useState(String(d.initialQty));
   const [cost, setCost] = useState(d.actualCostPrice !== undefined ? String(d.actualCostPrice) : '');
   const [supplier, setSupplier] = useState(d.supplier ?? '');
+  const [received, setReceived] = useState(toDateInput(d.receivedDate));
   const minQty = d.usedQty + d.reservedQty;
   const qty = Math.floor(Number(quantity));
   const qtyValid = quantity.trim() !== '' && Number.isFinite(qty) && qty >= minQty;
@@ -130,6 +132,7 @@ function CorrectDeliveryDialog({ delivery: d, onClose, onDone }: { delivery: Del
           ...(qty !== d.initialQty ? { quantity: qty } : {}),
           ...(cost.trim() !== '' && costNum !== d.actualCostPrice ? { actualCostPrice: costNum } : {}),
           ...(supplier.trim() !== (d.supplier ?? '') ? { supplier: supplier.trim() } : {}),
+          ...(received !== toDateInput(d.receivedDate) ? { receivedDate: fromDateInput(received) } : {}),
         });
         if (res.ok) onDone(`Delivery of ${d.productName} corrected.`);
         return res;
@@ -144,9 +147,13 @@ function CorrectDeliveryDialog({ delivery: d, onClose, onDone }: { delivery: Del
           Unit cost (₱)
           <input type="number" min={0} step="0.01" value={cost} onChange={(e) => setCost(e.target.value)} className={`${inputCls} mt-1`} style={inputStyle} />
         </label>
-        <label className="block text-[11px] col-span-2" style={{ color: 'var(--ink-3)' }}>
+        <label className="block text-[11px]" style={{ color: 'var(--ink-3)' }}>
           Supplier
           <input value={supplier} onChange={(e) => setSupplier(e.target.value)} maxLength={120} className={`${inputCls} mt-1`} style={inputStyle} />
+        </label>
+        <label className="block text-[11px]" style={{ color: 'var(--ink-3)' }}>
+          Date received
+          <input type="date" value={received} max={toDateInput(Date.now())} onChange={(e) => setReceived(e.target.value || toDateInput(d.receivedDate))} className={`${inputCls} mt-1`} style={inputStyle} />
         </label>
       </div>
       <p className="text-[11px] mt-2" style={{ color: !qtyValid ? 'var(--red-hi)' : 'var(--ink-3)' }}>

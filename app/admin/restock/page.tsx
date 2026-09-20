@@ -3,12 +3,13 @@
 import React, { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useMutation, useQuery } from 'convex/react';
-import { ArrowLeft, Check, ClipboardCopy, Download, Info, PackageCheck, PackagePlus, RefreshCw, Truck, X, XCircle } from 'lucide-react';
+import { ArrowLeft, Check, ClipboardCopy, ClipboardList, Download, Info, PackageCheck, PackagePlus, RefreshCw, Truck, X, XCircle } from 'lucide-react';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import type { FunctionReturnType } from 'convex/server';
 import BottomNavbar from '@/components/common/BottomNavbar';
 import SafeAreaProvider from '@/components/provider/SafeAreaProvider';
+import DeliveriesTab from '@/components/admin/DeliveriesTab';
 
 type Row = FunctionReturnType<typeof api.services.restock.getRestockList>['rows'][number];
 
@@ -29,6 +30,8 @@ const inputStyle: React.CSSProperties = { background: 'var(--bg-2)', borderColor
 
 function RestockContent() {
   const router = useRouter();
+  // "Received" = restocks we actually took in (edit/void for disputes). "To reorder" = what to buy next.
+  const [tab, setTab] = useState<'received' | 'reorder'>('received');
   const [includeLiveFish, setIncludeLiveFish] = useState(false);
   const data = useQuery(api.services.restock.getRestockList, { includeLiveFish });
   const setOrdered = useMutation(api.services.restock.setOrdered);
@@ -125,14 +128,38 @@ function RestockContent() {
               <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" style={{ color: 'var(--ink)' }} />
             </button>
             <div className="min-w-0 flex-1">
-              <p className="label-eyebrow truncate">Inventory · {data ? `${counts.out} out · ${counts.low} low · ${counts.soon} selling fast` : 'loading'}</p>
-              <h1 className="display text-lg sm:text-2xl truncate">Restock list</h1>
+              <p className="label-eyebrow truncate">
+                {tab === 'received' ? 'Inventory · deliveries you can correct or void' : data ? `${counts.out} out · ${counts.low} low · ${counts.soon} selling fast` : 'loading'}
+              </p>
+              <h1 className="display text-lg sm:text-2xl truncate">Restocks</h1>
             </div>
           </div>
         </div>
+        <div className="px-3 sm:px-6 max-w-6xl mx-auto flex gap-1">
+          {([['received', 'Recent restocks', Truck], ['reorder', 'To reorder', ClipboardList]] as const).map(([id, label, Icon]) => (
+            <button
+              key={id}
+              onClick={() => setTab(id)}
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-semibold border-b-2 -mb-px"
+              style={{ borderColor: tab === id ? 'var(--red)' : 'transparent', color: tab === id ? 'var(--ink)' : 'var(--ink-3)' }}
+            >
+              <Icon className="w-4 h-4" />
+              {label}
+              {id === 'reorder' && rows.length > 0 && (
+                <span className="text-[10px] font-mono-tabular px-1.5 py-0.5 rounded-full" style={{ background: 'var(--surface-hi)' }}>{rows.length}</span>
+              )}
+            </button>
+          ))}
+        </div>
       </div>
 
-      <div className="px-3 sm:px-6 py-4 sm:py-6 max-w-6xl mx-auto space-y-4">
+      {tab === 'received' && (
+        <div className="px-3 sm:px-6 py-4 sm:py-6 max-w-6xl mx-auto space-y-4">
+          <DeliveriesTab flash={flash} />
+        </div>
+      )}
+
+      <div className="px-3 sm:px-6 py-4 sm:py-6 max-w-6xl mx-auto space-y-4" style={{ display: tab === 'reorder' ? undefined : 'none' }}>
         <div className="flex items-start gap-2.5 p-3 rounded-[12px] border text-xs sm:text-sm leading-relaxed" style={{ background: 'var(--surface)', borderColor: 'var(--line)', color: 'var(--ink-3)' }}>
           <Info className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: 'var(--indigo)' }} />
           <p>

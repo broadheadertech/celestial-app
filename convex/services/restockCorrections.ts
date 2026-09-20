@@ -111,8 +111,9 @@ export const correctDelivery = mutation({
     quantity: v.optional(v.number()),
     actualCostPrice: v.optional(v.number()),
     supplier: v.optional(v.string()),
+    receivedDate: v.optional(v.number()),
   },
-  handler: async (ctx, { stockRecordId, password, reason, quantity, actualCostPrice, supplier }) => {
+  handler: async (ctx, { stockRecordId, password, reason, quantity, actualCostPrice, supplier, receivedDate }) => {
     const why = requireReason(reason);
     const batch = await ctx.db.get(stockRecordId);
     if (!batch || batch.isMortalityLoss) throw new Error("Delivery not found");
@@ -129,7 +130,13 @@ export const correctDelivery = mutation({
     }
     const newSupplier = supplier === undefined ? batch.supplier : supplier.trim().slice(0, 120) || undefined;
     const costChanged = actualCostPrice !== undefined && actualCostPrice !== batch.actualCostPrice;
-    if (delta === 0 && !costChanged && newSupplier === batch.supplier) throw new Error("Nothing to change.");
+    if (receivedDate !== undefined) {
+      if (!Number.isFinite(receivedDate)) throw new Error("Invalid delivery date");
+      if (receivedDate > Date.now() + 5 * 60 * 1000) throw new Error("The delivery date can't be in the future");
+      if (receivedDate < Date.now() - 730 * 24 * 60 * 60 * 1000) throw new Error("The delivery date can't be more than two years ago");
+    }
+    const dateChanged = receivedDate !== undefined && receivedDate !== batch.receivedDate;
+    if (delta === 0 && !costChanged && !dateChanged && newSupplier === batch.supplier) throw new Error("Nothing to change.");
 
     const confirm = await confirmStaffPassword(ctx, password);
     if (!confirm.ok) return { ok: false as const, error: confirm.error };
@@ -139,9 +146,11 @@ export const correctDelivery = mutation({
     if (delta !== 0) changes.push(`qty ${batch.initialQty} → ${quantity}`);
     if (costChanged) changes.push(`unit cost ${batch.actualCostPrice === undefined ? "—" : peso(batch.actualCostPrice)} → ${peso(actualCostPrice!)}`);
     if (newSupplier !== batch.supplier) changes.push(`supplier ${batch.supplier || "—"} → ${newSupplier || "—"}`);
+    if (dateChanged) changes.push(`date ${new Date(batch.receivedDate).toLocaleDateString("en-PH")} → ${new Date(receivedDate!).toLocaleDateString("en-PH")}`);
 
     await ctx.db.patch(batch._id, {
       ...(costChanged ? { actualCostPrice } : {}),
+      ...(dateChanged ? { receivedDate } : {}),
       supplier: newSupplier,
       updatedAt: Date.now(),
     });
@@ -159,8 +168,8 @@ export const correctDelivery = mutation({
       metadata: {
         reason: why,
         by: fullName(staff),
-        before: { initialQty: batch.initialQty, actualCostPrice: batch.actualCostPrice, supplier: batch.supplier },
-        after: { initialQty: quantity ?? batch.initialQty, actualCostPrice: actualCostPrice ?? batch.actualCostPrice, supplier: newSupplier },
+        before: { initialQty: batch.initialQty, actualCostPrice: batch.actualCostPrice, supplier: batch.supplier, receivedDate: batch.receivedDate },
+        after: { initialQty: quantity ?? batch.initialQty, actualCostPrice: actualCostPrice ?? batch.actualCostPrice, supplier: newSupplier, receivedDate: receivedDate ?? batch.receivedDate },
       },
     });
     return { ok: true as const };
