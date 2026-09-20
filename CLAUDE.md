@@ -488,6 +488,10 @@ npx cap run android      # Build and run on device/emulator
   theme). `.theme-compat` (AdminLayoutWrapper, app/auth/layout.tsx, app/client/layout.tsx) + the layer at the end of
   `app/globals.css` remap `text-white*`, `border-white/*`, `bg-white/*` etc. to ink/line tokens in the light theme,
   keeping white text on solid colour buttons. New admin code should use `var(--ink|--surface|--line)` directly.
+- **Admin list queries are bounded:** `orders.getAllOrdersAdmin` / `reservations.getAllReservationsAdmin` take
+  `from`/`to`/`limit` and read newest-first through the `by_created` index, caching product/customer lookups;
+  callers pass the window they display (Orders = its date filter, Dashboard = 14 days, POS = 30 days). The sidebar
+  uses `orders.getTillToday` instead of loading every order on every admin screen.
 - **Admin messages:** call `adminToast(message, 'error' | 'success' | 'info')` (`components/admin/AdminToaster.tsx`,
   mounted once in AdminLayoutWrapper) — never `alert()`.
 - **Responsive storefront:** inline grid templates are overridden on small screens by utility classes in

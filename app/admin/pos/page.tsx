@@ -146,7 +146,8 @@ function PosPageContent() {
   const products = useQuery(api.services.admin.getAllProductsAdmin, {});
   const users = useQuery(api.services.admin.getAllUsers, {});
   const staffUsers = useQuery(api.services.admin.getStaffUsers, { salesAssociatesOnly: true });
-  const recentOrders = useQuery(api.services.orders.getAllOrdersAdmin, {});
+  // Refund lookup only needs recent sales.
+  const recentOrders = useQuery(api.services.orders.getAllOrdersAdmin, { from: Date.now() - 30 * 24 * 60 * 60 * 1000, limit: 200 });
 
   const adminCreateOrder = useMutation(api.services.orders.adminCreateOrder);
   const acknowledgeOrder = useMutation(api.services.orders.acknowledgeOrder);

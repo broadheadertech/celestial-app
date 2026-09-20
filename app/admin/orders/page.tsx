@@ -318,8 +318,18 @@ function AdminOrdersContent() {
   const [partialMethod, setPartialMethod] = useState<'cash' | 'gcash' | 'card' | 'bank_transfer' | 'other'>('cash');
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
 
-  const ordersQuery = useQuery(api.services.orders.getAllOrdersAdmin, {});
-  const reservationsQuery = useQuery(api.services.reservations.getAllReservationsAdmin, {});
+  // Only load the window the date filters show (defaults to this month), newest first.
+  const dateWindow = useMemo(() => {
+    const from = dateFrom ? new Date(`${dateFrom}T00:00:00`).getTime() : undefined;
+    const toDay = dateTo ? new Date(`${dateTo}T23:59:59.999`).getTime() : undefined;
+    return {
+      ...(from !== undefined && !isNaN(from) ? { from } : {}),
+      ...(toDay !== undefined && !isNaN(toDay) ? { to: toDay } : {}),
+      limit: 1000,
+    };
+  }, [dateFrom, dateTo]);
+  const ordersQuery = useQuery(api.services.orders.getAllOrdersAdmin, dateWindow);
+  const reservationsQuery = useQuery(api.services.reservations.getAllReservationsAdmin, dateWindow);
   const productsQuery = useQuery(api.services.admin.getAllProductsAdmin, {});
   const updateOrderStatus = useMutation(api.services.orders.updateOrderStatus);
   const updateReservationStatus = useMutation(api.services.reservations.updateReservationStatus);

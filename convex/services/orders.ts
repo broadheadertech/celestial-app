@@ -1,5 +1,5 @@
 import { query, mutation, type MutationCtx } from "../_generated/server";
-import type { Id } from "../_generated/dataModel";
+import type { Doc, Id } from "../_generated/dataModel";
 import { v } from "convex/values";
 import { customerProduct, publicName } from "../lib/productName";
 import { recordSaleHelper, restoreStockHelper } from "./stock";
@@ -320,55 +320,58 @@ export const cancelOrder = mutation({
 });
 
 // Get all orders for admin
+/**
+ * Staff order list for the admin screens. Bounded on purpose: callers pass the window they show
+ * (`from`/`to`, newest first, `limit`) instead of pulling every order, and product/customer
+ * lookups are cached per query so a product that appears on 200 orders is read once.
+ */
 export const getAllOrdersAdmin = query({
   args: {
     status: v.optional(v.string()),
     search: v.optional(v.string()),
+    from: v.optional(v.number()),
+    to: v.optional(v.number()),
+    limit: v.optional(v.number()),
   },
-  handler: async (ctx, { status, search }) => {
+  handler: async (ctx, { status, search, from, to, limit }) => {
     await requireStaff(ctx);
-    let orders = await ctx.db.query("orders").collect();
+    const max = Math.min(Math.max(limit ?? 500, 1), 2000);
+    let orders = await ctx.db
+      .query("orders")
+      .withIndex("by_created", (q) => {
+        if (from !== undefined && to !== undefined) return q.gte("createdAt", from).lte("createdAt", to);
+        if (from !== undefined) return q.gte("createdAt", from);
+        if (to !== undefined) return q.lte("createdAt", to);
+        return q;
+      })
+      .order("desc")
+      .take(max);
 
     if (status && status !== 'all') {
       orders = orders.filter(order => order.status === status);
     }
 
-    // Get product and user details for each order
-    const ordersWithDetails = await Promise.all(
-      orders.map(async (order) => {
-        const itemsWithProducts = await Promise.all(
-          order.items.map(async (item) => {
-            const product = await ctx.db.get(item.productId);
-            return {
-              ...item,
-              product,
-            };
-          })
-        );
-
-        let user = null;
-        if (order.userId) {
-          try {
-            user = await ctx.db.get(order.userId);
-          } catch {
-            console.warn("Could not find user:", order.userId);
-          }
-        }
-
-        return {
-          ...order,
-          channel: orderChannel(order),
-          items: itemsWithProducts,
-          user: user ? {
-            id: user._id,
-            firstName: user.firstName,
-            lastName: user.lastName,
-            email: user.email,
-            phone: user.phone,
-          } : null,
-        };
-      })
-    );
+    const productCache = new Map<string, Doc<"products"> | null>();
+    const userCache = new Map<string, Doc<"users"> | null>();
+    const ordersWithDetails = [];
+    for (const order of orders) {
+      const items = [];
+      for (const item of order.items) {
+        if (!productCache.has(item.productId)) productCache.set(item.productId, await ctx.db.get(item.productId));
+        items.push({ ...item, product: productCache.get(item.productId) ?? null });
+      }
+      let user = null;
+      if (order.userId) {
+        if (!userCache.has(order.userId)) userCache.set(order.userId, await ctx.db.get(order.userId));
+        user = userCache.get(order.userId) ?? null;
+      }
+      ordersWithDetails.push({
+        ...order,
+        channel: orderChannel(order),
+        items,
+        user: user ? { id: user._id, firstName: user.firstName, lastName: user.lastName, email: user.email, phone: user.phone } : null,
+      });
+    }
 
     // Filter by search if provided
     let filteredOrders = ordersWithDetails;
@@ -387,6 +390,25 @@ export const getAllOrdersAdmin = query({
     }
 
     return filteredOrders.sort((a, b) => b.createdAt - a.createdAt);
+  },
+});
+
+/** Sidebar: today's cash taken and when the first sale of the day was rung up. */
+export const getTillToday = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireStaff(ctx);
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    const todays = (
+      await ctx.db
+        .query("orders")
+        .withIndex("by_created", (q) => q.gte("createdAt", start.getTime()))
+        .collect()
+    ).filter((o) => o.status !== "cancelled");
+    const cash = todays.filter((o) => o.paymentMethod === "cash").reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+    const firstAt = todays.length ? Math.min(...todays.map((o) => o.createdAt)) : null;
+    return { cash, orderCount: todays.length, firstAt };
   },
 });
 

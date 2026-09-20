@@ -22,26 +22,12 @@ export default function AdminSidebar() {
 
   // Derive a "drawer" from today's cash sales. No register-session schema exists,
   // so this is a best-effort substitute (cash collected today, no opening float).
-  const ordersToday = useQuery(api.services.orders.getAllOrdersAdmin, {});
-  const { drawerCash, openedLabel } = useMemo(() => {
-    if (!ordersToday) return { drawerCash: null as number | null, openedLabel: null as string | null };
-    const start = new Date();
-    start.setHours(0, 0, 0, 0);
-    const startTs = start.getTime();
-    const todays = ordersToday.filter(
-      (o) => o.createdAt >= startTs && o.status !== 'cancelled',
-    );
-    const cash = todays
-      .filter((o) => o.paymentMethod === 'cash')
-      .reduce((s, o) => s + (o.totalAmount || 0), 0);
-    const firstTs = todays.length
-      ? Math.min(...todays.map((o) => o.createdAt))
-      : null;
-    const opened = firstTs
-      ? new Date(firstTs).toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' })
-      : null;
-    return { drawerCash: cash, openedLabel: opened };
-  }, [ordersToday]);
+  // Totalled on the server (this sidebar is on every admin screen, so it must stay cheap).
+  const till = useQuery(api.services.orders.getTillToday, {});
+  const drawerCash = till ? till.cash : null;
+  const openedLabel = till?.firstAt
+    ? new Date(till.firstAt).toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' })
+    : null;
 
   const fmtPHPshort = (n: number) => {
     if (n >= 1_000_000) return `₱${(n / 1_000_000).toFixed(1)}M`;

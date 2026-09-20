@@ -737,14 +737,31 @@ export const getReservationByIdAdmin = query({
 });
 
 // Get all reservations for admin - UPDATED FOR MULTI-ITEM
+/**
+ * Staff reservation list for the admin screens. Bounded like getAllOrdersAdmin: callers pass the
+ * window they show (`from`/`to`, newest first, `limit`) rather than pulling every reservation.
+ */
 export const getAllReservationsAdmin = query({
   args: {
     status: v.optional(v.string()),
     search: v.optional(v.string()),
+    from: v.optional(v.number()),
+    to: v.optional(v.number()),
+    limit: v.optional(v.number()),
   },
-  handler: async (ctx, { status, search }) => {
+  handler: async (ctx, { status, search, from, to, limit }) => {
     await requireStaff(ctx);
-    let reservations = await ctx.db.query("reservations").collect();
+    const max = Math.min(Math.max(limit ?? 500, 1), 2000);
+    let reservations = await ctx.db
+      .query("reservations")
+      .withIndex("by_created", (q) => {
+        if (from !== undefined && to !== undefined) return q.gte("createdAt", from).lte("createdAt", to);
+        if (from !== undefined) return q.gte("createdAt", from);
+        if (to !== undefined) return q.lte("createdAt", to);
+        return q;
+      })
+      .order("desc")
+      .take(max);
 
     if (status && status !== 'all') {
       reservations = reservations.filter(reservation => reservation.status === status);

@@ -182,7 +182,8 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("by_user", ["userId"])
-    .index("by_status", ["status"]),
+    .index("by_status", ["status"])
+    .index("by_created", ["createdAt"]),
 
   // Updated cart to support both users and guests
   cart: defineTable({
@@ -270,7 +271,8 @@ export default defineSchema({
     .index("by_guest", ["guestId"])
     .index("by_status", ["status"])
     .index("by_expiry", ["expiryDate"])
-    .index("by_reservation_code", ["reservationCode"]),
+    .index("by_reservation_code", ["reservationCode"])
+    .index("by_created", ["createdAt"]),
 
   // Reservation payments ledger — one row per payment event against a reservation
   // (downpayment, walk-in partial payment, balance settlement at pickup, or refund).
