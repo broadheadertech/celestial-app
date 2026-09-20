@@ -46,8 +46,10 @@ function AdminDashboardContent() {
   // ─── Convex queries ───
   const dashboardStats = useQuery(api.services.admin.getDashboardStats);
   const recentOrders = useQuery(api.services.admin.getRecentOrders, { limit: 6 });
-  // The cards compare the last 7 days with the 7 before, so 14 days is all that's needed.
-  const allOrders = useQuery(api.services.orders.getAllOrdersAdmin, { from: Date.now() - 14 * DAY_MS, limit: 1000 });
+  // The cards compare the last 7 days with the 7 before, so 14 days is all that's needed. Rounded
+  // and memoised so the argument object stays identical between renders (no resubscribe loop).
+  const ordersWindow = useMemo(() => ({ from: Math.floor(Date.now() / 3_600_000) * 3_600_000 - 14 * DAY_MS, limit: 1000 }), []);
+  const allOrders = useQuery(api.services.orders.getAllOrdersAdmin, ordersWindow);
   const products = useQuery(api.services.admin.getAllProductsAdmin, {});
 
   // ─── Compute deltas (last 7 days vs prior 7 days) from real orders ───

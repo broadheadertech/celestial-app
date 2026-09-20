@@ -35,6 +35,7 @@ import { fromDateInput, toDateInput } from '@/components/admin/SaleCorrectionDia
 import { adminToast } from '@/components/admin/AdminToaster';
 
 /* ─────────── HELPERS ─────────── */
+const HOUR_MS = 60 * 60 * 1000;
 const fmt = (amount: number) =>
   `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
@@ -146,8 +147,10 @@ function PosPageContent() {
   const products = useQuery(api.services.admin.getAllProductsAdmin, {});
   const users = useQuery(api.services.admin.getAllUsers, {});
   const staffUsers = useQuery(api.services.admin.getStaffUsers, { salesAssociatesOnly: true });
-  // Refund lookup only needs recent sales.
-  const recentOrders = useQuery(api.services.orders.getAllOrdersAdmin, { from: Date.now() - 30 * 24 * 60 * 60 * 1000, limit: 200 });
+  // Refund lookup only needs recent sales. The window is rounded to the hour and memoised: a raw
+  // Date.now() here would be a new argument object on every render, resubscribing in a loop.
+  const recentOrdersWindow = useMemo(() => ({ from: Math.floor(Date.now() / HOUR_MS) * HOUR_MS - 30 * 24 * HOUR_MS, limit: 200 }), []);
+  const recentOrders = useQuery(api.services.orders.getAllOrdersAdmin, recentOrdersWindow);
 
   const adminCreateOrder = useMutation(api.services.orders.adminCreateOrder);
   const acknowledgeOrder = useMutation(api.services.orders.acknowledgeOrder);
