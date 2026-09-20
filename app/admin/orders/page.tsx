@@ -40,6 +40,7 @@ type OrderStatus = FunctionArgs<typeof api.services.orders.updateOrderStatus>['s
 type ReservationStatus = FunctionArgs<typeof api.services.reservations.updateReservationStatus>['status'];
 import DesktopDrawer from '@/components/admin/DesktopDrawer';
 import CreateOrderForm from '@/components/admin/CreateOrderForm';
+import { adminToast } from '@/components/admin/AdminToaster';
 
 const ITEMS_PER_PAGE = 15;
 
@@ -428,7 +429,7 @@ function AdminOrdersContent() {
         await updateReservationStatus({ reservationId: itemId as Id<'reservations'>, status: newStatus as ReservationStatus });
       }
     } catch {
-      alert('Failed to update status. Please try again.');
+      adminToast('Failed to update status. Please try again.');
     }
   };
 
@@ -440,7 +441,7 @@ function AdminOrdersContent() {
       setPendingAction({ itemId, status: 'ready_for_pickup', type: 'ready_for_pickup' });
       setShowSMSModal(true);
     } catch {
-      alert('Failed to prepare status update. Please try again.');
+      adminToast('Failed to prepare status update. Please try again.');
     }
   };
 
@@ -468,7 +469,7 @@ function AdminOrdersContent() {
       setShowSMSModal(false);
       setPendingAction(null);
     } catch {
-      alert('Failed to update status. Please try again.');
+      adminToast('Failed to update status. Please try again.');
     } finally {
       setIsProcessing(false);
     }
@@ -550,7 +551,7 @@ function AdminOrdersContent() {
         userId: actingUser?._id as Id<'users'> | undefined,
       });
     } catch (error) {
-      alert(error instanceof Error ? error.message : 'Failed to update payment');
+      adminToast(error instanceof Error ? error.message : 'Failed to update payment');
     }
   };
 
@@ -589,7 +590,7 @@ function AdminOrdersContent() {
       setSelectedSAId('');
       setSelectedSAName('');
     } catch (error) {
-      alert(error instanceof Error ? error.message : 'Failed to assign');
+      adminToast(error instanceof Error ? error.message : 'Failed to assign');
     }
   };
 
@@ -1348,7 +1349,7 @@ function AdminOrdersContent() {
                   onClick={async () => {
                     setIsConfirmProcessing(true);
                     try { await confirmPrompt.action(); }
-                    catch (e) { alert(e instanceof Error ? e.message : 'Action failed'); }
+                    catch (e) { adminToast(e instanceof Error ? e.message : 'Action failed'); }
                     finally { setIsConfirmProcessing(false); setConfirmPrompt(null); }
                   }}
                   disabled={isConfirmProcessing}

@@ -30,6 +30,7 @@ import Card from '@/components/ui/Card';
 import BottomNavbar from '@/components/common/BottomNavbar';
 import SafeAreaProvider from '@/components/provider/SafeAreaProvider';
 import DeleteProductDialog from '@/components/admin/DeleteProductDialog';
+import { adminToast } from '@/components/admin/AdminToaster';
 
 const formatCurrency = (amount: number) => {
   return `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`;
@@ -115,7 +116,7 @@ function InventoryContent() {
       ].filter(Boolean);
       showSuccess(parts.length > 0 ? `Cleaned up ${parts.join(', ')}.` : 'No orphans found — already clean.');
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Cleanup failed');
+      adminToast(e instanceof Error ? e.message : 'Cleanup failed');
     } finally {
       setIsCleaningOrphans(false);
     }
@@ -263,13 +264,13 @@ function InventoryContent() {
     // P&L COGS (FIFO) reflects real acquisition prices.
     const actualCostNum = parseFloat(restockActualCost);
     if (restockActualCost.trim() === '' || isNaN(actualCostNum) || actualCostNum < 0) {
-      alert('Enter the actual cost per unit for this batch.');
+      adminToast('Enter the actual cost per unit for this batch.');
       return;
     }
     const actualCostPrice = actualCostNum;
 
     if (!restockSource) {
-      alert('Choose where the restock money came from: Till (COH) or Investment.');
+      adminToast('Choose where the restock money came from: Till (COH) or Investment.');
       return;
     }
 
@@ -300,7 +301,7 @@ function InventoryContent() {
         : '';
       showSuccess(`Restocked ${quantity} units${macMsg}`);
     } catch (error) {
-      alert(error instanceof Error ? error.message : 'Failed to restock');
+      adminToast(error instanceof Error ? error.message : 'Failed to restock');
     } finally {
       setIsRestocking(false);
     }
@@ -331,7 +332,7 @@ function InventoryContent() {
       setAdjustReason('');
       showSuccess('Stock adjusted successfully');
     } catch (error) {
-      alert(error instanceof Error ? error.message : 'Failed to adjust stock');
+      adminToast(error instanceof Error ? error.message : 'Failed to adjust stock');
     } finally {
       setIsAdjusting(false);
     }

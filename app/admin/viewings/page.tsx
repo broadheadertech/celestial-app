@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import BottomNavbar from '@/components/common/BottomNavbar';
 import SafeAreaProvider from '@/components/provider/SafeAreaProvider';
+import { adminToast } from '@/components/admin/AdminToaster';
 
 type ViewingStatus = 'requested' | 'confirmed' | 'completed' | 'cancelled';
 
@@ -50,7 +51,7 @@ function ViewingsContent() {
     try {
       await updateStatus({ id: id as Id<'viewings'>, status });
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Failed to update');
+      adminToast(e instanceof Error ? e.message : 'Failed to update');
     } finally {
       setBusyId(null);
     }

@@ -36,6 +36,7 @@ import { OversizedPhotosBanner, SiteRebuildButton } from '@/components/admin/Pro
 import DeleteProductDialog from '@/components/admin/DeleteProductDialog';
 import { ProductFormContentInner } from '@/app/admin/products/form/ProductFormContent';
 import { Suspense } from 'react';
+import { adminToast } from '@/components/admin/AdminToaster';
 
 /** Number of distinct photos on a product (cover + gallery). */
 const photoCount = (p: { image?: string; images?: string[] }) =>
@@ -450,7 +451,7 @@ function AdminProductsContent() {
 
     const quantity = parseInt(restockQuantity);
     if (isNaN(quantity) || quantity <= 0) {
-      alert('Please enter a valid quantity');
+      adminToast('Please enter a valid quantity');
       return;
     }
 
@@ -459,14 +460,14 @@ function AdminProductsContent() {
     if (restockCost.trim() !== '') {
       const parsedCost = parseFloat(restockCost);
       if (isNaN(parsedCost) || parsedCost < 0) {
-        alert('Please enter a valid cost per unit (or leave blank to use product default)');
+        adminToast('Please enter a valid cost per unit (or leave blank to use product default)');
         return;
       }
       actualCostPrice = parsedCost;
     }
 
     if (!restockSource) {
-      alert('Choose where the restock money came from: Till (COH) or Investment.');
+      adminToast('Choose where the restock money came from: Till (COH) or Investment.');
       return;
     }
 
@@ -490,9 +491,9 @@ function AdminProductsContent() {
       setRestockSource(null);
       setRestockSupplier('');
 
-      alert(`${result.message}\nNew batch code: ${result.batchCode}\nTotal stock: ${result.newTotalStock} units`);
+      adminToast(`${result.message}\nNew batch code: ${result.batchCode}\nTotal stock: ${result.newTotalStock} units`, 'success');
     } catch {
-      alert('Failed to restock product. Please try again.');
+      adminToast('Failed to restock product. Please try again.');
     }
   };
 
@@ -500,17 +501,17 @@ function AdminProductsContent() {
     if (!internalUseProductId || !internalUseQuantity) return;
     const quantity = parseInt(internalUseQuantity);
     if (isNaN(quantity) || quantity <= 0) {
-      alert('Please enter a valid quantity');
+      adminToast('Please enter a valid quantity');
       return;
     }
 
     const product = products?.find((p) => p._id === internalUseProductId);
     if (!product) {
-      alert('Product not found');
+      adminToast('Product not found');
       return;
     }
     if (product.stock < quantity) {
-      alert(`Insufficient stock. Available: ${product.stock}, Requested: ${quantity}`);
+      adminToast(`Insufficient stock. Available: ${product.stock}, Requested: ${quantity}`);
       return;
     }
 
@@ -534,7 +535,7 @@ function AdminProductsContent() {
       );
       setTimeout(() => setSuccessMessage(''), 4000);
     } catch (error) {
-      alert(error instanceof Error ? error.message : 'Failed to log internal use');
+      adminToast(error instanceof Error ? error.message : 'Failed to log internal use');
     } finally {
       setIsLoggingInternalUse(false);
     }
@@ -545,19 +546,19 @@ function AdminProductsContent() {
 
     const quantity = parseInt(mortalityQuantity);
     if (isNaN(quantity) || quantity <= 0) {
-      alert('Please enter a valid quantity');
+      adminToast('Please enter a valid quantity');
       return;
     }
 
     const product = products?.find(p => p._id === mortalityProductId);
     if (!product) {
-      alert('Product not found');
+      adminToast('Product not found');
       return;
     }
 
     // Check if product has enough stock
     if (product.stock < quantity) {
-      alert(`Insufficient stock. Available: ${product.stock}, Requested: ${quantity}`);
+      adminToast(`Insufficient stock. Available: ${product.stock}, Requested: ${quantity}`);
       return;
     }
 
@@ -583,7 +584,7 @@ function AdminProductsContent() {
         .map((b) => `• ${b.batchCode}: -${b.qty} units`)
         .join('\n');
 
-      alert(
+      adminToast(
         `✅ Mortality Loss Recorded Successfully\n\n` +
         `Product: ${product.name}\n` +
         `Tank: ${product.tankNumber || 'N/A'}\n` +
@@ -597,11 +598,12 @@ function AdminProductsContent() {
         `New Product Stock: ${result.productStock} units\n` +
         `Formula: ${result.previousProductStock} - ${result.mortalityLossQty} = ${result.productStock}\n\n` +
         `✓ Mortality record created\n` +
-        `✓ Stock movements logged for audit trail`
+        `✓ Stock movements logged for audit trail`,
+        'success',
       );
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-      alert(`❌ Failed to Record Mortality Loss\n\n${errorMessage}\n\nPlease try again or contact support if the issue persists.`);
+      adminToast(`❌ Failed to Record Mortality Loss\n\n${errorMessage}\n\nPlease try again or contact support if the issue persists.`);
     }
   };
 

@@ -583,3 +583,65 @@ body {
 @media (max-width: 720px) {
   .site-container { padding: 0 20px; }
 }
+
+/* ────────────────────────────────────────────────────────────────────────────
+   Light-theme compatibility layer (admin, auth and the legacy client app)
+   Most admin screens were written for the dark theme and hard-code white text,
+   white hairline borders and white hover overlays. Panel backgrounds already
+   follow the theme (bg-secondary → --surface, bg-background → --bg), so in the
+   light theme those white utilities left white-on-white text and invisible
+   borders. Here they are remapped to the theme's ink/line colours.
+   White text on a SOLID colour (buttons, badges) stays white — see the
+   re-assertion block at the end. Screens written with var(--…) tokens are
+   unaffected. New admin code should use the tokens directly.
+   ──────────────────────────────────────────────────────────────────────────── */
+:root[data-theme="light"] .theme-compat {
+  /* Text */
+  .text-white, .text-white\/90 { color: var(--ink) !important; }
+  .text-white\/80, .text-white\/70 { color: var(--ink-2) !important; }
+  .text-white\/60, .text-white\/50 { color: var(--ink-3) !important; }
+  .text-white\/40, .text-white\/30 { color: var(--ink-4) !important; }
+  .text-white\/20 { color: var(--ink-5) !important; }
+  .hover\:text-white:hover, .hover\:text-white\/90:hover { color: var(--ink) !important; }
+  .hover\:text-white\/70:hover, .hover\:text-white\/60:hover { color: var(--ink-2) !important; }
+  .group:hover .group-hover\:text-white\/60 { color: var(--ink-2) !important; }
+  .placeholder\:text-white\/40::placeholder, .placeholder\:text-white\/30::placeholder { color: var(--ink-4) !important; }
+
+  /* Hairlines */
+  .border-white\/5 { border-color: var(--line-soft) !important; }
+  .border-white\/10, .border-white\/15 { border-color: var(--line) !important; }
+  .border-white\/20, .border-white\/30 { border-color: var(--line-strong, var(--line)) !important; }
+  .hover\:border-white\/10:hover, .hover\:border-white\/20:hover { border-color: var(--line-strong, var(--line)) !important; }
+  .divide-white\/5 > :not([hidden]) ~ :not([hidden]) { border-color: var(--line-soft) !important; }
+  .divide-white\/10 > :not([hidden]) ~ :not([hidden]) { border-color: var(--line) !important; }
+  .ring-white\/5 { --tw-ring-color: var(--line-soft) !important; }
+
+  /* Tints and hover overlays: dark ink washes instead of white ones */
+  .bg-white\/5 { background-color: color-mix(in oklch, var(--ink) 4%, transparent) !important; }
+  .bg-white\/10, .bg-white\/15 { background-color: color-mix(in oklch, var(--ink) 7%, transparent) !important; }
+  .bg-white\/20, .bg-white\/30, .bg-white\/40 { background-color: color-mix(in oklch, var(--ink) 11%, transparent) !important; }
+  .hover\:bg-white\/5:hover { background-color: color-mix(in oklch, var(--ink) 4%, transparent) !important; }
+  .hover\:bg-white\/10:hover { background-color: color-mix(in oklch, var(--ink) 7%, transparent) !important; }
+  .hover\:bg-white\/20:hover, .hover\:bg-white\/30:hover, .hover\:bg-white\/50:hover { background-color: color-mix(in oklch, var(--ink) 11%, transparent) !important; }
+  .active\:bg-white\/10:active { background-color: color-mix(in oklch, var(--ink) 7%, transparent) !important; }
+  .active\:bg-white\/15:active, .active\:bg-white\/30:active { background-color: color-mix(in oklch, var(--ink) 11%, transparent) !important; }
+
+  /* Date/time pickers drawn for the dark theme */
+  .\[color-scheme\:dark\] { color-scheme: light !important; }
+}
+
+/* Solid colour surfaces keep white text (buttons, badges, toasts). Exact class
+   selectors, so translucent tints like bg-primary/10 are not affected. */
+:root[data-theme="light"] .theme-compat :is(.bg-primary, .bg-primary\/90, .bg-error, .bg-error\/90, .bg-success, .bg-success\/90, .bg-warning, .bg-warning\/90, .bg-info, .bg-info\/90, [class*="bg-gradient-to-"]) :is(.text-white, .text-white\/90, .text-white\/80, .text-white\/70, .text-white\/60, .text-white\/50, .text-white\/40),
+:root[data-theme="light"] .theme-compat :is(.bg-primary, .bg-primary\/90, .bg-error, .bg-error\/90, .bg-success, .bg-success\/90, .bg-warning, .bg-warning\/90, .bg-info, .bg-info\/90, [class*="bg-gradient-to-"]):is(.text-white, .text-white\/90, .text-white\/80, .text-white\/70, .text-white\/60) {
+  color: oklch(0.99 0 0) !important;
+}
+:root[data-theme="light"] .theme-compat :is(.bg-primary, .bg-error, .bg-success, .bg-warning, .bg-info) :is(.bg-white\/10, .bg-white\/20, .bg-white\/30) {
+  background-color: oklch(1 0 0 / 0.22) !important;
+}
+
+/* Gold/amber buttons: white text on gold is hard to read in both themes. */
+.theme-compat :is(.bg-warning, .bg-warning\/90).text-white,
+.theme-compat :is(.bg-warning, .bg-warning\/90) .text-white {
+  color: oklch(0.2 0.03 70) !important;
+}

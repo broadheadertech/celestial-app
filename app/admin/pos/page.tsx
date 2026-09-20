@@ -32,6 +32,7 @@ import BottomNavbar from '@/components/common/BottomNavbar';
 import SafeAreaProvider from '@/components/provider/SafeAreaProvider';
 import { useAuthStore } from '@/store/auth';
 import { fromDateInput, toDateInput } from '@/components/admin/SaleCorrectionDialogs';
+import { adminToast } from '@/components/admin/AdminToaster';
 
 /* ─────────── HELPERS ─────────── */
 const fmt = (amount: number) =>
@@ -376,7 +377,7 @@ function PosPageContent() {
       });
       setReceiptData(receipt);
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Sale failed');
+      adminToast(e instanceof Error ? e.message : 'Sale failed');
     } finally {
       setIsSubmitting(false);
     }
@@ -439,11 +440,11 @@ function PosPageContent() {
         });
       }
 
-      alert(`Reservation confirmed. Took ${fmt(reservationDeposit)} deposit.`);
+      adminToast(`Reservation confirmed. Took ${fmt(reservationDeposit)} deposit.`, 'success');
       clearSale();
       setMode('sale');
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Reservation failed');
+      adminToast(e instanceof Error ? e.message : 'Reservation failed');
     } finally {
       setIsSubmitting(false);
     }
@@ -474,9 +475,9 @@ function PosPageContent() {
         userId: posUser?._id as Id<'users'> | undefined,
       });
       setRefundConfirm(null);
-      alert('Refund posted. Order marked as refunded.');
+      adminToast('Refund posted. Order marked as refunded.', 'success');
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Refund failed');
+      adminToast(e instanceof Error ? e.message : 'Refund failed');
     } finally {
       setIsProcessingRefund(false);
     }

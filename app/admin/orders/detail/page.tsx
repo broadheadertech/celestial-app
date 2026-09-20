@@ -20,6 +20,7 @@ import BottomNavbar from '@/components/common/BottomNavbar';
 import SafeAreaProvider from '@/components/provider/SafeAreaProvider';
 import OrderReceipt, { type ReceiptData } from '@/components/admin/OrderReceipt';
 import { CorrectSaleDialog, VoidSaleDialog } from '@/components/admin/SaleCorrectionDialogs';
+import { adminToast } from '@/components/admin/AdminToaster';
 
 const formatCurrency = (amount: number) =>
   `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`;
@@ -100,7 +101,7 @@ function OrderDetailContent() {
     try {
       await confirmAction.action();
     } catch (error) {
-      alert(error instanceof Error ? error.message : 'Action failed');
+      adminToast(error instanceof Error ? error.message : 'Action failed');
     } finally {
       setIsProcessing(false);
       setConfirmAction(null);

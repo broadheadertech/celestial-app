@@ -27,6 +27,7 @@ import Card from '@/components/ui/Card';
 import BottomNavbar from '@/components/common/BottomNavbar';
 import SafeAreaProvider from '@/components/provider/SafeAreaProvider';
 import { uploadOptimizedImage } from '@/lib/optimizeImage';
+import { adminToast } from '@/components/admin/AdminToaster';
 
 type Basis = 'revenue' | 'profit';
 type Role = 'admin' | 'super_admin' | 'associate';
@@ -298,7 +299,7 @@ function RegisterModal({ onClose }: { onClose: () => void }) {
       });
       onClose();
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Failed to register associate');
+      adminToast(e instanceof Error ? e.message : 'Failed to register associate');
     } finally {
       setSubmitting(false);
     }
@@ -435,7 +436,7 @@ function EditModal({ associate, onClose }: { associate: Associate; onClose: () =
       });
       onClose();
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Failed to update associate');
+      adminToast(e instanceof Error ? e.message : 'Failed to update associate');
     } finally {
       setSubmitting(false);
     }
@@ -566,7 +567,7 @@ function AvatarPicker({ value, onChange, name }: { value?: string; onChange: (ur
         if (!url) throw new Error('Failed to get image URL');
         onChange(url);
       } catch (err) {
-        alert(err instanceof Error ? err.message : 'Image upload failed');
+        adminToast(err instanceof Error ? err.message : 'Image upload failed');
       } finally {
         setUploading(false);
       }

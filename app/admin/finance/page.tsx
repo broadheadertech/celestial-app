@@ -29,6 +29,7 @@ import {
 import BottomNavbar from '@/components/common/BottomNavbar';
 import SafeAreaProvider from '@/components/provider/SafeAreaProvider';
 import { useAuthStore } from '@/store/auth';
+import { adminToast } from '@/components/admin/AdminToaster';
 
 const fmt = (amount: number) =>
   `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -231,7 +232,7 @@ function FinanceContent() {
       setFormPaymentMethod('cash');
       setFormNotes('');
     } catch (error) {
-      alert(error instanceof Error ? error.message : 'Failed to add expense');
+      adminToast(error instanceof Error ? error.message : 'Failed to add expense');
     } finally {
       setIsSubmitting(false);
     }
@@ -274,7 +275,7 @@ function FinanceContent() {
       await deleteCashAdjustment({ id: id as Id<'cashAdjustments'>, userId: user?._id as Id<'users'> | undefined });
       setAdjConfirmDelete(null);
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Failed to delete');
+      adminToast(e instanceof Error ? e.message : 'Failed to delete');
     }
   };
 
@@ -283,7 +284,7 @@ function FinanceContent() {
       await deleteExpense({ id: id as Id<"expenses">, userId: user?._id as Id<'users'> | undefined });
       setConfirmDelete(null);
     } catch (error) {
-      alert(error instanceof Error ? error.message : 'Failed to delete');
+      adminToast(error instanceof Error ? error.message : 'Failed to delete');
     }
   };
 

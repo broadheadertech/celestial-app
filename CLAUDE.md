@@ -484,6 +484,12 @@ npx cap run android      # Build and run on device/emulator
   localStorage-backed stores (auth, cart) during render — gate those parts behind a mounted flag.
   Storefront code must import `useQuery` from `components/dc/useQuery.ts`, not `convex/react`: it reports
   "loading" until hydration finishes, so query results arriving mid-hydration can't cause React error #418.
+- **Admin/auth/client light theme:** those screens hard-code white text and hairlines (written for the dark
+  theme). `.theme-compat` (AdminLayoutWrapper, app/auth/layout.tsx, app/client/layout.tsx) + the layer at the end of
+  `app/globals.css` remap `text-white*`, `border-white/*`, `bg-white/*` etc. to ink/line tokens in the light theme,
+  keeping white text on solid colour buttons. New admin code should use `var(--ink|--surface|--line)` directly.
+- **Admin messages:** call `adminToast(message, 'error' | 'success' | 'info')` (`components/admin/AdminToaster.tsx`,
+  mounted once in AdminLayoutWrapper) — never `alert()`.
 - **Responsive storefront:** inline grid templates are overridden on small screens by utility classes in
   `components/dc/styles.tsx` (`dc-split`, `dc-cols-2/3/4`, `dc-hide-md/sm`, `dc-sticky-md`).
 - **Turbopack:** Faster builds and development

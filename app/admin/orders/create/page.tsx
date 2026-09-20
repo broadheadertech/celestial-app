@@ -22,6 +22,7 @@ import SafeAreaProvider from '@/components/provider/SafeAreaProvider';
 import OrderReceipt, { type ReceiptData } from '@/components/admin/OrderReceipt';
 import type { FunctionReturnType } from 'convex/server';
 import { fromDateInput, toDateInput } from '@/components/admin/SaleCorrectionDialogs';
+import { adminToast } from '@/components/admin/AdminToaster';
 
 type AdminProduct = FunctionReturnType<typeof api.services.admin.getAllProductsAdmin>[number];
 
@@ -162,7 +163,7 @@ function CreateOrderContent() {
 
       setReceiptData(receipt);
     } catch (error) {
-      alert(error instanceof Error ? error.message : 'Failed to create order');
+      adminToast(error instanceof Error ? error.message : 'Failed to create order');
     } finally {
       setIsSubmitting(false);
     }
@@ -186,7 +187,7 @@ function CreateOrderContent() {
       setNewEmail('');
       setNewPhone('');
     } catch (error) {
-      alert(error instanceof Error ? error.message : 'Failed to create customer');
+      adminToast(error instanceof Error ? error.message : 'Failed to create customer');
     } finally {
       setIsCreatingCustomer(false);
     }

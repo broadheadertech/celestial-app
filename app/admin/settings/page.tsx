@@ -31,6 +31,7 @@ import { useAuthStore, useIsAuthenticated } from "@/store/auth";
 import { useAuth } from "@/hooks/useAuth";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
+import { adminToast } from '@/components/admin/AdminToaster';
 
 function AdminSettingsContent() {
   const router = useRouter();
@@ -82,7 +83,7 @@ function AdminSettingsContent() {
       setBalanceSaved(true);
       setTimeout(() => setBalanceSaved(false), 2000);
     } catch (error) {
-      alert(error instanceof Error ? error.message : 'Failed to save');
+      adminToast(error instanceof Error ? error.message : 'Failed to save');
     } finally {
       setIsSavingBalance(false);
     }
