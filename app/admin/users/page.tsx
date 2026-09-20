@@ -134,6 +134,8 @@ function AdminUsersContent() {
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
   const [dropdownAnchor, setDropdownAnchor] = useState<HTMLElement | null>(null);
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
+  // Destructive deletes ask in-app rather than with a browser confirm box.
+  const [deletePrompt, setDeletePrompt] = useState<{ title: string; message: string; run: () => Promise<void> } | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
@@ -320,19 +322,19 @@ function AdminUsersContent() {
   const handleDeleteUser = async (userId: string) => {
     const user = visibleUsers?.find((u) => u._id === userId);
     const userName = user ? `${user.firstName} ${user.lastName}` : 'this user';
-
-    if (!confirm(`Delete ${userName}? This cannot be undone.`)) {
-      setSelectedUser(null);
-      return;
-    }
-
-    try {
-      await deleteUserMutation({ userId: userId as Id<"users"> });
-      showConfirmation('Deleted', `${userName} has been removed.`, 'success');
-    } catch (error) {
-      showConfirmation('Error', error instanceof Error ? error.message : 'Failed to delete user', 'error');
-    }
     setSelectedUser(null);
+    setDeletePrompt({
+      title: 'Delete this customer?',
+      message: `${userName} will be permanently removed. This can't be undone.`,
+      run: async () => {
+        try {
+          await deleteUserMutation({ userId: userId as Id<"users"> });
+          showConfirmation('Deleted', `${userName} has been removed.`, 'success');
+        } catch (error) {
+          showConfirmation('Error', error instanceof Error ? error.message : 'Failed to delete user', 'error');
+        }
+      },
+    });
   };
 
   const toggleSelect = (userId: string) => {
@@ -353,8 +355,18 @@ function AdminUsersContent() {
   const handleBulkAction = async (action: 'activate' | 'deactivate' | 'ban' | 'unban' | 'delete') => {
     if (selectedUserIds.size === 0) return;
     const ids = Array.from(selectedUserIds) as Id<'users'>[];
-    if (action === 'delete' && !confirm(`Delete ${ids.length} user${ids.length === 1 ? '' : 's'}? This cannot be undone.`)) return;
+    if (action === 'delete') {
+      setDeletePrompt({
+        title: `Delete ${ids.length} customer${ids.length === 1 ? '' : 's'}?`,
+        message: "They will be permanently removed. This can't be undone.",
+        run: () => runBulkAction(action, ids),
+      });
+      return;
+    }
+    await runBulkAction(action, ids);
+  };
 
+  const runBulkAction = async (action: 'activate' | 'deactivate' | 'ban' | 'unban' | 'delete', ids: Id<'users'>[]) => {
     try {
       const result = await bulkUpdateUsers({ userIds: ids, action });
       const suffix = result.skipped > 0 ? ` (${result.skipped} skipped)` : '';
@@ -1152,6 +1164,21 @@ function AdminUsersContent() {
       })()}
 
       {/* Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={!!deletePrompt}
+        onClose={() => setDeletePrompt(null)}
+        onConfirm={() => {
+          const prompt = deletePrompt;
+          setDeletePrompt(null);
+          void prompt?.run();
+        }}
+        title={deletePrompt?.title ?? ''}
+        message={deletePrompt?.message ?? ''}
+        type="error"
+        confirmText="Delete"
+        showCancel
+      />
+
       <ConfirmationModal
         isOpen={showConfirmationModal}
         onClose={() => setShowConfirmationModal(false)}
