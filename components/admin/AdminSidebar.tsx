@@ -69,11 +69,9 @@ export default function AdminSidebar() {
               <button
                 key={item.id}
                 onClick={() => router.push(item.href)}
-                className="relative w-full flex items-center gap-3 px-3 py-[9px] rounded-[10px] text-[13px] font-medium transition-all text-left"
-                style={{
-                  background: isActive ? 'var(--surface)' : 'transparent',
-                  color: isActive ? 'var(--ink)' : 'var(--ink-3)',
-                }}
+                className="admin-tab relative w-full flex items-center gap-3 px-3 py-[9px] rounded-[10px] text-[13px] font-medium text-left"
+                data-active={isActive}
+                style={isActive ? { background: 'var(--surface)', color: 'var(--ink)' } : { color: 'var(--ink-3)' }}
               >
                 {isActive && (
                   <span

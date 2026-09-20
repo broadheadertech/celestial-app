@@ -645,3 +645,32 @@ body {
 .theme-compat :is(.bg-warning, .bg-warning\/90) .text-white {
   color: oklch(0.2 0.03 70) !important;
 }
+
+/* ── Admin tabs / nav items ──────────────────────────────────────────────────
+   Shared hover + keyboard focus for clickable tabs whose resting look is set
+   inline (sidebar and drawer nav, POS mode tabs, category chips). The active
+   item keeps its inline colours; only the inactive ones light up on hover. */
+.admin-tab {
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.admin-tab:not([data-active='true']):hover {
+  background-color: color-mix(in oklch, var(--ink) 8%, transparent);
+  /* The resting colour is set inline on these buttons, so the hover colour needs to win. */
+  color: var(--ink) !important;
+}
+.admin-tab[data-active='true']:hover {
+  filter: brightness(1.06);
+}
+.admin-tab:focus-visible {
+  outline: 2px solid var(--red);
+  outline-offset: 2px;
+}
+/* Outlined chips: resting fill lives here (not inline) so hover can win, and the
+   border tints too so the whole chip responds. */
+.admin-tab-chip:not([data-active='true']) {
+  background-color: var(--surface);
+}
+.admin-tab-chip:not([data-active='true']):hover {
+  border-color: color-mix(in oklch, var(--red) 45%, var(--line));
+}

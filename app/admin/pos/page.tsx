@@ -544,12 +544,13 @@ function PosPageContent() {
                 <button
                   key={opt.v}
                   onClick={() => setMode(opt.v)}
-                  className="flex-1 sm:flex-none px-2.5 sm:px-3 py-1.5 rounded-[7px] text-[11px] sm:text-xs font-semibold transition-all whitespace-nowrap"
-                  style={{
-                    background: active ? 'var(--surface-hi)' : 'transparent',
-                    color: active ? 'var(--ink)' : 'var(--ink-3)',
-                    boxShadow: active ? '0 1px 2px oklch(0 0 0 / 0.2)' : 'none',
-                  }}
+                  className="admin-tab flex-1 sm:flex-none px-2.5 sm:px-3 py-1.5 rounded-[7px] text-[11px] sm:text-xs font-semibold whitespace-nowrap"
+                  data-active={active}
+                  style={
+                    active
+                      ? { background: 'var(--surface-hi)', color: 'var(--ink)', boxShadow: '0 1px 2px oklch(0 0 0 / 0.2)' }
+                      : { color: 'var(--ink-3)' }
+                  }
                 >
                   <span className="sm:hidden">{opt.short}</span>
                   <span className="hidden sm:inline">{opt.label}</span>
@@ -844,12 +845,13 @@ function CategoryChip({
   return (
     <button
       onClick={onClick}
-      className="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-semibold whitespace-nowrap transition-all border"
-      style={{
-        borderColor: active ? 'var(--red)' : 'var(--line)',
-        background: active ? 'var(--red)' : 'var(--surface)',
-        color: active ? 'oklch(0.99 0 0)' : 'var(--ink-2)',
-      }}
+      className="admin-tab admin-tab-chip flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-semibold whitespace-nowrap border"
+      data-active={active}
+      style={
+        active
+          ? { borderColor: 'var(--red)', background: 'var(--red)', color: 'oklch(0.99 0 0)' }
+          : { borderColor: 'var(--line)', color: 'var(--ink-2)' }
+      }
     >
       <span>{label}</span>
       <span

@@ -218,11 +218,9 @@ export default function AdminMobileNav() {
                         href={item.href}
                         onClick={close}
                         aria-current={active ? 'page' : undefined}
-                        className="relative flex items-center gap-3 px-3 py-2.5 rounded-[10px] text-[14px] font-medium"
-                        style={{
-                          background: active ? 'var(--surface)' : 'transparent',
-                          color: active ? 'var(--ink)' : 'var(--ink-3)',
-                        }}
+                        className="admin-tab relative flex items-center gap-3 px-3 py-2.5 rounded-[10px] text-[14px] font-medium"
+                        data-active={active}
+                        style={active ? { background: 'var(--surface)', color: 'var(--ink)' } : { color: 'var(--ink-3)' }}
                       >
                         {active && (
                           <span
