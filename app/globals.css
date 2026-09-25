@@ -674,3 +674,81 @@ body {
 .admin-tab-chip:not([data-active='true']):hover {
   border-color: color-mix(in oklch, var(--red) 45%, var(--line));
 }
+
+/* ────────────────────────────────────────────────────────────────────────────
+   Admin visual polish
+   The older admin screens were built ad-hoc: flat cards, no row hover, no focus
+   ring, abrupt state changes. Rather than rewriting those (very large) files,
+   these rules refine what is already there, in both themes. Everything is
+   additive — layout, spacing and colour meaning are untouched.
+   ──────────────────────────────────────────────────────────────────────────── */
+.theme-compat {
+  /* Panels/cards: one soft elevation and one corner radius, instead of flat blocks
+     in four different radii (rounded-lg / xl / 2xl / [14px] were all in use). */
+  :is([class*='bg-secondary'], [class*='bg-surface'])[class*='border']:not(button):not(input):not(select):not(span) {
+    box-shadow: 0 1px 2px oklch(0 0 0 / 0.06), 0 8px 20px -16px oklch(0 0 0 / 0.35);
+  }
+  :is([class*='bg-secondary'], [class*='bg-surface'])[class*='border'][class*='rounded-']:not(button):not(input):not(select):not(span):not([class*='rounded-full']) {
+    border-radius: 14px;
+  }
+
+  /* Rows in list panels light up under the pointer. */
+  [class*='divide-white'] > * {
+    transition: background-color 0.15s ease;
+  }
+  [class*='divide-white'] > *:hover {
+    background-color: color-mix(in oklch, var(--ink) 4%, transparent);
+  }
+
+  /* One visible keyboard focus style everywhere. */
+  :is(button, a, input, select, textarea, [role='button'], [tabindex]):focus-visible {
+    outline: 2px solid var(--red);
+    outline-offset: 2px;
+  }
+
+  /* Controls ease between states instead of snapping. */
+  :is(button, a, input, select, textarea) {
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, opacity 0.15s ease, box-shadow 0.15s ease;
+  }
+  button:not(:disabled):not([aria-disabled='true']) {
+    cursor: pointer;
+  }
+  :is(button, input, select, textarea):disabled,
+  [aria-disabled='true'] {
+    cursor: not-allowed;
+  }
+
+  /* Text fields: a soft ring on focus rather than a bare border swap. */
+  :is(input, select, textarea):focus {
+    box-shadow: 0 0 0 3px color-mix(in oklch, var(--red) 18%, transparent);
+  }
+  input::placeholder,
+  textarea::placeholder {
+    opacity: 0.85;
+  }
+
+  /* Sticky page headers get a hairline lift so content scrolls "under" them. */
+  .sticky.top-0 {
+    box-shadow: 0 1px 0 color-mix(in oklch, var(--ink) 8%, transparent), 0 6px 16px -14px oklch(0 0 0 / 0.5);
+  }
+
+  /* Quieter scrollbars inside panels. */
+  :is(.overflow-y-auto, .overflow-x-auto, .overflow-auto) {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in oklch, var(--ink) 22%, transparent) transparent;
+  }
+  :is(.overflow-y-auto, .overflow-x-auto, .overflow-auto)::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  :is(.overflow-y-auto, .overflow-x-auto, .overflow-auto)::-webkit-scrollbar-thumb {
+    background: color-mix(in oklch, var(--ink) 20%, transparent);
+    border-radius: 99px;
+  }
+
+  /* Money and counts line up column-wise. */
+  .dc-mono,
+  .font-mono-tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}

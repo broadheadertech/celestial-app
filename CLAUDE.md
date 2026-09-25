@@ -496,6 +496,10 @@ npx cap run android      # Build and run on device/emulator
   `from`/`to`/`limit` and read newest-first through the `by_created` index, caching product/customer lookups;
   callers pass the window they display (Orders = its date filter, Dashboard = 14 days, POS = 30 days). The sidebar
   uses `orders.getTillToday` instead of loading every order on every admin screen.
+- **Admin look & feel:** the polish layer at the end of `app/globals.css` (`.theme-compat`) gives every admin
+  screen one panel radius + soft elevation, list-row hover, a single focus ring, eased control transitions,
+  sticky-header lift, thin scrollbars and tabular numerals — without touching the (large) legacy page files.
+  `.admin-tab` adds hover/active styling for nav items, POS mode tabs and category chips.
 - **Admin messages:** call `adminToast(message, 'error' | 'success' | 'info')` (`components/admin/AdminToaster.tsx`,
   mounted once in AdminLayoutWrapper) — never `alert()`.
 - **Responsive storefront:** inline grid templates are overridden on small screens by utility classes in
