@@ -8,6 +8,8 @@ import { getViewer, isStaffRole, requireStaff, requireUser } from "../lib/authz"
 import { isListedPublicly, resolvePurchaseMode } from "../lib/purchaseMode";
 import { internal } from "../_generated/api";
 import { loadStoreContact, normalizeCustomerEmail, notifyWebOrderPlaced } from "./notifications";
+import { loadActiveAreas, loadServiceSettings } from "./serviceAreas";
+import { quoteDelivery } from "../lib/serviceQuote";
 
 // Get user's orders
 export const getUserOrders = query({
@@ -603,6 +605,9 @@ export const placeWebOrder = mutation({
     customerPhone: v.optional(v.string()),
     address: v.optional(v.string()),
     notes: v.optional(v.string()),
+    // Delivery: the area is chosen by the customer, the fee is always priced here.
+    fulfilment: v.optional(v.union(v.literal("pickup"), v.literal("delivery"))),
+    deliveryAreaId: v.optional(v.id("serviceAreas")),
   },
   handler: async (ctx, args) => {
     if (args.items.length === 0) throw new Error("No items provided");
@@ -646,6 +651,33 @@ export const placeWebOrder = mutation({
       await recordSaleHelper(ctx, { productId: item.productId, quantity: item.quantity });
     }
 
+    // Delivery is priced here from the chosen area; the browser never sends a fee.
+    const goodsSubtotal = totalAmount;
+    const wantsDelivery = args.fulfilment
+      ? args.fulfilment === "delivery"
+      : !!args.deliveryAreaId || !!args.address?.trim();
+    let deliveryFee = 0;
+    let deliveryArea: Doc<"serviceAreas"> | null = null;
+
+    if (wantsDelivery) {
+      if (!args.address || args.address.trim().length < 10) {
+        throw new Error("Please give the full delivery address, including the barangay and city.");
+      }
+      // An area means the checkout has the picker: price it and hold the customer to that fee.
+      // Without one the request came from an older build of the site, where the fee was always
+      // quoted by hand after confirmation — keep that behaviour rather than rejecting the order.
+      if (args.deliveryAreaId) {
+        const settings = await loadServiceSettings(ctx);
+        deliveryArea = await ctx.db.get(args.deliveryAreaId);
+        const areas = await loadActiveAreas(ctx);
+        const match = deliveryArea ? areas.find((a) => a._id === deliveryArea!._id) : null;
+        const quote = quoteDelivery({ subtotal: goodsSubtotal, area: match ?? null, settings });
+        if (!quote.ok) throw new Error(quote.reason);
+        deliveryFee = quote.fee;
+      }
+    }
+
+    const orderTotal = goodsSubtotal + deliveryFee;
     const contact = [args.customerEmail, args.customerPhone].filter(Boolean).join(" · ");
     const notes = [
       "Web checkout",
@@ -658,9 +690,11 @@ export const placeWebOrder = mutation({
       userId: viewer?._id,
       status: "pending",
       items: orderItems,
-      subtotal: totalAmount,
+      subtotal: goodsSubtotal,
       orderDiscount: 0,
-      totalAmount,
+      // Includes the delivery fee, so reports count it as the revenue it is:
+      // totalAmount = subtotal - orderDiscount + deliveryFee.
+      totalAmount: orderTotal,
       shippingAddress: {
         street: args.address?.slice(0, 300) || "In-Store Pickup",
         city: "N/A",
@@ -674,15 +708,24 @@ export const placeWebOrder = mutation({
       paymentStatus: "unpaid",
       amountPaid: 0,
       channel: "web",
+      fulfilment: wantsDelivery ? "delivery" : "pickup",
+      ...(wantsDelivery
+        ? {
+            deliveryFee,
+            deliveryAreaId: deliveryArea?._id,
+            deliveryAreaName: deliveryArea?.name,
+            deliveryStatus: "unscheduled" as const,
+          }
+        : {}),
       createdAt: now,
       updatedAt: now,
     });
 
     const orderCode = generateOrderCode(orderId);
     const itemCount = orderItems.reduce((sum, line) => sum + line.quantity, 0);
-    // The checkout sends "Fulfilment: pickup at the gallery|delivery" as the first notes line.
-    const fulfilmentMatch = /^Fulfilment:\s*(.+)$/im.exec(args.notes ?? "");
-    const fulfilment = (fulfilmentMatch?.[1].trim() || (args.address ? "delivery" : "pickup")).slice(0, 80);
+    const fulfilment = wantsDelivery
+      ? `delivery${deliveryArea ? ` · ${deliveryArea.name}` : ""}`
+      : "pickup at the gallery";
 
     // Best-effort side effects: a failure here must never fail the order itself.
     try {
@@ -691,7 +734,7 @@ export const placeWebOrder = mutation({
         orderCode,
         customerName,
         itemCount,
-        totalAmount,
+        totalAmount: orderTotal,
         fulfilment,
       });
     } catch (error) {
@@ -707,7 +750,9 @@ export const placeWebOrder = mutation({
           orderCode,
           customerName,
           items: emailItems,
-          totalAmount,
+          totalAmount: orderTotal,
+          goodsSubtotal,
+          deliveryFee,
           fulfilment,
           store: await loadStoreContact(ctx),
         });
@@ -716,7 +761,7 @@ export const placeWebOrder = mutation({
       console.error("Failed to schedule web order confirmation email:", error);
     }
 
-    return { orderId, orderCode, totalAmount };
+    return { orderId, orderCode, totalAmount: orderTotal, deliveryFee };
   },
 });
 

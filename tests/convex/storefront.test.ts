@@ -144,9 +144,10 @@ describe("order tracking", () => {
     });
 
     const found = await t.query(api.services.tracking.trackByCode, { code: orderCode.toLowerCase(), email: "MARIA@example.test" });
-    expect(found?.status).toBe("pending");
-    expect(found?.fulfilment).toBe("delivery");
-    expect(found?.items[0]?.name).toBe("Aquarium Light");
+    if (found?.kind !== "order") throw new Error("expected an order");
+    expect(found.status).toBe("pending");
+    expect(found.fulfilment).toBe("delivery");
+    expect(found.items[0]?.name).toBe("Aquarium Light");
 
     await expect(t.query(api.services.tracking.trackByCode, { code: orderCode, email: "someone@example.test" })).resolves.toBeNull();
     await expect(t.query(api.services.tracking.trackByCode, { code: "ORD-ZZZZZZ", email: "maria@example.test" })).resolves.toBeNull();

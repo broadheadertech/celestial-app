@@ -71,7 +71,7 @@ if (typeof window !== 'undefined') {
  * routes (admin, client app, auth, account, checkout) wait for mount, because they read
  * localStorage-backed stores while rendering and would otherwise mismatch on hydration.
  */
-const PUBLIC_PATHS = new Set(['/', '/catalog', '/cave', '/shop', '/visit', '/contact', '/about', '/journal', '/journal/article', '/specimen-detail', '/track']);
+const PUBLIC_PATHS = new Set(['/', '/catalog', '/cave', '/shop', '/visit', '/home-service', '/contact', '/about', '/journal', '/journal/article', '/specimen-detail', '/track']);
 
 interface ConvexProviderProps {
   children: ReactNode;

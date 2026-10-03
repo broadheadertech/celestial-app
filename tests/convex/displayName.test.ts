@@ -70,6 +70,7 @@ describe("product display names", () => {
       items: [{ productId: gear, quantity: 1 }],
     });
     const tracked = await t.query(api.services.tracking.trackByCode, { code: orderCode, email: "ana@example.test" });
-    expect(tracked?.items[0]?.name).toBe("LED Aquarium Light 120cm");
+    if (tracked?.kind !== "order") throw new Error("expected an order");
+    expect(tracked.items[0]?.name).toBe("LED Aquarium Light 120cm");
   });
 });

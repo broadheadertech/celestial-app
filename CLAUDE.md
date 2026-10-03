@@ -415,8 +415,31 @@ npx cap run android      # Build and run on device/emulator
   published ones show on the home page.
 - **FAQs** (Admin → FAQs, `convex/services/faqs.ts`): plain-text Q&A in display order; only published ones show
   on the Contact page (with FAQPage JSON-LD). The section hides when none are published.
-- **Order tracking** (`/track`, `convex/services/tracking.ts`): guests look up ORD-/RES- codes with the
-  email used at checkout; returns customer-safe fields only.
+- **Order tracking** (`/track`, `convex/services/tracking.ts`): guests look up ORD-/RES-/HSV- codes with the
+  email used at checkout; returns customer-safe fields only (delivery rows add fee/area/date, bookings add
+  the schedule and agreed price, never `staffNotes`).
+- **Service areas & fees** (Admin → Home Service → Areas & fees, `convex/services/serviceAreas.ts`): one
+  `serviceAreas` row prices both channels — `deliveryFee` for taking goods out, `travelFee` for a home visit —
+  and either can be switched off per area. `serviceSettings` is the singleton switchboard (both channels start
+  **off**, so neither appears publicly until it's set up), holding the free-delivery threshold, the minimum
+  delivery order and the notes shown at checkout / on the booking page. Both read by the public
+  `serviceAreas.getServiceOptions`. An area with past orders or bookings is deactivated, never deleted.
+- **Pricing is one pure module:** `convex/lib/serviceQuote.ts` (`quoteDelivery`, `quoteHomeService`) is
+  imported by both the storefront and Convex, so the figure on screen is the figure recorded — but the server
+  always recomputes it and **never accepts a fee from the browser**. Tested in `tests/site/serviceQuote.test.ts`.
+- **Delivery** (Admin → Deliveries, `convex/services/deliveries.ts`): checkout (`app/(site)/checkout`) offers
+  delivery only while it's enabled and areas exist; the customer picks an area and sees the real total.
+  `orders.placeWebOrder` prices it and stores `fulfilment`, `deliveryFee`, `deliveryAreaId/Name` and
+  `deliveryStatus: "unscheduled"`, with `totalAmount = subtotal - orderDiscount + deliveryFee` (the fee is
+  revenue, so reports count it). The queue schedules a day, a driver and a status of its own; `dispatched`
+  moves the order to `shipped` and `delivered` to `delivered`. Orders from a not-yet-redeployed build of the
+  site send no area — those keep the old "fee quoted by hand" behaviour instead of being rejected. Use
+  `orderFulfilment()` for any order's pickup/delivery, never the raw notes line.
+- **Home service** (Admin → Home Service, `convex/services/homeService.ts`): `homeServices` is the
+  staff-managed menu (no price = "quoted after we see the tank"); `/home-service` takes bookings with a
+  `HSV-` code, snapshotting the service price and the area's travel fee so later edits can't rewrite a quote.
+  Staff confirm with a day, a technician, an agreed `quotedTotal` and private `staffNotes`.
+  `homeService.seedStarterServices` fills a starter menu and the usual areas once, on request.
 - **Product URLs:** every product has a unique `slug` (set on create, kept on rename; `convex/lib/slug.ts`).
   Readable URLs `/specimen/<slug>` are prerendered per product at build time (`app/(site)/specimen/[slug]`,
   per-product title/description/og:image for link previews; catalog fetched via `lib/buildCatalog.ts`).
@@ -521,7 +544,8 @@ npx cap run android      # Build and run on device/emulator
 - **Backend tests:** `npm test` — Vitest + `convex-test` (pinned to 0.0.41 for convex 1.27) in
   `tests/convex/`. Covers staff-only access, revoked/deactivated sessions, role changes, sign-up
   role, login lockout + PBKDF2 storage, public catalog (no cost fields, purchase modes), web
-  checkout rules, and order tracking. Helpers in `tests/convex/setup.ts` (`signedInAs`,
+  checkout rules, order tracking, delivery pricing + the delivery queue, and home service
+  bookings. Helpers in `tests/convex/setup.ts` (`signedInAs`,
   `seedCatalog`). Use fake timers in tests that trigger scheduled functions. Pure storefront helpers
   are tested in `tests/site/`.
 - **Storefront smoke test:** `npm run build && npm run test:smoke` — serves `out/`, opens key pages

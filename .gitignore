@@ -46,3 +46,6 @@ next-env.d.ts
 # bmad
 _bmad/
 .agents/
+
+# Stray Cygwin/Git Bash crash dumps
+*.stackdump

@@ -1044,6 +1044,41 @@ export async function notifyViewingRequested(
   });
 }
 
+// Staff notification: a home-service visit was booked from the /home-service page.
+export async function notifyHomeServiceRequested(
+  ctx: MutationCtx,
+  args: {
+    bookingId: string;
+    code: string;
+    name: string;
+    serviceName: string;
+    areaName: string;
+    date: string;
+    time: string;
+    estimatedTotal?: number;
+  },
+): Promise<void> {
+  const now = Date.now();
+  const price = args.estimatedTotal === undefined ? "to be quoted" : formatPeso(args.estimatedTotal);
+  await ctx.db.insert("notifications", {
+    title: `New home service booking ${args.code}`,
+    message: `${args.name} · ${args.serviceName} · ${formatViewingDate(args.date)} at ${formatViewingTime(args.time)} · ${args.areaName} · ${price}`,
+    type: "reservation",
+    isRead: false,
+    audience: "staff",
+    priority: "high",
+    relatedId: args.bookingId,
+    relatedType: "homeServiceBooking",
+    metadata: {
+      customerName: args.name,
+      amount: args.estimatedTotal,
+      status: "requested",
+    },
+    createdAt: now,
+    updatedAt: now,
+  });
+}
+
 // Staff notification: a message was sent from the /contact form.
 export async function notifyContactMessageReceived(
   ctx: MutationCtx,

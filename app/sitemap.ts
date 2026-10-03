@@ -11,6 +11,7 @@ const PAGES: [string, number][] = [
   ['/cave', 0.8],
   ['/shop', 0.8],
   ['/visit', 0.7],
+  ['/home-service', 0.7],
   ['/contact', 0.5],
   ['/track', 0.3],
   ['/about', 0.4],

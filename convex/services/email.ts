@@ -442,10 +442,15 @@ export const sendWebOrderConfirmationEmail = internalAction({
       unitPrice: v.number(),
     })),
     totalAmount: v.number(),
+    // Goods only, and the delivery fee charged on top (both absent on older scheduled emails).
+    goodsSubtotal: v.optional(v.number()),
+    deliveryFee: v.optional(v.number()),
     fulfilment: v.string(),
     store: storeContactValidator,
   },
   handler: async (_ctx, args): Promise<SendResult> => {
+    const deliveryFee = args.deliveryFee ?? 0;
+    const itemsTotal = args.goodsSubtotal ?? args.totalAmount;
     const content = renderEmail({
       store: args.store,
       heading: `We've received your order ${args.orderCode}`,
@@ -463,8 +468,18 @@ export const sendWebOrderConfirmationEmail = internalAction({
             quantity: item.quantity,
             lineTotal: formatPeso(item.unitPrice * item.quantity),
           })),
-          total: formatPeso(args.totalAmount),
+          total: formatPeso(itemsTotal),
         },
+        // Only shown when a delivery fee applies, so pickup orders read exactly as before.
+        ...(deliveryFee > 0
+          ? [{
+              kind: "details" as const,
+              rows: [
+                { label: "Delivery", value: formatPeso(deliveryFee) },
+                { label: "Total to pay", value: formatPeso(args.totalAmount) },
+              ],
+            }]
+          : []),
         { kind: "paragraph", text: "Nothing has been charged. We'll contact you to confirm stock, payment and pickup/delivery." },
         { kind: "paragraph", text: `If you have questions, reply to this email or reach us using the details below and mention ${args.orderCode}.` },
       ],
@@ -512,6 +527,108 @@ export const sendViewingRequestEmail = internalAction({
       store: args.store,
       content,
       idempotencyKey: `viewing-request/${args.viewingId}`,
+    });
+  },
+});
+
+export const sendHomeServiceBookingEmail = internalAction({
+  args: {
+    to: v.string(),
+    bookingId: v.string(),
+    code: v.string(),
+    name: v.string(),
+    serviceName: v.string(),
+    areaName: v.string(),
+    address: v.string(),
+    date: v.string(),
+    time: v.string(),
+    servicePrice: v.optional(v.number()),
+    travelFee: v.number(),
+    estimatedTotal: v.optional(v.number()),
+    store: storeContactValidator,
+  },
+  handler: async (_ctx, args): Promise<SendResult> => {
+    const rows = [
+      { label: "Reference", value: args.code },
+      { label: "Service", value: args.serviceName },
+      { label: "Preferred date", value: formatViewingDate(args.date) },
+      { label: "Preferred time", value: formatViewingTime(args.time) },
+      { label: "Address", value: args.address },
+      { label: "Area", value: args.areaName },
+      {
+        label: "Service fee",
+        value: args.servicePrice === undefined ? "Quoted after we see the tank" : formatPeso(args.servicePrice),
+      },
+      { label: "Travel fee", value: args.travelFee > 0 ? formatPeso(args.travelFee) : "Included" },
+    ];
+    if (args.estimatedTotal !== undefined) {
+      rows.push({ label: "Estimated total", value: formatPeso(args.estimatedTotal) });
+    }
+
+    const content = renderEmail({
+      store: args.store,
+      heading: "We've received your home service booking",
+      includeHours: true,
+      blocks: [
+        { kind: "paragraph", text: `Hi ${args.name}, thank you for booking ${args.serviceName.toLowerCase()} with ${args.store.storeName}.` },
+        { kind: "details", rows },
+        {
+          kind: "paragraph",
+          text:
+            args.estimatedTotal === undefined
+              ? "This is a request, not a confirmed visit. We'll call to confirm the schedule and give you a firm price before anyone travels."
+              : "This is a request, not a confirmed visit. We'll call to confirm the schedule — the estimate above covers the service and travel, and we'll tell you first if anything changes.",
+        },
+        { kind: "paragraph", text: `Keep your reference ${args.code} — you can check the status any time on our Track page.` },
+      ],
+    });
+    return await sendBestEffort({
+      kind: "home service booking",
+      to: args.to,
+      subject: `Home service booking ${args.code} — ${args.store.storeName}`,
+      store: args.store,
+      content,
+      idempotencyKey: `home-service-booking/${args.bookingId}`,
+    });
+  },
+});
+
+export const sendDeliveryScheduledEmail = internalAction({
+  args: {
+    to: v.string(),
+    orderId: v.string(),
+    orderCode: v.string(),
+    customerName: v.string(),
+    deliveryDate: v.string(),
+    areaName: v.optional(v.string()),
+    deliveryFee: v.number(),
+    totalAmount: v.number(),
+    store: storeContactValidator,
+  },
+  handler: async (_ctx, args): Promise<SendResult> => {
+    const content = renderEmail({
+      store: args.store,
+      heading: "Your delivery is scheduled",
+      includeHours: false,
+      blocks: [
+        { kind: "paragraph", text: `Hi ${args.customerName}, your order ${args.orderCode} is booked in for delivery.` },
+        { kind: "details", rows: [
+          { label: "Delivery date", value: formatViewingDate(args.deliveryDate) },
+          ...(args.areaName ? [{ label: "Area", value: args.areaName }] : []),
+          { label: "Delivery fee", value: args.deliveryFee > 0 ? formatPeso(args.deliveryFee) : "Free" },
+          { label: "Order total", value: formatPeso(args.totalAmount) },
+        ] },
+        { kind: "paragraph", text: "Please make sure someone can receive the order at the address, and that there's space ready for anything that needs setting up. We'll message you before we leave." },
+      ],
+    });
+    return await sendBestEffort({
+      kind: "delivery scheduled",
+      to: args.to,
+      subject: `Delivery scheduled for ${args.orderCode} — ${args.store.storeName}`,
+      store: args.store,
+      content,
+      // The date is in the key so rescheduling sends a fresh email.
+      idempotencyKey: `delivery-scheduled/${args.orderId}/${args.deliveryDate}`,
     });
   },
 });

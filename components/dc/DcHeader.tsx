@@ -22,7 +22,9 @@ export default function DcHeader() {
           ? 'shop'
           : pathname.startsWith('/visit')
             ? 'visit'
-            : 'home';
+            : pathname.startsWith('/home-service')
+              ? 'service'
+              : 'home';
   const subline = [biz.establishedYear && `Est. ${biz.establishedYear}`, biz.city].filter(Boolean).join(' · ');
   const [menuOpen, setMenuOpen] = useState(false);
   // Close the mobile menu after navigating.
@@ -91,6 +93,10 @@ export default function DcHeader() {
             <Link href="/visit" className="dc-navlink" style={linkStyle}>Visit</Link>
             {active === 'visit' && dot}
           </span>
+          <span style={{ position: 'relative', display: 'inline-flex' }}>
+            <Link href="/home-service" className="dc-navlink" style={linkStyle}>Home service</Link>
+            {active === 'service' && dot}
+          </span>
         </nav>
 
         <div className="dc-push" style={{ display: 'flex', alignItems: 'center', gap: 14, flex: '0 0 auto' }}>
@@ -123,6 +129,7 @@ export default function DcHeader() {
           <Link href="/cave">The Cave</Link>
           <Link href="/shop">Shop gear &amp; food</Link>
           <Link href="/visit">Visit &amp; Book</Link>
+          <Link href="/home-service">Home service</Link>
           <Link href="/contact">Contact</Link>
           <Link href="/track">Track an order</Link>
           <MobileAccountLink />

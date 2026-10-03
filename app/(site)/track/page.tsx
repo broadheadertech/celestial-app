@@ -2,8 +2,8 @@
 /* eslint-disable @next/next/no-img-element -- product images are remote Convex storage URLs */
 
 /**
- * Track an order (ORD-…) or reservation (RES-…) with the code + the email used when
- * ordering. Live: the status updates on screen as staff progress the order.
+ * Track an order (ORD-…), reservation (RES-…) or home service booking (HSV-…) with the code
+ * + the email used at the time. Live: the status updates on screen as staff progress it.
  */
 
 import Link from 'next/link';
@@ -38,6 +38,12 @@ const RESERVATION_STEPS: Step[] = [
   { key: 'ready_for_pickup', label: 'Ready for pickup' },
   { key: 'completed', label: 'Collected' },
 ];
+const BOOKING_STEPS: Step[] = [
+  { key: 'requested', label: 'Requested' },
+  { key: 'confirmed', label: 'Confirmed' },
+  { key: 'in_progress', label: 'On the way' },
+  { key: 'completed', label: 'Done' },
+];
 
 const STATUS_NOTE: Record<string, string> = {
   pending: 'We have your request and will contact you to confirm.',
@@ -49,6 +55,16 @@ const STATUS_NOTE: Record<string, string> = {
   completed: 'Collected. Thank you!',
   cancelled: 'This was cancelled. Message us if that’s unexpected.',
   expired: 'This reservation has expired. Message us to arrange a new one.',
+  requested: 'We have your request and will call to confirm the schedule.',
+  in_progress: 'Our team is on the way, or already working on your tank.',
+};
+
+const DELIVERY_NOTE: Record<string, string> = {
+  unscheduled: 'We’ll confirm a delivery date with you shortly.',
+  scheduled: 'Booked in for delivery.',
+  dispatched: 'Out for delivery today.',
+  delivered: 'Delivered. Thank you!',
+  failed: 'We couldn’t complete the delivery — we’ll be in touch to rearrange.',
 };
 
 const PAYMENT_LABEL: Record<string, string> = { unpaid: 'Not yet paid', partial: 'Partly paid', paid: 'Paid', refunded: 'Refunded' };
@@ -81,7 +97,7 @@ function TrackInner() {
     e.preventDefault();
     const c = code.trim().toUpperCase();
     const em = email.trim();
-    if (!/^(ORD|RES)-[A-Z0-9]+$/.test(c)) return setFormError('Enter the code from your confirmation, e.g. ORD-4F9K2Q.');
+    if (!/^(ORD|RES|HSV)-[A-Z0-9]+$/.test(c)) return setFormError('Enter the code from your confirmation, e.g. ORD-4F9K2Q or HSV-7T2M8P.');
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) return setFormError('Enter the email you used when ordering.');
     setFormError('');
     setSubmitted({ code: c, email: em });
@@ -100,7 +116,7 @@ function TrackInner() {
 
         <form onSubmit={submit} style={{ background: 'oklch(0.99 0.005 80)', border: `1px solid ${line}`, borderRadius: 14, padding: 22, display: 'grid', gap: 14, gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', alignItems: 'end' }}>
           <div>
-            <label htmlFor="tr-code" className="dc-lbl">Order or reservation code</label>
+            <label htmlFor="tr-code" className="dc-lbl">Order, reservation or booking code</label>
             <input id="tr-code" className="dc-input" value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} placeholder="ORD-XXXXXX" autoComplete="off" spellCheck={false} style={{ fontFamily: mono, letterSpacing: '0.04em' }} />
           </div>
           <div>
@@ -126,7 +142,7 @@ function TrackInner() {
             </div>
           )}
 
-          {result && <TrackResult result={result} />}
+          {result && (result.kind === 'homeService' ? <BookingResult result={result} /> : <TrackResult result={result} />)}
         </div>
       </div>
     </main>
@@ -134,8 +150,10 @@ function TrackInner() {
 }
 
 type TrackResultData = NonNullable<ReturnType<typeof useQuery<typeof api.services.tracking.trackByCode>>>;
+type BookingData = Extract<TrackResultData, { kind: 'homeService' }>;
+type OrderOrReservation = Exclude<TrackResultData, { kind: 'homeService' }>;
 
-function TrackResult({ result }: { result: TrackResultData }) {
+function TrackResult({ result }: { result: OrderOrReservation }) {
   const steps = result.kind === 'order' ? ORDER_STEPS(result.fulfilment === 'delivery') : RESERVATION_STEPS;
   const ended = result.status === 'cancelled' || result.status === 'expired';
   const currentIndex = steps.findIndex((s) => s.key === result.status);
@@ -173,6 +191,13 @@ function TrackResult({ result }: { result: TrackResultData }) {
         {result.pickup && (
           <p style={{ fontSize: 13.5, color: muted, margin: '-8px 0 18px' }}>Pickup: {result.pickup.date} at {result.pickup.time}</p>
         )}
+        {result.kind === 'order' && result.deliveryStatus && (
+          <p style={{ fontSize: 13.5, color: muted, margin: '-8px 0 18px' }}>
+            {DELIVERY_NOTE[result.deliveryStatus] ?? ''}
+            {result.deliveryDate && <> Scheduled for {new Date(`${result.deliveryDate}T00:00:00`).toLocaleDateString('en-PH', { dateStyle: 'full' })}.</>}
+            {result.deliveryArea && <> Delivering to {result.deliveryArea}.</>}
+          </p>
+        )}
       </div>
 
       <div style={{ padding: '0 22px 8px' }}>
@@ -191,6 +216,9 @@ function TrackResult({ result }: { result: TrackResultData }) {
       </div>
 
       <div style={{ padding: '14px 22px 20px', borderTop: `1px solid ${line}`, background: 'oklch(0.965 0.009 76)', display: 'grid', gap: 6, fontSize: 14 }}>
+        {result.kind === 'order' && !!result.deliveryFee && (
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: muted }}>Delivery{result.deliveryArea ? ` · ${result.deliveryArea}` : ''}</span><span style={{ fontFamily: mono }}>{fmt(result.deliveryFee)}</span></div>
+        )}
         <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: muted }}>Total</span><span style={{ fontFamily: mono, fontWeight: 700 }}>{fmt(result.total)}</span></div>
         <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: muted }}>Payment</span><span>{PAYMENT_LABEL[result.paymentStatus] ?? result.paymentStatus}</span></div>
         {result.amountPaid > 0 && balance > 0 && (
@@ -198,5 +226,77 @@ function TrackResult({ result }: { result: TrackResultData }) {
         )}
       </div>
     </section>
+  );
+}
+
+/** A home service visit (HSV-…): the schedule, the agreed price and where we're going. */
+function BookingResult({ result }: { result: BookingData }) {
+  const ended = result.status === 'cancelled';
+  const currentIndex = BOOKING_STEPS.findIndex((s) => s.key === result.status);
+
+  return (
+    <section style={{ border: `1px solid ${line}`, borderRadius: 14, overflow: 'hidden', background: 'oklch(0.99 0.005 80)' }}>
+      <div style={{ padding: '20px 22px', borderBottom: `1px solid ${line}`, display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'baseline' }}>
+        <div>
+          <div style={{ fontFamily: mono, fontSize: 18, fontWeight: 700 }}>{result.code}</div>
+          <div style={{ fontSize: 12.5, color: muted, marginTop: 3 }}>
+            Home service · booked {new Date(result.createdAt).toLocaleDateString('en-PH', { dateStyle: 'medium' })}
+          </div>
+        </div>
+        <span style={{ fontFamily: mono, fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', padding: '6px 10px', borderRadius: 999, background: ended ? 'oklch(0.52 0.216 27 / 0.1)' : 'oklch(0.52 0.13 150 / 0.12)', color: ended ? 'oklch(0.48 0.20 27)' : green }}>
+          {ended ? 'cancelled' : BOOKING_STEPS[currentIndex]?.label ?? result.status}
+        </span>
+      </div>
+
+      <div style={{ padding: '22px 22px 8px' }}>
+        {!ended && (
+          <ol aria-label="Progress" style={{ listStyle: 'none', margin: '0 0 18px', padding: 0, display: 'grid', gridTemplateColumns: `repeat(${BOOKING_STEPS.length}, minmax(0, 1fr))`, gap: 6 }}>
+            {BOOKING_STEPS.map((s, i) => {
+              const done = i <= currentIndex;
+              return (
+                <li key={s.key} aria-current={i === currentIndex ? 'step' : undefined}>
+                  <div style={{ height: 4, borderRadius: 99, background: done ? green : 'oklch(0.88 0.012 70)' }} />
+                  <div style={{ fontSize: 11.5, marginTop: 7, color: done ? ink : 'oklch(0.50 0.02 40)', fontWeight: i === currentIndex ? 600 : 400, lineHeight: 1.25 }}>{s.label}</div>
+                </li>
+              );
+            })}
+          </ol>
+        )}
+        <p style={{ fontSize: 14.5, color: 'oklch(0.34 0.012 34)', margin: '0 0 18px' }}>{STATUS_NOTE[result.status] ?? ''}</p>
+      </div>
+
+      <div style={{ padding: '0 22px 8px', display: 'grid', gap: 10, fontSize: 14 }}>
+        <Row label="Service" value={result.serviceName} />
+        <Row label="When" value={`${result.dateLabel} at ${result.timeLabel}`} />
+        <Row label="Where" value={result.address} />
+        <Row label="Area" value={result.areaName} />
+      </div>
+
+      <div style={{ margin: '14px 0 0', padding: '14px 22px 20px', borderTop: `1px solid ${line}`, background: 'oklch(0.965 0.009 76)', display: 'grid', gap: 6, fontSize: 14 }}>
+        {result.servicePrice !== undefined && (
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: muted }}>Service</span><span style={{ fontFamily: mono }}>{fmt(result.servicePrice)}</span></div>
+        )}
+        {result.travelFee > 0 && (
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: muted }}>Travel</span><span style={{ fontFamily: mono }}>{fmt(result.travelFee)}</span></div>
+        )}
+        {result.total === undefined ? (
+          <p style={{ color: muted, fontSize: 13.5, margin: 0 }}>We&rsquo;ll give you a firm price once we&rsquo;ve seen the tank. Nothing is charged yet.</p>
+        ) : (
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <span style={{ color: muted }}>{result.quoted ? 'Agreed price' : 'Estimated total'}</span>
+            <span style={{ fontFamily: mono, fontWeight: 700 }}>{fmt(result.total)}</span>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function Row({ label, value }: { label: string; value: string }) {
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '92px 1fr', gap: 10, padding: '9px 0', borderTop: '1px solid oklch(0.91 0.012 70)' }}>
+      <span style={{ fontFamily: mono, fontSize: 10.5, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'oklch(0.55 0.05 40)', paddingTop: 2 }}>{label}</span>
+      <span style={{ lineHeight: 1.5 }}>{value}</span>
+    </div>
   );
 }

@@ -178,12 +178,29 @@ export default defineSchema({
     enteredAt: v.optional(v.number()),
     // Where the order came from; older rows are inferred by orderChannel() in services/orders.ts.
     channel: v.optional(v.union(v.literal("pos"), v.literal("web"), v.literal("app"))),
+    // Delivery (convex/services/deliveries.ts). `fulfilment` is explicit on new web orders; older
+    // rows are inferred by orderFulfilment() from the notes line the checkout used to write.
+    fulfilment: v.optional(v.union(v.literal("pickup"), v.literal("delivery"))),
+    deliveryFee: v.optional(v.number()), // charged on top of the goods; always priced server-side
+    deliveryAreaId: v.optional(v.id("serviceAreas")),
+    deliveryAreaName: v.optional(v.string()), // snapshot, so renaming an area can't rewrite history
+    deliveryDate: v.optional(v.string()), // scheduled day, YYYY-MM-DD
+    deliveryStatus: v.optional(v.union(
+      v.literal("unscheduled"),
+      v.literal("scheduled"),
+      v.literal("dispatched"),
+      v.literal("delivered"),
+      v.literal("failed"),
+    )),
+    driverName: v.optional(v.string()),
+    deliveryNotes: v.optional(v.string()), // staff-only (landmarks, failed attempts)
     createdAt: v.number(),
     updatedAt: v.number(),
   })
     .index("by_user", ["userId"])
     .index("by_status", ["status"])
-    .index("by_created", ["createdAt"]),
+    .index("by_created", ["createdAt"])
+    .index("by_delivery_status", ["deliveryStatus", "createdAt"]),
 
   // Updated cart to support both users and guests
   cart: defineTable({
@@ -606,6 +623,93 @@ export default defineSchema({
     .index("by_date", ["date"])
     .index("by_status", ["status"])
     .index("by_user", ["userId"]),
+
+  // Areas we deliver to / travel to (Admin → Delivery & Home Service → Areas). One row serves both
+  // channels: `deliveryFee` prices a goods delivery, `travelFee` a home-service visit. Fees are
+  // snapshotted onto the order/booking, so editing an area never rewrites past records.
+  serviceAreas: defineTable({
+    name: v.string(),
+    deliveryFee: v.number(),
+    travelFee: v.number(),
+    note: v.optional(v.string()), // e.g. "same day", "1–2 days"
+    deliveryEnabled: v.boolean(), // offer goods delivery here
+    homeServiceEnabled: v.boolean(), // offer home visits here
+    isActive: v.boolean(),
+    sortOrder: v.number(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_active", ["isActive"])
+    .index("by_sort", ["sortOrder"]),
+
+  // The home-service menu (Admin → Home Service → Services). Staff-managed, so services can be
+  // added or repriced without a deploy. `price` unset = "quoted after we see the tank".
+  homeServices: defineTable({
+    name: v.string(),
+    description: v.optional(v.string()),
+    price: v.optional(v.number()),
+    priceNote: v.optional(v.string()), // e.g. "per tank", "from"
+    durationMinutes: v.optional(v.number()),
+    image: v.optional(v.string()),
+    isActive: v.boolean(),
+    sortOrder: v.number(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_active", ["isActive"])
+    .index("by_sort", ["sortOrder"]),
+
+  // A customer's request for a technician to visit their home (public /home-service page).
+  // Prices are snapshotted at booking time; `quotedTotal` is what staff finally agreed.
+  homeServiceBookings: defineTable({
+    code: v.string(), // HSV-XXXXXX, used for /track
+    name: v.string(),
+    email: v.string(),
+    phone: v.string(),
+    address: v.string(),
+    areaId: v.optional(v.id("serviceAreas")),
+    areaName: v.string(),
+    serviceId: v.optional(v.id("homeServices")),
+    serviceName: v.string(),
+    servicePrice: v.optional(v.number()), // snapshot; unset = quoted
+    travelFee: v.number(), // snapshot of the area's travel fee
+    estimatedTotal: v.optional(v.number()), // servicePrice + travelFee, when both are known
+    tankSize: v.optional(v.string()),
+    date: v.string(), // preferred day, YYYY-MM-DD
+    time: v.string(), // preferred time, HH:MM (24h)
+    notes: v.optional(v.string()),
+    status: v.union(
+      v.literal("requested"),
+      v.literal("confirmed"),
+      v.literal("in_progress"),
+      v.literal("completed"),
+      v.literal("cancelled"),
+    ),
+    assignedToId: v.optional(v.id("users")),
+    assignedToName: v.optional(v.string()),
+    staffNotes: v.optional(v.string()), // never returned to customers
+    quotedTotal: v.optional(v.number()), // final agreed price
+    userId: v.optional(v.id("users")),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_status", ["status"])
+    .index("by_date", ["date"])
+    .index("by_code", ["code"])
+    .index("by_user", ["userId"])
+    .index("by_created", ["createdAt"]),
+
+  // Singleton switchboard for both channels (Admin → Delivery & Home Service → Settings).
+  serviceSettings: defineTable({
+    deliveryEnabled: v.boolean(),
+    freeDeliveryThreshold: v.optional(v.number()), // goods subtotal at/above which delivery is free
+    minimumDeliveryOrder: v.optional(v.number()), // smallest goods subtotal we'll deliver
+    deliveryNote: v.optional(v.string()), // shown at checkout, e.g. lead times
+    homeServiceEnabled: v.boolean(),
+    homeServiceNote: v.optional(v.string()), // shown on the booking page
+    updatedAt: v.number(),
+    updatedBy: v.optional(v.id("users")),
+  }),
 
   // Admin audit trail — an append-only log of every meaningful admin action,
   // categorized so it can be filtered/grouped in the settings activity log.

@@ -8,13 +8,15 @@
  */
 
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { Id } from '@/convex/_generated/dataModel';
 import { useAuthStore } from '@/store/auth';
 import { useSiteCart, siteCartSubtotal } from '@/store/siteCart';
 import { useBusiness } from '@/components/dc/business';
+import { useQuery } from '@/components/dc/useQuery';
+import { quoteDelivery } from '@/convex/lib/serviceQuote';
 
 const fmt = (n: number) =>
   `₱${n.toLocaleString('en-PH', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
@@ -35,12 +37,15 @@ export default function CheckoutPage() {
   const clear = useSiteCart((s) => s.clear);
   const setOpen = useSiteCart((s) => s.setOpen);
   const placeWebOrder = useMutation(api.services.orders.placeWebOrder);
+  // Delivery areas and rules come from Admin -> Home Service -> Areas & fees / Settings.
+  const serviceOptions = useQuery(api.services.serviceAreas.getServiceOptions, {});
 
   const [name, setName] = useState(user ? `${user.firstName} ${user.lastName}`.trim() : '');
   const [email, setEmail] = useState(user?.email || '');
   const [phone, setPhone] = useState(user?.phone || '');
   const [fulfilment, setFulfilment] = useState<Fulfilment>('pickup');
   const [address, setAddress] = useState('');
+  const [areaId, setAreaId] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('cash');
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -52,6 +57,27 @@ export default function CheckoutPage() {
   const subtotal = siteCartSubtotal(cartItems);
   const count = cartItems.reduce((n, l) => n + l.qty, 0);
 
+  const deliveryAreas = serviceOptions?.deliveryAreas ?? [];
+  const deliveryOffered = !!serviceOptions?.settings.deliveryEnabled && deliveryAreas.length > 0;
+  const cheapestFee = deliveryAreas.length ? Math.min(...deliveryAreas.map((a) => a.deliveryFee)) : 0;
+  const area = deliveryAreas.find((a) => a._id === areaId);
+  // The same helper the server prices with, so the total on screen is the total recorded.
+  const quote = useMemo(
+    () => quoteDelivery({
+      subtotal,
+      area: area ?? null,
+      settings: serviceOptions?.settings ?? { deliveryEnabled: false, homeServiceEnabled: false },
+    }),
+    [subtotal, area, serviceOptions?.settings],
+  );
+  const deliveryFee = fulfilment === 'delivery' && quote.ok ? quote.fee : 0;
+  const total = subtotal + deliveryFee;
+
+  // If delivery is switched off while someone is on the page, fall back to pickup.
+  useEffect(() => {
+    if (serviceOptions && !deliveryOffered && fulfilment === 'delivery') setFulfilment('pickup');
+  }, [serviceOptions, deliveryOffered, fulfilment]);
+
   const paymentOptions = [
     { id: 'cash', label: fulfilment === 'pickup' ? 'Cash on pickup' : 'Cash on delivery', hint: 'Pay when you receive your order' },
     { id: 'gcash', label: 'GCash', hint: biz.gcashNumber ? `Send to ${biz.gcashNumber}${biz.gcashName ? ` (${biz.gcashName})` : ''} after we confirm` : 'We send GCash details when we confirm' },
@@ -62,7 +88,11 @@ export default function CheckoutPage() {
     if (name.trim().length < 2) return 'Please enter your name.';
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return 'Please enter a valid email.';
     if (phone.replace(/\D/g, '').length < 10) return 'Please enter a mobile number we can reach you on.';
-    if (fulfilment === 'delivery' && address.trim().length < 10) return 'Please enter your full delivery address.';
+    if (fulfilment === 'delivery') {
+      if (!areaId) return 'Please choose your delivery area.';
+      if (address.trim().length < 10) return 'Please enter your full delivery address.';
+      if (!quote.ok) return quote.reason;
+    }
     return '';
   };
 
@@ -79,6 +109,8 @@ export default function CheckoutPage() {
         customerEmail: email.trim(),
         customerPhone: phone.trim(),
         address: fulfilment === 'delivery' ? address.trim() : undefined,
+        fulfilment,
+        ...(fulfilment === 'delivery' && areaId ? { deliveryAreaId: areaId as Id<'serviceAreas'> } : {}),
         notes: [`Fulfilment: ${fulfilment === 'pickup' ? 'pickup at the gallery' : 'delivery'}`, notes.trim()].filter(Boolean).join('\n'),
       });
       setPlaced({ code: result.orderCode, total: result.totalAmount, count });
@@ -180,13 +212,35 @@ export default function CheckoutPage() {
                 <div style={{ fontWeight: 600, fontSize: 14.5 }}>Pick up at the gallery</div>
                 <div style={{ fontSize: 12.5, color: muted, marginTop: 3 }}>{[biz.address, biz.city].filter(Boolean).join(', ') || 'We’ll send the address when we confirm'}</div>
               </button>
-              <button type="button" role="radio" aria-checked={fulfilment === 'delivery'} onClick={() => setFulfilment('delivery')} style={choice(fulfilment === 'delivery')}>
-                <div style={{ fontWeight: 600, fontSize: 14.5 }}>Delivery</div>
-                <div style={{ fontSize: 12.5, color: muted, marginTop: 3 }}>We&rsquo;ll quote the delivery fee when we confirm</div>
-              </button>
+              {deliveryOffered && (
+                <button type="button" role="radio" aria-checked={fulfilment === 'delivery'} onClick={() => setFulfilment('delivery')} style={choice(fulfilment === 'delivery')}>
+                  <div style={{ fontWeight: 600, fontSize: 14.5 }}>Delivery</div>
+                  <div style={{ fontSize: 12.5, color: muted, marginTop: 3 }}>
+                    {serviceOptions?.settings.freeDeliveryThreshold
+                      ? <>From {fmt(cheapestFee)} &middot; free over {fmt(serviceOptions.settings.freeDeliveryThreshold)}</>
+                      : <>From {fmt(cheapestFee)}, by area</>}
+                  </div>
+                </button>
+              )}
             </div>
             {fulfilment === 'delivery' && (
-              <div style={{ marginTop: 16 }}>{label('Delivery address', 'co-address')}<textarea id="co-address" className="dc-input" rows={3} autoComplete="street-address" placeholder="House no., street, barangay, city, province" value={address} onChange={(e) => setAddress(e.target.value)} /></div>
+              <>
+                <div style={{ marginTop: 16 }}>
+                  {label('Delivery area', 'co-area')}
+                  <select id="co-area" className="dc-input" value={areaId} onChange={(e) => setAreaId(e.target.value)}>
+                    <option value="">Choose your area&hellip;</option>
+                    {deliveryAreas.map((a) => (
+                      <option key={a._id} value={a._id}>{a.name} &mdash; {a.deliveryFee > 0 ? fmt(a.deliveryFee) : 'free'}</option>
+                    ))}
+                  </select>
+                  {area?.note && <div style={{ fontSize: 12, marginTop: 6, color: muted }}>{area.note}</div>}
+                </div>
+                <div style={{ marginTop: 16 }}>{label('Delivery address', 'co-address')}<textarea id="co-address" className="dc-input" rows={3} autoComplete="street-address" placeholder="House no., street, barangay, city, province" value={address} onChange={(e) => setAddress(e.target.value)} /></div>
+                {!quote.ok && areaId && <div style={{ marginTop: 10, fontSize: 12.5, color: 'oklch(0.50 0.20 27)' }}>{quote.reason}</div>}
+              </>
+            )}
+            {serviceOptions?.settings.deliveryNote && (
+              <p style={{ fontSize: 12.5, color: muted, margin: '14px 0 0', lineHeight: 1.55 }}>{serviceOptions.settings.deliveryNote}</p>
             )}
           </section>
 
@@ -232,10 +286,20 @@ export default function CheckoutPage() {
           </div>
           <div style={{ borderTop: `1px solid ${line}`, paddingTop: 14, display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13.5 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', color: muted }}><span>Subtotal ({count} item{count === 1 ? '' : 's'})</span><span style={{ fontFamily: mono }}>{fmt(subtotal)}</span></div>
-            {fulfilment === 'delivery' && <div style={{ display: 'flex', justifyContent: 'space-between', color: muted }}><span>Delivery</span><span>Quoted on confirmation</span></div>}
+            {fulfilment === 'delivery' && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', color: muted }}>
+                <span>Delivery{area ? ` \u00b7 ${area.name}` : ''}</span>
+                <span style={{ fontFamily: mono }}>
+                  {!area ? 'Choose an area' : quote.ok ? (quote.free ? 'Free' : fmt(quote.fee)) : '\u2014'}
+                </span>
+              </div>
+            )}
+            {fulfilment === 'delivery' && quote.ok && quote.free && (
+              <div style={{ fontSize: 12, color: 'oklch(0.46 0.14 150)' }}>Free delivery on this order.</div>
+            )}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginTop: 6 }}>
               <span style={{ fontWeight: 600 }}>Total</span>
-              <span style={{ fontFamily: serif, fontWeight: 700, fontSize: 24 }}>{fmt(subtotal)}</span>
+              <span style={{ fontFamily: serif, fontWeight: 700, fontSize: 24 }}>{fmt(total)}</span>
             </div>
           </div>
 

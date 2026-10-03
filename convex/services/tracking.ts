@@ -2,14 +2,16 @@ import { v } from "convex/values";
 import { publicName } from "../lib/productName";
 import { query, QueryCtx } from "../_generated/server";
 import { Doc } from "../_generated/dataModel";
+import { orderFulfilment } from "./deliveries";
+import { customerBookingView } from "./homeService";
 
 /**
- * Public order/reservation tracking for customers without an account.
+ * Public order/reservation/booking tracking for customers without an account.
  *
- * The caller must supply BOTH the code (ORD-XXXXXX from checkout, or RES-… for
- * reservations) and the email used when ordering; anything that doesn't match exactly
- * returns null, so the page can't be used to discover other people's orders. Only
- * customer-safe fields are returned (no notes, staff names, costs or other contacts).
+ * The caller must supply BOTH the code (ORD-XXXXXX from checkout, RES-… for reservations,
+ * HSV-… for a home service booking) and the email used at the time; anything that doesn't
+ * match exactly returns null, so the page can't be used to discover other people's orders.
+ * Only customer-safe fields are returned (no notes, staff names, costs or other contacts).
  */
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -73,6 +75,19 @@ export const trackByCode = query({
       };
     }
 
+    if (code.startsWith("HSV-")) {
+      const booking = await ctx.db
+        .query("homeServiceBookings")
+        .withIndex("by_code", (q) => q.eq("code", code))
+        .first();
+      if (!booking) return null;
+      const matches =
+        booking.email.trim().toLowerCase() === email ||
+        (await accountEmail(ctx, booking.userId)) === email;
+      if (!matches) return null;
+      return customerBookingView(booking);
+    }
+
     if (code.startsWith("ORD-")) {
       const suffix = code.slice(4);
       if (!/^[A-Z0-9]{6}$/.test(suffix)) return null;
@@ -85,7 +100,7 @@ export const trackByCode = query({
         const matches = noteEmail === email || (await accountEmail(ctx, o.userId)) === email;
         if (!matches) continue;
 
-        const fulfilmentMatch = /Fulfilment: (pickup|delivery)/i.exec(o.notes ?? "")?.[1]?.toLowerCase();
+        const fulfilment = orderFulfilment(o);
         return {
           kind: "order" as const,
           code,
@@ -95,7 +110,12 @@ export const trackByCode = query({
           amountPaid: o.amountPaid ?? 0,
           items: await itemLines(ctx, o.items),
           pickup: null,
-          fulfilment: (fulfilmentMatch === "delivery" ? "delivery" : "pickup") as "pickup" | "delivery",
+          fulfilment,
+          // Delivery details the customer is entitled to see; absent on pickup orders.
+          deliveryFee: o.deliveryFee ?? null,
+          deliveryArea: o.deliveryAreaName ?? null,
+          deliveryDate: o.deliveryDate ?? null,
+          deliveryStatus: fulfilment === "delivery" ? (o.deliveryStatus ?? "unscheduled") : null,
           expiresAt: null,
           createdAt: o.createdAt,
           updatedAt: o.updatedAt,
