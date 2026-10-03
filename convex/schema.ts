@@ -85,6 +85,19 @@ export default defineSchema({
     reorderPoint: v.optional(v.number()),
     restockOrderedAt: v.optional(v.number()),
     restockOrderedByName: v.optional(v.string()),
+    // Pre-orders (convex/services/preorders.ts, convex/lib/preorder.ts). Set per product in the
+    // admin form: fish that haven't arrived yet can be committed to with a deposit. Unset or
+    // `enabled: false` means no pre-order button, so nothing becomes pre-orderable by accident.
+    preorder: v.optional(v.object({
+      enabled: v.boolean(),
+      incomingQty: v.number(), // how many are coming; pre-orders close once they're all taken
+      expectedFrom: v.optional(v.string()), // YYYY-MM-DD
+      expectedTo: v.optional(v.string()), // YYYY-MM-DD
+      // What we ask up front — a peso figure, or a percentage of the price. Percent wins if both.
+      depositAmount: v.optional(v.number()),
+      depositPercent: v.optional(v.number()),
+      note: v.optional(v.string()), // shown to customers, e.g. "from our March Pekan shipment"
+    })),
     isActive: v.boolean(),
     createdAt: v.number(),
     updatedAt: v.number(),
@@ -281,6 +294,17 @@ export default defineSchema({
     // Sales associate tracking
     salesAssociateId: v.optional(v.id("users")),
     salesAssociateName: v.optional(v.string()),
+    // Pre-orders (convex/services/preorders.ts). A pre-order is a reservation for a fish that
+    // hasn't arrived, so it holds NO stock until it's allocated — deposits still run through the
+    // normal reservationPayments ledger, so Finance and Cash on Hand need no special case.
+    // The invariant: stock was taken iff `reservationHoldsStock()` is true. Every path that
+    // restores stock on cancel/expire must check it, or a pre-order would invent stock.
+    isPreorder: v.optional(v.boolean()),
+    preorderProductId: v.optional(v.id("products")), // the single incoming fish, for lookups
+    preorderExpectedFrom: v.optional(v.string()), // snapshot of the window we promised
+    preorderExpectedTo: v.optional(v.string()),
+    depositDue: v.optional(v.number()), // what we asked for up front
+    allocatedAt: v.optional(v.number()), // when real stock was assigned to it
     createdAt: v.number(),
     updatedAt: v.number(),
   })
@@ -289,7 +313,8 @@ export default defineSchema({
     .index("by_status", ["status"])
     .index("by_expiry", ["expiryDate"])
     .index("by_reservation_code", ["reservationCode"])
-    .index("by_created", ["createdAt"]),
+    .index("by_created", ["createdAt"])
+    .index("by_preorder_product", ["preorderProductId", "createdAt"]),
 
   // Reservation payments ledger — one row per payment event against a reservation
   // (downpayment, walk-in partial payment, balance settlement at pickup, or refund).

@@ -22,6 +22,7 @@ import {
   HelpCircle,
   ClipboardList,
   History,
+  Ship,
   Truck,
   Wrench,
 } from 'lucide-react';
@@ -79,6 +80,7 @@ export const ADMIN_NAV_SECTIONS: AdminNavSection[] = [
         matchPaths: ['/admin/orders', '/admin/reservation-detail'],
       },
       { id: 'viewings', label: 'Viewings', icon: Calendar, href: '/admin/viewings' },
+      { id: 'preorders', label: 'Pre-orders', icon: Ship, href: '/admin/preorders' },
       { id: 'deliveries', label: 'Deliveries', icon: Truck, href: '/admin/deliveries' },
       { id: 'home-service', label: 'Home Service', icon: Wrench, href: '/admin/home-service' },
       { id: 'inquiries', label: 'Inquiries', icon: MessageCircle, href: '/admin/inquiries' },

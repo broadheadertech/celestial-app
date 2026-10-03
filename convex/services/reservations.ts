@@ -10,6 +10,7 @@ import {
   notifyReservationReadyForPickup
 } from './notifications';
 import { reserveStockHelper, releaseReservedStockHelper } from './stock';
+import { reservationHoldsStock } from '../lib/preorder';
 import { recordAudit } from './audit';
 import { getViewer, isStaffRole, requireStaff, requireUser } from "../lib/authz";
 
@@ -438,8 +439,9 @@ export const cancelReservation = mutation({
       throw new Error("Cannot cancel confirmed reservations. Please contact support.");
     }
 
-    // Restore stock for all items (handle both new and legacy format)
-    if (reservation.items && reservation.items.length > 0) {
+    // Restore stock for all items (handle both new and legacy format).
+    // A pre-order that hasn't been allocated never took stock, so restoring would invent it.
+    if (reservationHoldsStock(reservation) && reservation.items && reservation.items.length > 0) {
       // New multi-item format
       for (const item of reservation.items) {
         const product = await ctx.db.get(item.productId);
@@ -628,8 +630,9 @@ export const updateReservationStatus = mutation({
     const now = Date.now();
     const oldStatus = reservation.status;
 
-    // If cancelling, restore stock for all items (handle both formats)
-    if (status === "cancelled" && reservation.status !== "cancelled") {
+    // If cancelling, restore stock for all items (handle both formats).
+    // Skipped for a pre-order still waiting on its shipment — it holds no stock yet.
+    if (status === "cancelled" && reservation.status !== "cancelled" && reservationHoldsStock(reservation)) {
       if (reservation.items && reservation.items.length > 0) {
         // New multi-item format
         for (const item of reservation.items) {
@@ -999,8 +1002,8 @@ export const cleanupExpiredReservations = mutation({
 
     // Update status and restore stock for expired reservations (handle both formats)
     for (const reservation of expiredReservations) {
-      // Restore stock for all items
-      if (reservation.items && reservation.items.length > 0) {
+      // Restore stock for all items — except an un-allocated pre-order, which holds none.
+      if (reservationHoldsStock(reservation) && reservation.items && reservation.items.length > 0) {
         // New multi-item format
         for (const item of reservation.items) {
           const product = await ctx.db.get(item.productId);

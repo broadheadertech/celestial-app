@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query, MutationCtx } from "../_generated/server";
+import { internal } from "../_generated/api";
 import { Id } from "../_generated/dataModel";
 import { createInternalUseExpenseHelper, createMortalityExpenseHelper } from "./finance";
 import { recordAudit } from "./audit";
@@ -872,6 +873,15 @@ export const restockProduct = mutation({
       amount: restockTotalCost,
       metadata: { productId, quantity, actualCostPrice, batchCode, fundingSource, supplier: supplier?.trim() || undefined },
     });
+
+    // People waiting on this shipment get it first. Scheduled rather than called inline so the
+    // restock isn't held up by it, and so stock.ts needn't import services/preorders.ts (which
+    // imports the stock helpers from here).
+    try {
+      await ctx.scheduler.runAfter(0, internal.services.preorders.allocateAfterRestock, { productId });
+    } catch (error) {
+      console.error("Failed to schedule pre-order allocation:", error);
+    }
 
     return {
       success: true,

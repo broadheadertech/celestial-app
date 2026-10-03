@@ -22,6 +22,7 @@ import { useSiteCart } from '@/store/siteCart';
 import { productUrl } from '@/components/dc/links';
 import MessengerButton, { MessengerIcon } from '@/components/dc/MessengerButton';
 import InquiryForm from '@/components/dc/InquiryForm';
+import PreorderPanel from '@/components/dc/PreorderPanel';
 import ShareButton from '@/components/dc/ShareButton';
 
 /** The product form stores certificate image URLs comma-separated (or a "none" sentence). */
@@ -353,6 +354,7 @@ function SpecimenInner() {
               </>
             ) : (
             <>
+            <PreorderPanel productId={product._id} />
             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 14 }}>
               <a href={enquireHref} target={external ? '_blank' : undefined} rel="noopener" className="dc-btn-primary" style={{ flex: 1, minWidth: 220, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 9, background: 'oklch(0.52 0.216 27)', color: 'oklch(0.98 0.012 82)', fontSize: 14.5, fontWeight: 600, padding: '16px 24px', borderRadius: 999, transition: '.2s', boxShadow: '0 14px 32px -14px oklch(0.52 0.216 27 / 0.7)' }}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v7A2.5 2.5 0 0 1 17.5 15H9l-4 3.5V15H6.5A2.5 2.5 0 0 1 4 12.5v-7Z" fill="oklch(0.98 0.012 82)" /><circle cx="9" cy="9" r="1.2" fill="oklch(0.52 0.216 27)" /><circle cx="12.5" cy="9" r="1.2" fill="oklch(0.52 0.216 27)" /><circle cx="16" cy="9" r="1.2" fill="oklch(0.52 0.216 27)" /></svg>

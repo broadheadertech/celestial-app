@@ -633,6 +633,107 @@ export const sendDeliveryScheduledEmail = internalAction({
   },
 });
 
+export const sendPreorderConfirmationEmail = internalAction({
+  args: {
+    to: v.string(),
+    reservationId: v.string(),
+    reservationCode: v.string(),
+    name: v.string(),
+    productName: v.string(),
+    quantity: v.number(),
+    unitPrice: v.number(),
+    totalAmount: v.number(),
+    depositDue: v.number(),
+    expectedLabel: v.string(),
+    gcash: v.optional(v.string()),
+    bankDetails: v.optional(v.string()),
+    store: storeContactValidator,
+  },
+  handler: async (_ctx, args): Promise<SendResult> => {
+    const rows = [
+      { label: "Reference", value: args.reservationCode },
+      { label: "Fish", value: `${args.quantity} × ${args.productName}` },
+      ...(args.expectedLabel ? [{ label: "Expected", value: args.expectedLabel }] : []),
+      { label: "Price", value: `${formatPeso(args.unitPrice)} each · ${formatPeso(args.totalAmount)} total` },
+      ...(args.depositDue > 0 ? [{ label: "Deposit to confirm", value: formatPeso(args.depositDue) }] : []),
+    ];
+
+    const payment = [args.gcash && `GCash: ${args.gcash}`, args.bankDetails && `Bank: ${args.bankDetails}`]
+      .filter(Boolean)
+      .join("\n");
+
+    const content = renderEmail({
+      store: args.store,
+      heading: "We've reserved your place",
+      includeHours: true,
+      blocks: [
+        { kind: "paragraph", text: `Hi ${args.name}, thank you for pre-ordering ${args.productName}.` },
+        { kind: "details", rows },
+        ...(args.depositDue > 0
+          ? [{
+              kind: "paragraph" as const,
+              text: `Your place is held once we've received the ${formatPeso(args.depositDue)} deposit. The balance is due when you collect.${payment ? `\n\n${payment}` : " We'll send payment details shortly."}`,
+            }]
+          : [{ kind: "paragraph" as const, text: "We'll be in touch to confirm the details." }]),
+        {
+          kind: "paragraph",
+          text: `We'll email you the moment ${args.quantity === 1 ? "it arrives" : "they arrive"}, and hold ${args.quantity === 1 ? "it" : "them"} for 7 days from then. If the shipment falls through we'll return your deposit in full.`,
+        },
+        { kind: "paragraph", text: `Quote ${args.reservationCode} any time, or follow it on our Track page.` },
+      ],
+    });
+    return await sendBestEffort({
+      kind: "pre-order confirmation",
+      to: args.to,
+      subject: `Pre-order ${args.reservationCode} — ${args.store.storeName}`,
+      store: args.store,
+      content,
+      idempotencyKey: `preorder-confirmation/${args.reservationId}`,
+    });
+  },
+});
+
+export const sendPreorderArrivedEmail = internalAction({
+  args: {
+    to: v.string(),
+    reservationId: v.string(),
+    reservationCode: v.string(),
+    name: v.string(),
+    productName: v.string(),
+    quantity: v.number(),
+    totalAmount: v.number(),
+    amountPaid: v.number(),
+    store: storeContactValidator,
+  },
+  handler: async (_ctx, args): Promise<SendResult> => {
+    const balance = Math.max(0, args.totalAmount - args.amountPaid);
+    const content = renderEmail({
+      store: args.store,
+      heading: `Your ${args.productName} has arrived`,
+      includeHours: true,
+      blocks: [
+        { kind: "paragraph", text: `Hi ${args.name}, good news — ${args.quantity === 1 ? "the fish you pre-ordered is" : "the fish you pre-ordered are"} here and set aside for you.` },
+        { kind: "details", rows: [
+          { label: "Reference", value: args.reservationCode },
+          { label: "Fish", value: `${args.quantity} × ${args.productName}` },
+          { label: "Total", value: formatPeso(args.totalAmount) },
+          ...(args.amountPaid > 0 ? [{ label: "Deposit paid", value: formatPeso(args.amountPaid) }] : []),
+          { label: balance > 0 ? "Balance on collection" : "Balance", value: balance > 0 ? formatPeso(balance) : "Fully paid" },
+        ] },
+        { kind: "paragraph", text: "We'll hold it for 7 days. Come and see us during opening hours — bring your reference, and we'll go through acclimatising it with you before you take it home." },
+      ],
+    });
+    return await sendBestEffort({
+      kind: "pre-order arrived",
+      to: args.to,
+      subject: `${args.productName} is here — ${args.reservationCode}`,
+      store: args.store,
+      content,
+      idempotencyKey: `preorder-arrived/${args.reservationId}`,
+    });
+  },
+});
+
 export const sendInquiryAcknowledgementEmail = internalAction({
   args: {
     to: v.string(),

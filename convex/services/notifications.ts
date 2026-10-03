@@ -1079,6 +1079,41 @@ export async function notifyHomeServiceRequested(
   });
 }
 
+// Staff notification: someone committed to a fish that hasn't arrived yet.
+export async function notifyPreorderPlaced(
+  ctx: MutationCtx,
+  args: {
+    reservationId: string;
+    reservationCode: string;
+    name: string;
+    productName: string;
+    quantity: number;
+    depositDue: number;
+    expectedLabel: string;
+  },
+): Promise<void> {
+  const now = Date.now();
+  const deposit = args.depositDue > 0 ? `deposit ${formatPeso(args.depositDue)} due` : "no deposit set";
+  await ctx.db.insert("notifications", {
+    title: `Pre-order ${args.reservationCode}`,
+    message: `${args.name} · ${args.quantity} × ${args.productName}${args.expectedLabel ? ` · expected ${args.expectedLabel}` : ""} · ${deposit}`,
+    type: "reservation",
+    isRead: false,
+    audience: "staff",
+    // Money is waiting to be collected, so this needs chasing.
+    priority: "high",
+    relatedId: args.reservationId,
+    relatedType: "preorder",
+    metadata: {
+      customerName: args.name,
+      amount: args.depositDue,
+      status: "pending",
+    },
+    createdAt: now,
+    updatedAt: now,
+  });
+}
+
 // Staff notification: a customer asked about a fish, or sent a message from /contact.
 export async function notifyInquiryReceived(
   ctx: MutationCtx,

@@ -13,6 +13,8 @@ import { api } from '@/convex/_generated/api';
 import { buildChips, DcProduct, familyOf, fmtPeso, isArowana, isFish, tintFor, kindName } from '@/components/dc/fish';
 import { useBusiness } from '@/components/dc/business';
 import VideoBadge from '@/components/dc/VideoBadge';
+import PreorderBadge from '@/components/dc/PreorderBadge';
+import { incomingLabel, isIncoming, isListable } from '@/components/dc/preorder';
 import CatalogSearchBar from '@/components/dc/CatalogSearchBar';
 import RehomedStrip from '@/components/dc/RehomedStrip';
 import { matchesSearch, sortProducts, type CatalogSort } from '@/components/dc/catalogFilters';
@@ -29,7 +31,7 @@ export default function CavePage() {
   const [sort, setSort] = useState<CatalogSort>('featured');
 
   const cave = useMemo(
-    () => (products ?? []).filter((p) => p.isActive && isFish(p) && p.stock > 0 && !isArowana(kindName(p))),
+    () => (products ?? []).filter((p) => p.isActive && isFish(p) && isListable(p) && !isArowana(kindName(p))),
     [products],
   );
   const familyChips = useMemo(() => buildChips(cave, (p) => familyOf(kindName(p))), [cave]);
@@ -108,6 +110,7 @@ export default function CavePage() {
               <div key={item._id} className="dc-card" style={{ display: 'flex', flexDirection: 'column' }}>
                 <Link href={`/specimen-detail?id=${item._id}`} className="dc-card-media" style={{ position: 'relative', aspectRatio: '3/4', background: 'radial-gradient(circle at 50% 42%, oklch(0.30 0.015 50), oklch(0.145 0.01 40) 100%)', boxShadow: '0 22px 46px -28px oklch(0.16 0.02 40 / 0.7), inset 0 0 0 1px oklch(0.70 0.12 80 / 0.28)' }}>
                   {item.videos?.length ? <VideoBadge count={item.videos.length} /> : null}
+                  {isIncoming(item) ? <PreorderBadge label={incomingLabel(item)} /> : null}
                   <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse 66% 46% at 50% 47%, oklch(0.86 0.08 68 / 0.16), transparent 70%)' }} />
                   <div style={{ position: 'absolute', inset: 0, opacity: 0.38, backgroundImage: 'radial-gradient(circle at 50% 0, transparent 0 7px, oklch(1 0 0 / 0.05) 7px 8px, transparent 8px)', backgroundSize: '24px 12px' }} />
                   {item.image ? (

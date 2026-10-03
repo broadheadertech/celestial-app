@@ -46,6 +46,14 @@ interface ProductFormData {
   visibility: 'public' | 'internal';
   videos: ProductVideo[];
   displayName: string;
+  // Pre-orders: off unless preorderEnabled, which is the only thing that shows the button.
+  preorderEnabled: boolean;
+  preorderIncomingQty: string;
+  preorderExpectedFrom: string;
+  preorderExpectedTo: string;
+  preorderDepositAmount: string;
+  preorderDepositPercent: string;
+  preorderNote: string;
 
   // Fish specific fields
   scientificName: string;
@@ -100,6 +108,13 @@ const initialFormData: ProductFormData = {
   visibility: 'public',
   videos: [],
   displayName: '',
+  preorderEnabled: false,
+  preorderIncomingQty: '',
+  preorderExpectedFrom: '',
+  preorderExpectedTo: '',
+  preorderDepositAmount: '',
+  preorderDepositPercent: '',
+  preorderNote: '',
 
   // Fish specific fields
   scientificName: '',
@@ -249,6 +264,13 @@ export function ProductFormContentInner({ editProductId, onSuccess, isDrawer }: 
         purchaseMode: existingProduct.purchaseModeSetting ?? '',
         visibility: existingProduct.visibility === 'internal' ? 'internal' : 'public',
         videos: existingProduct.videos ?? [],
+        preorderEnabled: existingProduct.preorder?.enabled ?? false,
+        preorderIncomingQty: existingProduct.preorder?.incomingQty !== undefined ? String(existingProduct.preorder.incomingQty) : '',
+        preorderExpectedFrom: existingProduct.preorder?.expectedFrom ?? '',
+        preorderExpectedTo: existingProduct.preorder?.expectedTo ?? '',
+        preorderDepositAmount: existingProduct.preorder?.depositAmount !== undefined ? String(existingProduct.preorder.depositAmount) : '',
+        preorderDepositPercent: existingProduct.preorder?.depositPercent !== undefined ? String(existingProduct.preorder.depositPercent) : '',
+        preorderNote: existingProduct.preorder?.note ?? '',
         // Staff get the raw record (no internalName); displayName is empty unless one was saved.
         displayName: 'internalName' in existingProduct ? '' : existingProduct.displayName ?? '',
       }));
@@ -448,6 +470,18 @@ export function ProductFormContentInner({ editProductId, onSuccess, isDrawer }: 
         visibility: formData.visibility,
         videos: formData.videos,
         displayName: formData.displayName.trim(),
+        // null switches pre-orders off and forgets the settings.
+        preorder: formData.preorderEnabled
+          ? {
+              enabled: true,
+              incomingQty: parseInt(formData.preorderIncomingQty) || 0,
+              expectedFrom: formData.preorderExpectedFrom || undefined,
+              expectedTo: formData.preorderExpectedTo || undefined,
+              depositAmount: formData.preorderDepositAmount.trim() ? Number(formData.preorderDepositAmount) : undefined,
+              depositPercent: formData.preorderDepositPercent.trim() ? Number(formData.preorderDepositPercent) : undefined,
+              note: formData.preorderNote.trim() || undefined,
+            }
+          : null,
         isActive: formData.status === 'active',
         userId: user?._id as Id<'users'> | undefined,
       };
@@ -912,6 +946,107 @@ export function ProductFormContentInner({ editProductId, onSuccess, isDrawer }: 
               </div>
             );
           })()}
+
+          {/* Pre-orders — commit to a fish before it arrives (convex/lib/preorder.ts) */}
+          <div className="mb-5 p-4 rounded-[12px] border" style={{ background: 'var(--surface)', borderColor: 'var(--line)' }}>
+            <label className="flex items-start gap-2.5 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={formData.preorderEnabled}
+                onChange={(e) => handleInputChange('preorderEnabled', e.target.checked)}
+                className="mt-0.5"
+              />
+              <span>
+                <span className="text-sm font-semibold" style={{ color: 'var(--ink)' }}>Open for pre-order</span>
+                <span className="block text-xs mt-0.5" style={{ color: 'var(--ink-3)' }}>
+                  For a fish that hasn&rsquo;t arrived yet. Customers can reserve it with a deposit; when you receive the stock it&rsquo;s handed to
+                  them automatically, deposits first. The button disappears once it&rsquo;s in stock or fully taken.
+                </span>
+              </span>
+            </label>
+
+            {formData.preorderEnabled && (
+              <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <label className="block text-[11px]" style={{ color: 'var(--ink-3)' }}>
+                  How many are coming
+                  <input
+                    type="number"
+                    min={0}
+                    value={formData.preorderIncomingQty}
+                    onChange={(e) => handleInputChange('preorderIncomingQty', e.target.value)}
+                    placeholder="e.g. 6"
+                    className="w-full px-3 py-2 mt-1 rounded-lg border text-sm focus:outline-none focus:border-[var(--red)]"
+                    style={{ background: 'var(--bg-2)', borderColor: 'var(--line)', color: 'var(--ink)' }}
+                  />
+                  <span className="block mt-1" style={{ color: 'var(--ink-4)' }}>Pre-orders close once they&rsquo;re all claimed.</span>
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <label className="block text-[11px]" style={{ color: 'var(--ink-3)' }}>
+                    Expected from
+                    <input
+                      type="date"
+                      value={formData.preorderExpectedFrom}
+                      onChange={(e) => handleInputChange('preorderExpectedFrom', e.target.value)}
+                      className="w-full px-2 py-2 mt-1 rounded-lg border text-sm focus:outline-none focus:border-[var(--red)]"
+                      style={{ background: 'var(--bg-2)', borderColor: 'var(--line)', color: 'var(--ink)' }}
+                    />
+                  </label>
+                  <label className="block text-[11px]" style={{ color: 'var(--ink-3)' }}>
+                    to
+                    <input
+                      type="date"
+                      value={formData.preorderExpectedTo}
+                      onChange={(e) => handleInputChange('preorderExpectedTo', e.target.value)}
+                      className="w-full px-2 py-2 mt-1 rounded-lg border text-sm focus:outline-none focus:border-[var(--red)]"
+                      style={{ background: 'var(--bg-2)', borderColor: 'var(--line)', color: 'var(--ink)' }}
+                    />
+                  </label>
+                </div>
+                <label className="block text-[11px]" style={{ color: 'var(--ink-3)' }}>
+                  Deposit (₱)
+                  <input
+                    type="number"
+                    min={0}
+                    value={formData.preorderDepositAmount}
+                    onChange={(e) => handleInputChange('preorderDepositAmount', e.target.value)}
+                    placeholder="e.g. 5000"
+                    className="w-full px-3 py-2 mt-1 rounded-lg border text-sm focus:outline-none focus:border-[var(--red)]"
+                    style={{ background: 'var(--bg-2)', borderColor: 'var(--line)', color: 'var(--ink)' }}
+                  />
+                </label>
+                <label className="block text-[11px]" style={{ color: 'var(--ink-3)' }}>
+                  &hellip;or a percentage of the price (%)
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={formData.preorderDepositPercent}
+                    onChange={(e) => handleInputChange('preorderDepositPercent', e.target.value)}
+                    placeholder="e.g. 20"
+                    className="w-full px-3 py-2 mt-1 rounded-lg border text-sm focus:outline-none focus:border-[var(--red)]"
+                    style={{ background: 'var(--bg-2)', borderColor: 'var(--line)', color: 'var(--ink)' }}
+                  />
+                  <span className="block mt-1" style={{ color: 'var(--ink-4)' }}>A percentage wins if you fill in both.</span>
+                </label>
+                <label className="block text-[11px] sm:col-span-2" style={{ color: 'var(--ink-3)' }}>
+                  Note shown to customers <span style={{ color: 'var(--ink-4)' }}>(optional)</span>
+                  <input
+                    value={formData.preorderNote}
+                    onChange={(e) => handleInputChange('preorderNote', e.target.value)}
+                    maxLength={200}
+                    placeholder="From our March Pekan shipment — hand-picked before they ship."
+                    className="w-full px-3 py-2 mt-1 rounded-lg border text-sm focus:outline-none focus:border-[var(--red)]"
+                    style={{ background: 'var(--bg-2)', borderColor: 'var(--line)', color: 'var(--ink)' }}
+                  />
+                </label>
+                {(parseInt(formData.preorderIncomingQty) || 0) <= 0 && (
+                  <p className="text-[11px] sm:col-span-2" style={{ color: 'var(--gold)' }}>
+                    Set how many are coming — with 0, no pre-order button is shown.
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
 
           {/* Grade picker — only meaningful for fish/livestock */}
           {isFishProduct && (

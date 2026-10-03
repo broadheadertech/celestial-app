@@ -419,6 +419,24 @@ npx cap run android      # Build and run on device/emulator
   the email used at the time; returns customer-safe fields only (delivery rows add fee/area/date, bookings add
   the schedule and agreed price, inquiries add the question and the replies that were *emailed* — never
   `staffNotes`, and never who wrote a reply).
+- **Pre-orders** (Admin → Pre-orders, `convex/services/preorders.ts`, `convex/lib/preorder.ts`): committing to a
+  fish before it arrives. Turned on per product (`products.preorder`: `enabled`, `incomingQty`, expected window,
+  `depositAmount` **or** `depositPercent`, note) in the admin form — nothing is pre-orderable by default.
+  **A pre-order is a `reservations` row with `isPreorder: true`**, so deposits run through the existing
+  `reservationPayments` ledger and Finance, Cash on Hand, the payment timeline and RES- tracking need no special
+  case. The one difference is stock:
+  > **Invariant — stock was taken iff `reservationHoldsStock(reservation)` is true** (a pre-order holds none
+  > until `allocatedAt` is set). Every path that gives stock back on cancel/expire must check it, or a pre-order
+  > would invent stock that never arrived. Guarded in `reservations.ts` at all three restore sites
+  > (customer cancel, admin status change, `cleanupExpiredReservations`) and in `preorders.cancelPreorder`.
+
+  Receiving a shipment (`stock.restockProduct`) schedules `preorders.allocateAfterRestock`, which fills the queue
+  in `allocationOrder` — paid deposits first, largest first, then earliest — turning each into a confirmed
+  reservation (7-day pickup clock starts then), taking the stock and emailing the customer. A partial shipment
+  never part-fills one pre-order. "Allocate now" on the admin page does the same by hand.
+  Storefront: `components/dc/PreorderPanel.tsx` on the specimen page, and incoming fish are listed in Catalog/Cave
+  via `isListable()` (`components/dc/preorder.ts`) — those grids used to filter on `stock > 0`, which would have
+  hidden every pre-order — tagged with `components/dc/PreorderBadge.tsx`.
 - **Inquiries** (Admin → Inquiries, `convex/services/inquiries.ts`): one inbox for everything a customer asks.
   `source: "product"` comes from `components/dc/InquiryForm.tsx` on a specimen page (shown beside the WhatsApp
   and Messenger buttons, not instead of them) and snapshots `productName`/`productPrice`/`productRef`, so a
@@ -557,10 +575,14 @@ npx cap run android      # Build and run on device/emulator
   `tests/convex/`. Covers staff-only access, revoked/deactivated sessions, role changes, sign-up
   role, login lockout + PBKDF2 storage, public catalog (no cost fields, purchase modes), web
   checkout rules, order tracking, delivery pricing + the delivery queue, home service
-  bookings, and the inquiries inbox (lead snapshots, replies, the contact-message backfill and
-  what a customer is allowed to see). Helpers in `tests/convex/setup.ts` (`signedInAs`,
+  bookings, the inquiries inbox (lead snapshots, replies, the contact-message backfill and what a
+  customer is allowed to see), and pre-orders (slot limits, deposit maths, allocation order, and
+  that no path invents stock from a pre-order that never arrived). Helpers in
+  `tests/convex/setup.ts` (`signedInAs`,
   `seedCatalog`). Use fake timers in tests that trigger scheduled functions. Pure storefront helpers
-  are tested in `tests/site/`.
+  are tested in `tests/site/`, which also holds component render tests (`*.test.tsx`) via
+  `react-dom/server` — see `tests/site/PreorderPanel.test.tsx`. `vitest.config.mts` resolves the
+  `@/…` alias and uses the automatic JSX runtime so those work.
 - **Storefront smoke test:** `npm run build && npm run test:smoke` — serves `out/`, opens key pages
   in headless Chrome at phone and desktop widths, fails on console errors or horizontal overflow.
 - **TypeScript:** builds fail on type errors (`next.config.ts` `ignoreBuildErrors: false`).
