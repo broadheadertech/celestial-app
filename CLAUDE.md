@@ -415,9 +415,21 @@ npx cap run android      # Build and run on device/emulator
   published ones show on the home page.
 - **FAQs** (Admin → FAQs, `convex/services/faqs.ts`): plain-text Q&A in display order; only published ones show
   on the Contact page (with FAQPage JSON-LD). The section hides when none are published.
-- **Order tracking** (`/track`, `convex/services/tracking.ts`): guests look up ORD-/RES-/HSV- codes with the
-  email used at checkout; returns customer-safe fields only (delivery rows add fee/area/date, bookings add
-  the schedule and agreed price, never `staffNotes`).
+- **Order tracking** (`/track`, `convex/services/tracking.ts`): guests look up ORD-/RES-/HSV-/INQ- codes with
+  the email used at the time; returns customer-safe fields only (delivery rows add fee/area/date, bookings add
+  the schedule and agreed price, inquiries add the question and the replies that were *emailed* — never
+  `staffNotes`, and never who wrote a reply).
+- **Inquiries** (Admin → Inquiries, `convex/services/inquiries.ts`): one inbox for everything a customer asks.
+  `source: "product"` comes from `components/dc/InquiryForm.tsx` on a specimen page (shown beside the WhatsApp
+  and Messenger buttons, not instead of them) and snapshots `productName`/`productPrice`/`productRef`, so a
+  later rename or reprice can't rewrite the lead; `source: "contact"` comes from /contact. Pipeline:
+  new → replied → negotiating → won/lost, plus `closed` for a general question that was never a sale.
+  `replyToInquiry` records the reply and emails it, or with `sendEmail: false` just logs that it was answered
+  on Messenger — either way there's a record of what was said. `staffNotes` is staff-only.
+  **The `contactMessages` table is retired:** `contact.createContactMessage` still exists (the deployed static
+  site calls it) but delegates to `submitGeneralInquiry`, and nothing writes to the old table. Its rows are
+  copied across once, idempotently, by `inquiries.backfillContactMessages` (the admin page shows a banner
+  while any are pending); the originals are left untouched.
 - **Service areas & fees** (Admin → Home Service → Areas & fees, `convex/services/serviceAreas.ts`): one
   `serviceAreas` row prices both channels — `deliveryFee` for taking goods out, `travelFee` for a home visit —
   and either can be switched off per area. `serviceSettings` is the singleton switchboard (both channels start
@@ -544,8 +556,9 @@ npx cap run android      # Build and run on device/emulator
 - **Backend tests:** `npm test` — Vitest + `convex-test` (pinned to 0.0.41 for convex 1.27) in
   `tests/convex/`. Covers staff-only access, revoked/deactivated sessions, role changes, sign-up
   role, login lockout + PBKDF2 storage, public catalog (no cost fields, purchase modes), web
-  checkout rules, order tracking, delivery pricing + the delivery queue, and home service
-  bookings. Helpers in `tests/convex/setup.ts` (`signedInAs`,
+  checkout rules, order tracking, delivery pricing + the delivery queue, home service
+  bookings, and the inquiries inbox (lead snapshots, replies, the contact-message backfill and
+  what a customer is allowed to see). Helpers in `tests/convex/setup.ts` (`signedInAs`,
   `seedCatalog`). Use fake timers in tests that trigger scheduled functions. Pure storefront helpers
   are tested in `tests/site/`.
 - **Storefront smoke test:** `npm run build && npm run test:smoke` — serves `out/`, opens key pages

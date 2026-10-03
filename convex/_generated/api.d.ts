@@ -40,6 +40,7 @@ import type * as services_email from "../services/email.js";
 import type * as services_faqs from "../services/faqs.js";
 import type * as services_finance from "../services/finance.js";
 import type * as services_homeService from "../services/homeService.js";
+import type * as services_inquiries from "../services/inquiries.js";
 import type * as services_journal from "../services/journal.js";
 import type * as services_maintenance from "../services/maintenance.js";
 import type * as services_notifications from "../services/notifications.js";
@@ -103,6 +104,7 @@ declare const fullApi: ApiFromModules<{
   "services/faqs": typeof services_faqs;
   "services/finance": typeof services_finance;
   "services/homeService": typeof services_homeService;
+  "services/inquiries": typeof services_inquiries;
   "services/journal": typeof services_journal;
   "services/maintenance": typeof services_maintenance;
   "services/notifications": typeof services_notifications;

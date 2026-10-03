@@ -1,21 +1,16 @@
 import { v } from "convex/values";
-import { mutation, query } from "../_generated/server";
-import { internal } from "../_generated/api";
-import { getViewer, requireStaff } from "../lib/authz";
-import {
-  loadStoreContact,
-  normalizeCustomerEmail,
-  notifyContactMessageReceived,
-  shouldSendAcknowledgement,
-} from "./notifications";
+import { mutation } from "../_generated/server";
+import { submitGeneralInquiry } from "./inquiries";
 
-const MAX_NAME = 100;
-const MAX_EMAIL = 254;
-const MAX_PHONE = 40;
-const MAX_SUBJECT = 200;
-const MAX_MESSAGE = 5000;
-
-// Public submit from /contact form.
+/**
+ * The public /contact form. Messages now live in the shared inquiries inbox
+ * (convex/services/inquiries.ts) alongside product enquiries, so there's one place to work from.
+ *
+ * This mutation is kept because the deployed static site still calls it — the storefront only
+ * picks up a rename on its next deploy. It validates and inserts through `createGeneralInquiry`,
+ * so both paths behave identically. The old `contactMessages` rows are copied across once by
+ * `inquiries.backfillContactMessages`; nothing writes to that table any more.
+ */
 export const createContactMessage = mutation({
   args: {
     name: v.string(),
@@ -27,95 +22,14 @@ export const createContactMessage = mutation({
     userId: v.optional(v.id("users")),
   },
   handler: async (ctx, args) => {
-    if (!args.name.trim()) throw new Error("Name is required");
-    if (!/.+@.+\..+/.test(args.email)) throw new Error("Valid email is required");
-    if (!args.subject.trim()) throw new Error("Subject is required");
-    if (args.message.trim().length < 5) throw new Error("Tell us a bit more");
-    if (args.name.trim().length > MAX_NAME) throw new Error(`Name must be at most ${MAX_NAME} characters`);
-    if (args.email.trim().length > MAX_EMAIL) throw new Error("Email is too long");
-    if ((args.phone?.trim().length ?? 0) > MAX_PHONE) throw new Error("Phone number is too long");
-    if (args.subject.trim().length > MAX_SUBJECT) throw new Error(`Subject must be at most ${MAX_SUBJECT} characters`);
-    if (args.message.trim().length > MAX_MESSAGE) throw new Error(`Message must be at most ${MAX_MESSAGE} characters`);
-
-    const viewer = await getViewer(ctx);
-
-    const now = Date.now();
-    const id = await ctx.db.insert("contactMessages", {
-      name: args.name.trim(),
-      email: args.email.trim(),
-      phone: args.phone?.trim(),
-      subject: args.subject.trim(),
-      message: args.message.trim(),
-      status: "new",
-      userId: viewer?._id,
-      createdAt: now,
-      updatedAt: now,
+    const { success, inquiryId } = await submitGeneralInquiry(ctx, {
+      name: args.name,
+      email: args.email,
+      phone: args.phone,
+      subject: args.subject,
+      message: args.message,
     });
-
-    // Best-effort side effects: a failure here must never fail the message itself.
-    try {
-      await notifyContactMessageReceived(ctx, {
-        messageId: id,
-        name: args.name.trim(),
-        subject: args.subject.trim(),
-      });
-    } catch (error) {
-      console.error("Failed to create contact message notification:", error);
-    }
-
-    try {
-      const to = normalizeCustomerEmail(args.email);
-      if (to && (await shouldSendAcknowledgement(ctx, "contactMessages", to, id))) {
-        await ctx.scheduler.runAfter(0, internal.services.email.sendContactAcknowledgementEmail, {
-          to,
-          messageId: id,
-          name: args.name.trim(),
-          store: await loadStoreContact(ctx),
-        });
-      }
-    } catch (error) {
-      console.error("Failed to schedule contact acknowledgement email:", error);
-    }
-
-    return { success: true, id };
-  },
-});
-
-// Admin: list contact messages.
-export const getContactMessages = query({
-  args: {
-    status: v.optional(
-      v.union(v.literal("new"), v.literal("responded"), v.literal("archived")),
-    ),
-    limit: v.optional(v.number()),
-  },
-  handler: async (ctx, { status, limit = 100 }) => {
-    await requireStaff(ctx);
-    const all = status
-      ? await ctx.db
-          .query("contactMessages")
-          .withIndex("by_status", (q) => q.eq("status", status))
-          .collect()
-      : await ctx.db.query("contactMessages").collect();
-    return all.sort((a, b) => b.createdAt - a.createdAt).slice(0, limit);
-  },
-});
-
-// Admin: update contact message status.
-export const updateContactStatus = mutation({
-  args: {
-    id: v.id("contactMessages"),
-    status: v.union(
-      v.literal("new"),
-      v.literal("responded"),
-      v.literal("archived"),
-    ),
-  },
-  handler: async (ctx, { id, status }) => {
-    await requireStaff(ctx);
-    const row = await ctx.db.get(id);
-    if (!row) throw new Error("Message not found");
-    await ctx.db.patch(id, { status, updatedAt: Date.now() });
-    return { success: true };
+    // The old shape returned `id`; keep it so an older build of the site still works.
+    return { success, id: inquiryId };
   },
 });

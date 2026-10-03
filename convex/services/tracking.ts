@@ -4,12 +4,13 @@ import { query, QueryCtx } from "../_generated/server";
 import { Doc } from "../_generated/dataModel";
 import { orderFulfilment } from "./deliveries";
 import { customerBookingView } from "./homeService";
+import { customerInquiryView } from "./inquiries";
 
 /**
  * Public order/reservation/booking tracking for customers without an account.
  *
  * The caller must supply BOTH the code (ORD-XXXXXX from checkout, RES-… for reservations,
- * HSV-… for a home service booking) and the email used at the time; anything that doesn't
+ * HSV-… for a home service booking, INQ-… for an enquiry) and the email used at the time; anything that doesn't
  * match exactly returns null, so the page can't be used to discover other people's orders.
  * Only customer-safe fields are returned (no notes, staff names, costs or other contacts).
  */
@@ -73,6 +74,19 @@ export const trackByCode = query({
         createdAt: r.createdAt,
         updatedAt: r.updatedAt,
       };
+    }
+
+    if (code.startsWith("INQ-")) {
+      const inquiry = await ctx.db
+        .query("inquiries")
+        .withIndex("by_code", (q) => q.eq("code", code))
+        .first();
+      if (!inquiry) return null;
+      const matches =
+        inquiry.email.trim().toLowerCase() === email ||
+        (await accountEmail(ctx, inquiry.userId)) === email;
+      if (!matches) return null;
+      return customerInquiryView(inquiry);
     }
 
     if (code.startsWith("HSV-")) {

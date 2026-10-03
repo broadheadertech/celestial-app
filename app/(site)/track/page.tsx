@@ -2,8 +2,9 @@
 /* eslint-disable @next/next/no-img-element -- product images are remote Convex storage URLs */
 
 /**
- * Track an order (ORD-…), reservation (RES-…) or home service booking (HSV-…) with the code
- * + the email used at the time. Live: the status updates on screen as staff progress it.
+ * Track an order (ORD-…), reservation (RES-…), home service booking (HSV-…) or enquiry (INQ-…)
+ * with the code + the email used at the time. Live: the status updates on screen as staff
+ * progress it, so a reply to an enquiry appears here as soon as it's sent.
  */
 
 import Link from 'next/link';
@@ -57,6 +58,12 @@ const STATUS_NOTE: Record<string, string> = {
   expired: 'This reservation has expired. Message us to arrange a new one.',
   requested: 'We have your request and will call to confirm the schedule.',
   in_progress: 'Our team is on the way, or already working on your tank.',
+  new: 'We have your question and will reply by email shortly.',
+  replied: 'We’ve replied — check your email, or read it below.',
+  negotiating: 'We’re in the middle of sorting this out with you.',
+  won: 'All agreed. Thank you!',
+  lost: 'Closed off. Message us any time if you’d like to pick it back up.',
+  closed: 'Closed. Message us any time if there’s more we can help with.',
 };
 
 const DELIVERY_NOTE: Record<string, string> = {
@@ -97,7 +104,7 @@ function TrackInner() {
     e.preventDefault();
     const c = code.trim().toUpperCase();
     const em = email.trim();
-    if (!/^(ORD|RES|HSV)-[A-Z0-9]+$/.test(c)) return setFormError('Enter the code from your confirmation, e.g. ORD-4F9K2Q or HSV-7T2M8P.');
+    if (!/^(ORD|RES|HSV|INQ)-[A-Z0-9]+$/.test(c)) return setFormError('Enter the code we sent you, e.g. ORD-4F9K2Q, HSV-7T2M8P or INQ-3B8L5D.');
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) return setFormError('Enter the email you used when ordering.');
     setFormError('');
     setSubmitted({ code: c, email: em });
@@ -116,7 +123,7 @@ function TrackInner() {
 
         <form onSubmit={submit} style={{ background: 'oklch(0.99 0.005 80)', border: `1px solid ${line}`, borderRadius: 14, padding: 22, display: 'grid', gap: 14, gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', alignItems: 'end' }}>
           <div>
-            <label htmlFor="tr-code" className="dc-lbl">Order, reservation or booking code</label>
+            <label htmlFor="tr-code" className="dc-lbl">Order, booking or enquiry code</label>
             <input id="tr-code" className="dc-input" value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} placeholder="ORD-XXXXXX" autoComplete="off" spellCheck={false} style={{ fontFamily: mono, letterSpacing: '0.04em' }} />
           </div>
           <div>
@@ -142,7 +149,11 @@ function TrackInner() {
             </div>
           )}
 
-          {result && (result.kind === 'homeService' ? <BookingResult result={result} /> : <TrackResult result={result} />)}
+          {result && (
+            result.kind === 'homeService' ? <BookingResult result={result} />
+              : result.kind === 'inquiry' ? <InquiryResult result={result} />
+                : <TrackResult result={result} />
+          )}
         </div>
       </div>
     </main>
@@ -151,7 +162,8 @@ function TrackInner() {
 
 type TrackResultData = NonNullable<ReturnType<typeof useQuery<typeof api.services.tracking.trackByCode>>>;
 type BookingData = Extract<TrackResultData, { kind: 'homeService' }>;
-type OrderOrReservation = Exclude<TrackResultData, { kind: 'homeService' }>;
+type InquiryData = Extract<TrackResultData, { kind: 'inquiry' }>;
+type OrderOrReservation = Exclude<TrackResultData, { kind: 'homeService' | 'inquiry' }>;
 
 function TrackResult({ result }: { result: OrderOrReservation }) {
   const steps = result.kind === 'order' ? ORDER_STEPS(result.fulfilment === 'delivery') : RESERVATION_STEPS;
@@ -298,5 +310,52 @@ function Row({ label, value }: { label: string; value: string }) {
       <span style={{ fontFamily: mono, fontSize: 10.5, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'oklch(0.55 0.05 40)', paddingTop: 2 }}>{label}</span>
       <span style={{ lineHeight: 1.5 }}>{value}</span>
     </div>
+  );
+}
+
+/** An enquiry (INQ-…): the question asked, and any reply we emailed back. */
+function InquiryResult({ result }: { result: InquiryData }) {
+  const ended = result.status === 'lost' || result.status === 'closed';
+  const when = (t: number) => new Date(t).toLocaleDateString('en-PH', { dateStyle: 'medium' });
+
+  return (
+    <section style={{ border: `1px solid ${line}`, borderRadius: 14, overflow: 'hidden', background: 'oklch(0.99 0.005 80)' }}>
+      <div style={{ padding: '20px 22px', borderBottom: `1px solid ${line}`, display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'baseline' }}>
+        <div>
+          <div style={{ fontFamily: mono, fontSize: 18, fontWeight: 700 }}>{result.code}</div>
+          <div style={{ fontSize: 12.5, color: muted, marginTop: 3 }}>
+            {result.productName ? `Enquiry \u00b7 ${result.productName}` : 'Enquiry'} \u00b7 sent {when(result.createdAt)}
+          </div>
+        </div>
+        <span style={{ fontFamily: mono, fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', padding: '6px 10px', borderRadius: 999, background: ended ? 'oklch(0.52 0.216 27 / 0.1)' : 'oklch(0.52 0.13 150 / 0.12)', color: ended ? 'oklch(0.48 0.20 27)' : green }}>
+          {result.replies.length > 0 ? 'replied' : result.status}
+        </span>
+      </div>
+
+      <div style={{ padding: '22px 22px 10px' }}>
+        <p style={{ fontSize: 14.5, color: 'oklch(0.34 0.012 34)', margin: '0 0 18px' }}>{STATUS_NOTE[result.status] ?? ''}</p>
+
+        <div style={{ fontFamily: mono, fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'oklch(0.55 0.05 40)', marginBottom: 8 }}>You asked</div>
+        <p style={{ fontSize: 14, lineHeight: 1.6, color: 'oklch(0.30 0.012 32)', margin: '0 0 20px', whiteSpace: 'pre-line' }}>{result.message}</p>
+
+        {result.replies.length > 0 && (
+          <>
+            <div style={{ fontFamily: mono, fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'oklch(0.55 0.05 40)', marginBottom: 8 }}>Our reply</div>
+            {result.replies.map((reply, i) => (
+              <div key={i} style={{ background: 'oklch(0.965 0.009 76)', border: `1px solid oklch(0.90 0.012 70)`, borderRadius: 10, padding: '14px 16px', marginBottom: 10 }}>
+                <div style={{ fontFamily: mono, fontSize: 10.5, color: 'oklch(0.50 0.02 40)', marginBottom: 6 }}>{when(reply.sentAt)}</div>
+                <p style={{ fontSize: 14, lineHeight: 1.6, margin: 0, whiteSpace: 'pre-line' }}>{reply.body}</p>
+              </div>
+            ))}
+          </>
+        )}
+      </div>
+
+      <div style={{ padding: '12px 22px 20px', borderTop: `1px solid ${line}`, background: 'oklch(0.965 0.009 76)', fontSize: 13, color: muted }}>
+        {result.replies.length > 0
+          ? 'Reply to our email to carry on the conversation.'
+          : 'We reply by email, usually within the day. Check your spam folder if you don\u2019t see it.'}
+      </div>
+    </section>
   );
 }

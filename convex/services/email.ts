@@ -633,6 +633,85 @@ export const sendDeliveryScheduledEmail = internalAction({
   },
 });
 
+export const sendInquiryAcknowledgementEmail = internalAction({
+  args: {
+    to: v.string(),
+    inquiryId: v.string(),
+    code: v.string(),
+    name: v.string(),
+    productName: v.optional(v.string()),
+    store: storeContactValidator,
+  },
+  handler: async (_ctx, args): Promise<SendResult> => {
+    // The customer's own message is intentionally not echoed back, so an open form can't be used
+    // to relay arbitrary content to third-party inboxes.
+    const content = renderEmail({
+      store: args.store,
+      heading: args.productName ? "We've got your enquiry" : "Thanks for getting in touch",
+      includeHours: true,
+      blocks: [
+        {
+          kind: "paragraph",
+          text: args.productName
+            ? `Hi ${args.name}, thank you for your interest in ${args.productName}. One of us will get back to you shortly.`
+            : `Hi ${args.name}, we've received your message and will get back to you as soon as we can.`,
+        },
+        { kind: "details", rows: [
+          { label: "Reference", value: args.code },
+          ...(args.productName ? [{ label: "About", value: args.productName }] : []),
+        ] },
+        { kind: "paragraph", text: `Quote ${args.code} if you need to chase it up, or just reply to this email.` },
+      ],
+    });
+    return await sendBestEffort({
+      kind: "inquiry acknowledgement",
+      to: args.to,
+      subject: args.productName
+        ? `Enquiry received ${args.code} — ${args.store.storeName}`
+        : `We received your message ${args.code} — ${args.store.storeName}`,
+      store: args.store,
+      content,
+      idempotencyKey: `inquiry-acknowledgement/${args.inquiryId}`,
+    });
+  },
+});
+
+export const sendInquiryReplyEmail = internalAction({
+  args: {
+    to: v.string(),
+    inquiryId: v.string(),
+    code: v.string(),
+    name: v.string(),
+    productName: v.optional(v.string()),
+    body: v.string(),
+    // Position of this reply in the thread, so a second reply isn't deduplicated as the first.
+    replyIndex: v.number(),
+    store: storeContactValidator,
+  },
+  handler: async (_ctx, args): Promise<SendResult> => {
+    const content = renderEmail({
+      store: args.store,
+      heading: args.productName ? `About ${args.productName}` : "Our reply",
+      includeHours: true,
+      blocks: [
+        { kind: "paragraph", text: `Hi ${args.name},` },
+        { kind: "paragraph", text: args.body },
+        { kind: "paragraph", text: `Just reply to this email if you'd like to go further — your reference is ${args.code}.` },
+      ],
+    });
+    return await sendBestEffort({
+      kind: "inquiry reply",
+      to: args.to,
+      subject: args.productName
+        ? `Re: ${args.productName} (${args.code}) — ${args.store.storeName}`
+        : `Re: your message (${args.code}) — ${args.store.storeName}`,
+      store: args.store,
+      content,
+      idempotencyKey: `inquiry-reply/${args.inquiryId}/${args.replyIndex}`,
+    });
+  },
+});
+
 export const sendContactAcknowledgementEmail = internalAction({
   args: {
     to: v.string(),

@@ -81,7 +81,7 @@ export const ADMIN_NAV_SECTIONS: AdminNavSection[] = [
       { id: 'viewings', label: 'Viewings', icon: Calendar, href: '/admin/viewings' },
       { id: 'deliveries', label: 'Deliveries', icon: Truck, href: '/admin/deliveries' },
       { id: 'home-service', label: 'Home Service', icon: Wrench, href: '/admin/home-service' },
-      { id: 'messages', label: 'Messages', icon: MessageCircle, href: '/admin/messages' },
+      { id: 'inquiries', label: 'Inquiries', icon: MessageCircle, href: '/admin/inquiries' },
     ],
   },
   {

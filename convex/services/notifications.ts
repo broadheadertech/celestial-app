@@ -1079,6 +1079,40 @@ export async function notifyHomeServiceRequested(
   });
 }
 
+// Staff notification: a customer asked about a fish, or sent a message from /contact.
+export async function notifyInquiryReceived(
+  ctx: MutationCtx,
+  args: {
+    inquiryId: string;
+    code: string;
+    source: "product" | "contact";
+    name: string;
+    productName?: string;
+    subject?: string;
+    message: string;
+  },
+): Promise<void> {
+  const now = Date.now();
+  const about = args.productName ?? args.subject ?? "General enquiry";
+  await ctx.db.insert("notifications", {
+    title: args.source === "product" ? `Enquiry about ${about}` : `New message: ${about}`,
+    message: `${args.name} · ${args.message.slice(0, 160)}${args.message.length > 160 ? "…" : ""}`,
+    type: args.source === "product" ? "product" : "user",
+    isRead: false,
+    audience: "staff",
+    // A question about a specific fish is a live sales lead; a general message can wait.
+    priority: args.source === "product" ? "high" : "medium",
+    relatedId: args.inquiryId,
+    relatedType: "inquiry",
+    metadata: {
+      customerName: args.name,
+      status: "new",
+    },
+    createdAt: now,
+    updatedAt: now,
+  });
+}
+
 // Staff notification: a message was sent from the /contact form.
 export async function notifyContactMessageReceived(
   ctx: MutationCtx,

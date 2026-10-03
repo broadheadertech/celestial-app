@@ -21,6 +21,7 @@ import { facebookEmbedUrl, formatDuration, videoThumb, youtubeEmbedUrl, type Pro
 import { useSiteCart } from '@/store/siteCart';
 import { productUrl } from '@/components/dc/links';
 import MessengerButton, { MessengerIcon } from '@/components/dc/MessengerButton';
+import InquiryForm from '@/components/dc/InquiryForm';
 import ShareButton from '@/components/dc/ShareButton';
 
 /** The product form stores certificate image URLs comma-separated (or a "none" sentence). */
@@ -364,7 +365,8 @@ function SpecimenInner() {
               )}
               <Link href="/visit" className="dc-btn-ghost" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, border: '1px solid oklch(0.78 0.02 40)', color: 'oklch(0.34 0.012 34)', fontSize: 14.5, fontWeight: 600, padding: '16px 22px', borderRadius: 999, transition: '.2s' }}>Book a viewing</Link>
             </div>
-            <div style={{ fontFamily: mono, fontSize: 11, color: 'oklch(0.50 0.02 40)', marginBottom: 34 }}>&#9679; {inStock ? 'Available now — ask us to hold it while you prepare your tank.' : 'Not available right now — message us to join the waitlist.'}</div>
+            <div style={{ fontFamily: mono, fontSize: 11, color: 'oklch(0.50 0.02 40)', marginBottom: 16 }}>&#9679; {inStock ? 'Available now — ask us to hold it while you prepare your tank.' : 'Not available right now — message us to join the waitlist.'}</div>
+            <InquiryForm productId={product._id} productTitle={titleOf(product)} />
             </>
             )}
 

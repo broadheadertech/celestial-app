@@ -624,6 +624,58 @@ export default defineSchema({
     .index("by_status", ["status"])
     .index("by_user", ["userId"]),
 
+  // One inbox for everything a customer asks (Admin → Inquiries, convex/services/inquiries.ts):
+  // product enquiries from a specimen page and general messages from /contact, tagged by `source`.
+  // Replaces the `contactMessages` table, whose rows are copied in once by
+  // `inquiries.backfillContactMessages` (kept as-is afterwards, never written to again).
+  inquiries: defineTable({
+    code: v.string(), // INQ-XXXXXX, quoted in emails so replies can be matched up
+    source: v.union(v.literal("product"), v.literal("contact")),
+    name: v.string(),
+    email: v.string(),
+    phone: v.optional(v.string()),
+    subject: v.optional(v.string()), // the /contact form's subject line
+    message: v.string(),
+    // What they were looking at, snapshotted so a later rename or reprice can't rewrite the lead.
+    productId: v.optional(v.id("products")),
+    productName: v.optional(v.string()), // the customer-facing name (publicName)
+    productPrice: v.optional(v.number()),
+    productRef: v.optional(v.string()), // tank number or SKU, so staff can find the fish
+    status: v.union(
+      v.literal("new"),
+      v.literal("replied"),
+      v.literal("negotiating"),
+      v.literal("won"),
+      v.literal("lost"),
+      v.literal("closed"), // a general question that needed no sale
+    ),
+    assignedToId: v.optional(v.id("users")),
+    assignedToName: v.optional(v.string()),
+    staffNotes: v.optional(v.string()), // never returned to a customer
+    // Every reply staff sent, newest last. `emailed` is false when the email couldn't be sent
+    // (or staff ticked it off because they answered on Messenger instead).
+    replies: v.optional(v.array(v.object({
+      body: v.string(),
+      sentAt: v.number(),
+      sentById: v.optional(v.id("users")),
+      sentByName: v.string(),
+      emailed: v.boolean(),
+    }))),
+    lastRepliedAt: v.optional(v.number()),
+    userId: v.optional(v.id("users")),
+    // Set on rows copied from contactMessages, so the backfill can't duplicate them.
+    migratedFrom: v.optional(v.id("contactMessages")),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_status", ["status"])
+    .index("by_source", ["source"])
+    .index("by_created", ["createdAt"])
+    .index("by_code", ["code"])
+    .index("by_product", ["productId"])
+    .index("by_user", ["userId"])
+    .index("by_migrated_from", ["migratedFrom"]),
+
   // Areas we deliver to / travel to (Admin → Delivery & Home Service → Areas). One row serves both
   // channels: `deliveryFee` prices a goods delivery, `travelFee` a home-service visit. Fees are
   // snapshotted onto the order/booking, so editing an area never rewrites past records.
