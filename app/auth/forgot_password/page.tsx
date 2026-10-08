@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, Mail } from 'lucide-react';
 import { useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
-import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Card from '@/components/ui/Card';
 import { isValidEmail } from '@/lib/utils';
@@ -113,16 +112,19 @@ function ForgotPasswordContent() {
 
             <Card className="mb-6">
               <div className="space-y-4">
-                <button
-                  onClick={() => {
-                    setEmailSent(false);
-                    setEmail('');
-                    setError('');
-                  }}
-                  className="w-full h-12 sm:h-14 text-base sm:text-lg font-medium bg-primary hover:bg-primary/90 text-white rounded-lg transition-all active:scale-98 touch-manipulation"
-                >
-                  Send Another Email
-                </button>
+                <div className="dk">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEmailSent(false);
+                      setEmail('');
+                      setError('');
+                    }}
+                    className="dk-btn dk-btn-red block"
+                  >
+                    Send Another Email
+                  </button>
+                </div>
                 
                 <button
                   onClick={handleBackToLogin}
@@ -204,15 +206,11 @@ function ForgotPasswordContent() {
                 required
               />
 
-              <Button
-                type="submit"
-                loading={isSubmitting}
-                disabled={isSubmitting}
-                className="w-full mt-6 sm:mt-8 h-12 sm:h-14 text-base sm:text-lg font-medium active:scale-98 transition-transform"
-                size="lg"
-              >
-                {isSubmitting ? 'Sending...' : 'Send Reset Link'}
-              </Button>
+              <div className="dk mt-6 sm:mt-8">
+                <button type="submit" className="dk-btn dk-btn-red block" disabled={isSubmitting} aria-busy={isSubmitting}>
+                  {isSubmitting ? 'Sending...' : 'Send Reset Link'}
+                </button>
+              </div>
             </form>
           </Card>
 

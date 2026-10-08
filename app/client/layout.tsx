@@ -1,4 +1,5 @@
 import { ReactNode } from 'react';
+import '@/components/dc/kit.css';
 
 /**
  * Legacy customer app screens (kept until /client is retired).

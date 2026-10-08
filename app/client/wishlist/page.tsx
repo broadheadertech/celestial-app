@@ -1,12 +1,10 @@
 'use client';
 
-import React from 'react';
+import { useCallback, useState } from 'react';
 import {
-  ArrowLeft,
   Heart,
   ShoppingCart,
   Trash2,
-  Package,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useQuery, useMutation } from 'convex/react';
@@ -15,9 +13,11 @@ import { Id } from '@/convex/_generated/dataModel';
 import type { Product } from '@/types';
 import { useAuthStore, useIsAuthenticated } from '@/store/auth';
 import { useCartStore } from '@/store/cart';
-import Card from '@/components/ui/Card';
-import ClientBottomNavbar from '@/components/client/ClientBottomNavbar';
 import SafeAreaProvider from '@/components/provider/SafeAreaProvider';
+import MemberSidebar from '@/components/dc/kit/MemberSidebar';
+import EmptyState from '@/components/dc/kit/EmptyState';
+import Placeholder from '@/components/dc/kit/Placeholder';
+import { MenuIcon } from '@/components/dc/kit/icons';
 
 const formatCurrency = (amount: number) => {
   return `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`;
@@ -28,6 +28,8 @@ function WishlistContent() {
   const { user } = useAuthStore();
   const isAuthenticated = useIsAuthenticated();
   const { addItem } = useCartStore();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const closeSidebar = useCallback(() => setSidebarOpen(false), []);
 
   const wishlistItems = useQuery(
     api.services.wishlist.getWishlist,
@@ -55,160 +57,150 @@ function WishlistContent() {
     addItem(product, 1);
   };
 
-  if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen bg-background text-foreground flex items-center justify-center p-4">
-        <Card variant="modern" padding="lg" className="text-center border border-white/10 max-w-sm">
-          <Heart className="w-16 h-16 text-white/20 mx-auto mb-4" />
-          <h3 className="text-xl font-bold text-white mb-2">Sign In Required</h3>
-          <p className="text-sm text-white/60 mb-4">
-            Please sign in to view your wishlist.
-          </p>
-          <button
-            onClick={() => router.push('/auth/login')}
-            className="px-6 py-3 rounded-lg bg-primary text-white font-medium hover:bg-primary/90 active:scale-95 transition-all"
-          >
-            Sign In
-          </button>
-        </Card>
-      </div>
-    );
-  }
-
   const isLoading = wishlistItems === undefined;
 
   return (
-    <div className="min-h-screen bg-background text-foreground pb-20 sm:pb-6">
-      {/* Header */}
-      <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-white/10 safe-area-top">
-        <div className="px-3 sm:px-6 py-3 sm:py-4">
-          <div className="flex items-center gap-2 sm:gap-4">
-            <button
-              onClick={() => router.back()}
-              className="p-2 rounded-full bg-secondary border border-white/10 hover:bg-white/10 active:scale-95 transition-all flex-shrink-0 touch-manipulation"
-            >
-              <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
-            </button>
-            <div className="min-w-0 flex-1">
-              <h1 className="text-lg sm:text-2xl font-bold text-white truncate">My Wishlist</h1>
-              <p className="text-xs sm:text-sm text-white/60 truncate">
-                {wishlistItems ? `${wishlistItems.length} item${wishlistItems.length !== 1 ? 's' : ''}` : 'Loading...'}
-              </p>
+    <div className="dk dk-member">
+      <div className="dk-app">
+        <MemberSidebar id="sidebar" active="wishlist" open={sidebarOpen} onClose={closeSidebar} />
+
+        <section className="dk-app-main">
+          <div className="dk-app-top">
+            <div className="dk-app-top-l">
+              <button
+                type="button"
+                className="dk-view-btn dk-app-menu"
+                onClick={() => setSidebarOpen(true)}
+                aria-label="Open menu"
+                aria-controls="sidebar"
+                aria-expanded={sidebarOpen}
+              >
+                <MenuIcon />
+              </button>
+              <div>
+                <h1>My Wishlist</h1>
+                {isAuthenticated && (
+                  <p className="dk-muted" style={{ fontSize: 14, marginTop: 2 }} aria-live="polite">
+                    {wishlistItems ? `${wishlistItems.length} item${wishlistItems.length !== 1 ? 's' : ''}` : 'Loading...'}
+                  </p>
+                )}
+              </div>
             </div>
           </div>
-        </div>
-      </div>
 
-      {/* Content */}
-      <div className="px-3 sm:px-6 py-3 sm:py-4">
-        {isLoading ? (
-          <div className="text-center py-12">
-            <div className="w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin mx-auto mb-4" />
-            <p className="text-sm text-white/60">Loading wishlist...</p>
-          </div>
-        ) : wishlistItems && wishlistItems.length > 0 ? (
-          <div className="space-y-3 sm:space-y-4">
-            {wishlistItems.map((item) => {
-              const product = item.product;
-              if (!product) return null;
+          {!isAuthenticated ? (
+            <div className="dk-panel dk-app-section" style={{ padding: 0 }}>
+              <EmptyState
+                icon={<Heart size={26} aria-hidden="true" />}
+                title="Sign In Required"
+                actions={
+                  <button type="button" className="dk-btn dk-btn-red" onClick={() => router.push('/auth/login')}>
+                    Sign In
+                  </button>
+                }
+              >
+                Please sign in to view your wishlist.
+              </EmptyState>
+            </div>
+          ) : isLoading ? (
+            <div className="dk-member-empty" role="status">
+              <p>Loading wishlist...</p>
+            </div>
+          ) : wishlistItems && wishlistItems.length > 0 ? (
+            <div className="dk-app-section dk-stack" style={{ gap: 12 }}>
+              {wishlistItems.map((item) => {
+                const product = item.product;
+                if (!product) return null;
 
-              const isOutOfStock = product.stock <= 0;
+                const isOutOfStock = product.stock <= 0;
 
-              return (
-                <Card
-                  key={item._id}
-                  variant="modern"
-                  padding="none"
-                  className="border border-white/10 overflow-hidden"
-                >
-                  <div className="p-3 sm:p-4 flex gap-3 sm:gap-4">
+                return (
+                  <article
+                    key={item._id}
+                    className="dk-panel"
+                    style={{ padding: 12, display: 'flex', gap: 16, alignItems: 'center' }}
+                  >
                     {/* Product Image */}
                     <button
+                      type="button"
                       onClick={() => router.push(`/client/product-detail?id=${product._id}`)}
-                      className="flex-shrink-0"
+                      aria-label={`View ${product.name}`}
+                      style={{ position: 'relative', flex: 'none', width: 104, height: 104, padding: 0, border: 0, background: 'none', borderRadius: 'var(--dk-r-sm)', overflow: 'hidden' }}
                     >
-                      <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl overflow-hidden bg-secondary border border-white/10">
-                        {product.image ? (
-                          <img
-                            src={product.image}
-                            alt={product.name}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center">
-                            <Package className="w-8 h-8 text-white/30" />
-                          </div>
-                        )}
-                      </div>
+                      <Placeholder src={product.image} alt={product.name} contain style={{ width: '100%', height: '100%', borderRadius: 'var(--dk-r-sm)', fontSize: 0, gap: 0 }} />
                     </button>
 
                     {/* Product Info */}
-                    <div className="flex-1 min-w-0">
+                    <div style={{ flex: 1, minWidth: 0 }}>
                       <button
+                        type="button"
+                        className="dk-pc-name"
                         onClick={() => router.push(`/client/product-detail?id=${product._id}`)}
-                        className="text-left w-full"
+                        title={product.name}
                       >
-                        <h3 className="text-sm sm:text-base font-bold text-white truncate">
-                          {product.name}
-                        </h3>
+                        {product.name}
                       </button>
 
-                      <div className="flex items-center gap-2 mt-1">
-                        <p className="text-sm sm:text-base font-bold text-primary">
+                      <div className="dk-row" style={{ gap: 8, marginTop: 4 }}>
+                        <p style={{ fontFamily: 'var(--dk-f-display)', fontWeight: 800, fontSize: 16 }}>
                           {formatCurrency(product.price)}
                         </p>
                         {product.originalPrice && product.originalPrice > product.price && (
-                          <p className="text-xs text-white/40 line-through">
+                          <s className="dk-muted" style={{ fontSize: 12 }}>
                             {formatCurrency(product.originalPrice)}
-                          </p>
+                          </s>
                         )}
                       </div>
 
-                      <p className={`text-xs mt-1 ${isOutOfStock ? 'text-error' : 'text-success'}`}>
-                        {isOutOfStock ? 'Out of stock' : `${product.stock} in stock`}
+                      <p style={{ marginTop: 6 }}>
+                        <span className={`dk-status${isOutOfStock ? ' black' : ''}`}>
+                          {isOutOfStock ? 'Out of stock' : `${product.stock} in stock`}
+                        </span>
                       </p>
 
                       {/* Actions */}
-                      <div className="flex items-center gap-2 mt-3">
+                      <div className="dk-row" style={{ gap: 8, marginTop: 12 }}>
                         <button
+                          type="button"
                           onClick={() => handleAddToCart(product)}
                           disabled={isOutOfStock}
-                          className="flex-1 px-3 py-2 rounded-lg bg-primary text-white text-xs sm:text-sm font-medium hover:bg-primary/90 active:scale-95 transition-all touch-manipulation flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="dk-btn dk-btn-red plain"
                         >
-                          <ShoppingCart className="w-3.5 h-3.5" />
+                          <ShoppingCart size={15} aria-hidden="true" />
                           <span>{isOutOfStock ? 'Unavailable' : 'Add to Cart'}</span>
                         </button>
                         <button
+                          type="button"
                           onClick={() => handleRemove(product._id)}
-                          className="p-2 rounded-lg bg-error/10 border border-error/20 text-error hover:bg-error/20 active:scale-95 transition-all touch-manipulation"
+                          className="dk-view-btn"
+                          aria-label={`Remove ${product.name} from wishlist`}
+                          style={{ width: 40, height: 40, borderRadius: '50%', color: 'var(--dk-red)' }}
                         >
-                          <Trash2 className="w-4 h-4" />
+                          <Trash2 size={16} aria-hidden="true" />
                         </button>
                       </div>
                     </div>
-                  </div>
-                </Card>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="text-center py-16">
-            <Heart className="w-16 h-16 text-white/20 mx-auto mb-4" />
-            <h3 className="text-lg sm:text-xl font-bold text-white mb-2">Your wishlist is empty</h3>
-            <p className="text-xs sm:text-sm text-white/60 mb-6">
-              Browse products and tap the heart icon to save them here.
-            </p>
-            <button
-              onClick={() => router.push('/client/categories')}
-              className="px-6 py-3 rounded-lg bg-primary text-white font-medium hover:bg-primary/90 active:scale-95 transition-all"
-            >
-              Browse Products
-            </button>
-          </div>
-        )}
+                  </article>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="dk-panel dk-app-section" style={{ padding: 0 }}>
+              <EmptyState
+                icon={<Heart size={26} aria-hidden="true" />}
+                title="Your wishlist is empty"
+                actions={
+                  <button type="button" className="dk-btn dk-btn-red" onClick={() => router.push('/client/categories')}>
+                    Browse Products
+                  </button>
+                }
+              >
+                Browse products and tap the heart icon to save them here.
+              </EmptyState>
+            </div>
+          )}
+        </section>
       </div>
-
-      <ClientBottomNavbar />
     </div>
   );
 }

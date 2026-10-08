@@ -1,9 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, type CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  ArrowLeft,
   User,
   Mail,
   Phone,
@@ -17,10 +16,6 @@ import {
   Save,
   RefreshCw,
   ChevronRight,
-  CheckCircle,
-  AlertTriangle,
-  Eye,
-  EyeOff,
   Lock
 } from 'lucide-react';
 import { useIsAuthenticated, useCurrentUser, useAuthStore } from '@/store/auth';
@@ -29,10 +24,19 @@ import { useCartItemCount } from '@/store/cart';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { Id } from '@/convex/_generated/dataModel';
-import Button from '@/components/ui/Button';
-import Card from '@/components/ui/Card';
-import ClientBottomNavbar from '@/components/client/ClientBottomNavbar';
 import SafeAreaProvider from '@/components/provider/SafeAreaProvider';
+import MemberSidebar from '@/components/dc/kit/MemberSidebar';
+import NotchHero from '@/components/dc/kit/NotchHero';
+import Field from '@/components/dc/kit/Field';
+import EmptyState from '@/components/dc/kit/EmptyState';
+import { AlertIcon, BackIcon, CheckIcon, EyeIcon, EyeOffIcon, MenuIcon } from '@/components/dc/kit/icons';
+
+const modalIconStyle: CSSProperties = { width: 48, height: 48, margin: 0, flex: 'none' };
+/** The notifications panel only exists on the member home screen; ?notifications opens it there. */
+const NOTIFICATIONS_HREF = '/client/dashboard?notifications=1';
+const rowBtnStyle: CSSProperties = {
+  width: '100%', padding: '18px 24px', background: 'none', border: 0, textAlign: 'left', justifyContent: 'space-between',
+};
 
 function ProfileContent() {
   const router = useRouter();
@@ -42,6 +46,8 @@ function ProfileContent() {
   const cartItemCount = useCartItemCount();
   const updateUser = useAuthStore((state) => state.updateUser);
 
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const closeSidebar = useCallback(() => setSidebarOpen(false), []);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -136,10 +142,10 @@ function ProfileContent() {
   // Save profile settings handler
   const handleSaveProfile = async () => {
     if (!user) return;
-    
+
     try {
       setIsSaving(true);
-      
+
       // Validate inputs
       if (!profileSettings.firstName.trim() || !profileSettings.lastName.trim()) {
         setModalMessage('First name and last name are required');
@@ -157,12 +163,12 @@ function ProfileContent() {
       });
 
       console.log('Profile update result:', result);
-      
+
       // Update the user in the auth store immediately
       if (result.success && result.user) {
         updateUser(result.user);
       }
-      
+
       setModalMessage('Profile updated successfully!');
       setShowSuccessModal(true);
       setIsEditing(false);
@@ -179,10 +185,10 @@ function ProfileContent() {
   // Password change handler
   const handleChangePassword = async () => {
     if (!user) return;
-    
+
     try {
       setIsChangingPassword(true);
-      
+
       // Validate inputs
       if (!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) {
         setModalMessage('Please fill in all password fields');
@@ -262,488 +268,479 @@ function ProfileContent() {
     }
   };
 
-  return (
-    <div className="min-h-screen bg-[var(--primary-black)] pb-20">
-      {/* Header */}
-      <div className="sticky top-0 z-50 bg-black/20 backdrop-blur-md border-b border-white/10">
-        <div className="max-w-screen-xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
-          <button
-            onClick={() => router.back()}
-            className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5 text-[var(--white)]" />
-          </button>
-          
-          <h1 className="text-lg sm:text-xl font-bold text-[var(--white)] absolute left-1/2 transform -translate-x-1/2">
-            Profile
-          </h1>
-          
-          <button
-            onClick={() => router.push('/client/notifications')}
-            className="p-2 hover:bg-white/10 rounded-lg transition-colors relative"
-          >
-            <Bell className="w-5 h-5 text-[var(--white)]" />
-            {(clientNotificationCounts?.unread ?? 0) > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-[var(--error-red)] rounded-full flex items-center justify-center">
-                <span className="text-[10px] text-[var(--white)]">
-                  {(clientNotificationCounts?.unread ?? 0) > 99 ? '99+' : clientNotificationCounts?.unread}
-                </span>
-              </span>
-            )}
-          </button>
+  const unread = clientNotificationCounts?.unread ?? 0;
+  const initials = `${user?.firstName?.[0] ?? ''}${user?.lastName?.[0] ?? ''}`.toUpperCase();
+
+  // "Add Phone Number Now": switch to editing and put the cursor in the phone field.
+  const startAddingPhone = () => {
+    setIsEditing(true);
+    setTimeout(() => {
+      const el = document.getElementById('profile-phone') as HTMLInputElement | null;
+      el?.scrollIntoView({ block: 'center', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+      el?.focus({ preventScroll: true });
+    }, 0);
+  };
+
+  // Signed out: say so plainly instead of showing an empty profile with zeros.
+  if (!isAuthenticated || !user) {
+    return (
+      <div className="dk dk-member">
+        <div className="dk-app">
+          <MemberSidebar id="sidebar" active="profile" open={sidebarOpen} onClose={closeSidebar} />
+          <section className="dk-app-main">
+            <div className="dk-app-top">
+              <div className="dk-app-top-l">
+                <button
+                  type="button"
+                  className="dk-view-btn dk-app-menu"
+                  onClick={() => setSidebarOpen(true)}
+                  aria-label="Open menu"
+                  aria-controls="sidebar"
+                  aria-expanded={sidebarOpen}
+                >
+                  <MenuIcon />
+                </button>
+              </div>
+            </div>
+            <div className="dk-member-empty" style={{ marginTop: 24 }}>
+              <EmptyState
+                as="h1"
+                icon={<User size={24} />}
+                title="Sign in to view your case"
+                actions={
+                  <>
+                    <button type="button" className="dk-btn dk-btn-red" onClick={() => router.push('/auth/login')}>Sign In</button>
+                    <button type="button" className="dk-btn dk-btn-outline-dark" onClick={() => router.push('/auth/register')}>Sign Up</button>
+                  </>
+                }
+              >
+                Your orders, reservations, and wishlist live here. We&apos;ll keep them safe between visits.
+              </EmptyState>
+            </div>
+          </section>
         </div>
       </div>
+    );
+  }
 
-      <div className="max-w-screen-xl mx-auto px-4 sm:px-6 py-6 space-y-6">
-        {/* User Info Card */}
-        <Card className="p-6 glass-morphism">
-          <div className="flex flex-col sm:flex-row items-center sm:items-start space-y-4 sm:space-y-0 sm:space-x-6">
-            <div className="flex-shrink-0">
-              <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-gradient-to-r from-[var(--primary-orange)] to-[var(--warning-orange)] flex items-center justify-center border-2 border-white/20">
-                {user?.profilePicture ? (
-                  <img 
-                    src={user.profilePicture} 
-                    alt={user.firstName} 
-                    className="w-full h-full rounded-full object-cover"
+  const quickActions = [
+    { label: 'My Reservations', icon: Package, href: '/client/reservations', badge: null },
+    {
+      label: 'Shopping Cart', icon: ShoppingCart, href: '/client/cart',
+      badge: cartItemCount > 0 ? <span className="dk-status black">{cartItemCount}</span> : null,
+    },
+    {
+      // The notifications panel lives on the member home screen; this opens it there.
+      label: 'Notifications', icon: Bell, href: NOTIFICATIONS_HREF,
+      badge: unread > 0 ? <span className="dk-status red">{clientNotificationCounts?.unread} new</span> : null,
+    },
+    // There is no separate help centre, so support goes to the Contact page.
+    { label: 'Help & Support', icon: HelpCircle, href: '/contact', badge: null },
+  ];
+
+  const passwordFields = [
+    {
+      id: 'pw-current', label: 'Current Password', key: 'currentPassword' as const, placeholder: 'Enter current password',
+      shown: showCurrentPassword, toggle: () => setShowCurrentPassword(!showCurrentPassword), hint: undefined,
+    },
+    {
+      id: 'pw-new', label: 'New Password', key: 'newPassword' as const, placeholder: 'Enter new password',
+      shown: showNewPassword, toggle: () => setShowNewPassword(!showNewPassword),
+      hint: 'Must be 8+ characters with uppercase, lowercase, and number',
+    },
+    {
+      id: 'pw-confirm', label: 'Confirm New Password', key: 'confirmPassword' as const, placeholder: 'Confirm new password',
+      shown: showConfirmPassword, toggle: () => setShowConfirmPassword(!showConfirmPassword), hint: undefined,
+    },
+  ];
+
+  return (
+    <div className="dk dk-member">
+      <div className="dk-app">
+        <MemberSidebar id="sidebar" active="profile" open={sidebarOpen} onClose={closeSidebar} />
+
+        <section className="dk-app-main">
+          {/* Header */}
+          <div className="dk-app-top">
+            <div className="dk-app-top-l">
+              <button
+                type="button"
+                className="dk-view-btn dk-app-menu"
+                onClick={() => setSidebarOpen(true)}
+                aria-label="Open menu"
+                aria-controls="sidebar"
+                aria-expanded={sidebarOpen}
+              >
+                <MenuIcon />
+              </button>
+              <button type="button" className="dk-view-btn" onClick={() => router.back()} aria-label="Back">
+                <BackIcon />
+              </button>
+              <h1>Profile</h1>
+            </div>
+            <div className="dk-app-actions">
+              <button
+                type="button"
+                className="dk-view-btn"
+                style={{ position: 'relative' }}
+                onClick={() => router.push(NOTIFICATIONS_HREF)}
+                aria-label={unread > 0 ? `Notifications, ${unread} unread` : 'Notifications'}
+              >
+                <Bell size={16} aria-hidden="true" />
+                {unread > 0 && (
+                  <span className="dk-count" aria-hidden="true">
+                    {unread > 99 ? '99+' : clientNotificationCounts?.unread}
+                  </span>
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* User Info hero: name + email, stats in the notch */}
+          <div style={{ marginTop: 4 }}>
+            <NotchHero flush
+              tone="dark"
+              behind="var(--dk-n-100)"
+              notchWide
+              notchHeight={120}
+              notchLabel="Your reservation stats"
+              notch={
+                <div className="dk-stats" style={{ gap: '16px 28px' }}>
+                  <div className="dk-stat"><b>{userStats.totalReservations}</b><span>Total Reservations</span></div>
+                  <div className="dk-stat"><b>{userStats.completedReservations}</b><span>Completed</span></div>
+                  <div className="dk-stat"><b>{userStats.activeReservations}</b><span>Active</span></div>
+                  <div className="dk-stat"><b>₱{userStats.totalSpent.toLocaleString()}</b><span>Total Spent</span></div>
+                </div>
+              }
+            >
+              <div className="dk-row" style={{ gap: 20, alignItems: 'center', flexWrap: 'wrap' }}>
+                <span
+                  className="dk-avatar"
+                  style={{ width: 80, height: 80, fontSize: 28, overflow: 'hidden' }}
+                >
+                  {user?.profilePicture ? (
+                    // eslint-disable-next-line @next/next/no-img-element -- remote profile photo
+                    <img
+                      src={user.profilePicture}
+                      alt={user.firstName}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    />
+                  ) : initials ? (
+                    <span aria-hidden="true">{initials}</span>
+                  ) : (
+                    <User size={36} aria-hidden="true" />
+                  )}
+                </span>
+                <div style={{ minWidth: 0 }}>
+                  <h2 className="dk-h2" style={{ overflowWrap: 'anywhere' }}>
+                    {user?.firstName} {user?.lastName}
+                  </h2>
+                  <p style={{ marginTop: 6, color: 'rgba(255,255,255,.85)', overflowWrap: 'anywhere' }}>{user?.email}</p>
+                </div>
+              </div>
+            </NotchHero>
+          </div>
+
+          <div className="dk-app-section dk-stack lg">
+            {/* Profile Settings */}
+            <div className="dk-panel">
+              <div className="dk-panel-head" style={{ flexWrap: 'wrap' }}>
+                <h3 className="dk-panel-title">Profile Settings</h3>
+                <div className="dk-row wrap" style={{ gap: 8 }}>
+                  {/* Change Password Button */}
+                  {user?.loginMethod !== 'facebook' && (
+                    <button
+                      type="button"
+                      className="dk-btn dk-btn-outline-dark plain"
+                      onClick={() => setShowPasswordModal(true)}
+                    >
+                      <Lock size={16} aria-hidden="true" />
+                      Change Password
+                    </button>
+                  )}
+
+                  {isEditing ? (
+                    <>
+                      <button
+                        type="button"
+                        className="dk-btn dk-btn-outline-dark plain"
+                        onClick={() => {
+                          setIsEditing(false);
+                          // Reset to original values
+                          if (user) {
+                            setProfileSettings(prev => ({
+                              ...prev,
+                              firstName: user.firstName || '',
+                              lastName: user.lastName || '',
+                              email: user.email || '',
+                              phone: user.phone || '',
+                            }));
+                          }
+                        }}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        className="dk-btn dk-btn-red plain"
+                        onClick={handleSaveProfile}
+                        disabled={isSaving}
+                        aria-busy={isSaving}
+                      >
+                        {isSaving ? (
+                          <>
+                            <RefreshCw size={16} className="animate-spin" aria-hidden="true" />
+                            Saving...
+                          </>
+                        ) : (
+                          <>
+                            <Save size={16} aria-hidden="true" />
+                            Save
+                          </>
+                        )}
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      type="button"
+                      className="dk-btn dk-btn-outline-dark plain"
+                      onClick={() => setIsEditing(true)}
+                    >
+                      <Edit size={16} aria-hidden="true" />
+                      Edit
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="dk-fgrid">
+                <Field id="profile-first-name" label="First Name">
+                  <input
+                    id="profile-first-name"
+                    type="text"
+                    className="dk-input"
+                    value={profileSettings.firstName}
+                    onChange={(e) => setProfileSettings(prev => ({ ...prev, firstName: e.target.value }))}
+                    disabled={!isEditing}
+                    placeholder="Enter your first name"
+                    autoComplete="given-name"
                   />
-                ) : (
-                  <User className="w-10 h-10 sm:w-12 sm:h-12 text-[var(--white)]" />
+                </Field>
+
+                <Field id="profile-last-name" label="Last Name">
+                  <input
+                    id="profile-last-name"
+                    type="text"
+                    className="dk-input"
+                    value={profileSettings.lastName}
+                    onChange={(e) => setProfileSettings(prev => ({ ...prev, lastName: e.target.value }))}
+                    disabled={!isEditing}
+                    placeholder="Enter your last name"
+                    autoComplete="family-name"
+                  />
+                </Field>
+
+                {/* Email - Always disabled */}
+                <Field id="profile-email" label="Email" hint="Email cannot be changed">
+                  <div style={{ position: 'relative' }}>
+                    <Mail size={18} aria-hidden="true" style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--dk-n-500)' }} />
+                    <input
+                      id="profile-email"
+                      type="email"
+                      className="dk-input"
+                      style={{ paddingLeft: 42 }}
+                      value={profileSettings.email}
+                      disabled
+                      placeholder="your.email@example.com"
+                      aria-describedby="profile-email-msg"
+                    />
+                  </div>
+                </Field>
+
+                {/* Phone */}
+                <Field id="profile-phone" label="Phone Number">
+                  <div style={{ position: 'relative' }}>
+                    <Phone size={18} aria-hidden="true" style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--dk-n-500)' }} />
+                    <input
+                      id="profile-phone"
+                      type="tel"
+                      className="dk-input"
+                      style={{ paddingLeft: 42 }}
+                      value={profileSettings.phone}
+                      onChange={(e) => setProfileSettings(prev => ({ ...prev, phone: e.target.value }))}
+                      disabled={!isEditing}
+                      placeholder="+63 900 000 0000"
+                      autoComplete="tel"
+                    />
+                  </div>
+                </Field>
+
+                {/* Login Method Indicator */}
+                {user?.loginMethod === 'facebook' && (
+                  <div className="dk-alert full dk-row" style={{ gap: 8 }}>
+                    <Shield size={16} aria-hidden="true" />
+                    Connected with Facebook
+                  </div>
                 )}
               </div>
             </div>
-            
-            <div className="flex-1 text-center sm:text-left">
-              <h2 className="text-xl sm:text-2xl font-bold text-[var(--white)] mb-1">
-                {user?.firstName} {user?.lastName}
-              </h2>
-              <p className="text-[var(--light-gray)] mb-3">{user?.email}</p>
-              
-              {/* User Stats */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-4 pt-4 border-t border-white/10">
-                <div className="text-center sm:text-left">
-                  <p className="text-2xl font-bold text-[var(--primary-orange)]">{userStats.totalReservations}</p>
-                  <p className="text-xs text-[var(--light-gray)]">Total Reservations</p>
-                </div>
-                <div className="text-center sm:text-left">
-                  <p className="text-2xl font-bold text-[var(--success-green)]">{userStats.completedReservations}</p>
-                  <p className="text-xs text-[var(--light-gray)]">Completed</p>
-                </div>
-                <div className="text-center sm:text-left">
-                  <p className="text-2xl font-bold text-[var(--warning-orange)]">{userStats.activeReservations}</p>
-                  <p className="text-xs text-[var(--light-gray)]">Active</p>
-                </div>
-                <div className="text-center sm:text-left">
-                  <p className="text-2xl font-bold text-[var(--info-blue)]">₱{userStats.totalSpent.toLocaleString()}</p>
-                  <p className="text-xs text-[var(--light-gray)]">Total Spent</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </Card>
 
-        {/* Profile Settings */}
-        <Card className="p-6 glass-morphism">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-semibold text-[var(--white)] flex items-center">
-              <User className="w-5 h-5 mr-2 text-[var(--primary-orange)]" />
-              Profile Settings
-            </h3>
-            <div className="flex items-center space-x-2">
-              {/* Change Password Button */}
-              {user?.loginMethod !== 'facebook' && (
-                <Button
-                  onClick={() => setShowPasswordModal(true)}
-                  className="bg-[var(--warning-orange)]/20 hover:bg-[var(--warning-orange)]/30 text-[var(--warning-orange)] border border-[var(--warning-orange)]/30"
-                  size="sm"
+            {/* Phone Number Prompt - Show when user has no phone */}
+            {!user?.phone && (
+              <div className="dk-panel muted">
+                <div className="dk-row" style={{ alignItems: 'flex-start', gap: 14 }}>
+                  <span className="dk-empty-icon" style={{ width: 44, height: 44, margin: 0, flex: 'none' }} aria-hidden="true">
+                    <Phone size={18} />
+                  </span>
+                  <div style={{ minWidth: 0 }}>
+                    <h3 className="dk-h4">Add Your Phone Number</h3>
+                    <p className="dk-small dk-muted" style={{ marginTop: 4 }}>
+                      Enable SMS notifications for your orders and reservations. Stay updated with real-time alerts!
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="dk-btn dk-btn-red block"
+                  style={{ marginTop: 18 }}
+                  onClick={startAddingPhone}
                 >
-                  <Lock className="w-4 h-4 mr-2" />
-                  Change Password
-                </Button>
-              )}
-              
-              {isEditing ? (
-                <>
-                  <Button
-                    onClick={() => {
-                      setIsEditing(false);
-                      // Reset to original values
-                      if (user) {
-                        setProfileSettings(prev => ({
-                          ...prev,
-                          firstName: user.firstName || '',
-                          lastName: user.lastName || '',
-                          email: user.email || '',
-                          phone: user.phone || '',
-                        }));
-                      }
-                    }}
-                    variant="ghost"
-                    size="sm"
-                    className="text-[var(--light-gray)] hover:text-[var(--white)]"
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    onClick={handleSaveProfile}
-                    disabled={isSaving}
-                    className="bg-[var(--success-green)] hover:bg-[var(--success-green)]/90"
-                    size="sm"
-                  >
-                    {isSaving ? (
-                      <>
-                        <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                        Saving...
-                      </>
-                    ) : (
-                      <>
-                        <Save className="w-4 h-4 mr-2" />
-                        Save
-                      </>
-                    )}
-                  </Button>
-                </>
-              ) : (
-                <Button
-                  onClick={() => setIsEditing(true)}
-                  variant="ghost"
-                  size="sm"
-                  className="text-[var(--light-gray)] hover:text-[var(--white)]"
-                >
-                  <Edit className="w-4 h-4 mr-2" />
-                  Edit
-                </Button>
-              )}
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            {/* First Name */}
-            <div>
-              <label className="block text-sm font-medium text-[var(--light-gray)] mb-2">
-                First Name
-              </label>
-              <input
-                type="text"
-                value={profileSettings.firstName}
-                onChange={(e) => setProfileSettings(prev => ({ ...prev, firstName: e.target.value }))}
-                disabled={!isEditing}
-                className={`w-full px-4 py-3 bg-white/10 border rounded-lg text-[var(--white)] ${
-                  isEditing 
-                    ? 'border-white/20 focus:border-[var(--primary-orange)]/50' 
-                    : 'border-white/10 cursor-not-allowed opacity-60'
-                } focus:outline-none transition-colors`}
-                placeholder="Enter your first name"
-              />
-            </div>
-
-            {/* Last Name */}
-            <div>
-              <label className="block text-sm font-medium text-[var(--light-gray)] mb-2">
-                Last Name
-              </label>
-              <input
-                type="text"
-                value={profileSettings.lastName}
-                onChange={(e) => setProfileSettings(prev => ({ ...prev, lastName: e.target.value }))}
-                disabled={!isEditing}
-                className={`w-full px-4 py-3 bg-white/10 border rounded-lg text-[var(--white)] ${
-                  isEditing 
-                    ? 'border-white/20 focus:border-[var(--primary-orange)]/50' 
-                    : 'border-white/10 cursor-not-allowed opacity-60'
-                } focus:outline-none transition-colors`}
-                placeholder="Enter your last name"
-              />
-            </div>
-
-            {/* Email - Always disabled */}
-            <div>
-              <label className="block text-sm font-medium text-[var(--light-gray)] mb-2">
-                Email
-              </label>
-              <div className="relative">
-                <input
-                  type="email"
-                  value={profileSettings.email}
-                  disabled
-                  className="w-full px-4 py-3 pl-10 bg-white/10 border border-white/10 rounded-lg text-[var(--white)] cursor-not-allowed opacity-60 focus:outline-none"
-                  placeholder="your.email@example.com"
-                />
-                <Mail className="w-5 h-5 text-[var(--medium-gray)] absolute left-3 top-1/2 -translate-y-1/2" />
-              </div>
-              <p className="text-xs text-[var(--medium-gray)] mt-1">Email cannot be changed</p>
-            </div>
-
-            {/* Phone */}
-            <div>
-              <label className="block text-sm font-medium text-[var(--light-gray)] mb-2">
-                Phone Number
-              </label>
-              <div className="relative">
-                <input
-                  type="tel"
-                  value={profileSettings.phone}
-                  onChange={(e) => setProfileSettings(prev => ({ ...prev, phone: e.target.value }))}
-                  disabled={!isEditing}
-                  className={`w-full px-4 py-3 pl-10 bg-white/10 border rounded-lg text-[var(--white)] ${
-                    isEditing 
-                      ? 'border-white/20 focus:border-[var(--primary-orange)]/50' 
-                      : 'border-white/10 cursor-not-allowed opacity-60'
-                  } focus:outline-none transition-colors`}
-                  placeholder="+63 900 000 0000"
-                />
-                <Phone className="w-5 h-5 text-[var(--medium-gray)] absolute left-3 top-1/2 -translate-y-1/2" />
-              </div>
-            </div>
-
-            {/* Login Method Indicator */}
-            {user?.loginMethod === 'facebook' && (
-              <div className="p-3 bg-[var(--info-blue)]/10 border border-[var(--info-blue)]/20 rounded-lg">
-                <p className="text-sm text-[var(--info-blue)] flex items-center">
-                  <Shield className="w-4 h-4 mr-2" />
-                  Connected with Facebook
-                </p>
+                  <Phone size={16} aria-hidden="true" />
+                  Add Phone Number Now
+                </button>
               </div>
             )}
-          </div>
-        </Card>
 
-        {/* Phone Number Prompt - Show when user has no phone */}
-        {!user?.phone && (
-          <Card className="p-4 sm:p-6 bg-[var(--warning-orange)]/10 border border-[var(--warning-orange)]/20 glass-morphism">
-            <div className="flex items-start sm:items-center space-x-3 mb-3 sm:mb-4">
-              <div className="flex-shrink-0 p-2 bg-[var(--warning-orange)]/10 rounded-lg">
-                <Phone className="w-5 h-5 text-[var(--warning-orange)]" />
+            {/* Quick Actions */}
+            <nav className="dk-panel flush" aria-label="Account shortcuts">
+              <div className="dk-list">
+                {quickActions.map(({ label, icon: Icon, href, badge }) => (
+                  <button
+                    key={href}
+                    type="button"
+                    className="dk-list-row"
+                    style={rowBtnStyle}
+                    onClick={() => router.push(href)}
+                  >
+                    <span className="dk-row" style={{ gap: 12 }}>
+                      <Icon size={20} style={{ color: 'var(--dk-red)' }} aria-hidden="true" />
+                      <span style={{ fontSize: 15, fontWeight: 500 }}>{label}</span>
+                      {badge}
+                    </span>
+                    <ChevronRight size={18} style={{ color: 'var(--dk-n-400)' }} aria-hidden="true" />
+                  </button>
+                ))}
               </div>
-              <div className="flex-1 min-w-0">
-                <h3 className="text-base sm:text-lg font-semibold text-[var(--white)] mb-1">Add Your Phone Number</h3>
-                <p className="text-xs sm:text-sm text-[var(--light-gray)]">
-                  Enable SMS notifications for your orders and reservations. Stay updated with real-time alerts!
-                </p>
-              </div>
-            </div>
-            <Button
-              onClick={() => setIsEditing(true)}
-              className="w-full bg-[var(--warning-orange)] hover:bg-[var(--warning-orange)]/90 text-[var(--white)]"
+            </nav>
+
+            {/* Sign Out Button */}
+            <button
+              type="button"
+              className="dk-btn dk-btn-outline-dark block"
+              onClick={() => setShowLogoutConfirm(true)}
             >
-              <Phone className="w-4 h-4 mr-2" />
-              Add Phone Number Now
-            </Button>
-          </Card>
-        )}
-
-        {/* Quick Actions */}
-        <Card className="divide-y divide-white/10 glass-morphism">
-          <button
-            onClick={() => router.push('/client/reservations')}
-            className="w-full px-6 py-4 flex items-center justify-between hover:bg-white/5 transition-colors"
-          >
-            <div className="flex items-center space-x-3">
-              <Package className="w-5 h-5 text-[var(--primary-orange)]" />
-              <span className="text-[var(--white)]">My Reservations</span>
-            </div>
-            <ChevronRight className="w-5 h-5 text-[var(--medium-gray)]" />
-          </button>
-
-          <button
-            onClick={() => router.push('/client/cart')}
-            className="w-full px-6 py-4 flex items-center justify-between hover:bg-white/5 transition-colors"
-          >
-            <div className="flex items-center space-x-3">
-              <ShoppingCart className="w-5 h-5 text-[var(--primary-orange)]" />
-              <span className="text-[var(--white)]">Shopping Cart</span>
-              {cartItemCount > 0 && (
-                <span className="px-2 py-0.5 bg-[var(--primary-orange)]/20 text-[var(--primary-orange)] text-xs rounded-full">
-                  {cartItemCount}
-                </span>
-              )}
-            </div>
-            <ChevronRight className="w-5 h-5 text-[var(--medium-gray)]" />
-          </button>
-
-          <button
-            onClick={() => router.push('/client/notifications')}
-            className="w-full px-6 py-4 flex items-center justify-between hover:bg-white/5 transition-colors"
-          >
-            <div className="flex items-center space-x-3">
-              <Bell className="w-5 h-5 text-[var(--primary-orange)]" />
-              <span className="text-[var(--white)]">Notifications</span>
-              {(clientNotificationCounts?.unread ?? 0) > 0 && (
-                <span className="px-2 py-0.5 bg-[var(--error-red)]/20 text-[var(--error-red)] text-xs rounded-full">
-                  {clientNotificationCounts?.unread} new
-                </span>
-              )}
-            </div>
-            <ChevronRight className="w-5 h-5 text-[var(--medium-gray)]" />
-          </button>
-
-          <button
-            onClick={() => router.push('/help')}
-            className="w-full px-6 py-4 flex items-center justify-between hover:bg-white/5 transition-colors"
-          >
-            <div className="flex items-center space-x-3">
-              <HelpCircle className="w-5 h-5 text-[var(--primary-orange)]" />
-              <span className="text-[var(--white)]">Help & Support</span>
-            </div>
-            <ChevronRight className="w-5 h-5 text-[var(--medium-gray)]" />
-          </button>
-        </Card>
-
-        {/* Sign Out Button */}
-        <Button
-          onClick={() => setShowLogoutConfirm(true)}
-          className="w-full bg-[var(--error-red)] hover:bg-[var(--error-red)]/90 text-[var(--white)]"
-        >
-          <LogOut className="w-5 h-5 mr-2" />
-          Sign Out
-        </Button>
+              <LogOut size={18} aria-hidden="true" />
+              Sign Out
+            </button>
+          </div>
+        </section>
       </div>
 
       {/* Success Modal */}
       {showSuccessModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4 animate-fade-in">
-          <div className="bg-[var(--secondary-black)] border border-white/10 rounded-2xl p-6 w-full max-w-md mx-4">
-            <div className="flex items-start space-x-3 mb-6">
-              <div className="flex-shrink-0 p-2 bg-[var(--success-green)]/10 rounded-lg">
-                <CheckCircle className="w-6 h-6 text-[var(--success-green)]" />
-              </div>
-              <div className="flex-1">
-                <h3 className="text-lg font-semibold text-[var(--white)] mb-1">Success!</h3>
-                <p className="text-sm text-[var(--light-gray)]">{modalMessage}</p>
+        <>
+          <div className="dk-scrim" aria-hidden="true" />
+          <div className="dk-modal" role="dialog" aria-modal="true" aria-labelledby="profile-success-title">
+            <div className="dk-row" style={{ alignItems: 'flex-start', gap: 14 }}>
+              <span className="dk-empty-icon" style={modalIconStyle} aria-hidden="true"><CheckIcon size={18} /></span>
+              <div>
+                <h3 id="profile-success-title" className="dk-h3" style={{ fontSize: 20 }}>Success!</h3>
+                <p className="dk-small dk-muted" style={{ marginTop: 4 }}>{modalMessage}</p>
               </div>
             </div>
-            <Button
+            <button
+              type="button"
+              className="dk-btn dk-btn-red block"
+              style={{ marginTop: 24 }}
               onClick={() => setShowSuccessModal(false)}
-              className="w-full bg-[var(--success-green)] hover:bg-[var(--success-green)]/90 text-[var(--white)]"
             >
               OK
-            </Button>
+            </button>
           </div>
-        </div>
+        </>
       )}
 
       {/* Error Modal */}
       {showErrorModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4 animate-fade-in">
-          <div className="bg-[var(--secondary-black)] border border-white/10 rounded-2xl p-6 w-full max-w-md mx-4">
-            <div className="flex items-start space-x-3 mb-6">
-              <div className="flex-shrink-0 p-2 bg-[var(--error-red)]/10 rounded-lg">
-                <AlertTriangle className="w-6 h-6 text-[var(--error-red)]" />
-              </div>
-              <div className="flex-1">
-                <h3 className="text-lg font-semibold text-[var(--white)] mb-1">Error</h3>
-                <p className="text-sm text-[var(--light-gray)]">{modalMessage}</p>
+        <>
+          <div className="dk-scrim" aria-hidden="true" style={{ zIndex: 92 }} />
+          <div className="dk-modal" role="alertdialog" aria-modal="true" aria-labelledby="profile-error-title" style={{ zIndex: 93 }}>
+            <div className="dk-row" style={{ alignItems: 'flex-start', gap: 14 }}>
+              <span className="dk-empty-icon" style={modalIconStyle} aria-hidden="true"><AlertIcon size={22} /></span>
+              <div>
+                <h3 id="profile-error-title" className="dk-h3" style={{ fontSize: 20 }}>Error</h3>
+                <p className="dk-small dk-muted" style={{ marginTop: 4 }}>{modalMessage}</p>
               </div>
             </div>
-            <Button
+            <button
+              type="button"
+              className="dk-btn dk-btn-red block"
+              style={{ marginTop: 24 }}
               onClick={() => setShowErrorModal(false)}
-              className="w-full bg-[var(--error-red)] hover:bg-[var(--error-red)]/90 text-[var(--white)]"
             >
               OK
-            </Button>
+            </button>
           </div>
-        </div>
+        </>
       )}
 
       {/* Password Change Modal */}
       {showPasswordModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4 animate-fade-in">
-          <div className="bg-[var(--secondary-black)] border border-white/10 rounded-xl sm:rounded-2xl p-4 sm:p-6 w-full max-w-md mx-4">
-            <div className="flex items-start space-x-3 mb-4 sm:mb-6">
-              <div className="flex-shrink-0 p-2 bg-[var(--warning-orange)]/10 rounded-lg">
-                <Shield className="w-5 h-5 sm:w-6 sm:h-6 text-[var(--warning-orange)]" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <h3 className="text-base sm:text-lg font-semibold text-[var(--white)] mb-1">Change Password</h3>
-                <p className="text-xs sm:text-sm text-[var(--light-gray)] leading-relaxed">Update your account password</p>
+        <>
+          <div className="dk-scrim" aria-hidden="true" />
+          <div className="dk-modal" role="dialog" aria-modal="true" aria-labelledby="pw-modal-title">
+            <div className="dk-row" style={{ alignItems: 'flex-start', gap: 14 }}>
+              <span className="dk-empty-icon" style={modalIconStyle} aria-hidden="true"><Shield size={20} /></span>
+              <div>
+                <h3 id="pw-modal-title" className="dk-h3" style={{ fontSize: 20 }}>Change Password</h3>
+                <p className="dk-small dk-muted" style={{ marginTop: 4 }}>Update your account password</p>
               </div>
             </div>
 
             {/* Password Form */}
-            <div className="space-y-3 sm:space-y-4 mb-4 sm:mb-6">
-              <div>
-                <label className="block text-xs sm:text-sm font-medium text-[var(--light-gray)] mb-1.5 sm:mb-2">
-                  Current Password
-                </label>
-                <div className="relative">
-                  <input
-                    type={showCurrentPassword ? "text" : "password"}
-                    value={passwordForm.currentPassword}
-                    onChange={(e) => setPasswordForm(prev => ({ ...prev, currentPassword: e.target.value }))}
-                    className="w-full px-3 py-2 sm:py-2.5 pr-10 bg-white/10 border border-white/20 rounded-lg text-sm sm:text-base text-[var(--white)] focus:border-[var(--primary-orange)]/50 focus:outline-none transition-colors"
-                    placeholder="Enter current password"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-[var(--light-gray)] hover:text-[var(--white)] transition-colors"
-                  >
-                    {showCurrentPassword ? (
-                      <EyeOff className="w-4 h-4" />
-                    ) : (
-                      <Eye className="w-4 h-4" />
-                    )}
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs sm:text-sm font-medium text-[var(--light-gray)] mb-1.5 sm:mb-2">
-                  New Password
-                </label>
-                <div className="relative">
-                  <input
-                    type={showNewPassword ? "text" : "password"}
-                    value={passwordForm.newPassword}
-                    onChange={(e) => setPasswordForm(prev => ({ ...prev, newPassword: e.target.value }))}
-                    className="w-full px-3 py-2 sm:py-2.5 pr-10 bg-white/10 border border-white/20 rounded-lg text-sm sm:text-base text-[var(--white)] focus:border-[var(--primary-orange)]/50 focus:outline-none transition-colors"
-                    placeholder="Enter new password"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowNewPassword(!showNewPassword)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-[var(--light-gray)] hover:text-[var(--white)] transition-colors"
-                  >
-                    {showNewPassword ? (
-                      <EyeOff className="w-4 h-4" />
-                    ) : (
-                      <Eye className="w-4 h-4" />
-                    )}
-                  </button>
-                </div>
-                <p className="text-xs text-[var(--medium-gray)] mt-1">
-                  Must be 8+ characters with uppercase, lowercase, and number
-                </p>
-              </div>
-
-              <div>
-                <label className="block text-xs sm:text-sm font-medium text-[var(--light-gray)] mb-1.5 sm:mb-2">
-                  Confirm New Password
-                </label>
-                <div className="relative">
-                  <input
-                    type={showConfirmPassword ? "text" : "password"}
-                    value={passwordForm.confirmPassword}
-                    onChange={(e) => setPasswordForm(prev => ({ ...prev, confirmPassword: e.target.value }))}
-                    className="w-full px-3 py-2 sm:py-2.5 pr-10 bg-white/10 border border-white/20 rounded-lg text-sm sm:text-base text-[var(--white)] focus:border-[var(--primary-orange)]/50 focus:outline-none transition-colors"
-                    placeholder="Confirm new password"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-[var(--light-gray)] hover:text-[var(--white)] transition-colors"
-                  >
-                    {showConfirmPassword ? (
-                      <EyeOff className="w-4 h-4" />
-                    ) : (
-                      <Eye className="w-4 h-4" />
-                    )}
-                  </button>
-                </div>
-              </div>
+            <div className="dk-stack" style={{ marginTop: 22 }}>
+              {passwordFields.map((f) => (
+                <Field key={f.id} id={f.id} label={f.label} hint={f.hint}>
+                  <div className="dk-pw-wrap">
+                    <input
+                      id={f.id}
+                      type={f.shown ? 'text' : 'password'}
+                      className="dk-input"
+                      value={passwordForm[f.key]}
+                      onChange={(e) => setPasswordForm(prev => ({ ...prev, [f.key]: e.target.value }))}
+                      placeholder={f.placeholder}
+                      autoComplete={f.key === 'currentPassword' ? 'current-password' : 'new-password'}
+                      aria-describedby={f.hint ? `${f.id}-msg` : undefined}
+                    />
+                    <button
+                      type="button"
+                      className="dk-pw-toggle"
+                      onClick={f.toggle}
+                      aria-label={f.shown ? 'Hide password' : 'Show password'}
+                      aria-pressed={f.shown}
+                    >
+                      {f.shown ? <EyeOffIcon size={20} /> : <EyeIcon size={20} />}
+                    </button>
+                  </div>
+                </Field>
+              ))}
             </div>
 
-            <div className="flex gap-2 sm:gap-3">
-              <Button
+            <div className="dk-row" style={{ marginTop: 24, gap: 10 }}>
+              <button
+                type="button"
+                className="dk-btn dk-btn-outline-dark plain"
+                style={{ flex: 1 }}
                 onClick={() => {
                   setShowPasswordModal(false);
                   setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
@@ -752,79 +749,82 @@ function ProfileContent() {
                   setShowConfirmPassword(false);
                 }}
                 disabled={isChangingPassword}
-                className="flex-1 bg-white/10 border border-white/20 text-[var(--white)] hover:bg-white/20 active:bg-white/30 transition-colors text-sm sm:text-base"
               >
                 Cancel
-              </Button>
-              <Button
+              </button>
+              <button
+                type="button"
+                className="dk-btn dk-btn-red plain"
+                style={{ flex: 1 }}
                 onClick={handleChangePassword}
                 disabled={isChangingPassword || !passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword}
-                className="flex-1 bg-[var(--warning-orange)] hover:bg-[var(--warning-orange)]/90 active:bg-[var(--warning-orange)]/80 transition-colors text-sm sm:text-base text-[var(--white)]"
+                aria-busy={isChangingPassword}
               >
                 {isChangingPassword ? (
                   <>
-                    <RefreshCw className="w-4 h-4 mr-1.5 sm:mr-2 animate-spin" />
+                    <RefreshCw size={16} className="animate-spin" aria-hidden="true" />
                     <span className="hidden sm:inline">Updating...</span>
                     <span className="sm:hidden">Wait...</span>
                   </>
                 ) : (
                   <>
-                    <Shield className="w-4 h-4 mr-1.5 sm:mr-2" />
+                    <Shield size={16} aria-hidden="true" />
                     Update
                   </>
                 )}
-              </Button>
+              </button>
             </div>
           </div>
-        </div>
+        </>
       )}
 
       {/* Logout Confirmation Modal */}
       {showLogoutConfirm && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4 animate-fade-in">
-          <div className="bg-[var(--secondary-black)] border border-white/10 rounded-xl sm:rounded-2xl p-4 sm:p-6 w-full max-w-md mx-4">
-            <div className="flex items-start space-x-3 mb-4 sm:mb-6">
-              <div className="flex-shrink-0 p-2 bg-[var(--error-red)]/10 rounded-lg">
-                <LogOut className="w-5 h-5 sm:w-6 sm:h-6 text-[var(--error-red)]" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <h3 className="text-base sm:text-lg font-semibold text-[var(--white)] mb-1">Confirm Sign Out</h3>
-                <p className="text-xs sm:text-sm text-[var(--light-gray)] leading-relaxed">Are you sure you want to sign out of your account?</p>
+        <>
+          <div className="dk-scrim" aria-hidden="true" />
+          <div className="dk-modal" role="alertdialog" aria-modal="true" aria-labelledby="logout-title" aria-describedby="logout-desc">
+            <div className="dk-row" style={{ alignItems: 'flex-start', gap: 14 }}>
+              <span className="dk-empty-icon" style={modalIconStyle} aria-hidden="true"><LogOut size={20} /></span>
+              <div>
+                <h3 id="logout-title" className="dk-h3" style={{ fontSize: 20 }}>Confirm Sign Out</h3>
+                <p id="logout-desc" className="dk-small dk-muted" style={{ marginTop: 4 }}>Are you sure you want to sign out of your account?</p>
               </div>
             </div>
-            <div className="flex gap-2 sm:gap-3">
-              <Button
+            <div className="dk-row" style={{ marginTop: 24, gap: 10 }}>
+              <button
+                type="button"
+                className="dk-btn dk-btn-outline-dark plain"
+                style={{ flex: 1 }}
                 onClick={() => setShowLogoutConfirm(false)}
                 disabled={isLoggingOut}
-                className="flex-1 bg-white/10 border border-white/20 text-[var(--white)] hover:bg-white/20 active:bg-white/30 transition-colors text-sm sm:text-base"
               >
                 Cancel
-              </Button>
-              <Button
+              </button>
+              <button
+                type="button"
+                className="dk-btn dk-btn-red plain"
+                style={{ flex: 1 }}
                 onClick={handleLogout}
                 disabled={isLoggingOut}
-                className="flex-1 bg-[var(--error-red)] hover:bg-[var(--error-red)]/90 active:bg-[var(--error-red)]/80 transition-colors text-sm sm:text-base text-[var(--white)]"
+                aria-busy={isLoggingOut}
               >
                 {isLoggingOut ? (
                   <>
-                    <RefreshCw className="w-4 h-4 mr-1.5 sm:mr-2 animate-spin" />
+                    <RefreshCw size={16} className="animate-spin" aria-hidden="true" />
                     <span className="hidden sm:inline">Signing out...</span>
                     <span className="sm:hidden">Wait...</span>
                   </>
                 ) : (
                   <>
-                    <LogOut className="w-4 h-4 mr-1.5 sm:mr-2" />
+                    <LogOut size={16} aria-hidden="true" />
                     Sign Out
                   </>
                 )}
-              </Button>
+              </button>
             </div>
           </div>
-        </div>
+        </>
       )}
-
-      {/* Client Bottom Navigation */}
-      <ClientBottomNavbar />
     </div>
   );
 }

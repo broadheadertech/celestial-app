@@ -15,14 +15,9 @@ import type { Id } from '@/convex/_generated/dataModel';
 import { useQuery } from '@/components/dc/useQuery';
 import { useBusiness } from '@/components/dc/business';
 import { formatDuration, formatPeso, quoteHomeService } from '@/convex/lib/serviceQuote';
-
-const mono = "'Geist Mono', monospace";
-const serif = "'Noto Serif Display', serif";
-const ink = 'oklch(0.19 0.012 32)';
-const muted = 'oklch(0.44 0.012 34)';
-const soft = 'oklch(0.50 0.02 40)';
-const line = 'oklch(0.87 0.012 68)';
-const red = 'oklch(0.52 0.216 27)';
+import NotchHero from '@/components/dc/kit/NotchHero';
+import Field from '@/components/dc/kit/Field';
+import { CheckIcon } from '@/components/dc/kit/icons';
 
 const pad = (n: number) => String(n).padStart(2, '0');
 /** Today as YYYY-MM-DD in the visitor's local time (not UTC). */
@@ -33,10 +28,10 @@ const todayLocal = () => {
 const TIME_SLOTS = ['08:00', '09:00', '10:00', '11:00', '13:00', '14:00', '15:00', '16:00'];
 
 const STEPS = [
-  { n: '01', t: 'You tell us the job', b: 'Pick the service, your area and a day that suits you. You see the price before you send it.' },
-  { n: '02', t: 'We confirm by phone', b: 'We check the slot and confirm the final figure. Nothing is charged until the work is agreed.' },
-  { n: '03', t: 'We come to you', b: 'We bring our own equipment, treated water and test kit. Your floors stay dry.' },
-  { n: '04', t: 'We leave you a plan', b: 'Water readings, what we changed, and what to watch before the next visit.' },
+  { t: 'You tell us the job', b: 'Pick the service, your area and a day that suits you. You see the price before you send it.' },
+  { t: 'We confirm by phone', b: 'We check the slot and confirm the final figure. Nothing is charged until the work is agreed.' },
+  { t: 'We come to you', b: 'We bring our own equipment, treated water and test kit. Your floors stay dry.' },
+  { t: 'We leave you a plan', b: 'Water readings, what we changed, and what to watch before the next visit.' },
 ];
 
 export default function HomeServicePage() {
@@ -112,46 +107,88 @@ export default function HomeServicePage() {
   }
 
   const closed = catalog !== undefined && (!catalog.enabled || services.length === 0 || areas.length === 0);
+  const noMenu = catalog !== undefined && services.length === 0;
+
+  /** "Bookings paused" explanation + the one way to reach us. */
+  const closedCard = (
+    <div>
+      <p className="dk-eyebrow">Bookings paused</p>
+      <h2 className="dk-h3">Let&rsquo;s arrange it directly</h2>
+      <p className="dk-sub" style={{ fontSize: 15, lineHeight: '24px', marginTop: 8, color: 'var(--dk-n-600)' }}>
+        We&rsquo;re not taking online bookings at the moment, but we&rsquo;re still working. Send us a message with your tank size and where you
+        are, and we&rsquo;ll come back to you with a slot and a price.
+      </p>
+      {enquiry ? (
+        <a href={enquiry} target="_blank" rel="noopener" className="dk-btn dk-btn-red" style={{ marginTop: 20 }}>
+          Message us about a visit
+        </a>
+      ) : (
+        <Link href="/contact" className="dk-btn dk-btn-red" style={{ marginTop: 20 }}>
+          Contact us
+        </Link>
+      )}
+    </div>
+  );
 
   return (
-    <>
-      {/* HERO */}
-      <section style={{ background: 'oklch(0.972 0.008 78)', borderBottom: `1px solid oklch(0.86 0.012 68)` }}>
-        <div style={{ maxWidth: 1280, margin: '0 auto', padding: '60px 28px 56px' }}>
-          <div style={{ fontFamily: mono, fontSize: 11, letterSpacing: '0.24em', textTransform: 'uppercase', color: 'oklch(0.50 0.14 30)', marginBottom: 20 }}>We come to you</div>
-          <h1 style={{ fontFamily: serif, fontWeight: 800, fontSize: 'clamp(42px,6vw,84px)', lineHeight: 0.94, letterSpacing: '-0.02em', margin: '0 0 20px', color: ink }}>
-            Home <span style={{ fontStyle: 'italic', fontWeight: 600, color: red }}>service.</span>
-          </h1>
-          <p style={{ fontSize: 17.5, lineHeight: 1.6, maxWidth: 560, color: muted, margin: 0 }}>
-            Cleaning, maintenance, a new tank set up properly, or a second opinion on a fish that isn&rsquo;t right. We bring our own equipment and
-            treated water, and we tell you the price before we travel.
-          </p>
-        </div>
-      </section>
+    <div className="dk">
+      {/* HERO — the notch holds the booking call to action. With no service menu at all, it carries the whole
+          "Bookings paused" message instead, and the empty menu/form section below is skipped, so the page says it once. */}
+      <NotchHero
+        tone="light"
+        notchHeight={noMenu ? 250 : 150}
+        notchWide={noMenu}
+        notchLabel={closed ? 'Bookings paused' : 'Book a visit'}
+        notch={
+          noMenu ? (
+            closedCard
+          ) : closed ? (
+            <>
+              <p className="dk-eyebrow">Bookings paused</p>
+              {enquiry ? (
+                <a href={enquiry} target="_blank" rel="noopener" className="dk-btn dk-btn-red">
+                  Message us about a visit
+                </a>
+              ) : (
+                <Link href="/contact" className="dk-btn dk-btn-red">
+                  Contact us
+                </Link>
+              )}
+            </>
+          ) : (
+            <>
+              <p className="dk-eyebrow">Book a visit</p>
+              <p className="dk-small dk-muted">Nothing is charged now</p>
+              <a href="#hs-book" className="dk-btn dk-btn-red">
+                Request this visit
+              </a>
+            </>
+          )
+        }
+      >
+        <p className="dk-eyebrow">We come to you</p>
+        <h1 className="dk-h1">Home service.</h1>
+        <p className="dk-lede">
+          Cleaning, maintenance, a new tank set up properly, or a second opinion on a fish that isn&rsquo;t right. We bring our own equipment and
+          treated water, and we tell you the price before we travel.
+        </p>
+      </NotchHero>
 
       {/* SERVICES + FORM */}
-      <section style={{ background: 'oklch(0.955 0.010 74)', padding: '64px 0 76px' }}>
-        <div className="dc-split" style={{ maxWidth: 1280, margin: '0 auto', padding: '0 28px', display: 'grid', gridTemplateColumns: '1fr 0.95fr', gap: 40, alignItems: 'start' }}>
-
+      {!noMenu && (
+      <section className="dk-section">
+        <div className="dk-wrap dk-split even">
           {/* THE MENU */}
           <div>
-            <h2 style={{ fontFamily: serif, fontWeight: 700, fontSize: 'clamp(26px,3.2vw,36px)', letterSpacing: '-0.015em', margin: '0 0 8px', color: ink }}>What we can do</h2>
-            <p style={{ fontSize: 14.5, color: muted, margin: '0 0 24px' }}>
+            <h2 className="dk-h3" style={{ fontSize: 30 }}>What we can do</h2>
+            <p className="dk-muted" style={{ fontSize: 15, marginTop: 8, marginBottom: 24 }}>
               {catalog?.note || 'Pick a service to see the price. Travel is added by area.'}
             </p>
 
             {catalog === undefined ? (
-              <p style={{ fontSize: 14, color: soft, fontFamily: mono }}>Loading services…</p>
-            ) : services.length === 0 ? (
-              <div style={{ border: `1px solid ${line}`, borderRadius: 14, padding: 24, background: 'oklch(0.99 0.005 80)' }}>
-                <p style={{ margin: 0, fontSize: 14.5, color: muted }}>
-                  We&rsquo;re not taking home service bookings online just yet.{' '}
-                  {enquiry ? <a href={enquiry} target="_blank" rel="noopener" style={{ color: red, fontWeight: 600 }}>Message us</a> : <Link href="/contact" style={{ color: red, fontWeight: 600 }}>Contact us</Link>}{' '}
-                  and we&rsquo;ll sort it out directly.
-                </p>
-              </div>
+              <p role="status" className="dk-small dk-muted">Loading services…</p>
             ) : (
-              <div role="radiogroup" aria-label="Service" style={{ display: 'grid', gap: 12 }}>
+              <div role="radiogroup" aria-label="Service" className="dk-stack" style={{ gap: 12 }}>
                 {services.map((s) => {
                   const active = s._id === serviceId;
                   const duration = formatDuration(s.durationMinutes);
@@ -162,29 +199,27 @@ export default function HomeServicePage() {
                       role="radio"
                       aria-checked={active}
                       onClick={() => setServiceId(s._id)}
-                      style={{
-                        textAlign: 'left',
-                        background: active ? 'oklch(0.99 0.005 80)' : 'oklch(0.985 0.006 80)',
-                        border: `1px solid ${active ? red : line}`,
-                        boxShadow: active ? `0 0 0 1px ${red}, 0 18px 40px -34px oklch(0.30 0.03 40 / 0.6)` : 'none',
-                        borderRadius: 12,
-                        padding: '18px 20px',
-                        cursor: 'pointer',
-                        transition: 'border-color .18s, box-shadow .18s',
-                      }}
+                      className="dk-choice"
+                      style={{ textAlign: 'left', width: '100%', padding: '18px 20px' }}
                     >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14, alignItems: 'baseline' }}>
-                        <span style={{ fontFamily: serif, fontWeight: 700, fontSize: 18, color: ink }}>{s.name}</span>
-                        <span style={{ fontFamily: mono, fontSize: 14, fontWeight: 600, color: s.price === undefined ? soft : red, whiteSpace: 'nowrap' }}>
-                          {s.price === undefined ? 'Quoted' : formatPeso(s.price)}
+                      <span style={{ display: 'block', flex: 1, minWidth: 0 }}>
+                        <span className="dk-row between" style={{ alignItems: 'baseline', gap: 14 }}>
+                          <span className="dk-h4" style={{ fontFamily: 'var(--dk-f-display)', fontWeight: 800, fontSize: 18, letterSpacing: '-0.02em' }}>{s.name}</span>
+                          <span className="dk-mono" style={{ fontSize: 15, fontWeight: 700, whiteSpace: 'nowrap', color: s.price === undefined ? 'var(--dk-n-500)' : 'var(--dk-red)' }}>
+                            {s.price === undefined ? 'Quoted' : formatPeso(s.price)}
+                          </span>
                         </span>
-                      </div>
-                      {s.description && <p style={{ fontSize: 13.5, lineHeight: 1.6, color: muted, margin: '8px 0 0' }}>{s.description}</p>}
-                      {(duration || s.priceNote) && (
-                        <div style={{ fontFamily: mono, fontSize: 10.5, letterSpacing: '0.1em', textTransform: 'uppercase', color: soft, marginTop: 10 }}>
-                          {[duration && `about ${duration}`, s.priceNote].filter(Boolean).join(' · ')}
-                        </div>
-                      )}
+                        {s.description && (
+                          <span className="dk-small" style={{ display: 'block', color: 'var(--dk-n-600)', marginTop: 8, fontSize: 14, lineHeight: '22px' }}>
+                            {s.description}
+                          </span>
+                        )}
+                        {(duration || s.priceNote) && (
+                          <span className="dk-small dk-muted" style={{ display: 'block', marginTop: 10, fontSize: 12 }}>
+                            {[duration && `about ${duration}`, s.priceNote].filter(Boolean).join(' · ')}
+                          </span>
+                        )}
+                      </span>
                     </button>
                   );
                 })}
@@ -193,50 +228,31 @@ export default function HomeServicePage() {
           </div>
 
           {/* THE FORM */}
-          <div className="dc-sticky-md" style={{ position: 'sticky', top: 92, background: 'oklch(0.99 0.005 80)', border: `1px solid ${line}`, borderRadius: 14, padding: '30px 28px 26px', boxShadow: '0 30px 70px -50px oklch(0.30 0.03 40 / 0.5)' }}>
+          <div id="hs-book" className="dk-form-card dk-sticky" style={{ scrollMarginTop: 112 }}>
             {status === 'done' ? (
-              <div style={{ textAlign: 'center', padding: '22px 4px 14px' }}>
-                <div style={{ width: 54, height: 54, borderRadius: 999, margin: '0 auto 18px', background: 'oklch(0.52 0.13 150 / 0.14)', color: 'oklch(0.46 0.14 150)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 25 }}>✓</div>
-                <h2 style={{ fontFamily: serif, fontWeight: 700, fontSize: 26, margin: '0 0 10px', color: ink }}>Booking received</h2>
-                <p style={{ fontSize: 14.5, lineHeight: 1.6, color: muted, margin: '0 0 8px' }}>
+              <div className="dk-form-done" role="status">
+                <span className="dk-empty-icon" aria-hidden="true"><CheckIcon size={22} /></span>
+                <h2>Booking received</h2>
+                <p>
                   Thank you, {form.name.split(' ')[0] || 'friend'}. We&rsquo;ll call to confirm your slot and the final price before anyone travels.
                 </p>
-                <p style={{ fontFamily: mono, fontSize: 13, color: ink, margin: '0 0 20px' }}>
+                <p className="dk-mono" style={{ color: 'var(--dk-black)' }}>
                   Reference <b>{reference}</b>
                 </p>
-                <Link href={`/track?code=${reference}`} className="dc-btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: red, color: 'oklch(0.98 0.012 82)', fontSize: 14, fontWeight: 600, padding: '13px 22px', borderRadius: 999 }}>
+                <Link href={`/track?code=${reference}`} className="dk-btn dk-btn-red">
                   Track this booking
                 </Link>
               </div>
             ) : closed ? (
-              <div style={{ padding: '8px 0' }}>
-                <div style={{ fontFamily: mono, fontSize: 11, letterSpacing: '0.24em', textTransform: 'uppercase', color: 'oklch(0.50 0.14 30)', marginBottom: 12 }}>Bookings paused</div>
-                <h2 style={{ fontFamily: serif, fontWeight: 700, fontSize: 26, lineHeight: 1.1, margin: '0 0 10px', color: ink }}>Let&rsquo;s arrange it directly</h2>
-                <p style={{ fontSize: 14.5, lineHeight: 1.6, color: muted, margin: '0 0 22px' }}>
-                  We&rsquo;re not taking online bookings at the moment, but we&rsquo;re still working. Send us a message with your tank size and where you
-                  are, and we&rsquo;ll come back to you with a slot and a price.
-                </p>
-                {enquiry ? (
-                  <a href={enquiry} target="_blank" rel="noopener" className="dc-btn-primary" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%', boxSizing: 'border-box', background: red, color: 'oklch(0.98 0.012 82)', fontSize: 15, fontWeight: 600, padding: '15px 24px', borderRadius: 999 }}>
-                    Message us about a visit
-                  </a>
-                ) : (
-                  <Link href="/contact" className="dc-btn-primary" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%', boxSizing: 'border-box', background: red, color: 'oklch(0.98 0.012 82)', fontSize: 15, fontWeight: 600, padding: '15px 24px', borderRadius: 999 }}>
-                    Contact us
-                  </Link>
-                )}
-              </div>
+              closedCard
             ) : (
               <>
-                <div style={{ fontFamily: mono, fontSize: 11, letterSpacing: '0.24em', textTransform: 'uppercase', color: 'oklch(0.50 0.14 30)', marginBottom: 12 }}>Book a visit</div>
-                <h2 style={{ fontFamily: serif, fontWeight: 700, fontSize: 27, lineHeight: 1.08, letterSpacing: '-0.015em', margin: '0 0 22px', color: ink }}>
-                  {service ? service.name : 'Tell us where to come'}
-                </h2>
+                <p className="dk-eyebrow">Book a visit</p>
+                <h2>{service ? service.name : 'Tell us where to come'}</h2>
 
-                <div className="dc-cols-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-                  <div style={{ gridColumn: '1 / -1' }}>
-                    <label className="dc-lbl" htmlFor="hs-area">Your area</label>
-                    <select id="hs-area" className="dc-input" value={areaId} onChange={(e) => setAreaId(e.target.value)}>
+                <div className="dk-fgrid">
+                  <Field id="hs-area" label="Your area" required full hint={area?.note}>
+                    <select id="hs-area" className="dk-input" value={areaId} onChange={(e) => setAreaId(e.target.value)} aria-describedby={area?.note ? 'hs-area-msg' : undefined}>
                       <option value="">Choose your area…</option>
                       {areas.map((a) => (
                         <option key={a._id} value={a._id}>
@@ -244,89 +260,83 @@ export default function HomeServicePage() {
                         </option>
                       ))}
                     </select>
-                    {area?.note && <div style={{ fontSize: 11.5, marginTop: 6, color: soft }}>{area.note}</div>}
-                  </div>
-                  <div><label className="dc-lbl" htmlFor="hs-name">Your name</label><input id="hs-name" className="dc-input" type="text" autoComplete="name" placeholder="Juan dela Cruz" value={form.name} onChange={set('name')} /></div>
-                  <div><label className="dc-lbl" htmlFor="hs-phone">Phone</label><input id="hs-phone" className="dc-input" type="tel" autoComplete="tel" placeholder="+63 9__ ___ ____" value={form.phone} onChange={set('phone')} /></div>
-                  <div style={{ gridColumn: '1 / -1' }}><label className="dc-lbl" htmlFor="hs-email">Email</label><input id="hs-email" className="dc-input" type="email" autoComplete="email" placeholder="you@email.com" value={form.email} onChange={set('email')} /></div>
-                  <div style={{ gridColumn: '1 / -1' }}>
-                    <label className="dc-lbl" htmlFor="hs-address">Address</label>
-                    <textarea id="hs-address" className="dc-input" rows={2} autoComplete="street-address" placeholder="House no., street, barangay, city" value={form.address} onChange={set('address')} style={{ resize: 'vertical', minHeight: 62 }} />
-                  </div>
-                  <div>
-                    <label className="dc-lbl" htmlFor="hs-date">Preferred date</label>
-                    <input id="hs-date" className="dc-input" type="date" min={minDate || undefined} value={form.date} onChange={set('date')} />
-                  </div>
-                  <div>
-                    <label className="dc-lbl" htmlFor="hs-time">Preferred time</label>
-                    <select id="hs-time" className="dc-input" value={form.time} onChange={set('time')}>
+                  </Field>
+                  <Field id="hs-name" label="Your name" required>
+                    <input id="hs-name" className="dk-input" type="text" autoComplete="name" placeholder="Juan dela Cruz" value={form.name} onChange={set('name')} />
+                  </Field>
+                  <Field id="hs-phone" label="Phone" required>
+                    <input id="hs-phone" className="dk-input" type="tel" autoComplete="tel" placeholder="+63 9__ ___ ____" value={form.phone} onChange={set('phone')} />
+                  </Field>
+                  <Field id="hs-email" label="Email" required full>
+                    <input id="hs-email" className="dk-input" type="email" autoComplete="email" placeholder="you@email.com" value={form.email} onChange={set('email')} />
+                  </Field>
+                  <Field id="hs-address" label="Address" required full>
+                    <textarea id="hs-address" className="dk-ta" rows={2} autoComplete="street-address" placeholder="House no., street, barangay, city" value={form.address} onChange={set('address')} style={{ height: 'auto', minHeight: 72 }} />
+                  </Field>
+                  <Field id="hs-date" label="Preferred date" required>
+                    <input id="hs-date" className="dk-input" type="date" min={minDate || undefined} value={form.date} onChange={set('date')} />
+                  </Field>
+                  <Field id="hs-time" label="Preferred time">
+                    <select id="hs-time" className="dk-input" value={form.time} onChange={set('time')}>
                       {TIME_SLOTS.map((t) => <option key={t} value={t}>{t}</option>)}
                     </select>
-                  </div>
-                  <div style={{ gridColumn: '1 / -1' }}>
-                    <label className="dc-lbl" htmlFor="hs-tank">Tank size <span style={{ textTransform: 'none', letterSpacing: 0, color: soft }}>(optional)</span></label>
-                    <input id="hs-tank" className="dc-input" type="text" placeholder="e.g. 4ft × 2ft × 2ft, or 400 litres" value={form.tankSize} onChange={set('tankSize')} />
-                  </div>
-                  <div style={{ gridColumn: '1 / -1' }}>
-                    <label className="dc-lbl" htmlFor="hs-notes">Anything we should know? <span style={{ textTransform: 'none', letterSpacing: 0, color: soft }}>(optional)</span></label>
-                    <textarea id="hs-notes" className="dc-input" rows={3} placeholder="Gate code, parking, the fish has been off its food for a week…" value={form.notes} onChange={set('notes')} style={{ resize: 'vertical', minHeight: 74 }} />
-                  </div>
+                  </Field>
+                  <Field id="hs-tank" label="Tank size" optional="(optional)" full>
+                    <input id="hs-tank" className="dk-input" type="text" placeholder="e.g. 4ft × 2ft × 2ft, or 400 litres" value={form.tankSize} onChange={set('tankSize')} />
+                  </Field>
+                  <Field id="hs-notes" label="Anything we should know?" optional="(optional)" full>
+                    <textarea id="hs-notes" className="dk-ta" rows={3} placeholder="Gate code, parking, the fish has been off its food for a week…" value={form.notes} onChange={set('notes')} />
+                  </Field>
                 </div>
 
                 {/* Running total, computed with the same helper the server uses. */}
-                <div style={{ marginTop: 20, padding: '16px 18px', borderRadius: 12, background: 'oklch(0.965 0.009 76)', border: `1px solid oklch(0.90 0.012 70)`, display: 'grid', gap: 7, fontSize: 14 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ color: muted }}>{service?.name ?? 'Service'}</span>
-                    <span style={{ fontFamily: mono }}>{quote.servicePrice === undefined ? 'Quoted on inspection' : formatPeso(quote.servicePrice)}</span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ color: muted }}>Travel{area ? ` · ${area.name}` : ''}</span>
-                    <span style={{ fontFamily: mono }}>{!area ? '—' : quote.travelFee > 0 ? formatPeso(quote.travelFee) : 'Included'}</span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 8, borderTop: `1px solid oklch(0.90 0.012 70)`, fontWeight: 700, color: ink }}>
-                    <span>{quote.quoted ? 'Total' : 'Estimated total'}</span>
-                    <span style={{ fontFamily: mono }}>{quote.estimatedTotal === undefined ? 'After we see the tank' : formatPeso(quote.estimatedTotal)}</span>
+                <div className="dk-panel muted" style={{ marginTop: 24, padding: '18px 20px' }}>
+                  <div className="dk-summary">
+                    <div>
+                      <span>{service?.name ?? 'Service'}</span>
+                      <span className="dk-mono">{quote.servicePrice === undefined ? 'Quoted on inspection' : formatPeso(quote.servicePrice)}</span>
+                    </div>
+                    <div>
+                      <span>Travel{area ? ` · ${area.name}` : ''}</span>
+                      <span className="dk-mono">{!area ? '—' : quote.travelFee > 0 ? formatPeso(quote.travelFee) : 'Included'}</span>
+                    </div>
+                    <div className="total">
+                      <span>{quote.quoted ? 'Total' : 'Estimated total'}</span>
+                      <span className="dk-mono">{quote.estimatedTotal === undefined ? 'After we see the tank' : formatPeso(quote.estimatedTotal)}</span>
+                    </div>
                   </div>
                 </div>
 
-                {error && <div role="alert" style={{ marginTop: 14, fontSize: 13, color: 'oklch(0.50 0.20 27)', fontFamily: mono }}>{error}</div>}
+                {error && <p role="alert" className="dk-err" style={{ marginTop: 16 }}>{error}</p>}
 
-                <button
-                  type="button"
-                  onClick={submit}
-                  disabled={status === 'sending'}
-                  className="dc-btn-primary"
-                  style={{ marginTop: 18, width: '100%', boxSizing: 'border-box', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 10, background: red, color: 'oklch(0.98 0.012 82)', fontSize: 15, fontWeight: 600, padding: '16px 24px', borderRadius: 999, border: 'none', cursor: status === 'sending' ? 'default' : 'pointer', opacity: status === 'sending' ? 0.7 : 1, transition: '.2s', boxShadow: `0 16px 34px -16px oklch(0.52 0.216 27 / 0.7)` }}
-                >
+                <button type="button" onClick={submit} disabled={status === 'sending'} aria-busy={status === 'sending'} className="dk-btn dk-btn-red block" style={{ marginTop: 24 }}>
                   {status === 'sending' ? 'Sending…' : 'Request this visit'}
                 </button>
-                <div style={{ textAlign: 'center', fontFamily: mono, fontSize: 10.5, letterSpacing: '0.06em', color: soft, marginTop: 12 }}>
+                <p className="dk-form-note">
                   Nothing is charged now
-                  {enquiry && <> &middot; or{' '}<a href={enquiry} target="_blank" rel="noopener" style={{ color: red, fontWeight: 600 }}>message us instead</a></>}
-                </div>
+                  {enquiry && <> &middot; or{' '}<a href={enquiry} target="_blank" rel="noopener">message us instead</a></>}
+                </p>
               </>
             )}
           </div>
         </div>
       </section>
+      )}
 
-      {/* HOW IT WORKS */}
-      <section style={{ background: 'oklch(0.972 0.008 78)', borderTop: `1px solid oklch(0.86 0.012 68)`, padding: '68px 0 80px' }}>
-        <div style={{ maxWidth: 1280, margin: '0 auto', padding: '0 28px' }}>
-          <h2 style={{ fontFamily: serif, fontWeight: 700, fontSize: 'clamp(26px,3.4vw,40px)', letterSpacing: '-0.015em', margin: '0 0 36px', color: ink }}>
-            How a visit <span style={{ fontStyle: 'italic', color: red }}>works.</span>
-          </h2>
-          <div className="dc-cols-4" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 20 }}>
+      {/* HOW IT WORKS — a genuine sequence, so it stays an ordered list. */}
+      <section className="dk-section alt" aria-labelledby="hs-steps-title">
+        <div className="dk-steps" style={{ paddingTop: 0, paddingBottom: 0 }}>
+          <h2 id="hs-steps-title">How a visit works.</h2>
+          <ol>
             {STEPS.map((c) => (
-              <div key={c.n} style={{ padding: '26px 24px', border: `1px solid oklch(0.86 0.012 68)`, borderTop: `2px solid oklch(0.70 0.12 80)`, borderRadius: 8, background: 'oklch(0.985 0.006 80)' }}>
-                <div style={{ fontFamily: mono, fontSize: 12, color: red, marginBottom: 14 }}>{c.n}</div>
-                <div style={{ fontFamily: serif, fontWeight: 700, fontSize: 18, color: ink, marginBottom: 9 }}>{c.t}</div>
-                <p style={{ fontSize: 13, lineHeight: 1.6, color: muted, margin: 0 }}>{c.b}</p>
-              </div>
+              <li key={c.t}>
+                <h3>{c.t}</h3>
+                <p>{c.b}</p>
+              </li>
             ))}
-          </div>
+          </ol>
         </div>
       </section>
-    </>
+    </div>
   );
 }

@@ -1,16 +1,14 @@
 "use client";
 
 import { useEffect, useState, useMemo, useCallback } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
 import {
-  Search,
   Bell,
   Star,
   Zap,
   TrendingUp,
   Package,
-  ChevronRight,
   Crown,
   MapPin,
   CalendarCheck,
@@ -18,7 +16,6 @@ import {
   Droplet,
   Leaf,
   Box,
-  Loader2,
   Eye,
   RefreshCw,
   type LucideIcon,
@@ -29,12 +26,48 @@ import { Product } from "@/types";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-import Button from "@/components/ui/Button";
-import ProductCard from "@/components/ui/ProductCard";
 import ClientNotificationModal from "@/components/modal/ClientNotifModal";
-import ClientBottomNavbar from "@/components/client/ClientBottomNavbar";
 import { useToastHelpers } from "@/components/ui/ToastManager";
 import SafeAreaProvider from "@/components/provider/SafeAreaProvider";
+import MemberSidebar from "@/components/dc/kit/MemberSidebar";
+import MemberProductCard from "@/components/dc/kit/MemberProductCard";
+import Placeholder from "@/components/dc/kit/Placeholder";
+import { ChevronIcon, MenuIcon, SearchIcon } from "@/components/dc/kit/icons";
+
+/** Section heading row: title, optional status tag, and a "See All" text link. */
+function SectionHead({
+  title,
+  tag,
+  onSeeAll,
+}: {
+  title: string;
+  tag?: ReactNode;
+  onSeeAll?: () => void;
+}) {
+  return (
+    <div className="dk-row between" style={{ marginTop: 40, gap: 16 }}>
+      <div className="dk-row wrap" style={{ gap: 10, minWidth: 0 }}>
+        <h2 style={{ fontSize: 20 }}>{title}</h2>
+        {tag}
+      </div>
+      {onSeeAll && (
+        <button type="button" className="dk-btn dk-btn-text" onClick={onSeeAll} style={{ fontSize: 14, gap: 4, flex: "none" }}>
+          See All
+          <ChevronIcon />
+        </button>
+      )}
+    </div>
+  );
+}
+
+/** Placeholder card for a section that hasn't loaded yet (prompt or spinner text). */
+function SectionPrompt({ children, role }: { children: ReactNode; role?: string }) {
+  return (
+    <div className="dk-member-empty" role={role} style={{ padding: "36px 16px", marginTop: 40 }}>
+      {children}
+    </div>
+  );
+}
 
 function ClientDashboardContent() {
   const router = useRouter();
@@ -49,6 +82,8 @@ function ClientDashboardContent() {
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [isHydrated, setIsHydrated] = useState(false);
   const [hasShownReservationNotif, setHasShownReservationNotif] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const closeSidebar = useCallback(() => setSidebarOpen(false), []);
 
   // Lazy loading states
   const [loadedSections, setLoadedSections] = useState({
@@ -297,6 +332,11 @@ function ClientDashboardContent() {
   const deleteNotificationMutation = useMutation(api.services.notifications.deleteNotification);
   const clearAllNotificationsMutation = useMutation(api.services.notifications.clearAllNotifications);
 
+  // Other screens link here with ?notifications=1 to open the notifications panel (it only lives on this screen).
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).has("notifications")) setShowNotificationModal(true);
+  }, []);
+
   // Notification handlers
   const handleNotificationClick = () => {
     setShowNotificationModal(true);
@@ -341,50 +381,91 @@ function ClientDashboardContent() {
   // Show loading state while redirecting
   if (isRedirecting) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4 safe-area-container">
-        <div className="text-center">
-          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-white/60 text-sm">Redirecting...</p>
+      <div className="dk dk-member">
+        <div className="dk-member-empty" role="status" style={{ margin: 24 }}>
+          <p>Redirecting...</p>
         </div>
       </div>
     );
   }
 
-  return (
-    <div className="min-h-screen bg-background">
-      {/* Global styles for hiding scrollbar */}
-      <style jsx global>{`
-        .hide-scrollbar {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
-        }
-        .hide-scrollbar::-webkit-scrollbar {
-          display: none;
-        }
-      `}</style>
+  const categoryName = (id: string) => categoriesQuery.find((c) => c._id === id)?.name;
 
-      {/* Enhanced Fixed Header with Safe Area */}
-      <div className="fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-md border-b border-white/10 safe-area-top">
-        <div className="mx-3 px-3 sm:px-4 py-2.5 sm:py-3 safe-area-horizontal">
-          <div className="flex items-center justify-between max-w-7xl mx-auto">
-            <div className="flex items-center space-x-2 sm:space-x-3 flex-1 min-w-0">
-              <div className="w-8 h-8 sm:w-9 sm:h-9 bg-gradient-to-br from-primary to-orange-600 rounded-lg flex items-center justify-center flex-shrink-0 shadow-lg">
-                <span className="text-white font-bold text-xs sm:text-sm">CD</span>
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-[10px] sm:text-xs text-primary font-medium truncate">Welcome back!</p>
-                <p className="text-xs sm:text-sm font-bold text-white truncate">{displayName}</p>
+  const renderGrid = (products: typeof productsQuery) => (
+    <div className="dk-pgrid cols-4">
+      {products.map((product) => (
+        <MemberProductCard
+          key={product._id}
+          name={product.name}
+          image={product.image}
+          price={product.price}
+          originalPrice={product.originalPrice}
+          stock={product.stock}
+          category={categoryName(product.categoryId as string)}
+          cartQty={getItemById(product._id)?.quantity}
+          onOpen={() => handleProductClick(product as Product)}
+          onAdd={() => handleAddToCart(product as Product)}
+          onQty={(change) => handleQuantityChange(product as Product, change)}
+        />
+      ))}
+    </div>
+  );
+
+  const hasConfirmedReservation =
+    isHydrated &&
+    !!clientNotifications &&
+    clientNotifications.some(
+      (notif) =>
+        notif.type === "reservation" &&
+        notif.message.toLowerCase().includes("confirmed") &&
+        !notif.isRead,
+    );
+
+  const iconBox: CSSProperties = {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    display: "grid",
+    placeItems: "center",
+    border: "1.2px solid var(--dk-red)",
+    color: "var(--dk-red)",
+    flex: "none",
+  };
+
+  return (
+    <div className="dk dk-member">
+      <div className="dk-app">
+        <MemberSidebar id="sidebar" active="home" open={sidebarOpen} onClose={closeSidebar} />
+
+        <section className="dk-app-main">
+          <div className="dk-app-top">
+            <div className="dk-app-top-l">
+              <button
+                type="button"
+                className="dk-view-btn dk-app-menu"
+                onClick={() => setSidebarOpen(true)}
+                aria-label="Open menu"
+                aria-controls="sidebar"
+                aria-expanded={sidebarOpen}
+              >
+                <MenuIcon />
+              </button>
+              <div style={{ minWidth: 0 }}>
+                <p className="dk-eyebrow">Welcome back!</p>
+                <h1 style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{displayName}</h1>
               </div>
             </div>
-
-            <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+            <div className="dk-app-actions">
               <button
+                type="button"
+                className="dk-view-btn"
                 onClick={handleNotificationClick}
-                className="relative p-1.5 sm:p-2 rounded-lg sm:rounded-xl bg-secondary/60 border border-white/10 hover:bg-secondary/80 active:bg-secondary transition-colors"
+                aria-label="Notifications"
+                style={{ position: "relative", width: 40, height: 40, borderRadius: "50%" }}
               >
-                <Bell className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+                <Bell size={18} aria-hidden="true" />
                 {unreadNotificationCount > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 sm:-top-1 sm:-right-1 bg-error text-white text-[10px] sm:text-xs rounded-full min-w-[16px] sm:min-w-[18px] h-4 sm:h-[18px] flex items-center justify-center font-bold shadow-lg">
+                  <span className="dk-count" style={{ fontFamily: "var(--dk-f-body)" }}>
                     {unreadNotificationCount > 9 ? "9+" : unreadNotificationCount}
                   </span>
                 )}
@@ -392,96 +473,74 @@ function ClientDashboardContent() {
             </div>
           </div>
 
-          {/* Search Bar */}
-          <div className="mt-2 sm:mt-3 max-w-7xl mx-auto">
-            <button
-              onClick={() => router.push("/client/search")}
-              className="w-full flex items-center px-3 sm:px-4 py-2 sm:py-2.5 bg-secondary/60 border border-white/10 rounded-lg sm:rounded-xl text-left transition-colors hover:bg-secondary/80 active:bg-secondary"
-            >
-              <Search className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white/50 mr-2 sm:mr-3 flex-shrink-0" />
-              <span className="text-white/50 text-xs sm:text-sm truncate">Search for aquatic products...</span>
-            </button>
-          </div>
-        </div>
-      </div>
+          {/* Search bar (opens the search screen) */}
+          <button
+            type="button"
+            className="dk-search dk-app-search"
+            onClick={() => router.push("/client/search")}
+            style={{
+              width: "100%",
+              height: 48,
+              padding: "0 22px 0 52px",
+              borderRadius: "var(--dk-r-pill)",
+              border: "1px solid var(--dk-n-300)",
+              background: "var(--dk-white)",
+              color: "var(--dk-n-500)",
+              fontSize: 15,
+              textAlign: "left",
+            }}
+          >
+            <SearchIcon size={18} />
+            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              Search for aquatic products...
+            </span>
+          </button>
 
-      <div className="pt-[110px] sm:pt-[120px] pb-20 sm:pb-24 safe-area-horizontal">
-        {/* Reservation Status Banner */}
-        {isHydrated &&
-          clientNotifications &&
-          clientNotifications.some(
-            (notif) =>
-              notif.type === "reservation" &&
-              notif.message.toLowerCase().includes("confirmed") &&
-              !notif.isRead,
-          ) && (
-            <div className="px-3 sm:px-4 mb-3 sm:mb-4">
-              <div className="max-w-7xl mx-auto bg-gradient-to-r from-green-500/20 to-emerald-600/20 rounded-xl sm:rounded-2xl p-3 sm:p-4 border border-green-500/30">
-                <div className="flex items-start gap-2 sm:gap-3">
-                  <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-green-500/20 flex items-center justify-center flex-shrink-0">
-                    <CalendarCheck className="w-4 h-4 sm:w-5 sm:h-5 text-green-400" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-bold text-white text-sm sm:text-base mb-0.5 sm:mb-1">
-                      Reservation Confirmed!
-                    </h3>
-                    <p className="text-xs sm:text-sm text-white/80 mb-2 sm:mb-3 leading-relaxed">
-                      Your fish reservation has been confirmed and is ready for pickup. Visit our store to collect your order.
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      <Button
-                        onClick={() => router.push("/client/reservations")}
-                        size="sm"
-                        className="bg-green-500 hover:bg-green-600 text-xs sm:text-sm h-8 sm:h-9"
-                      >
-                        View Details
-                      </Button>
-                      <Button
-                        onClick={handleNotificationClick}
-                        size="sm"
-                        variant="outline"
-                        className="border-green-500/30 text-green-400 hover:bg-green-500/10 text-xs sm:text-sm h-8 sm:h-9"
-                      >
-                        <Bell className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
-                        Notifications
-                      </Button>
-                    </div>
-                  </div>
+          {/* Reservation Status Banner */}
+          {hasConfirmedReservation && (
+            <div className="dk-panel" style={{ marginTop: 24, display: "flex", gap: 16, alignItems: "flex-start" }}>
+              <span style={iconBox} aria-hidden="true">
+                <CalendarCheck size={18} />
+              </span>
+              <div style={{ minWidth: 0 }}>
+                <h3 className="dk-h4">Reservation Confirmed!</h3>
+                <p className="dk-muted" style={{ fontSize: 14, lineHeight: "22px", marginTop: 4 }}>
+                  Your fish reservation has been confirmed and is ready for pickup. Visit our store to collect your order.
+                </p>
+                <div className="dk-actions" style={{ marginTop: 14 }}>
+                  <button type="button" className="dk-btn dk-btn-red sm" onClick={() => router.push("/client/reservations")}>
+                    View Details
+                  </button>
+                  <button type="button" className="dk-btn dk-btn-outline-dark sm" onClick={handleNotificationClick}>
+                    <Bell size={16} aria-hidden="true" />
+                    Notifications
+                  </button>
                 </div>
               </div>
             </div>
           )}
 
-        {/* Hero Banner */}
-        <div className="px-3 sm:px-4 mb-3 sm:mb-4">
-          <div className="relative h-28 sm:h-32 md:h-40 rounded-xl sm:rounded-2xl overflow-hidden max-w-7xl mx-auto shadow-xl">
-            <Image
-              src={banners[currentBannerIndex].src}
-              alt={banners[currentBannerIndex].alt}
-              fill
-              priority
-              className="object-cover"
-              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 80vw, 1200px"
-            />
+          {/* Hero Banner — the promo artwork carries its own headline, so it is shown whole (never cropped) in a plain
+              frame; tapping it opens search as before. */}
+          <div className="dk-dash-banner">
             <button
-              aria-label="Open search"
+              type="button"
+              className="dk-dash-banner-img"
               onClick={() => router.push("/client/search")}
-              className="absolute inset-0"
-            />
+              aria-label={`${banners[currentBannerIndex].alt} — open search`}
+            >
+              {/* Blurred copy of the art fills the wide strip; the artwork itself sits whole on top, never cropped. */}
+              <span className="dk-dash-banner-bg" style={{ backgroundImage: `url(${banners[currentBannerIndex].src})` }} aria-hidden="true" />
+              <Placeholder src={banners[currentBannerIndex].src} alt="" onDark contain />
+            </button>
 
             {/* Banner indicators */}
-            <div
-              className="absolute bottom-2 sm:bottom-3 left-1/2 transform -translate-x-1/2 flex space-x-1.5 sm:space-x-2"
-              role="tablist"
-              aria-label="Banner navigation"
-            >
+            <div role="tablist" aria-label="Banner navigation" className="dk-dash-dots">
               {banners.map((_, index) => (
                 <button
                   key={index}
+                  type="button"
                   onClick={() => setCurrentBannerIndex(index)}
-                  className={`w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full transition-all focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-1 focus:ring-offset-transparent ${
-                    index === currentBannerIndex ? "bg-white w-6 sm:w-8" : "bg-white/40"
-                  }`}
                   role="tab"
                   aria-selected={index === currentBannerIndex}
                   aria-label={`Go to banner ${index + 1}`}
@@ -489,357 +548,185 @@ function ClientDashboardContent() {
               ))}
             </div>
           </div>
-        </div>
 
-        {/* Service Features */}
-        <div className="px-3 sm:px-4 mb-4 sm:mb-6">
-          <div className="grid grid-cols-3 gap-2 sm:gap-3 md:gap-4 max-w-7xl mx-auto">
+          {/* Service Features */}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(96px, 1fr))",
+              gap: 12,
+              marginTop: 24,
+            }}
+          >
             {[
-              { icon: CalendarCheck, text: "Easy Reservations", color: "text-blue-400" },
-              { icon: MapPin, text: "In-Store Pickup", color: "text-green-400" },
-              { icon: Crown, text: "Premium Quality", color: "text-yellow-400" },
+              { icon: CalendarCheck, text: "Easy Reservations" },
+              { icon: MapPin, text: "In-Store Pickup" },
+              { icon: Crown, text: "Premium Quality" },
             ].map((feature, index) => (
               <div
                 key={index}
-                className="bg-secondary/40 backdrop-blur-sm rounded-lg sm:rounded-xl p-2.5 sm:p-3 md:p-4 text-center border border-white/5 hover:bg-secondary/60 transition-colors"
+                className="dk-panel"
+                style={{ padding: "16px 12px", display: "flex", flexDirection: "column", alignItems: "center", gap: 10, textAlign: "center" }}
               >
-                <feature.icon className={`w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 mx-auto mb-1 sm:mb-1.5 ${feature.color}`} />
-                <p className="text-[10px] sm:text-xs md:text-sm text-white/70 font-medium leading-tight">
-                  {feature.text}
-                </p>
+                <span style={iconBox} aria-hidden="true">
+                  <feature.icon size={18} />
+                </span>
+                <p style={{ fontSize: 14, fontWeight: 700, lineHeight: 1.3 }}>{feature.text}</p>
               </div>
             ))}
           </div>
-        </div>
 
-        {/* Categories */}
-        <div className="px-3 sm:px-4 mb-4 sm:mb-6">
-          <div className="max-w-7xl mx-auto">
-            <div className="flex items-center justify-between mb-2 sm:mb-3">
-              <h3 className="font-bold text-white text-sm sm:text-base">Categories</h3>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => router.push("/client/categories")}
-                className="text-primary text-xs sm:text-sm h-7 sm:h-8 px-2 sm:px-3"
+          {/* Categories */}
+          <SectionHead title="Categories" onSeeAll={() => router.push("/client/categories")} />
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))",
+              gap: 12,
+              marginTop: 16,
+            }}
+          >
+            {featuredCategories.map((category) => (
+              <button
+                key={category.key}
+                type="button"
+                className="dk-chip"
+                onClick={() => setSelectedCategory(category.key)}
+                aria-label={`Filter by ${category.name}`}
+                aria-pressed={selectedCategory === category.key}
+                style={{
+                  height: 56,
+                  width: "100%",
+                  borderRadius: "var(--dk-r-card)",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  padding: "0 16px",
+                  fontWeight: 700,
+                  minWidth: 0,
+                }}
               >
-                See All
-                <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4 ml-0.5" />
-              </Button>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2 sm:gap-2.5 md:gap-3">
-              {featuredCategories.map((category, index) => {
-                const colorOptions = [
-                  "from-amber-600 to-orange-700 shadow-amber-600/20",
-                  "from-slate-600 to-slate-700 shadow-slate-600/20",
-                  "from-stone-600 to-gray-700 shadow-stone-600/20",
-                  "from-teal-700 to-green-800 shadow-teal-700/20",
-                ];
-                const colorClass = colorOptions[index % colorOptions.length];
-
-                return (
-                  <button
-                    key={category.key}
-                    onClick={() => setSelectedCategory(category.key)}
-                    className={`group relative overflow-hidden focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background rounded-lg sm:rounded-xl ${
-                      selectedCategory === category.key
-                        ? "ring-2 ring-primary ring-offset-2 ring-offset-background"
-                        : ""
-                    }`}
-                    aria-label={`Filter by ${category.name}`}
-                    aria-pressed={selectedCategory === category.key}
-                  >
-                    <div
-                      className={`w-full h-14 sm:h-16 md:h-18 rounded-lg sm:rounded-xl bg-gradient-to-r ${colorClass} shadow-lg hover:shadow-xl transition-all duration-300 group-hover:scale-[1.02] active:scale-[0.98]`}
-                    >
-                      <div className="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition-colors" />
-                      <div className="h-full flex items-center px-2.5 sm:px-3 md:px-4 space-x-2 sm:space-x-2.5 md:space-x-3 relative z-10">
-                        <div className="p-1 sm:p-1.5 bg-white/15 rounded-md backdrop-blur-sm border border-white/10 flex-shrink-0">
-                          <category.icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white/90" />
-                        </div>
-                        <div className="flex-1 text-left min-w-0">
-                          <span className="text-xs sm:text-sm font-medium text-white/90 block leading-tight truncate">
-                            {category.name}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
+                <category.icon size={18} aria-hidden="true" style={{ flex: "none" }} />
+                <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{category.name}</span>
+              </button>
+            ))}
           </div>
-        </div>
 
-        {/* Limited Stocks Section */}
-        {productSections.limitedStock.length > 0 && (
-          <div className="mb-4 sm:mb-6">
-            <div className="px-3 sm:px-4 mb-2 sm:mb-3">
-              <div className="flex items-center justify-between max-w-7xl mx-auto">
-                <div className="flex items-center space-x-1.5 sm:space-x-2 flex-1 min-w-0">
-                  <div className="flex items-center space-x-1 sm:space-x-1.5 flex-shrink-0">
-                    <Package className="w-4 h-4 sm:w-5 sm:h-5 text-orange-500" />
-                    <h3 className="font-bold text-white text-sm sm:text-base">Limited Stocks</h3>
-                  </div>
-                  <div className="flex items-center space-x-1 bg-orange-500/20 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full flex-shrink-0">
-                    <span className="text-[10px] sm:text-xs text-orange-400 font-medium whitespace-nowrap">Running Out</span>
-                  </div>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => router.push("/client/search")}
-                  className="text-primary text-xs sm:text-sm h-7 sm:h-8 px-2 sm:px-3 flex-shrink-0"
-                >
-                  <span className="hidden sm:inline">See All</span>
-                  <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4 sm:ml-0.5" />
-                </Button>
-              </div>
-            </div>
+          {/* Limited Stocks Section */}
+          {productSections.limitedStock.length > 0 && (
+            <>
+              <SectionHead
+                title="Limited Stocks"
+                tag={<span className="dk-status red">Running Out</span>}
+                onSeeAll={() => router.push("/client/search")}
+              />
+              {renderGrid(productSections.limitedStock)}
+            </>
+          )}
 
-            <div className="overflow-x-auto hide-scrollbar">
-              <div className="flex space-x-2 sm:space-x-3 px-3 sm:px-4">
-                {productSections.limitedStock.map((product) => (
-                  <div key={product._id} className="min-w-[140px] max-w-[140px] sm:min-w-[160px] sm:max-w-[160px]">
-                    <ProductCard
-                      product={product}
-                      cartItem={getItemById(product._id)}
-                      viewMode="grid"
-                      onAddToCart={handleAddToCart}
-                      onQuantityChange={handleQuantityChange}
-                      onClick={handleProductClick}
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* New Arrivals - Lazy loaded */}
-        {loadedSections.newArrivals ? (
-          productSections.newArrivals.length > 0 && (
-            <div className="mb-4 sm:mb-6">
-              <div className="px-3 sm:px-4 mb-2 sm:mb-3">
-                <div className="flex items-center justify-between max-w-7xl mx-auto">
-                  <div className="flex items-center space-x-1.5 sm:space-x-2 flex-1 min-w-0">
-                    <Zap className="w-4 h-4 sm:w-5 sm:h-5 text-blue-500 flex-shrink-0" />
-                    <h3 className="font-bold text-white text-sm sm:text-base truncate">New Arrivals</h3>
-                    <div className="bg-blue-500/20 px-1.5 sm:px-2 py-0.5 rounded-full flex-shrink-0">
-                      <span className="text-[10px] sm:text-xs text-blue-400 font-medium whitespace-nowrap">Fresh Stock!</span>
-                    </div>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => router.push("/client/search?sort=newest")}
-                    className="text-primary text-xs sm:text-sm h-7 sm:h-8 px-2 sm:px-3 flex-shrink-0"
-                  >
-                    <span className="hidden sm:inline">See All</span>
-                    <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4 sm:ml-0.5" />
-                  </Button>
-                </div>
-              </div>
-
-              <div className="px-3 sm:px-4">
-                <div className="grid grid-cols-2 gap-2 sm:gap-3 max-w-7xl mx-auto">
-                  {productSections.newArrivals.slice(0, 4).map((product) => (
-                    <ProductCard
-                      key={product._id}
-                      product={product}
-                      cartItem={getItemById(product._id)}
-                      viewMode="grid"
-                      onAddToCart={handleAddToCart}
-                      onQuantityChange={handleQuantityChange}
-                      onClick={handleProductClick}
-                    />
-                  ))}
-                </div>
-              </div>
-            </div>
-          )
-        ) : isLoadingSection === "newArrivals" ? (
-          <div className="mb-4 sm:mb-6 px-3 sm:px-4">
-            <div className="bg-secondary/30 rounded-xl sm:rounded-2xl p-6 sm:p-8 text-center max-w-7xl mx-auto">
-              <Loader2 className="w-6 h-6 sm:w-8 sm:h-8 text-primary mx-auto mb-2 sm:mb-3 animate-spin" />
-              <p className="text-white/60 text-xs sm:text-sm">Loading new arrivals...</p>
-            </div>
-          </div>
-        ) : (
-          <div className="mb-4 sm:mb-6 px-3 sm:px-4">
-            <div className="bg-secondary/30 rounded-xl sm:rounded-2xl p-4 sm:p-6 text-center max-w-7xl mx-auto">
-              <Eye className="w-6 h-6 sm:w-8 sm:h-8 text-white/40 mx-auto mb-2 sm:mb-3" />
-              <p className="text-white/60 text-xs sm:text-sm mb-2 sm:mb-3">Discover fresh arrivals</p>
-              <Button
-                onClick={() => loadSection("newArrivals")}
-                size="sm"
-                className="bg-blue-500/20 border border-blue-500/30 text-blue-400 hover:bg-blue-500/30 text-xs sm:text-sm h-8 sm:h-9"
-              >
-                <Zap className="w-3 h-3 sm:w-4 sm:h-4 mr-1.5 sm:mr-2" />
-                Load New Arrivals
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {/* Top Rated - Lazy loaded */}
-        {loadedSections.topRated ? (
-          productSections.topRated.length > 0 && (
-            <div className="mb-4 sm:mb-6">
-              <div className="px-3 sm:px-4 mb-2 sm:mb-3">
-                <div className="flex items-center justify-between max-w-7xl mx-auto">
-                  <div className="flex items-center space-x-1.5 sm:space-x-2 flex-1 min-w-0">
-                    <Star className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-500 flex-shrink-0" />
-                    <h3 className="font-bold text-white text-sm sm:text-base truncate">Top Rated</h3>
-                    <div className="bg-yellow-500/20 px-1.5 sm:px-2 py-0.5 rounded-full flex-shrink-0">
-                      <span className="text-[10px] sm:text-xs text-yellow-400 font-medium whitespace-nowrap">Most Reserved</span>
-                    </div>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => router.push("/client/search?sort=rating")}
-                    className="text-primary text-xs sm:text-sm h-7 sm:h-8 px-2 sm:px-3 flex-shrink-0"
-                  >
-                    <span className="hidden sm:inline">See All</span>
-                    <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4 sm:ml-0.5" />
-                  </Button>
-                </div>
-              </div>
-
-              <div className="overflow-x-auto hide-scrollbar">
-                <div className="flex space-x-2 sm:space-x-3 px-3 sm:px-4">
-                  {productSections.topRated.slice(0, 6).map((product) => (
-                    <div key={product._id} className="min-w-[140px] max-w-[140px] sm:min-w-[160px] sm:max-w-[160px]">
-                      <ProductCard
-                        product={product}
-                        cartItem={getItemById(product._id)}
-                        viewMode="grid"
-                        onAddToCart={handleAddToCart}
-                        onQuantityChange={handleQuantityChange}
-                        onClick={handleProductClick}
-                      />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )
-        ) : isLoadingSection === "topRated" ? (
-          <div className="mb-4 sm:mb-6 px-3 sm:px-4">
-            <div className="bg-secondary/30 rounded-xl sm:rounded-2xl p-6 sm:p-8 text-center max-w-7xl mx-auto">
-              <Loader2 className="w-6 h-6 sm:w-8 sm:h-8 text-primary mx-auto mb-2 sm:mb-3 animate-spin" />
-              <p className="text-white/60 text-xs sm:text-sm">Loading top rated products...</p>
-            </div>
-          </div>
-        ) : (
-          <div className="mb-4 sm:mb-6 px-3 sm:px-4">
-            <div className="bg-secondary/30 rounded-xl sm:rounded-2xl p-4 sm:p-6 text-center max-w-7xl mx-auto">
-              <Star className="w-6 h-6 sm:w-8 sm:h-8 text-white/40 mx-auto mb-2 sm:mb-3" />
-              <p className="text-white/60 text-xs sm:text-sm mb-2 sm:mb-3">Explore our best sellers</p>
-              <Button
-                onClick={() => loadSection("topRated")}
-                size="sm"
-                className="bg-yellow-500/20 border border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/30 text-xs sm:text-sm h-8 sm:h-9"
-              >
-                <Star className="w-3 h-3 sm:w-4 sm:h-4 mr-1.5 sm:mr-2" />
-                Load Top Rated
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {/* Guest CTA */}
-        {isGuest && (
-          <div className="px-3 sm:px-4 mb-4 sm:mb-6">
-            <div className="max-w-7xl mx-auto bg-gradient-to-r from-primary/20 to-orange-600/20 rounded-xl sm:rounded-2xl p-3 sm:p-4 border border-primary/20">
-              <div className="flex items-start sm:items-center justify-between gap-3 flex-col sm:flex-row">
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-bold text-white text-sm sm:text-base mb-0.5 sm:mb-1">Join Dragon Cave!</h3>
-                  <p className="text-xs sm:text-sm text-white/70 leading-relaxed">
-                    Create an account to save favorites, track orders, and get exclusive deals!
-                  </p>
-                </div>
-                <Button
-                  onClick={() => router.push("/auth/register")}
-                  size="sm"
-                  className="bg-primary/90 hover:bg-primary w-full sm:w-auto text-xs sm:text-sm h-8 sm:h-9"
-                >
-                  Sign Up
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Featured Section - Lazy loaded (if authenticated) */}
-        {isAuthenticated &&
-          (loadedSections.featured ? (
-            productSections.featured.length > 0 && (
-              <div className="mb-4 sm:mb-6">
-                <div className="px-3 sm:px-4 mb-2 sm:mb-3">
-                  <div className="flex items-center justify-between max-w-7xl mx-auto">
-                    <div className="flex items-center space-x-1.5 sm:space-x-2 flex-1 min-w-0">
-                      <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-primary flex-shrink-0" />
-                      <h3 className="font-bold text-white text-sm sm:text-base truncate">Recommended for You</h3>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => router.push("/client/search")}
-                      className="text-primary text-xs sm:text-sm h-7 sm:h-8 px-2 sm:px-3 flex-shrink-0"
-                    >
-                      <span className="hidden sm:inline">See All</span>
-                      <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4 sm:ml-0.5" />
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="px-3 sm:px-4">
-                  <div className="grid grid-cols-2 gap-2 sm:gap-3 max-w-7xl mx-auto">
-                    {productSections.featured.slice(0, 4).map((product) => (
-                      <ProductCard
-                        key={product._id}
-                        product={product}
-                        cartItem={getItemById(product._id)}
-                        viewMode="grid"
-                        onAddToCart={handleAddToCart}
-                        onQuantityChange={handleQuantityChange}
-                        onClick={handleProductClick}
-                      />
-                    ))}
-                  </div>
-                </div>
-              </div>
+          {/* New Arrivals - Lazy loaded */}
+          {loadedSections.newArrivals ? (
+            productSections.newArrivals.length > 0 && (
+              <>
+                <SectionHead
+                  title="New Arrivals"
+                  tag={<span className="dk-status pale">Fresh Stock!</span>}
+                  onSeeAll={() => router.push("/client/search?sort=newest")}
+                />
+                {renderGrid(productSections.newArrivals.slice(0, 4))}
+              </>
             )
-          ) : isLoadingSection === "featured" ? (
-            <div className="mb-4 sm:mb-6 px-3 sm:px-4">
-              <div className="bg-secondary/30 rounded-xl sm:rounded-2xl p-6 sm:p-8 text-center max-w-7xl mx-auto">
-                <Loader2 className="w-6 h-6 sm:w-8 sm:h-8 text-primary mx-auto mb-2 sm:mb-3 animate-spin" />
-                <p className="text-white/60 text-xs sm:text-sm">Loading your recommendations...</p>
-              </div>
-            </div>
+          ) : isLoadingSection === "newArrivals" ? (
+            <SectionPrompt role="status">
+              <p>Loading new arrivals...</p>
+            </SectionPrompt>
           ) : (
-            <div className="mb-4 sm:mb-6 px-3 sm:px-4">
-              <div className="bg-secondary/30 rounded-xl sm:rounded-2xl p-4 sm:p-6 text-center max-w-7xl mx-auto">
-                <TrendingUp className="w-6 h-6 sm:w-8 sm:h-8 text-white/40 mx-auto mb-2 sm:mb-3" />
-                <p className="text-white/60 text-xs sm:text-sm mb-2 sm:mb-3">Discover products picked just for you</p>
-                <Button
-                  onClick={() => loadSection("featured")}
-                  size="sm"
-                  className="bg-primary/20 border border-primary/30 text-primary hover:bg-primary/30 text-xs sm:text-sm h-8 sm:h-9"
-                >
-                  <TrendingUp className="w-3 h-3 sm:w-4 sm:h-4 mr-1.5 sm:mr-2" />
-                  Load Recommendations
-                </Button>
+            <SectionPrompt>
+              <Eye size={24} aria-hidden="true" style={{ display: "block", color: "var(--dk-n-400)", margin: "0 auto 10px" }} />
+              <p style={{ margin: "0 auto" }}>Discover fresh arrivals</p>
+              <div className="dk-row">
+                <button type="button" className="dk-btn dk-btn-outline-dark sm" onClick={() => loadSection("newArrivals")}>
+                  <Zap size={16} aria-hidden="true" />
+                  Load New Arrivals
+                </button>
               </div>
-            </div>
-          ))}
-      </div>
+            </SectionPrompt>
+          )}
 
-      {/* Client Bottom Navigation */}
-      <ClientBottomNavbar />
+          {/* Top Rated - Lazy loaded */}
+          {loadedSections.topRated ? (
+            productSections.topRated.length > 0 && (
+              <>
+                <SectionHead
+                  title="Top Rated"
+                  tag={<span className="dk-status black">Most Reserved</span>}
+                  onSeeAll={() => router.push("/client/search?sort=rating")}
+                />
+                {renderGrid(productSections.topRated.slice(0, 6))}
+              </>
+            )
+          ) : isLoadingSection === "topRated" ? (
+            <SectionPrompt role="status">
+              <p>Loading top rated products...</p>
+            </SectionPrompt>
+          ) : (
+            <SectionPrompt>
+              <Star size={24} aria-hidden="true" style={{ display: "block", color: "var(--dk-n-400)", margin: "0 auto 10px" }} />
+              <p style={{ margin: "0 auto" }}>Explore our best sellers</p>
+              <div className="dk-row">
+                <button type="button" className="dk-btn dk-btn-outline-dark sm" onClick={() => loadSection("topRated")}>
+                  <Star size={16} aria-hidden="true" />
+                  Load Top Rated
+                </button>
+              </div>
+            </SectionPrompt>
+          )}
+
+          {/* Guest CTA */}
+          {isGuest && (
+            <div
+              className="dk-panel dark"
+              style={{ marginTop: 40, display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 16 }}
+            >
+              <div style={{ minWidth: 0, flex: "1 1 260px" }}>
+                <h3 className="dk-h4">Join Dragon Cave!</h3>
+                <p style={{ fontSize: 14, lineHeight: "22px", color: "var(--dk-n-400)", marginTop: 4 }}>
+                  Create an account to save favorites, track orders, and get exclusive deals!
+                </p>
+              </div>
+              <button type="button" className="dk-btn dk-btn-red sm" onClick={() => router.push("/auth/register")}>
+                Sign Up
+              </button>
+            </div>
+          )}
+
+          {/* Featured Section - Lazy loaded (if authenticated) */}
+          {isAuthenticated &&
+            (loadedSections.featured ? (
+              productSections.featured.length > 0 && (
+                <>
+                  <SectionHead title="Recommended for You" onSeeAll={() => router.push("/client/search")} />
+                  {renderGrid(productSections.featured.slice(0, 4))}
+                </>
+              )
+            ) : isLoadingSection === "featured" ? (
+              <SectionPrompt role="status">
+                <p>Loading your recommendations...</p>
+              </SectionPrompt>
+            ) : (
+              <SectionPrompt>
+                <TrendingUp size={24} aria-hidden="true" style={{ display: "block", color: "var(--dk-n-400)", margin: "0 auto 10px" }} />
+                <p style={{ margin: "0 auto" }}>Discover products picked just for you</p>
+                <div className="dk-row">
+                  <button type="button" className="dk-btn dk-btn-outline-dark sm" onClick={() => loadSection("featured")}>
+                    <TrendingUp size={16} aria-hidden="true" />
+                    Load Recommendations
+                  </button>
+                </div>
+              </SectionPrompt>
+            ))}
+        </section>
+      </div>
 
       {/* Client Notification Modal */}
       <ClientNotificationModal

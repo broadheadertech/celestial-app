@@ -1,30 +1,21 @@
 'use client';
 
-import { useState, useMemo, useEffect, useRef, Suspense } from 'react';
+import { useState, useMemo, useEffect, useRef, Suspense, useCallback } from 'react';
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import {
-  ArrowLeft,
-  Search,
-  Grid,
-  List,
-  SlidersHorizontal,
-  Sparkles,
-  Loader2,
-  ChevronLeft,
-  ChevronRight,
-  ChevronsLeft,
-  ChevronsRight,
-  X
-} from 'lucide-react';
 import { useCartStore } from '@/store/cart';
 import { useAuthStore, useIsAuthenticated } from '@/store/auth';
-import { useQuery } from 'convex/react';
+import { useMutation, useQuery } from 'convex/react';
 import { api } from '@/convex/_generated/api';
-import Button from '@/components/ui/Button';
-import ProductCard from '@/components/ui/ProductCard';
-import ClientBottomNavbar from '@/components/client/ClientBottomNavbar';
+import type { Id } from '@/convex/_generated/dataModel';
 import { Product } from '@/types';
 import SafeAreaProvider from '@/components/provider/SafeAreaProvider';
+import MemberSidebar from '@/components/dc/kit/MemberSidebar';
+import MemberProductCard from '@/components/dc/kit/MemberProductCard';
+import SearchField from '@/components/dc/kit/SearchField';
+import { CaretIcon, ChevronIcon, GridIcon, ListIcon, MenuIcon } from '@/components/dc/kit/icons';
+
+const peso = (n: number) => '₱' + Math.round(n || 0).toLocaleString('en-PH');
 
 function SearchContent() {
   const router = useRouter();
@@ -39,9 +30,15 @@ function SearchContent() {
   const [selectedCategory, setSelectedCategory] = useState(searchParams?.get('category') || 'all');
   const [sortBy, setSortBy] = useState('default');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [showFilters, setShowFilters] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  // Phones/tablets: the filters panel is folded away behind a toggle so products show first.
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  // Filters card: price range (null = full range) and availability. Defaults show everything.
+  const [priceRange, setPriceRange] = useState<[number, number] | null>(null);
+  const [showInStock, setShowInStock] = useState(true);
+  const [showSoldOut, setShowSoldOut] = useState(true);
 
   const PRODUCTS_PER_PAGE = 15;
   const topRef = useRef<HTMLDivElement>(null);
@@ -57,6 +54,23 @@ function SearchContent() {
     { isActive: true }
   );
   const categoriesQuery = useMemo(() => categoriesData ?? [], [categoriesData]);
+
+  // Wishlist hearts (signed-in customers only)
+  const wishlist = useQuery(
+    api.services.wishlist.getWishlist,
+    isAuthenticated && user?._id ? { userId: user._id as Id<'users'> } : 'skip',
+  );
+  const toggleWishlist = useMutation(api.services.wishlist.toggleWishlist);
+  const savedIds = useMemo(
+    () => new Set((wishlist ?? []).map((w) => String(w.productId))),
+    [wishlist],
+  );
+
+  const priceCeiling = useMemo(
+    () => Math.max(100, Math.ceil(Math.max(0, ...productsQuery.map((p) => p.price)) / 100) * 100),
+    [productsQuery],
+  );
+  const [minPrice, maxPrice] = priceRange ?? [0, priceCeiling];
 
   const filteredProducts = useMemo(() => {
     let filtered = productsQuery;
@@ -77,6 +91,14 @@ function SearchContent() {
       });
     }
 
+    // Filter by price range and availability (only when narrowed from the defaults)
+    if (priceRange) {
+      filtered = filtered.filter(product => product.price >= priceRange[0] && product.price <= priceRange[1]);
+    }
+    if (!showInStock || !showSoldOut) {
+      filtered = filtered.filter(product => (product.stock > 0 ? showInStock : showSoldOut));
+    }
+
     // Sort products
     switch (sortBy) {
       case 'price-low':
@@ -94,7 +116,7 @@ function SearchContent() {
     }
 
     return filtered;
-  }, [productsQuery, categoriesQuery, searchQuery, selectedCategory, sortBy]);
+  }, [productsQuery, categoriesQuery, searchQuery, selectedCategory, sortBy, priceRange, showInStock, showSoldOut]);
 
   // Pagination logic
   const totalPages = Math.ceil(filteredProducts.length / PRODUCTS_PER_PAGE);
@@ -105,12 +127,21 @@ function SearchContent() {
   // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, selectedCategory, sortBy]);
+  }, [searchQuery, selectedCategory, sortBy, priceRange, showInStock, showSoldOut]);
 
   // Redirect admins and super_admins to their respective dashboards
   useEffect(() => {
     if (isStaff) router.push('/admin/dashboard');
   }, [isStaff, router]);
+
+  const closeSidebar = useCallback(() => setSidebarOpen(false), []);
+
+  useEffect(() => {
+    if (!filtersOpen) return;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setFiltersOpen(false);
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [filtersOpen]);
 
   if (isStaff) return null;
 
@@ -118,7 +149,7 @@ function SearchContent() {
   const handlePageChange = (page: number) => {
     setIsLoading(true);
     setCurrentPage(page);
-    
+
     setTimeout(() => {
       topRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       setIsLoading(false);
@@ -173,428 +204,228 @@ function SearchContent() {
     router.push(`/client/product-detail?id=${product._id}`);
   };
 
+  const handleToggleWishlist = async (product: Product) => {
+    if (!user?._id) return;
+    try {
+      await toggleWishlist({ userId: user._id as Id<'users'>, productId: product._id as Id<'products'> });
+    } catch (error) {
+      console.error('Wishlist update failed:', error);
+    }
+  };
+
   const clearAllFilters = () => {
     setSearchQuery('');
     setSelectedCategory('all');
     setSortBy('default');
+    setPriceRange(null);
+    setShowInStock(true);
+    setShowSoldOut(true);
     setCurrentPage(1);
   };
 
+  const setMin = (v: number) => setPriceRange([Math.min(v, maxPrice), maxPrice]);
+  const setMax = (v: number) => setPriceRange([minPrice, Math.max(v, minPrice)]);
+  const pct = (v: number) => (v / priceCeiling) * 100;
+  const categoryName = (id: string) => categoriesQuery.find((c) => c._id === id)?.name;
+  const firstName = user?.firstName || '';
+
   return (
-    <div className="min-h-screen bg-background" ref={topRef}>
-      {/* Compact Header with Safe Area */}
-      <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-md border-b border-white/10 safe-area-top">
-        <div className="px-3 sm:px-4 py-2.5 sm:py-3">
-          <div className="flex items-center gap-2 sm:gap-3">
-            <button
-              onClick={() => router.back()}
-              className="p-2 sm:p-2.5 rounded-xl bg-secondary/60 border border-white/10 hover:bg-secondary/80 hover:border-primary/30 transition-all active:scale-95"
-              aria-label="Go back"
-            >
-              <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
-            </button>
+    <div className="dk dk-member">
+      <div className="dk-app">
+        <MemberSidebar id="sidebar" active="browse" open={sidebarOpen} onClose={closeSidebar} />
 
-            <div className="flex-1 min-w-0">
-              <div className="relative">
-                <Search className="absolute left-3 sm:left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-white/50" />
-                <input
-                  type="text"
-                  placeholder="Search products..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 sm:pl-12 pr-8 sm:pr-10 py-2.5 sm:py-3 bg-secondary/60 border border-white/10 rounded-xl text-white text-sm sm:text-base placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/30 transition-all"
-                />
-                {searchQuery && (
-                  <button
-                    onClick={() => setSearchQuery('')}
-                    className="absolute right-2 sm:right-3 top-1/2 transform -translate-y-1/2 p-1 rounded-full hover:bg-white/10 transition-colors active:scale-95"
-                    aria-label="Clear search"
-                  >
-                    <X className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white/50" />
-                  </button>
-                )}
-              </div>
-            </div>
-
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              className={`p-2 sm:p-2.5 rounded-xl border transition-all active:scale-95 ${
-                showFilters
-                  ? 'bg-primary border-primary text-white'
-                  : 'bg-secondary/60 border-white/10 text-white hover:bg-secondary/80 hover:border-primary/30'
-              }`}
-              aria-label="Toggle filters"
-            >
-              <SlidersHorizontal className="w-4 h-4 sm:w-5 sm:h-5" />
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Compact Filters */}
-      {showFilters && (
-        <div className="bg-secondary/60 backdrop-blur-sm border-b border-white/10 px-3 sm:px-4 py-3 sm:py-4 animate-in slide-in-from-top duration-200">
-          <div className="space-y-3 sm:space-y-4">
-            {/* Categories */}
-            <div>
-              <div className="flex items-center gap-2 mb-2 sm:mb-3">
-                <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-primary" />
-                <label className="text-xs sm:text-sm font-medium text-white">Categories</label>
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
-                {[
-                  { value: 'all', label: 'All Products' },
-                  ...categoriesQuery.map(category => ({
-                    value: category.name.toLowerCase(),
-                    label: category.name
-                  }))
-                ].map((category) => (
-                  <button
-                    key={category.value}
-                    onClick={() => setSelectedCategory(category.value)}
-                    className={`p-2 sm:p-3 rounded-lg text-xs sm:text-sm border transition-all font-medium active:scale-95 ${
-                      selectedCategory === category.value
-                        ? 'bg-primary border-primary text-white shadow-lg'
-                        : 'border-white/10 text-white/70 hover:text-white hover:border-primary/30 hover:bg-primary/10'
-                    }`}
-                  >
-                    {category.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Sort */}
-            <div>
-              <div className="flex items-center gap-2 mb-2 sm:mb-3">
-                <List className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-primary" />
-                <label className="text-xs sm:text-sm font-medium text-white">Sort by</label>
-              </div>
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
-                className="w-full p-2.5 sm:p-3 bg-secondary/60 border border-white/10 rounded-lg text-white text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/30 transition-all"
+        <section className="dk-app-main" ref={topRef}>
+          <div className="dk-app-top">
+            <div className="dk-app-top-l">
+              <button
+                type="button"
+                className="dk-view-btn dk-app-menu"
+                onClick={() => setSidebarOpen(true)}
+                aria-label="Open menu"
+                aria-controls="sidebar"
+                aria-expanded={sidebarOpen}
               >
-                <option value="default">✨ Featured</option>
-                <option value="price-low">💰 Price: Low to High</option>
-                <option value="price-high">💎 Price: High to Low</option>
-                <option value="rating">⭐ Highest Rated</option>
-                <option value="newest">🔥 Newest First</option>
-              </select>
+                <MenuIcon />
+              </button>
+              <div><p className="dk-eyebrow">BROWSE</p><h1>Browse the collection</h1></div>
+            </div>
+            <div className="dk-app-actions">
+              {user ? (
+                <Link className="dk-user-pill" href="/client/profile" aria-label="Account">
+                  <span className="dk-avatar">{(firstName[0] || 'D').toUpperCase()}</span>
+                  <span><CaretIcon /></span>
+                </Link>
+              ) : (
+                <Link className="dk-btn dk-btn-outline-dark sm" href="/auth/login">Sign in</Link>
+              )}
             </div>
           </div>
-        </div>
-      )}
 
-      {/* Compact View Toggle & Results Info */}
-      <div className="sticky top-[57px] sm:top-[61px] z-40 bg-background/95 backdrop-blur-sm px-3 sm:px-4 py-2 sm:py-3 border-b border-white/5">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 min-w-0 flex-1">
-            <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-primary animate-pulse flex-shrink-0"></div>
-            <p className="text-xs sm:text-sm text-white/70 font-medium truncate">
-              <span className="hidden sm:inline">
-                Showing {startIndex + 1}-{Math.min(endIndex, filteredProducts.length)} of {filteredProducts.length}
-              </span>
-              <span className="sm:hidden">
-                {startIndex + 1}-{Math.min(endIndex, filteredProducts.length)} of {filteredProducts.length}
-              </span>
-            </p>
-          </div>
-          <div className="flex items-center bg-secondary/60 rounded-lg p-0.5 sm:p-1 border border-white/10">
-            <button
-              onClick={() => setViewMode('grid')}
-              className={`p-1.5 sm:p-2 rounded-md transition-all active:scale-95 ${
-                viewMode === 'grid'
-                  ? 'bg-primary text-white shadow-sm'
-                  : 'text-white/60 hover:text-white hover:bg-white/10'
-              }`}
-              aria-label="Grid view"
-            >
-              <Grid className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            </button>
-            <button
-              onClick={() => setViewMode('list')}
-              className={`p-1.5 sm:p-2 rounded-md transition-all active:scale-95 ${
-                viewMode === 'list'
-                  ? 'bg-primary text-white shadow-sm'
-                  : 'text-white/60 hover:text-white hover:bg-white/10'
-              }`}
-              aria-label="List view"
-            >
-              <List className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            </button>
-          </div>
-        </div>
-      </div>
+          <SearchField
+            className="dk-app-search"
+            value={searchQuery}
+            onChange={setSearchQuery}
+            placeholder="Search for aquatic products…"
+            label="Search for aquatic products"
+            iconSize={18}
+          />
 
-      {/* Products Grid/List */}
-      <div className="px-3 sm:px-4 py-3 sm:py-4">
-        {filteredProducts.length === 0 ? (
-          <div className="text-center py-12 sm:py-16 px-4">
-            <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-4 sm:mb-6 bg-gradient-to-br from-primary/20 to-info/20 rounded-full flex items-center justify-center">
-              <Search className="w-8 h-8 sm:w-10 sm:h-10 text-primary" />
-            </div>
-            <h3 className="text-lg sm:text-xl font-semibold text-white mb-2">No products found</h3>
-            <p className="text-sm sm:text-base text-white/60 mb-6 max-w-sm mx-auto">
-              We couldn&apos;t find any products matching your criteria. Try adjusting your search or filters.
-            </p>
-
-            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 justify-center mb-6">
-              <Button
-                onClick={clearAllFilters}
-                className="bg-primary/20 border border-primary/30 hover:bg-primary/30 text-sm active:scale-95"
-              >
-                <Sparkles className="w-4 h-4 mr-2" />
-                Clear All Filters
-              </Button>
-              <Button
-                onClick={() => router.push('/client/categories')}
-                variant="outline"
-                className="border-white/20 text-white hover:bg-white/10 text-sm active:scale-95"
-              >
-                Browse Categories
-              </Button>
-            </div>
-
-            {/* Popular suggestions */}
-            {productsQuery.length > 0 && (
-              <div className="mt-6 sm:mt-8">
-                <h4 className="text-xs sm:text-sm font-medium text-white/80 mb-3 sm:mb-4">Popular Products</h4>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3 max-w-md mx-auto">
-                  {productsQuery.slice(0, 6).map((product) => (
-                    <button
-                      key={product._id}
-                      onClick={() => router.push(`/client/product-detail?id=${product._id}`)}
-                      className="p-2.5 sm:p-3 bg-secondary/50 rounded-xl border border-white/10 hover:bg-secondary/70 transition-colors text-left active:scale-95"
-                    >
-                      <p className="text-xs sm:text-sm font-medium text-white line-clamp-2">{product.name}</p>
-                      <p className="text-xs text-primary mt-1">₱{product.price.toFixed(2)}</p>
-                    </button>
-                  ))}
+          <div className="dk-app-body">
+            {filtersOpen && <button type="button" className="dk-filter-scrim" aria-label="Close filters" tabIndex={-1} onClick={() => setFiltersOpen(false)} />}
+            <aside id="browse-filters" className={`dk-filter-card${filtersOpen ? ' open' : ''}`} aria-label="Filters">
+              <div className="dk-fc-head">
+                <h2>Filters</h2>
+                <div className="dk-row" style={{ gap: 16 }}>
+                  <button type="button" onClick={clearAllFilters}>Clear</button>
+                  {/* Phones/tablets only (the panel is a bottom sheet there) */}
+                  <button type="button" className="dk-fc-done" onClick={() => setFiltersOpen(false)}>Done</button>
                 </div>
               </div>
-            )}
-          </div>
-        ) : (
-          <>
-            {/* Loading Overlay */}
-            {isLoading && (
-              <div className="flex items-center justify-center py-8">
-                <div className="flex items-center space-x-2 sm:space-x-3">
-                  <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin text-primary" />
-                  <span className="text-white/70 text-xs sm:text-sm">Loading products...</span>
-                </div>
-              </div>
-            )}
-
-            {/* Products Grid/List */}
-            {!isLoading && (
-              <div className={
-                viewMode === 'grid'
-                  ? 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2.5 sm:gap-3 md:gap-4'
-                  : 'space-y-2.5 sm:space-y-3'
-              }>
-                {currentProducts.map((product) => (
-                  <ProductCard
-                    key={product._id}
-                    product={product}
-                    cartItem={getItemById(product._id)}
-                    viewMode={viewMode}
-                    onAddToCart={handleAddToCart}
-                    onQuantityChange={handleQuantityChange}
-                    onClick={handleProductClick}
-                  />
-                ))}
-              </div>
-            )}
-
-            {/* Enhanced Pagination */}
-            {totalPages > 1 && !isLoading && (
-              <div className="mt-6 sm:mt-8 mb-4">
-                {/* Desktop Pagination */}
-                <div className="hidden sm:flex items-center justify-center gap-2">
-                  <button
-                    onClick={() => handlePageChange(1)}
-                    disabled={currentPage === 1}
-                    className={`p-2 rounded-lg border transition-all ${
-                      currentPage === 1
-                        ? 'border-white/10 text-white/30 cursor-not-allowed'
-                        : 'border-white/10 text-white hover:bg-white/10 hover:border-primary/30 active:scale-95'
-                    }`}
-                    aria-label="First page"
-                  >
-                    <ChevronsLeft className="w-4 h-4" />
-                  </button>
-                  
-                  <button
-                    onClick={() => handlePageChange(currentPage - 1)}
-                    disabled={currentPage === 1}
-                    className={`p-2 rounded-lg border transition-all ${
-                      currentPage === 1
-                        ? 'border-white/10 text-white/30 cursor-not-allowed'
-                        : 'border-white/10 text-white hover:bg-white/10 hover:border-primary/30 active:scale-95'
-                    }`}
-                    aria-label="Previous page"
-                  >
-                    <ChevronLeft className="w-4 h-4" />
-                  </button>
-
-                  <div className="flex items-center gap-2">
-                    {getPageNumbers().map((page, index) => (
-                      typeof page === 'number' ? (
-                        <button
-                          key={index}
-                          onClick={() => handlePageChange(page)}
-                          className={`min-w-[40px] h-10 px-3 rounded-lg border font-medium text-sm transition-all active:scale-95 ${
-                            currentPage === page
-                              ? 'bg-primary border-primary text-white shadow-lg'
-                              : 'border-white/10 text-white hover:bg-white/10 hover:border-primary/30'
-                          }`}
-                        >
-                          {page}
-                        </button>
-                      ) : (
-                        <span key={index} className="px-2 text-white/50">...</span>
-                      )
+              <div className="dk-fc-body">
+                <fieldset className="dk-fc-group">
+                  <legend>FAMILY</legend>
+                  <div className="dk-fc-list">
+                    {[
+                      { value: 'all', label: 'All' },
+                      ...categoriesQuery.map(category => ({
+                        value: category.name.toLowerCase(),
+                        label: category.name
+                      }))
+                    ].map((category) => (
+                      <label key={category.value} className="dk-check">
+                        <input
+                          type="radio"
+                          name="family"
+                          value={category.value}
+                          checked={selectedCategory.toLowerCase() === category.value}
+                          onChange={() => setSelectedCategory(category.value)}
+                        />
+                        {category.label}
+                      </label>
                     ))}
                   </div>
-
-                  <button
-                    onClick={() => handlePageChange(currentPage + 1)}
-                    disabled={currentPage === totalPages}
-                    className={`p-2 rounded-lg border transition-all ${
-                      currentPage === totalPages
-                        ? 'border-white/10 text-white/30 cursor-not-allowed'
-                        : 'border-white/10 text-white hover:bg-white/10 hover:border-primary/30 active:scale-95'
-                    }`}
-                    aria-label="Next page"
-                  >
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
-
-                  <button
-                    onClick={() => handlePageChange(totalPages)}
-                    disabled={currentPage === totalPages}
-                    className={`p-2 rounded-lg border transition-all ${
-                      currentPage === totalPages
-                        ? 'border-white/10 text-white/30 cursor-not-allowed'
-                        : 'border-white/10 text-white hover:bg-white/10 hover:border-primary/30 active:scale-95'
-                    }`}
-                    aria-label="Last page"
-                  >
-                    <ChevronsRight className="w-4 h-4" />
-                  </button>
-                </div>
-
-                {/* Mobile Pagination */}
-                <div className="sm:hidden">
-                  {/* Page Info */}
-                  <div className="text-center mb-3">
-                    <span className="text-xs text-white/70">
-                      Page {currentPage} of {totalPages}
-                    </span>
+                </fieldset>
+                <div className="dk-fc-group">
+                  <h3 id="price-range-label">PRICE RANGE</h3>
+                  <div className="dk-range" role="group" aria-labelledby="price-range-label">
+                    <div className="dk-track" />
+                    <div className="dk-fill" style={{ left: `${pct(minPrice)}%`, right: `${100 - pct(maxPrice)}%` }} />
+                    <input type="range" min={0} max={priceCeiling} step={100} value={minPrice} onChange={(e) => setMin(Number(e.target.value))} aria-label="Minimum price" aria-valuetext={peso(minPrice)} />
+                    <input type="range" min={0} max={priceCeiling} step={100} value={maxPrice} onChange={(e) => setMax(Number(e.target.value))} aria-label="Maximum price" aria-valuetext={peso(maxPrice)} />
                   </div>
-
-                  {/* Mobile Pagination Controls */}
-                  <div className="flex items-center justify-between gap-2">
-                    <button
-                      onClick={() => handlePageChange(1)}
-                      disabled={currentPage === 1}
-                      className={`flex-1 p-2.5 rounded-lg border text-xs font-medium transition-all ${
-                        currentPage === 1
-                          ? 'border-white/10 text-white/30 cursor-not-allowed'
-                          : 'border-white/10 text-white hover:bg-white/10 hover:border-primary/30 active:scale-95'
-                      }`}
-                    >
-                      First
-                    </button>
-
-                    <button
-                      onClick={() => handlePageChange(currentPage - 1)}
-                      disabled={currentPage === 1}
-                      className={`flex-1 p-2.5 rounded-lg border transition-all ${
-                        currentPage === 1
-                          ? 'border-white/10 text-white/30 cursor-not-allowed'
-                          : 'border-white/10 text-white hover:bg-white/10 hover:border-primary/30 active:scale-95'
-                      }`}
-                    >
-                      <ChevronLeft className="w-4 h-4 mx-auto" />
-                    </button>
-
-                    <div className="flex items-center gap-1">
-                      {[
-                        currentPage > 1 ? currentPage - 1 : null,
-                        currentPage,
-                        currentPage < totalPages ? currentPage + 1 : null
-                      ].filter(Boolean).map((page) => (
-                        <button
-                          key={page}
-                          onClick={() => handlePageChange(page!)}
-                          className={`min-w-[36px] h-9 px-2 rounded-lg border text-xs font-medium transition-all active:scale-95 ${
-                            currentPage === page
-                              ? 'bg-primary border-primary text-white shadow-lg'
-                              : 'border-white/10 text-white hover:bg-white/10'
-                          }`}
-                        >
-                          {page}
-                        </button>
-                      ))}
-                    </div>
-
-                    <button
-                      onClick={() => handlePageChange(currentPage + 1)}
-                      disabled={currentPage === totalPages}
-                      className={`flex-1 p-2.5 rounded-lg border transition-all ${
-                        currentPage === totalPages
-                          ? 'border-white/10 text-white/30 cursor-not-allowed'
-                          : 'border-white/10 text-white hover:bg-white/10 hover:border-primary/30 active:scale-95'
-                      }`}
-                    >
-                      <ChevronRight className="w-4 h-4 mx-auto" />
-                    </button>
-
-                    <button
-                      onClick={() => handlePageChange(totalPages)}
-                      disabled={currentPage === totalPages}
-                      className={`flex-1 p-2.5 rounded-lg border text-xs font-medium transition-all ${
-                        currentPage === totalPages
-                          ? 'border-white/10 text-white/30 cursor-not-allowed'
-                          : 'border-white/10 text-white hover:bg-white/10 hover:border-primary/30 active:scale-95'
-                      }`}
-                    >
-                      Last
-                    </button>
-                  </div>
+                  <div className="dk-range-vals"><span>{peso(minPrice)}</span><span>{peso(maxPrice)}</span></div>
                 </div>
+                <fieldset className="dk-fc-group">
+                  <legend>AVAILABILITY</legend>
+                  <div className="dk-fc-list">
+                    <label className="dk-toggle"><input type="checkbox" role="switch" checked={showInStock} onChange={(e) => setShowInStock(e.target.checked)} /> In stock</label>
+                    <label className="dk-toggle"><input type="checkbox" role="switch" checked={showSoldOut} onChange={(e) => setShowSoldOut(e.target.checked)} /> Sold out</label>
+                  </div>
+                </fieldset>
+              </div>
+            </aside>
 
-                {/* Page Jump (Optional - for desktop) */}
-                <div className="hidden lg:flex items-center justify-center gap-2 mt-4">
-                  <span className="text-xs text-white/60">Jump to page:</span>
-                  <input
-                    type="number"
-                    min="1"
-                    max={totalPages}
-                    value={currentPage}
-                    onChange={(e) => {
-                      const page = parseInt(e.target.value);
-                      if (page >= 1 && page <= totalPages) {
-                        handlePageChange(page);
-                      }
-                    }}
-                    className="w-16 px-2 py-1 bg-secondary/60 border border-white/10 rounded-lg text-white text-xs text-center focus:outline-none focus:ring-2 focus:ring-primary/50"
-                  />
+            <div>
+              <div className="dk-res-head">
+                <p className="dk-res-count" aria-live="polite">
+                  {filteredProducts.length === 0
+                    ? 'Showing 0 of 0'
+                    : `Showing ${startIndex + 1}–${Math.min(endIndex, filteredProducts.length)} of ${filteredProducts.length}`}
+                </p>
+                <div className="dk-res-tools">
+                  <button
+                    type="button"
+                    className="dk-chip dk-filter-toggle"
+                    aria-expanded={filtersOpen}
+                    aria-controls="browse-filters"
+                    onClick={() => setFiltersOpen((o) => !o)}
+                  >
+                    Filters
+                  </button>
+                  <label className="sr-only" htmlFor="b-sort">Sort</label>
+                  <select id="b-sort" className="dk-select" value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
+                    <option value="default">Sort: Featured</option>
+                    <option value="price-low">Price: low to high</option>
+                    <option value="price-high">Price: high to low</option>
+                    <option value="rating">Highest Rated</option>
+                    <option value="newest">Newest First</option>
+                  </select>
+                  <button type="button" className="dk-view-btn" aria-pressed={viewMode === 'grid'} aria-label="Grid view" onClick={() => setViewMode('grid')}><GridIcon /></button>
+                  <button type="button" className="dk-view-btn" aria-pressed={viewMode === 'list'} aria-label="List view" onClick={() => setViewMode('list')}><ListIcon /></button>
                 </div>
               </div>
-            )}
-          </>
-        )}
+
+              {filteredProducts.length === 0 ? (
+                <div className="dk-member-empty">
+                  <h3>No products found</h3>
+                  <p>We couldn&apos;t find any products matching your criteria. Try adjusting your search or filters.</p>
+                  <div className="dk-row">
+                    <button type="button" className="dk-btn dk-btn-red" onClick={clearAllFilters}>Clear All Filters</button>
+                    <button type="button" className="dk-btn dk-btn-outline-dark" onClick={() => router.push('/client/categories')}>Browse Categories</button>
+                  </div>
+
+                  {/* Popular suggestions */}
+                  {productsQuery.length > 0 && (
+                    <>
+                      <p style={{ marginTop: 28 }}>Popular Products</p>
+                      <div className="dk-popular">
+                        {productsQuery.slice(0, 6).map((product) => (
+                          <button key={product._id} type="button" onClick={() => router.push(`/client/product-detail?id=${product._id}`)}>
+                            <b>{product.name}</b>
+                            <small>₱{product.price.toFixed(2)}</small>
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+              ) : isLoading ? (
+                <div className="dk-member-empty" role="status"><p>Loading products...</p></div>
+              ) : (
+                <div className={`dk-pgrid${viewMode === 'list' ? ' list' : ''}`}>
+                  {currentProducts.map((product) => (
+                    <MemberProductCard
+                      key={product._id}
+                      name={product.name}
+                      image={product.image}
+                      price={product.price}
+                      originalPrice={product.originalPrice}
+                      stock={product.stock}
+                      category={categoryName(product.categoryId as string)}
+                      cartQty={getItemById(product._id)?.quantity}
+                      onOpen={() => handleProductClick(product as Product)}
+                      onAdd={() => handleAddToCart(product as Product)}
+                      onQty={(change) => handleQuantityChange(product as Product, change)}
+                      saved={savedIds.has(String(product._id))}
+                      onToggleSave={user?._id ? () => handleToggleWishlist(product as Product) : undefined}
+                    />
+                  ))}
+                </div>
+              )}
+
+              {totalPages > 1 && !isLoading && (
+                <nav className="dk-pagination" aria-label="Pages">
+                  <button type="button" onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1} aria-label="Previous page">
+                    <ChevronIcon dir="left" />
+                  </button>
+                  {getPageNumbers().map((page, index) =>
+                    typeof page === 'number' ? (
+                      <button key={index} type="button" onClick={() => handlePageChange(page)} aria-current={currentPage === page ? 'page' : undefined}>
+                        {page}
+                      </button>
+                    ) : (
+                      <span key={index} aria-hidden="true">…</span>
+                    ),
+                  )}
+                  <button type="button" onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages} aria-label="Next page">
+                    <ChevronIcon />
+                  </button>
+                </nav>
+              )}
+            </div>
+          </div>
+        </section>
       </div>
-
-      {/* Client Bottom Navigation */}
-      <ClientBottomNavbar />
-
-      {/* Bottom padding for mobile navbar with safe area */}
-      <div className="h-16 sm:h-20 safe-area-bottom" />
     </div>
   );
 }
@@ -603,13 +434,8 @@ export default function SearchPage() {
   return (
     <SafeAreaProvider applySafeArea={false}>
       <Suspense fallback={
-        <div className="min-h-screen bg-background px-4 sm:px-6 py-6 sm:py-8 safe-area-container">
-          <div className="flex items-center justify-center min-h-[50vh]">
-            <div className="text-center">
-              <Loader2 className="w-6 h-6 sm:w-8 sm:h-8 animate-spin text-primary mx-auto mb-4" />
-              <p className="text-sm sm:text-base text-white/60">Loading search...</p>
-            </div>
-          </div>
+        <div className="dk dk-member">
+          <div className="dk-member-empty" role="status" style={{ margin: 24 }}><p>Loading search...</p></div>
         </div>
       }>
         <SearchContent />

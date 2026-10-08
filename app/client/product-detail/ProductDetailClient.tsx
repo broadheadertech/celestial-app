@@ -1,9 +1,8 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
-  ArrowLeft,
   ShoppingCart,
   Plus,
   Minus,
@@ -17,16 +16,13 @@ import {
   Filter,
   Fish,
   Globe,
-  Heart,
   Lightbulb,
   Ruler,
   Thermometer,
   Utensils,
-  X,
   Eye,
   Flame,
-  ChevronLeft,
-  ChevronRight
+  type LucideIcon,
 } from 'lucide-react';
 import { useAuthStore, useIsAuthenticated } from '@/store/auth';
 import { useCartStore } from '@/store/cart';
@@ -35,6 +31,10 @@ import { api } from '@/convex/_generated/api';
 import { Doc, Id } from '@/convex/_generated/dataModel';
 import { Product } from '@/types';
 import SafeAreaProvider from '@/components/provider/SafeAreaProvider';
+import MemberSidebar from '@/components/dc/kit/MemberSidebar';
+import NotchHero from '@/components/dc/kit/NotchHero';
+import Placeholder from '@/components/dc/kit/Placeholder';
+import { ChevronIcon, CloseIcon, HeartIcon, MenuIcon } from '@/components/dc/kit/icons';
 
 interface TankData {
   _id: string;
@@ -120,6 +120,8 @@ function ProductDetailContent() {
   const [touchStart, setTouchStart] = useState(0);
   const [touchEnd, setTouchEnd] = useState(0);
   const imageScrollRef = useRef<HTMLDivElement>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const closeSidebar = useCallback(() => setSidebarOpen(false), []);
 
   // Redirect admins and super_admins to their respective dashboards
   if (isAuthenticated && user?.role === 'admin') {
@@ -207,569 +209,512 @@ function ProductDetailContent() {
     return topReservedProducts.some(topProduct => topProduct._id === product._id);
   };
 
+  // One labelled spec tile (icon + label + value)
+  const Spec = ({ icon: Icon, label, children, wide = false }: { icon: LucideIcon; label: string; children: React.ReactNode; wide?: boolean }) => (
+    <div className="dk-panel muted" style={{ padding: '14px 16px', minWidth: 0, gridColumn: wide ? '1 / -1' : undefined }}>
+      <div className="dk-row" style={{ gap: 8 }}>
+        <Icon size={16} aria-hidden="true" style={{ color: 'var(--dk-red)', flex: 'none' }} />
+        <span className="dk-meta-label">{label}</span>
+      </div>
+      <p style={{ marginTop: 6, fontFamily: 'var(--dk-f-display)', fontWeight: 800, fontSize: 17, lineHeight: 1.3, overflowWrap: 'anywhere' }}>
+        {children}
+      </p>
+    </div>
+  );
+
+  const specGrid = (cols: number): React.CSSProperties => ({
+    display: 'grid',
+    gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
+    gap: 12,
+  });
+
   // Tank specifications component
   const TankSpecs = ({ data }: { data: TankData }) => (
-    <div className="space-y-3">
+    <div className="dk-stack" style={{ gap: 12 }}>
       {/* Tank Type & Material */}
-      <div className="grid grid-cols-2 gap-3">
-        <div className="p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-black/20 border border-white/10 backdrop-blur-sm">
-          <div className="flex items-center mb-1.5 sm:mb-2">
-            <Container className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400 mr-1.5 sm:mr-2 flex-shrink-0" />
-            <span className="text-xs sm:text-sm text-blue-400 font-medium">Tank Type</span>
-          </div>
-          <p className="text-sm sm:text-lg font-bold text-white truncate">{data.tankType}</p>
-        </div>
-        <div className="p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-black/20 border border-white/10 backdrop-blur-sm">
-          <div className="flex items-center mb-1.5 sm:mb-2">
-            <Shield className="w-4 h-4 sm:w-5 sm:h-5 text-green-400 mr-1.5 sm:mr-2 flex-shrink-0" />
-            <span className="text-xs sm:text-sm text-green-400 font-medium">Material</span>
-          </div>
-          <p className="text-sm sm:text-lg font-bold text-white truncate">{data.material}</p>
-        </div>
+      <div style={specGrid(2)}>
+        <Spec icon={Container} label="Tank Type">{data.tankType}</Spec>
+        <Spec icon={Shield} label="Material">{data.material}</Spec>
       </div>
 
       {/* Capacity */}
-      <div className="p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-black/20 border border-white/10 backdrop-blur-sm">
-        <div className="flex items-center mb-1.5 sm:mb-2">
-          <Droplets className="w-4 h-4 sm:w-5 sm:h-5 text-cyan-400 mr-1.5 sm:mr-2" />
-          <span className="text-xs sm:text-sm text-cyan-400 font-medium">Capacity</span>
-        </div>
-        <p className="text-lg sm:text-xl font-bold text-white">{data.capacity}L</p>
-      </div>
+      <Spec icon={Droplets} label="Capacity">{data.capacity}L</Spec>
 
       {/* Dimensions */}
-      <div className="p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-black/20 border border-white/10 backdrop-blur-sm">
-        <div className="flex items-center mb-2 sm:mb-3">
-          <Ruler className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-500 mr-1.5 sm:mr-2" />
-          <span className="text-xs sm:text-sm text-yellow-500 font-medium">Dimensions (L × W × H)</span>
-        </div>
-        <p className="text-base sm:text-2xl font-bold text-white text-center">
-          {data.dimensions.length} × {data.dimensions.width} × {data.dimensions.height} cm
-        </p>
-      </div>
+      <Spec icon={Ruler} label="Dimensions (L × W × H)">
+        {data.dimensions.length} × {data.dimensions.width} × {data.dimensions.height} cm
+      </Spec>
 
       {/* Technical Specs */}
-      <div className="grid grid-cols-3 gap-2 sm:gap-3">
-        <div className="p-2.5 sm:p-4 rounded-xl sm:rounded-2xl bg-black/20 border border-white/10 backdrop-blur-sm">
-          <div className="flex items-center mb-1.5 sm:mb-2">
-            <div className="w-4 h-4 sm:w-5 sm:h-5 rounded bg-gray-400 flex items-center justify-center mr-1.5 sm:mr-2 flex-shrink-0">
-              <span className="text-xs font-bold text-gray-900">T</span>
-            </div>
-            <span className="text-xs sm:text-sm text-gray-400 font-medium">Thick</span>
-          </div>
-          <p className="text-sm sm:text-lg font-bold text-white">{data.thickness}mm</p>
-        </div>
-        <div className="p-2.5 sm:p-4 rounded-xl sm:rounded-2xl bg-black/20 border border-white/10 backdrop-blur-sm">
-          <div className="flex items-center mb-1.5 sm:mb-2">
-            <Lightbulb className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-300 mr-1.5 sm:mr-2 flex-shrink-0" />
-            <span className="text-xs sm:text-sm text-yellow-300 font-medium">Light</span>
-          </div>
-          <p className="text-sm sm:text-lg font-bold text-white">{data.lighting}W</p>
-        </div>
-        <div className="p-2.5 sm:p-4 rounded-xl sm:rounded-2xl bg-black/20 border border-white/10 backdrop-blur-sm">
-          <div className="flex items-center mb-1.5 sm:mb-2">
-            <Filter className="w-4 h-4 sm:w-5 sm:h-5 text-green-500 mr-1.5 sm:mr-2 flex-shrink-0" />
-            <span className="text-xs sm:text-sm text-green-500 font-medium">Filter</span>
-          </div>
-          <p className="text-sm sm:text-lg font-bold text-white">{data.filtation}L/h</p>
-        </div>
+      <div style={specGrid(3)}>
+        <Spec icon={Ruler} label="Thick">{data.thickness}mm</Spec>
+        <Spec icon={Lightbulb} label="Light">{data.lighting}W</Spec>
+        <Spec icon={Filter} label="Filter">{data.filtation}L/h</Spec>
       </div>
     </div>
   );
 
   // Fish specifications component
   const FishSpecs = ({ data }: { data: FishData }) => (
-    <div className="space-y-3">
+    <div className="dk-stack" style={{ gap: 12 }}>
       {/* Scientific Name */}
-      <div className="p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-black/20 border border-white/10 backdrop-blur-sm">
-        <div className="flex items-center mb-1.5 sm:mb-2">
-          <Fish className="w-4 h-4 sm:w-5 sm:h-5 text-blue-500 mr-1.5 sm:mr-2" />
-          <span className="text-xs sm:text-sm text-blue-500 font-medium">Scientific Name</span>
-        </div>
-        <p className="text-sm sm:text-lg font-bold text-white italic break-words">{data.scientificName}</p>
-      </div>
+      <Spec icon={Fish} label="Scientific Name">
+        <i>{data.scientificName}</i>
+      </Spec>
 
       {/* Physical Characteristics */}
-      <div className="grid grid-cols-2 gap-3">
-        <div className="p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-black/20 border border-white/10 backdrop-blur-sm">
-          <div className="flex items-center mb-1.5 sm:mb-2">
-            <Ruler className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-500 mr-1.5 sm:mr-2 flex-shrink-0" />
-            <span className="text-xs sm:text-sm text-yellow-500 font-medium">Size</span>
-          </div>
-          <p className="text-base sm:text-xl font-bold text-white">{data.size}&quot;</p>
-        </div>
-        <div className="p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-black/20 border border-white/10 backdrop-blur-sm">
-          <div className="flex items-center mb-1.5 sm:mb-2">
-            <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-cyan-400 mr-1.5 sm:mr-2 flex-shrink-0" />
-            <span className="text-xs sm:text-sm text-cyan-400 font-medium">Age</span>
-          </div>
-          <p className="text-base sm:text-xl font-bold text-white">{data.age}mo</p>
-        </div>
+      <div style={specGrid(2)}>
+        <Spec icon={Ruler} label="Size">{data.size}&quot;</Spec>
+        <Spec icon={Clock} label="Age">{data.age}mo</Spec>
       </div>
 
       {/* Environmental Requirements */}
-      <div className="grid grid-cols-2 gap-3">
-        <div className="p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-black/20 border border-white/10 backdrop-blur-sm">
-          <div className="flex items-center mb-1.5 sm:mb-2">
-            <Thermometer className="w-4 h-4 sm:w-5 sm:h-5 text-red-400 mr-1.5 sm:mr-2 flex-shrink-0" />
-            <span className="text-xs sm:text-sm text-red-400 font-medium">Temp</span>
-          </div>
-          <p className="text-sm sm:text-lg font-bold text-white">{data.temperature}°C</p>
-        </div>
-        <div className="p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-black/20 border border-white/10 backdrop-blur-sm">
-          <div className="flex items-center mb-1.5 sm:mb-2">
-            <Droplets className="w-4 h-4 sm:w-5 sm:h-5 text-cyan-400 mr-1.5 sm:mr-2 flex-shrink-0" />
-            <span className="text-xs sm:text-sm text-cyan-400 font-medium">pH</span>
-          </div>
-          <p className="text-sm sm:text-lg font-bold text-white">{data.phLevel}</p>
-        </div>
+      <div style={specGrid(2)}>
+        <Spec icon={Thermometer} label="Temp">{data.temperature}°C</Spec>
+        <Spec icon={Droplets} label="pH">{data.phLevel}</Spec>
       </div>
 
       {/* Origin & Lifespan */}
-      <div className="grid grid-cols-2 gap-3">
-        <div className="p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-black/20 border border-white/10 backdrop-blur-sm">
-          <div className="flex items-center mb-1.5 sm:mb-2">
-            <Globe className="w-4 h-4 sm:w-5 sm:h-5 text-green-500 mr-1.5 sm:mr-2 flex-shrink-0" />
-            <span className="text-xs sm:text-sm text-green-500 font-medium">Origin</span>
-          </div>
-          <p className="text-sm sm:text-lg font-bold text-white truncate">{data.origin}</p>
-        </div>
-        <div className="p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-black/20 border border-white/10 backdrop-blur-sm">
-          <div className="flex items-center mb-1.5 sm:mb-2">
-            <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-500 mr-1.5 sm:mr-2 flex-shrink-0" />
-            <span className="text-xs sm:text-sm text-yellow-500 font-medium">Lifespan</span>
-          </div>
-          <p className="text-sm sm:text-lg font-bold text-white truncate">{data.lifespan}</p>
-        </div>
+      <div style={specGrid(2)}>
+        <Spec icon={Globe} label="Origin">{data.origin}</Spec>
+        <Spec icon={Clock} label="Lifespan">{data.lifespan}</Spec>
       </div>
 
       {/* Diet */}
-      <div className="p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-black/20 border border-white/10 backdrop-blur-sm">
-        <div className="flex items-center mb-1.5 sm:mb-2">
-          <Utensils className="w-4 h-4 sm:w-5 sm:h-5 text-green-400 mr-1.5 sm:mr-2" />
-          <span className="text-xs sm:text-sm text-green-400 font-medium">Diet</span>
-        </div>
-        <p className="text-sm sm:text-lg font-bold text-white break-words">{data.diet}</p>
-      </div>
+      <Spec icon={Utensils} label="Diet">{data.diet}</Spec>
     </div>
   );
 
   // Loading state
   if (!product) {
     return (
-      <div className="min-h-screen bg-[#121212] flex items-center justify-center px-4 safe-area-container">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FF6B00] mx-auto mb-4"></div>
-          <p className="text-white font-medium">Loading product details...</p>
+      <div className="dk dk-member">
+        <div className="dk-member-empty" role="status" style={{ margin: 24 }}>
+          <p>Loading product details...</p>
         </div>
       </div>
     );
   }
 
   const discountPercentage = getDiscountPercentage();
+  const overlayBtn: React.CSSProperties = {
+    position: 'absolute',
+    top: '50%',
+    transform: 'translateY(-50%)',
+    width: 40,
+    height: 40,
+    borderRadius: '50%',
+    zIndex: 2,
+  };
 
   return (
-    <div className="min-h-screen bg-[#121212]">
-      {/* Fixed Header with Safe Area */}
-      <div className="fixed top-0 left-0 right-0 z-40 flex items-center justify-between px-4 sm:px-6 pt-4 pb-3 bg-gradient-to-b from-[#121212] to-transparent safe-area-top">
-        <button
-          onClick={() => router.back()}
-          className="p-2 rounded-xl bg-black/60 backdrop-blur-md border border-white/10 hover:bg-black/80 transition-colors"
-        >
-          <ArrowLeft className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-        </button>
-        {isAuthenticated && (
-          <button
-            onClick={handleToggleWishlist}
-            disabled={wishlistLoading}
-            className="p-2 rounded-xl bg-black/60 backdrop-blur-md border border-white/10 hover:bg-black/80 transition-colors active:scale-95 disabled:opacity-50"
-          >
-            <Heart
-              className={`w-5 h-5 sm:w-6 sm:h-6 transition-colors ${
-                isInWishlist ? 'text-red-500 fill-red-500' : 'text-white'
-              }`}
-            />
-          </button>
-        )}
-      </div>
+    <div className="dk dk-member">
+      <div className="dk-app">
+        <MemberSidebar id="sidebar" active="browse" open={sidebarOpen} onClose={closeSidebar} />
 
-      <div className="pb-24 sm:pb-28 pt-16 safe-area-horizontal">
-        {/* Main Product Image with Swipe Support */}
-        <div className="px-4 sm:px-6 mb-4 sm:mb-6">
-          <div 
-            className="relative"
-            onTouchStart={handleTouchStart}
-            onTouchMove={handleTouchMove}
-            onTouchEnd={handleTouchEnd}
-          >
-            <img
-              src={images[selectedImageIndex]}
-              alt={product.name}
-              className="w-full h-72 sm:h-80 md:h-96 rounded-2xl sm:rounded-3xl object-cover"
-            />
-
-            {/* Discount Badge */}
-            {hasDiscount() && (
-              <div className="absolute top-3 sm:top-4 left-3 sm:left-4 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg sm:rounded-xl bg-[#FF6B00] shadow-lg">
-                <span className="text-white text-xs sm:text-sm font-bold">{discountPercentage}% OFF</span>
-              </div>
-            )}
-
-            {/* Product Badge */}
-            {product.badge && (
-              <div className="absolute top-3 sm:top-4 right-3 sm:right-4 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg sm:rounded-xl bg-[#00D4AA] shadow-lg">
-                <span className="text-white text-xs sm:text-sm font-bold">{product.badge}</span>
-              </div>
-            )}
-
-            {/* Navigation Arrows for Desktop */}
-            {images.length > 1 && (
-              <>
-                <button
-                  onClick={() => selectedImageIndex > 0 && setSelectedImageIndex(selectedImageIndex - 1)}
-                  className={`hidden sm:flex absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 items-center justify-center rounded-full bg-black/60 backdrop-blur-md border border-white/10 transition-opacity ${
-                    selectedImageIndex === 0 ? 'opacity-30 cursor-not-allowed' : 'hover:bg-black/80'
-                  }`}
-                  disabled={selectedImageIndex === 0}
-                >
-                  <ChevronLeft className="w-6 h-6 text-white" />
-                </button>
-                <button
-                  onClick={() => selectedImageIndex < images.length - 1 && setSelectedImageIndex(selectedImageIndex + 1)}
-                  className={`hidden sm:flex absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 items-center justify-center rounded-full bg-black/60 backdrop-blur-md border border-white/10 transition-opacity ${
-                    selectedImageIndex === images.length - 1 ? 'opacity-30 cursor-not-allowed' : 'hover:bg-black/80'
-                  }`}
-                  disabled={selectedImageIndex === images.length - 1}
-                >
-                  <ChevronRight className="w-6 h-6 text-white" />
-                </button>
-              </>
-            )}
-
-            {/* Image Counter */}
-            {images.length > 1 && (
-              <div className="absolute bottom-3 sm:bottom-4 right-3 sm:right-4 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg sm:rounded-xl bg-black/60 backdrop-blur-md border border-white/10">
-                <span className="text-white text-xs sm:text-sm font-medium">
-                  {selectedImageIndex + 1}/{images.length}
-                </span>
-              </div>
-            )}
-
-            {/* Image Dots Indicator */}
-            {images.length > 1 && (
-              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
-                {images.map((_, index) => (
-                  <button
-                    key={index}
-                    onClick={() => setSelectedImageIndex(index)}
-                    className={`transition-all ${
-                      index === selectedImageIndex 
-                        ? 'w-6 h-1.5 bg-[#FF6B00]' 
-                        : 'w-1.5 h-1.5 bg-white/40'
-                    } rounded-full`}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Image Thumbnails - Horizontal Scroll */}
-          {images.length > 1 && (
-            <div 
-              className="flex gap-2 sm:gap-3 mt-3 sm:mt-4 overflow-x-auto pb-2 scrollbar-hide" 
-              ref={imageScrollRef}
-              style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-            >
-              {images.map((image, index) => (
-                <button
-                  key={index}
-                  onClick={() => setSelectedImageIndex(index)}
-                  className={`flex-shrink-0 w-14 h-14 sm:w-16 sm:h-16 rounded-lg sm:rounded-xl overflow-hidden border-2 transition-all ${
-                    index === selectedImageIndex 
-                      ? 'border-[#FF6B00] scale-105' 
-                      : 'border-white/10 opacity-60'
-                  }`}
-                >
-                  <img
-                    src={image}
-                    alt={`${product.name} ${index + 1}`}
-                    className="w-full h-full object-cover"
-                  />
-                </button>
-              ))}
+        <section className="dk-app-main">
+          <div className="dk-app-top">
+            <div className="dk-app-top-l">
+              <button
+                type="button"
+                className="dk-view-btn dk-app-menu"
+                onClick={() => setSidebarOpen(true)}
+                aria-label="Open menu"
+                aria-controls="sidebar"
+                aria-expanded={sidebarOpen}
+              >
+                <MenuIcon />
+              </button>
+              <button type="button" className="dk-view-btn" onClick={() => router.back()} aria-label="Go back">
+                <ChevronIcon dir="left" />
+              </button>
             </div>
-          )}
-        </div>
-
-        {/* Product Info */}
-        <div className="px-4 sm:px-6 mb-4 sm:mb-6">
-          <div className="mb-3 sm:mb-4">
-            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-white mb-2 leading-tight">{product.name}</h1>
-
-            {/* Most Reserved Product Badge */}
-            {isMostReserved() && (
-              <div className="inline-flex items-center px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full bg-gradient-to-r from-red-500 to-orange-500 shadow-lg">
-                <Flame className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white mr-1 sm:mr-1.5 flex-shrink-0" />
-                <span className="text-white text-xs sm:text-sm font-bold">Most Reserved</span>
-              </div>
-            )}
+            <div className="dk-app-actions">
+              {isAuthenticated && (
+                <button
+                  type="button"
+                  className="dk-heart"
+                  onClick={handleToggleWishlist}
+                  disabled={wishlistLoading}
+                  aria-pressed={!!isInWishlist}
+                  aria-label="Save to wishlist"
+                  style={{ position: 'static', width: 40, height: 40, opacity: wishlistLoading ? 0.5 : 1 }}
+                >
+                  <HeartIcon size={18} />
+                </button>
+              )}
+            </div>
           </div>
 
-          {/* Price Section */}
-          <div className="p-3 sm:p-4 rounded-xl sm:rounded-2xl mb-4 bg-black/20 border border-white/10 backdrop-blur-sm">
-            <div className="flex items-start sm:items-center justify-between flex-col sm:flex-row gap-3">
-              <div className="flex-1">
-                <div className="flex items-center flex-wrap gap-2 mb-1">
-                  <span className="text-2xl sm:text-3xl font-bold text-[#FF6B00]">
-                    ₱{product.price.toFixed(2)}
-                  </span>
-                  {hasDiscount() && (
-                    <span className="text-base sm:text-lg text-gray-400 line-through">
-                      ₱{product.originalPrice!.toFixed(2)}
+          {/* Primary block: gallery + info, with price and actions in the notch */}
+          <div style={{ marginTop: 8 }}>
+            <NotchHero flush
+              tone="white"
+              behind="var(--dk-n-100)"
+              notchHeight={156}
+              notchWide
+              notchLabel="Price and actions"
+              aside={
+                <div className="dk-stack" style={{ gap: 14, alignContent: 'start' }}>
+                  <div>
+                    <h1 style={{ fontSize: 'clamp(26px, 3vw, 36px)', lineHeight: 1.15, letterSpacing: '-0.03em' }}>{product.name}</h1>
+
+                    {/* Most Reserved Product Badge */}
+                    {isMostReserved() && (
+                      <span className="dk-status red" style={{ marginTop: 12 }}>
+                        <Flame size={13} aria-hidden="true" />
+                        Most Reserved
+                      </span>
+                    )}
+                  </div>
+
+                  <div>
+                    {product.stock > 0 ? (
+                      <span className="dk-status">
+                        <Shield size={13} aria-hidden="true" />
+                        In Stock ({product.stock})
+                      </span>
+                    ) : (
+                      <span className="dk-status black">Out of Stock</span>
+                    )}
+                  </div>
+
+                  {/* Quantity Selector */}
+                  <div className="dk-panel muted dk-row between" style={{ padding: '12px 16px' }}>
+                    <span style={{ fontFamily: 'var(--dk-f-display)', fontWeight: 800, fontSize: 16 }}>Quantity</span>
+                    <span className="dk-qty">
+                      <button
+                        type="button"
+                        onClick={() => quantity > 1 && setQuantity(quantity - 1)}
+                        disabled={quantity <= 1}
+                        aria-label="Decrease quantity"
+                        style={{ width: 36, height: 36 }}
+                      >
+                        <Minus size={16} aria-hidden="true" />
+                      </button>
+                      <span aria-live="polite" style={{ minWidth: 32, fontSize: 17 }}>{quantity}</span>
+                      <button
+                        type="button"
+                        className="plus"
+                        onClick={() => quantity < product.stock && setQuantity(quantity + 1)}
+                        disabled={quantity >= product.stock}
+                        aria-label="Increase quantity"
+                        style={{ width: 36, height: 36 }}
+                      >
+                        <Plus size={16} aria-hidden="true" />
+                      </button>
                     </span>
-                  )}
+                  </div>
                 </div>
+              }
+              notch={
+                <>
+                  {/* Price Section */}
+                  <div>
+                    <div className="dk-row wrap" style={{ gap: 10, alignItems: 'baseline' }}>
+                      <span style={{ fontFamily: 'var(--dk-f-display)', fontWeight: 800, fontSize: 30, lineHeight: 1, letterSpacing: '-0.02em' }}>
+                        ₱{product.price.toFixed(2)}
+                      </span>
+                      {hasDiscount() && (
+                        <s className="dk-muted" style={{ fontSize: 16 }}>
+                          ₱{product.originalPrice!.toFixed(2)}
+                        </s>
+                      )}
+                    </div>
+                    {hasDiscount() && (
+                      <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--dk-red)', marginTop: 6 }}>
+                        Save ₱{(product.originalPrice! - product.price).toFixed(2)}
+                      </p>
+                    )}
+                  </div>
+                  <div className="dk-actions">
+                    <button
+                      type="button"
+                      onClick={handleAddToCart}
+                      className="dk-btn dk-btn-outline-dark"
+                      disabled={product.stock === 0 || isAddingToCart}
+                    >
+                      <ShoppingCart size={18} aria-hidden="true" />
+                      {isAddingToCart ? 'Adding...' : 'Add to cart'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleReserveNow}
+                      className="dk-btn dk-btn-red"
+                      disabled={product.stock === 0 || isAddingToCart}
+                    >
+                      <Calendar size={18} aria-hidden="true" />
+                      {product.stock === 0 ? 'Not Available' : 'Reserve Now'}
+                    </button>
+                  </div>
+                </>
+              }
+            >
+              {/* Main Product Image with Swipe Support */}
+              <div
+                style={{ position: 'relative' }}
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
+              >
+                <Placeholder
+                  src={images[selectedImageIndex]}
+                  alt={product.name}
+                  priority
+                  style={{ height: 'clamp(280px, 38vw, 420px)', borderRadius: 'var(--dk-r-card)' }}
+                />
+
+                {/* Discount Badge */}
                 {hasDiscount() && (
-                  <p className="text-xs sm:text-sm text-[#00D4AA] font-medium">
-                    Save ₱{(product.originalPrice! - product.price).toFixed(2)}
-                  </p>
+                  <span className="dk-status red" style={{ position: 'absolute', top: 12, left: 12, zIndex: 2 }}>
+                    {discountPercentage}% OFF
+                  </span>
                 )}
-              </div>
-              <div className="flex items-center">
-                {product.stock > 0 ? (
+
+                {/* Product Badge */}
+                {product.badge && (
+                  <span className="dk-status black" style={{ position: 'absolute', top: 12, right: 12, zIndex: 2 }}>
+                    {product.badge}
+                  </span>
+                )}
+
+                {/* Navigation Arrows */}
+                {images.length > 1 && (
                   <>
-                    <Shield className="w-4 h-4 text-[#00D4AA] mr-1.5" />
-                    <span className="text-[#00D4AA] text-xs sm:text-sm font-medium">
-                      In Stock ({product.stock})
-                    </span>
+                    <button
+                      type="button"
+                      className="dk-view-btn"
+                      onClick={() => selectedImageIndex > 0 && setSelectedImageIndex(selectedImageIndex - 1)}
+                      disabled={selectedImageIndex === 0}
+                      aria-label="Previous image"
+                      style={{ ...overlayBtn, left: 12, opacity: selectedImageIndex === 0 ? 0.4 : 1 }}
+                    >
+                      <ChevronIcon dir="left" />
+                    </button>
+                    <button
+                      type="button"
+                      className="dk-view-btn"
+                      onClick={() => selectedImageIndex < images.length - 1 && setSelectedImageIndex(selectedImageIndex + 1)}
+                      disabled={selectedImageIndex === images.length - 1}
+                      aria-label="Next image"
+                      style={{ ...overlayBtn, right: 12, opacity: selectedImageIndex === images.length - 1 ? 0.4 : 1 }}
+                    >
+                      <ChevronIcon />
+                    </button>
                   </>
-                ) : (
-                  <span className="text-red-400 text-xs sm:text-sm font-medium">Out of Stock</span>
+                )}
+
+                {/* Image Counter */}
+                {images.length > 1 && (
+                  <span className="dk-status" style={{ position: 'absolute', bottom: 12, right: 12, zIndex: 2 }}>
+                    {selectedImageIndex + 1}/{images.length}
+                  </span>
+                )}
+
+                {/* Image Dots Indicator */}
+                {images.length > 1 && (
+                  <div style={{ position: 'absolute', bottom: 20, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 6, zIndex: 2 }}>
+                    {images.map((_, index) => (
+                      <button
+                        key={index}
+                        type="button"
+                        onClick={() => setSelectedImageIndex(index)}
+                        aria-label={`Show image ${index + 1}`}
+                        aria-current={index === selectedImageIndex ? 'true' : undefined}
+                        style={{
+                          width: index === selectedImageIndex ? 24 : 8,
+                          height: 8,
+                          padding: 0,
+                          border: 0,
+                          borderRadius: 'var(--dk-r-pill)',
+                          background: index === selectedImageIndex ? 'var(--dk-red)' : 'var(--dk-n-300)',
+                          transition: 'width .2s, background-color .2s',
+                        }}
+                      />
+                    ))}
+                  </div>
                 )}
               </div>
-            </div>
+
+              {/* Image Thumbnails */}
+              {images.length > 1 && (
+                <div className="dk-thumbs" ref={imageScrollRef} style={{ marginTop: 14 }}>
+                  {images.map((image, index) => (
+                    <button
+                      key={index}
+                      type="button"
+                      onClick={() => setSelectedImageIndex(index)}
+                      aria-pressed={index === selectedImageIndex}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element -- remote Convex storage URL */}
+                      <img src={image} alt={`${product.name} ${index + 1}`} />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </NotchHero>
           </div>
 
-          {/* Quantity Selector */}
-          <div className="flex items-center justify-between p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-black/20 border border-white/10 backdrop-blur-sm">
-            <span className="text-base sm:text-lg font-bold text-white">Quantity</span>
-            <div className="flex items-center">
-              <button
-                onClick={() => quantity > 1 && setQuantity(quantity - 1)}
-                className={`w-9 h-9 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl flex items-center justify-center transition-colors ${
-                  quantity > 1 ? 'bg-white/10 hover:bg-white/20 active:bg-white/30' : 'bg-white/5'
-                }`}
-                disabled={quantity <= 1}
-              >
-                <Minus className={`w-4 h-4 sm:w-5 sm:h-5 ${quantity > 1 ? 'text-white' : 'text-gray-500'}`} />
-              </button>
-
-              <span className="text-lg sm:text-xl font-bold text-white mx-4 sm:mx-6 min-w-[2rem] text-center">{quantity}</span>
-
-              <button
-                onClick={() => quantity < product.stock && setQuantity(quantity + 1)}
-                className={`w-9 h-9 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl flex items-center justify-center transition-colors ${
-                  quantity < product.stock ? 'bg-white/10 hover:bg-white/20 active:bg-white/30' : 'bg-white/5'
-                }`}
-                disabled={quantity >= product.stock}
-              >
-                <Plus className={`w-4 h-4 sm:w-5 sm:h-5 ${quantity < product.stock ? 'text-white' : 'text-gray-500'}`} />
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Tab Navigation */}
-        <div className="px-4 sm:px-6 mb-4 sm:mb-6">
-          <div className="flex rounded-2xl sm:rounded-3xl p-1.5 sm:p-2 bg-black/40 backdrop-blur-sm">
+          {/* Tab Navigation */}
+          <div className="dk-tabs dk-app-section" role="tablist" aria-label="Product information">
             <button
+              type="button"
+              className="dk-chip"
+              role="tab"
+              aria-selected={activeTab === 'details'}
               onClick={() => setActiveTab('details')}
-              className={`flex-1 py-3 sm:py-4 rounded-xl sm:rounded-2xl text-sm sm:text-base font-medium text-center transition-all ${
-                activeTab === 'details'
-                  ? 'bg-[#FF6B00] text-white shadow-lg'
-                  : 'text-gray-400 hover:text-gray-300'
-              }`}
             >
               Details
             </button>
             <button
+              type="button"
+              className="dk-chip"
+              role="tab"
+              aria-selected={activeTab === 'specs'}
               onClick={() => setActiveTab('specs')}
-              className={`flex-1 py-3 sm:py-4 rounded-xl sm:rounded-2xl text-sm sm:text-base font-medium text-center transition-all ${
-                activeTab === 'specs'
-                  ? 'bg-[#FF6B00] text-white shadow-lg'
-                  : 'text-gray-400 hover:text-gray-300'
-              }`}
             >
               Specifications
             </button>
           </div>
-        </div>
 
-        {/* Tab Content */}
-        <div className="px-4 sm:px-6 mb-6">
-          {activeTab === 'details' && (
-            <div>
-              {/* Product Description */}
-              {product.description && (
-                <div className="mb-4 sm:mb-6">
-                  <h3 className="text-base sm:text-lg font-bold text-white mb-2 sm:mb-3">About This Product</h3>
-                  <p className="text-sm sm:text-base text-gray-300 leading-relaxed">{product.description}</p>
-                </div>
-              )}
+          {/* Tab Content */}
+          <div className="dk-panel" role="tabpanel" style={{ marginTop: 16 }}>
+            {activeTab === 'details' && (
+              <div className="dk-stack lg">
+                {/* Product Description */}
+                {product.description && (
+                  <div>
+                    <h3 className="dk-h4">About This Product</h3>
+                    <p style={{ fontSize: 15, lineHeight: '24px', color: 'var(--dk-n-600)', marginTop: 8 }}>{product.description}</p>
+                  </div>
+                )}
 
-              {/* Product Validity Section */}
-              {(product.sku || product.certificate) && (
-                <div className="mb-4 sm:mb-6">
-                  <h3 className="text-base sm:text-lg font-bold text-white mb-3 sm:mb-4">Product Validity</h3>
+                {/* Product Validity Section */}
+                {(product.sku || product.certificate) && (
+                  <div>
+                    <h3 className="dk-h4" style={{ marginBottom: 12 }}>Product Validity</h3>
 
-                  {/* SKU */}
-                  {product.sku && (
-                    <div className="flex items-center p-3 sm:p-4 rounded-xl mb-3 bg-black/20 border border-white/10 backdrop-blur-sm">
-                      <Hash className="w-4 h-4 sm:w-5 sm:h-5 text-[#FF6B00] mr-2 sm:mr-3 flex-shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs sm:text-sm text-gray-400 font-medium">Product SKU</p>
-                        <p className="text-sm sm:text-base text-white font-bold truncate">{product.sku}</p>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Certificate */}
-                  {product.certificate && (
-                    <div className="p-3 sm:p-4 rounded-xl bg-black/20 border border-white/10 backdrop-blur-sm">
-                      <div className="flex items-center mb-3">
-                        <Award className="w-4 h-4 sm:w-5 sm:h-5 text-[#00D4AA] mr-2 sm:mr-3" />
-                        <span className="text-sm sm:text-base text-[#00D4AA] font-medium">Quality Certificate</span>
-                      </div>
-                      <button
-                        onClick={() => setShowCertificateModal(true)}
-                        className="w-full rounded-lg overflow-hidden relative group"
-                      >
-                        <img
-                          src={product.certificate}
-                          alt="Quality Certificate"
-                          className="w-full h-28 sm:h-32 object-cover"
-                        />
-                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 group-active:opacity-100 transition-opacity">
-                          <Eye className="w-5 h-5 sm:w-6 sm:h-6 text-white mr-2" />
-                          <span className="text-white text-sm sm:text-base font-medium">View Certificate</span>
+                    <div className="dk-stack" style={{ gap: 12 }}>
+                      {/* SKU */}
+                      {product.sku && (
+                        <div className="dk-panel muted dk-row" style={{ padding: '14px 16px' }}>
+                          <Hash size={18} aria-hidden="true" style={{ color: 'var(--dk-red)', flex: 'none' }} />
+                          <div style={{ minWidth: 0 }}>
+                            <p className="dk-meta-label">Product SKU</p>
+                            <p className="dk-meta-val" style={{ fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis' }}>{product.sku}</p>
+                          </div>
                         </div>
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
+                      )}
 
-          {activeTab === 'specs' && (
-            <div>
-              {/* Show loading only if product exists but fish/tank data is still loading */}
-              {productQuery && (tankData === undefined || fishData === undefined) && (
-                <div className="p-4 sm:p-6 rounded-xl bg-black/20 border border-white/10 backdrop-blur-sm text-center">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#FF6B00] mx-auto mb-4"></div>
-                  <p className="text-gray-400 text-sm sm:text-base font-medium">
+                      {/* Certificate */}
+                      {product.certificate && (
+                        <div className="dk-panel muted" style={{ padding: '14px 16px' }}>
+                          <div className="dk-row" style={{ gap: 8, marginBottom: 12 }}>
+                            <Award size={18} aria-hidden="true" style={{ color: 'var(--dk-red)' }} />
+                            <span style={{ fontSize: 15, fontWeight: 700 }}>Quality Certificate</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setShowCertificateModal(true)}
+                            style={{ display: 'block', width: '100%', padding: 0, border: 0, background: 'none', textAlign: 'left' }}
+                          >
+                            <Placeholder src={product.certificate} alt="Quality Certificate" style={{ height: 128, borderRadius: 'var(--dk-r-sm)' }} />
+                            <span className="dk-btn dk-btn-text" style={{ fontSize: 14, marginTop: 10 }}>
+                              <Eye size={16} aria-hidden="true" />
+                              View Certificate
+                            </span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {activeTab === 'specs' && (
+              <div className="dk-stack lg">
+                {/* Show loading only if product exists but fish/tank data is still loading */}
+                {productQuery && (tankData === undefined || fishData === undefined) && (
+                  <p className="dk-muted" role="status" style={{ textAlign: 'center', fontSize: 15 }}>
                     Loading specifications...
                   </p>
-                </div>
-              )}
+                )}
 
-              {/* Tank specifications */}
-              {tankData && (
-                <div className="mb-4 sm:mb-6">
-                  <h3 className="text-lg sm:text-xl font-bold text-white mb-3 sm:mb-4">Tank Specifications</h3>
-                  <TankSpecs data={tankData} />
-                </div>
-              )}
+                {/* Tank specifications */}
+                {tankData && (
+                  <div>
+                    <h3 className="dk-h4" style={{ marginBottom: 12 }}>Tank Specifications</h3>
+                    <TankSpecs data={tankData} />
+                  </div>
+                )}
 
-              {/* Fish specifications */}
-              {fishData && (
-                <div className="mb-4 sm:mb-6">
-                  <h3 className="text-lg sm:text-xl font-bold text-white mb-3 sm:mb-4">Fish Information</h3>
-                  <FishSpecs data={fishData} />
-                </div>
-              )}
+                {/* Fish specifications */}
+                {fishData && (
+                  <div>
+                    <h3 className="dk-h4" style={{ marginBottom: 12 }}>Fish Information</h3>
+                    <FishSpecs data={fishData} />
+                  </div>
+                )}
 
-              {/* No specifications available - only show when both queries have completed */}
-              {productQuery && tankData !== undefined && fishData !== undefined && !tankData && !fishData && (
-                <div className="p-4 sm:p-6 rounded-xl bg-black/20 border border-white/10 backdrop-blur-sm text-center">
-                  <p className="text-gray-400 text-sm sm:text-base font-medium">
-                    No detailed specifications available for this product.
-                  </p>
-                  <p className="text-gray-500 text-xs sm:text-sm mt-2">
-                    This product may not have fish or tank-specific data.
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+                {/* No specifications available - only show when both queries have completed */}
+                {productQuery && tankData !== undefined && fishData !== undefined && !tankData && !fishData && (
+                  <div style={{ textAlign: 'center' }}>
+                    <p style={{ fontSize: 15, fontWeight: 700 }}>
+                      No detailed specifications available for this product.
+                    </p>
+                    <p className="dk-muted" style={{ fontSize: 14, marginTop: 6 }}>
+                      This product may not have fish or tank-specific data.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </section>
       </div>
 
-      {/* Bottom Reservation Bar - Fixed with Safe Area */}
-      <div className="fixed bottom-0 left-0 right-0 px-3 sm:px-4 py-3 sm:py-4 bg-[#121212]/95 backdrop-blur-md border-t border-white/10 z-50 safe-area-bottom">
-        <div className="flex gap-2 sm:gap-3 max-w-2xl mx-auto">
-          <button
-            onClick={handleAddToCart}
-            className="flex-1 flex items-center justify-center py-3 sm:py-4 rounded-xl sm:rounded-2xl bg-white/10 border border-white/10 hover:bg-white/20 active:bg-white/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            disabled={product.stock === 0 || isAddingToCart}
-          >
-            <ShoppingCart className="w-4 h-4 sm:w-5 sm:h-5 text-white mr-2 sm:mr-3 flex-shrink-0" />
-            <span className="text-white font-bold text-sm sm:text-base truncate">
-              {isAddingToCart ? 'Adding...' : 'Add to cart'}
-            </span>
-          </button>
-
-          <button
-            onClick={handleReserveNow}
-            className="flex-1 flex items-center justify-center py-3 sm:py-4 rounded-xl sm:rounded-2xl bg-[#FF6B00] hover:bg-[#FF6B00]/90 active:bg-[#FF6B00]/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
-            disabled={product.stock === 0 || isAddingToCart}
-          >
-            <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-white mr-2 sm:mr-3 flex-shrink-0" />
-            <span className="text-white font-bold text-sm sm:text-base truncate">
-              {product.stock === 0 ? 'Not Available' : 'Reserve Now'}
-            </span>
-          </button>
-        </div>
-      </div>
-
-      {/* Certificate Modal with Safe Area */}
+      {/* Certificate Modal */}
       {showCertificateModal && (
-        <div className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 z-[60] animate-fade-in safe-area-container">
-          <div className="w-full max-w-md mx-auto">
+        <>
+          <button type="button" className="dk-scrim" aria-label="Close" onClick={() => setShowCertificateModal(false)} />
+          <div className="dk-modal" role="dialog" aria-modal="true" aria-labelledby="cert-title">
             {/* Modal Header */}
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-base sm:text-lg font-bold text-white">Quality Certificate</h3>
+            <div className="dk-row between" style={{ marginBottom: 16 }}>
+              <h3 id="cert-title" className="dk-h4">Quality Certificate</h3>
               <button
+                type="button"
+                className="dk-view-btn"
                 onClick={() => setShowCertificateModal(false)}
-                className="p-2 rounded-full bg-white/10 hover:bg-white/20 active:bg-white/30 transition-colors"
+                aria-label="Close"
+                style={{ borderRadius: '50%' }}
               >
-                <X className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                <CloseIcon />
               </button>
             </div>
 
             {/* Certificate Image */}
             {product?.certificate && (
-              <div className="rounded-xl sm:rounded-2xl overflow-hidden mb-4 bg-black/40 border border-white/10">
-                <img
-                  src={product.certificate}
-                  alt="Quality Certificate"
-                  className="w-full h-80 sm:h-96 object-contain bg-white/5"
-                />
-              </div>
+              <Placeholder
+                src={product.certificate}
+                alt="Quality Certificate"
+                contain
+                style={{ height: 'min(384px, 50vh)', borderRadius: 'var(--dk-r-sm)', marginBottom: 16 }}
+              />
             )}
 
             {/* Certificate Info */}
-            <div className="p-3 sm:p-4 rounded-xl bg-black/20 border border-white/10 backdrop-blur-sm">
-              <div className="flex items-center">
-                <Award className="w-4 h-4 sm:w-5 sm:h-5 text-[#00D4AA] mr-2 flex-shrink-0" />
-                <span className="text-xs sm:text-sm text-[#00D4AA] font-medium">Verified Quality Certificate</span>
+            <div className="dk-panel muted" style={{ padding: '14px 16px' }}>
+              <div className="dk-row" style={{ gap: 8 }}>
+                <Award size={18} aria-hidden="true" style={{ color: 'var(--dk-red)', flex: 'none' }} />
+                <span style={{ fontSize: 14, fontWeight: 700 }}>Verified Quality Certificate</span>
               </div>
-              <p className="text-xs text-gray-400 mt-2 leading-relaxed">
+              <p className="dk-muted" style={{ fontSize: 13, lineHeight: '20px', marginTop: 6 }}>
                 This product has been certified to meet quality standards and specifications.
               </p>
             </div>
           </div>
-        </div>
+        </>
       )}
     </div>
   );

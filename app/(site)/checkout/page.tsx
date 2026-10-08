@@ -1,5 +1,4 @@
 'use client';
-/* eslint-disable @next/next/no-img-element -- product images are remote Convex storage URLs */
 
 /**
  * Checkout for shop products (food, lights, gear). Live fish are enquiry-only and never
@@ -17,16 +16,13 @@ import { useSiteCart, siteCartSubtotal } from '@/store/siteCart';
 import { useBusiness } from '@/components/dc/business';
 import { useQuery } from '@/components/dc/useQuery';
 import { quoteDelivery } from '@/convex/lib/serviceQuote';
+import EmptyState from '@/components/dc/kit/EmptyState';
+import Field from '@/components/dc/kit/Field';
+import Placeholder from '@/components/dc/kit/Placeholder';
+import { CartIcon, CheckIcon } from '@/components/dc/kit/icons';
 
 const fmt = (n: number) =>
   `₱${n.toLocaleString('en-PH', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
-
-const mono = "'Geist Mono', monospace";
-const serif = "'Noto Serif Display', serif";
-const ink = 'oklch(0.19 0.012 32)';
-const muted = 'oklch(0.46 0.012 34)';
-const line = 'oklch(0.86 0.012 68)';
-const red = 'oklch(0.52 0.216 27)';
 
 type Fulfilment = 'pickup' | 'delivery';
 
@@ -123,8 +119,10 @@ export default function CheckoutPage() {
   };
 
   const wrap = (children: React.ReactNode) => (
-    <main style={{ background: 'oklch(0.972 0.008 78)', color: ink }}>
-      <div style={{ maxWidth: 1180, margin: '0 auto', padding: '40px 28px 96px' }}>{children}</div>
+    <main className="dk">
+      <section className="dk-section tight">
+        <div className="dk-wrap">{children}</div>
+      </section>
     </main>
   );
 
@@ -132,21 +130,23 @@ export default function CheckoutPage() {
   if (placed) {
     const wa = biz.wa(`Hi ${biz.storeName} — I just placed order ${placed.code} on the website.`);
     return wrap(
-      <div style={{ maxWidth: 620, margin: '40px auto 0', textAlign: 'center' }}>
-        <div style={{ width: 60, height: 60, borderRadius: 999, margin: '0 auto 22px', background: 'oklch(0.52 0.13 150 / 0.14)', color: 'oklch(0.46 0.14 150)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28 }}>✓</div>
-        <h1 style={{ fontFamily: serif, fontWeight: 700, fontSize: 'clamp(30px,4vw,44px)', margin: '0 0 12px' }}>Order received</h1>
-        <p style={{ fontSize: 16, lineHeight: 1.6, color: muted, margin: '0 0 24px' }}>
+      <div className="dk-empty-state" role="status">
+        <span className="dk-empty-icon" aria-hidden="true"><CheckIcon size={24} /></span>
+        <h1 className="dk-h2">Order received</h1>
+        <p style={{ maxWidth: 560 }}>
           Thank you. We&rsquo;ll contact you shortly to confirm availability, payment and {fulfilment === 'pickup' ? 'your pickup time' : 'delivery'}. Nothing has been charged yet.
         </p>
-        <div style={{ display: 'inline-block', fontFamily: mono, fontSize: 18, fontWeight: 700, padding: '12px 18px', borderRadius: 8, border: `1px solid ${line}`, background: 'oklch(0.985 0.006 80)', marginBottom: 12 }}>{placed.code}</div>
-        <div style={{ fontFamily: mono, fontSize: 12, color: muted, marginBottom: 30 }}>
-          {placed.count} item{placed.count === 1 ? '' : 's'} · {fmt(placed.total)}
+        <div className="dk-panel muted dk-mono" style={{ padding: '12px 20px', marginTop: 24, fontSize: 20, fontWeight: 800, letterSpacing: '0.02em' }}>
+          {placed.code}
         </div>
-        <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
-          {wa && <a href={wa} target="_blank" rel="noopener" className="dc-btn-primary" style={{ background: red, color: 'oklch(0.98 0.012 82)', fontSize: 14, fontWeight: 600, padding: '14px 22px', borderRadius: 999 }}>Message us about this order</a>}
-          <Link href={`/track?code=${placed.code}`} className="dc-btn-ghost" style={{ border: '1px solid oklch(0.78 0.02 40)', color: 'oklch(0.34 0.012 34)', fontSize: 14, fontWeight: 600, padding: '14px 22px', borderRadius: 999 }}>Track this order</Link>
-          <Link href="/shop" className="dc-btn-ghost" style={{ border: '1px solid oklch(0.78 0.02 40)', color: 'oklch(0.34 0.012 34)', fontSize: 14, fontWeight: 600, padding: '14px 22px', borderRadius: 999 }}>Back to the shop</Link>
-          {user && <Link href="/account" className="dc-btn-ghost" style={{ border: '1px solid oklch(0.78 0.02 40)', color: 'oklch(0.34 0.012 34)', fontSize: 14, fontWeight: 600, padding: '14px 22px', borderRadius: 999 }}>View in my account</Link>}
+        <p className="dk-small dk-muted dk-mono" style={{ marginTop: 10 }}>
+          {placed.count} item{placed.count === 1 ? '' : 's'} · {fmt(placed.total)}
+        </p>
+        <div className="dk-actions">
+          {wa && <a href={wa} target="_blank" rel="noopener" className="dk-btn dk-btn-red">Message us about this order</a>}
+          <Link href={`/track?code=${placed.code}`} className="dk-btn dk-btn-outline-dark">Track this order</Link>
+          <Link href="/shop" className="dk-btn dk-btn-outline-dark">Back to the shop</Link>
+          {user && <Link href="/account" className="dk-btn dk-btn-outline-dark">View in my account</Link>}
         </div>
       </div>,
     );
@@ -155,160 +155,166 @@ export default function CheckoutPage() {
   // ── Empty cart ──
   if (cartItems.length === 0) {
     return wrap(
-      <div style={{ textAlign: 'center', padding: '60px 0' }}>
-        <h1 style={{ fontFamily: serif, fontWeight: 700, fontSize: 32, margin: '0 0 10px' }}>Your cart is empty</h1>
-        <p style={{ color: muted, fontSize: 15, margin: '0 0 24px' }}>Add food, lights or gear from the shop. Live fish are reserved by enquiry.</p>
-        <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
-          <Link href="/shop" className="dc-btn-primary" style={{ background: red, color: 'oklch(0.98 0.012 82)', fontSize: 14, fontWeight: 600, padding: '14px 22px', borderRadius: 999 }}>Browse the shop</Link>
-          <Link href="/catalog" className="dc-btn-ghost" style={{ border: '1px solid oklch(0.78 0.02 40)', color: 'oklch(0.34 0.012 34)', fontSize: 14, fontWeight: 600, padding: '14px 22px', borderRadius: 999 }}>See our fish</Link>
-        </div>
-      </div>,
+      <EmptyState
+        as="h1"
+        icon={<CartIcon />}
+        title="Your cart is empty"
+        actions={
+          <>
+            <Link href="/shop" className="dk-btn dk-btn-red">Browse the shop</Link>
+            <Link href="/catalog" className="dk-btn dk-btn-outline-dark">See our fish</Link>
+          </>
+        }
+      >
+        Add food, lights or gear from the shop. Live fish are reserved by enquiry.
+      </EmptyState>,
     );
   }
 
-  const label = (text: string, htmlFor: string, optional = false) => (
-    <label htmlFor={htmlFor} className="dc-lbl">
-      {text}
-      {optional && <span style={{ textTransform: 'none', letterSpacing: 0, color: 'oklch(0.66 0.02 40)' }}> (optional)</span>}
-    </label>
-  );
-  const choice = (selected: boolean): React.CSSProperties => ({
-    textAlign: 'left',
-    padding: '14px 16px',
-    borderRadius: 10,
-    cursor: 'pointer',
-    background: selected ? 'oklch(0.52 0.216 27 / 0.07)' : 'oklch(0.99 0.005 80)',
-    border: `1px solid ${selected ? red : 'oklch(0.84 0.012 66)'}`,
-    color: ink,
-    fontFamily: 'inherit',
-  });
+  const choiceStyle: React.CSSProperties = { width: '100%', flexDirection: 'column', gap: 4, textAlign: 'left' };
 
   // ── Form ──
   return wrap(
     <>
-      <Link href="/shop" style={{ fontFamily: mono, fontSize: 11, letterSpacing: '0.1em', color: 'oklch(0.50 0.02 40)' }}>&larr; Continue shopping</Link>
-      <h1 style={{ fontFamily: serif, fontWeight: 800, fontSize: 'clamp(36px,5vw,60px)', letterSpacing: '-0.02em', margin: '14px 0 8px' }}>Checkout</h1>
-      <p style={{ color: muted, fontSize: 15, margin: '0 0 36px', maxWidth: 560 }}>
+      <Link href="/shop" className="dk-btn dk-btn-text" style={{ fontSize: 14 }}>&larr; Continue shopping</Link>
+      <h1 className="dk-h1" style={{ marginTop: 16 }}>Checkout</h1>
+      <p className="dk-lede" style={{ marginTop: 12, maxWidth: 560 }}>
         Place your order and we&rsquo;ll get in touch to confirm. No payment is taken on this website.
       </p>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 340px), 1fr))', gap: 40, alignItems: 'start' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 30 }}>
+      <div className="dk-split" style={{ marginTop: 40 }}>
+        <div className="dk-stack lg">
           {/* Contact */}
-          <section>
-            <h2 style={{ fontFamily: serif, fontWeight: 700, fontSize: 22, margin: '0 0 16px' }}>Your details</h2>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
-              <div>{label('Full name', 'co-name')}<input id="co-name" className="dc-input" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} /></div>
-              <div>{label('Mobile number', 'co-phone')}<input id="co-phone" className="dc-input" type="tel" autoComplete="tel" placeholder="09XX XXX XXXX" value={phone} onChange={(e) => setPhone(e.target.value)} /></div>
-              <div style={{ gridColumn: '1 / -1' }}>{label('Email', 'co-email')}<input id="co-email" className="dc-input" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
+          <section className="dk-panel" aria-labelledby="co-details">
+            <h2 id="co-details" className="dk-panel-title" style={{ marginBottom: 20 }}>Your details</h2>
+            <div className="dk-fgrid">
+              <Field id="co-name" label="Full name">
+                <input id="co-name" className="dk-input" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} />
+              </Field>
+              <Field id="co-phone" label="Mobile number">
+                <input id="co-phone" className="dk-input" type="tel" autoComplete="tel" placeholder="09XX XXX XXXX" value={phone} onChange={(e) => setPhone(e.target.value)} />
+              </Field>
+              <Field id="co-email" label="Email" full>
+                <input id="co-email" className="dk-input" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+              </Field>
             </div>
           </section>
 
           {/* Fulfilment */}
-          <section>
-            <h2 style={{ fontFamily: serif, fontWeight: 700, fontSize: 22, margin: '0 0 16px' }}>How you&rsquo;ll receive it</h2>
-            <div role="radiogroup" aria-label="Fulfilment" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
-              <button type="button" role="radio" aria-checked={fulfilment === 'pickup'} onClick={() => setFulfilment('pickup')} style={choice(fulfilment === 'pickup')}>
-                <div style={{ fontWeight: 600, fontSize: 14.5 }}>Pick up at the gallery</div>
-                <div style={{ fontSize: 12.5, color: muted, marginTop: 3 }}>{[biz.address, biz.city].filter(Boolean).join(', ') || 'We’ll send the address when we confirm'}</div>
+          <section className="dk-panel" aria-labelledby="co-fulfil">
+            <h2 id="co-fulfil" className="dk-panel-title" style={{ marginBottom: 20 }}>How you&rsquo;ll receive it</h2>
+            <div role="radiogroup" aria-label="Fulfilment" className="dk-grid-2" style={{ display: 'grid', gap: 12 }}>
+              <button type="button" role="radio" aria-checked={fulfilment === 'pickup'} onClick={() => setFulfilment('pickup')} className="dk-choice" style={choiceStyle}>
+                <span style={{ fontWeight: 700, fontSize: 15 }}>Pick up at the gallery</span>
+                <span className="dk-small dk-muted">{[biz.address, biz.city].filter(Boolean).join(', ') || 'We’ll send the address when we confirm'}</span>
               </button>
               {deliveryOffered && (
-                <button type="button" role="radio" aria-checked={fulfilment === 'delivery'} onClick={() => setFulfilment('delivery')} style={choice(fulfilment === 'delivery')}>
-                  <div style={{ fontWeight: 600, fontSize: 14.5 }}>Delivery</div>
-                  <div style={{ fontSize: 12.5, color: muted, marginTop: 3 }}>
+                <button type="button" role="radio" aria-checked={fulfilment === 'delivery'} onClick={() => setFulfilment('delivery')} className="dk-choice" style={choiceStyle}>
+                  <span style={{ fontWeight: 700, fontSize: 15 }}>Delivery</span>
+                  <span className="dk-small dk-muted">
                     {serviceOptions?.settings.freeDeliveryThreshold
                       ? <>From {fmt(cheapestFee)} &middot; free over {fmt(serviceOptions.settings.freeDeliveryThreshold)}</>
                       : <>From {fmt(cheapestFee)}, by area</>}
-                  </div>
+                  </span>
                 </button>
               )}
             </div>
             {fulfilment === 'delivery' && (
-              <>
-                <div style={{ marginTop: 16 }}>
-                  {label('Delivery area', 'co-area')}
-                  <select id="co-area" className="dc-input" value={areaId} onChange={(e) => setAreaId(e.target.value)}>
+              <div className="dk-fgrid" style={{ marginTop: 20 }}>
+                <Field id="co-area" label="Delivery area" full hint={area?.note || undefined}>
+                  <select
+                    id="co-area"
+                    className="dk-input"
+                    value={areaId}
+                    onChange={(e) => setAreaId(e.target.value)}
+                    aria-describedby={area?.note ? 'co-area-msg' : undefined}
+                  >
                     <option value="">Choose your area&hellip;</option>
                     {deliveryAreas.map((a) => (
                       <option key={a._id} value={a._id}>{a.name} &mdash; {a.deliveryFee > 0 ? fmt(a.deliveryFee) : 'free'}</option>
                     ))}
                   </select>
-                  {area?.note && <div style={{ fontSize: 12, marginTop: 6, color: muted }}>{area.note}</div>}
-                </div>
-                <div style={{ marginTop: 16 }}>{label('Delivery address', 'co-address')}<textarea id="co-address" className="dc-input" rows={3} autoComplete="street-address" placeholder="House no., street, barangay, city, province" value={address} onChange={(e) => setAddress(e.target.value)} /></div>
-                {!quote.ok && areaId && <div style={{ marginTop: 10, fontSize: 12.5, color: 'oklch(0.50 0.20 27)' }}>{quote.reason}</div>}
-              </>
+                </Field>
+                <Field id="co-address" label="Delivery address" full>
+                  <textarea id="co-address" className="dk-ta" rows={3} autoComplete="street-address" placeholder="House no., street, barangay, city, province" value={address} onChange={(e) => setAddress(e.target.value)} />
+                </Field>
+                {!quote.ok && areaId && <p className="dk-err full">{quote.reason}</p>}
+              </div>
             )}
             {serviceOptions?.settings.deliveryNote && (
-              <p style={{ fontSize: 12.5, color: muted, margin: '14px 0 0', lineHeight: 1.55 }}>{serviceOptions.settings.deliveryNote}</p>
+              <p className="dk-small dk-muted" style={{ marginTop: 16 }}>{serviceOptions.settings.deliveryNote}</p>
             )}
           </section>
 
           {/* Payment */}
-          <section>
-            <h2 style={{ fontFamily: serif, fontWeight: 700, fontSize: 22, margin: '0 0 6px' }}>Preferred payment</h2>
-            <p style={{ fontSize: 13, color: muted, margin: '0 0 16px' }}>You&rsquo;ll pay after we confirm your order.</p>
-            <div role="radiogroup" aria-label="Payment method" style={{ display: 'grid', gap: 10 }}>
+          <section className="dk-panel" aria-labelledby="co-pay">
+            <h2 id="co-pay" className="dk-panel-title">Preferred payment</h2>
+            <p className="dk-small dk-muted" style={{ marginTop: 4, marginBottom: 20 }}>You&rsquo;ll pay after we confirm your order.</p>
+            <div role="radiogroup" aria-label="Payment method" className="dk-stack" style={{ gap: 10 }}>
               {paymentOptions.map((m) => (
-                <button key={m.id} type="button" role="radio" aria-checked={paymentMethod === m.id} onClick={() => setPaymentMethod(m.id)} style={choice(paymentMethod === m.id)}>
-                  <div style={{ fontWeight: 600, fontSize: 14.5 }}>{m.label}</div>
-                  <div style={{ fontSize: 12.5, color: muted, marginTop: 3 }}>{m.hint}</div>
+                <button key={m.id} type="button" role="radio" aria-checked={paymentMethod === m.id} onClick={() => setPaymentMethod(m.id)} className="dk-choice" style={choiceStyle}>
+                  <span style={{ fontWeight: 700, fontSize: 15 }}>{m.label}</span>
+                  <span className="dk-small dk-muted">{m.hint}</span>
                 </button>
               ))}
             </div>
             {paymentMethod === 'bank_transfer' && biz.bankDetails && (
-              <div style={{ marginTop: 12, padding: '12px 14px', borderRadius: 8, background: 'oklch(0.955 0.010 74)', border: `1px solid ${line}`, fontFamily: mono, fontSize: 12.5, whiteSpace: 'pre-line' }}>{biz.bankDetails}</div>
+              <div className="dk-alert dk-mono" style={{ marginTop: 12, whiteSpace: 'pre-line' }}>{biz.bankDetails}</div>
             )}
           </section>
 
-          <section>{label('Notes', 'co-notes', true)}<textarea id="co-notes" className="dc-input" rows={3} placeholder="Preferred pickup day, tank size, anything we should know" value={notes} onChange={(e) => setNotes(e.target.value)} /></section>
+          <section className="dk-panel">
+            <Field id="co-notes" label="Notes" optional="(optional)">
+              <textarea id="co-notes" className="dk-ta" rows={3} placeholder="Preferred pickup day, tank size, anything we should know" value={notes} onChange={(e) => setNotes(e.target.value)} />
+            </Field>
+          </section>
         </div>
 
         {/* Summary */}
-        <aside className="dc-sticky-md" style={{ position: 'sticky', top: 96, background: 'oklch(0.985 0.006 80)', border: `1px solid ${line}`, borderRadius: 14, padding: 22 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 14 }}>
-            <h2 style={{ fontFamily: serif, fontWeight: 700, fontSize: 20, margin: 0 }}>Your order</h2>
-            <button type="button" onClick={() => setOpen(true)} style={{ border: 'none', background: 'transparent', color: red, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Edit cart</button>
+        <aside className="dk-panel dk-sticky" aria-labelledby="co-order">
+          <div className="dk-panel-head" style={{ marginBottom: 8 }}>
+            <h2 id="co-order" className="dk-panel-title">Your order</h2>
+            <button type="button" onClick={() => setOpen(true)} className="dk-btn dk-btn-text" style={{ fontSize: 14 }}>Edit cart</button>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 16 }}>
+          <ul className="dk-list">
             {cartItems.map((l) => (
-              <div key={l.productId} style={{ display: 'grid', gridTemplateColumns: '48px 1fr auto', gap: 12, alignItems: 'center' }}>
-                <div style={{ width: 48, height: 48, borderRadius: 6, overflow: 'hidden', background: 'oklch(0.93 0.012 70)' }}>
-                  {l.image && <img src={l.image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+              <li key={l.productId} className="dk-list-row" style={{ gap: 12, padding: '12px 0' }}>
+                <div className="dk-thumb" style={{ width: 48, height: 48 }}>
+                  <Placeholder src={l.image || null} style={{ width: '100%', height: '100%' }} />
                 </div>
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: 13.5, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.name}</div>
-                  <div style={{ fontFamily: mono, fontSize: 11, color: 'oklch(0.50 0.02 40)' }}>{l.qty} × {fmt(l.price)}</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.name}</div>
+                  <div className="dk-small dk-muted dk-mono">{l.qty} × {fmt(l.price)}</div>
                 </div>
-                <div style={{ fontFamily: mono, fontSize: 13.5, fontWeight: 600 }}>{fmt(l.price * l.qty)}</div>
-              </div>
+                <div className="dk-mono" style={{ fontSize: 14, fontWeight: 700 }}>{fmt(l.price * l.qty)}</div>
+              </li>
             ))}
-          </div>
-          <div style={{ borderTop: `1px solid ${line}`, paddingTop: 14, display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13.5 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', color: muted }}><span>Subtotal ({count} item{count === 1 ? '' : 's'})</span><span style={{ fontFamily: mono }}>{fmt(subtotal)}</span></div>
+          </ul>
+          <div className="dk-summary" style={{ marginTop: 8, paddingTop: 16, borderTop: '1px solid var(--dk-line)' }}>
+            <div><span>Subtotal ({count} item{count === 1 ? '' : 's'})</span><span className="dk-mono">{fmt(subtotal)}</span></div>
             {fulfilment === 'delivery' && (
-              <div style={{ display: 'flex', justifyContent: 'space-between', color: muted }}>
-                <span>Delivery{area ? ` \u00b7 ${area.name}` : ''}</span>
-                <span style={{ fontFamily: mono }}>
-                  {!area ? 'Choose an area' : quote.ok ? (quote.free ? 'Free' : fmt(quote.fee)) : '\u2014'}
+              <div>
+                <span>Delivery{area ? ` · ${area.name}` : ''}</span>
+                <span className="dk-mono">
+                  {!area ? 'Choose an area' : quote.ok ? (quote.free ? 'Free' : fmt(quote.fee)) : '—'}
                 </span>
               </div>
             )}
             {fulfilment === 'delivery' && quote.ok && quote.free && (
-              <div style={{ fontSize: 12, color: 'oklch(0.46 0.14 150)' }}>Free delivery on this order.</div>
+              <div><span className="dk-status black">Free delivery on this order.</span></div>
             )}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginTop: 6 }}>
-              <span style={{ fontWeight: 600 }}>Total</span>
-              <span style={{ fontFamily: serif, fontWeight: 700, fontSize: 24 }}>{fmt(total)}</span>
+            <div className="total">
+              <span>Total</span>
+              <span className="dk-mono">{fmt(total)}</span>
             </div>
           </div>
 
-          {error && <div role="alert" style={{ marginTop: 14, fontSize: 13, color: 'oklch(0.50 0.20 27)' }}>{error}</div>}
+          {error && <div role="alert" className="dk-alert err" style={{ marginTop: 16 }}>{error}</div>}
 
-          <button type="button" onClick={submit} disabled={submitting} className="dc-btn-primary" style={{ marginTop: 18, width: '100%', border: 'none', background: red, color: 'oklch(0.98 0.012 82)', fontSize: 15, fontWeight: 600, padding: '16px 24px', borderRadius: 999, cursor: submitting ? 'default' : 'pointer', opacity: submitting ? 0.7 : 1 }}>
+          <button type="button" onClick={submit} disabled={submitting} aria-busy={submitting} className="dk-btn dk-btn-red block" style={{ marginTop: 20 }}>
             {submitting ? 'Placing order…' : 'Place order'}
           </button>
-          <p style={{ fontSize: 11.5, color: 'oklch(0.50 0.02 40)', textAlign: 'center', margin: '10px 0 0', lineHeight: 1.5 }}>
+          <p className="dk-small dk-muted" style={{ textAlign: 'center', marginTop: 12 }}>
             Nothing is charged now. We&rsquo;ll confirm stock, payment and {fulfilment === 'pickup' ? 'pickup' : 'delivery'} with you.
           </p>
         </aside>

@@ -1,9 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  ArrowLeft,
   Search,
   Fish,
   Package,
@@ -12,20 +11,23 @@ import {
   Palette,
   Utensils,
   Star,
-  TrendingUp,
-  ChevronRight
+  TrendingUp
 } from 'lucide-react';
 import { useAuthStore, useIsAuthenticated } from '@/store/auth';
 import { useQuery } from 'convex/react';
 import { api } from '@/convex/_generated/api';
-import Button from '@/components/ui/Button';
-import Card from '@/components/ui/Card';
+import MemberSidebar from '@/components/dc/kit/MemberSidebar';
+import SearchField from '@/components/dc/kit/SearchField';
+import EmptyState from '@/components/dc/kit/EmptyState';
+import { MenuIcon } from '@/components/dc/kit/icons';
 
 export default function CategoriesPage() {
   const router = useRouter();
   const { user } = useAuthStore();
   const isAuthenticated = useIsAuthenticated();
   const [searchQuery, setSearchQuery] = useState('');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const closeSidebar = useCallback(() => setSidebarOpen(false), []);
 
   // Fetch real categories and products from Convex
   const categoriesQuery = useQuery(api.services.categories.getCategories, { isActive: true }) || [];
@@ -83,220 +85,177 @@ export default function CategoriesPage() {
     router.push(`/client/search?category=${categoryName.toLowerCase()}`);
   };
 
+  const pressKeys = (categoryId: string, categoryName: string) => (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      handleCategoryPress(categoryId, categoryName);
+    }
+  };
+
+  const top = (
+    <div className="dk-app-top">
+      <div className="dk-app-top-l">
+        <button
+          type="button"
+          className="dk-view-btn dk-app-menu"
+          onClick={() => setSidebarOpen(true)}
+          aria-label="Open menu"
+          aria-controls="sidebar"
+          aria-expanded={sidebarOpen}
+        >
+          <MenuIcon />
+        </button>
+        <h1>Categories</h1>
+      </div>
+    </div>
+  );
+
   // Loading state
   if (!categoriesQuery || !productsQuery) {
     return (
-      <div className="min-h-screen bg-background">
-        {/* Header */}
-        <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-white/10">
-          <div className="px-4 py-4">
-            <div className="flex items-center justify-between">
-              <button
-                onClick={() => router.back()}
-                className="p-2 rounded-full bg-secondary border border-white/10 hover:bg-white/10 transition-colors"
-              >
-                <ArrowLeft className="w-5 h-5 text-white" />
-              </button>
-              <h1 className="text-xl font-semibold text-white">Categories</h1>
-              <div className="w-10" />
+      <div className="dk dk-member">
+        <div className="dk-app">
+          <MemberSidebar id="sidebar" active="browse" open={sidebarOpen} onClose={closeSidebar} />
+          <section className="dk-app-main" aria-busy="true">
+            {top}
+            {/* Loading skeleton */}
+            <div className="dk-panel muted" style={{ height: 48, marginTop: 17, borderRadius: 'var(--dk-r-pill)' }} />
+            <div className="dk-stack" style={{ marginTop: 32 }}>
+              {[...Array(6)].map((_, i) => (
+                <div key={i} className="dk-panel muted" style={{ height: 96 }} />
+              ))}
             </div>
-          </div>
-        </div>
-
-        {/* Loading skeleton */}
-        <div className="px-4 py-4">
-          <div className="h-12 bg-secondary rounded-xl animate-pulse mb-6" />
-          <div className="space-y-4">
-            {[...Array(6)].map((_, i) => (
-              <div key={i} className="h-24 bg-secondary rounded-xl animate-pulse" />
-            ))}
-          </div>
+          </section>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-white/10">
-        <div className="px-4 py-4">
-          <div className="flex items-center justify-between">
-            <button
-              onClick={() => router.back()}
-              className="p-2 rounded-full bg-secondary border border-white/10 hover:bg-white/10 transition-colors"
-            >
-              <ArrowLeft className="w-5 h-5 text-white" />
-            </button>
-            <h1 className="text-xl font-semibold text-white">Categories</h1>
-            <div className="w-10" />
-          </div>
-        </div>
-      </div>
+    <div className="dk dk-member">
+      <div className="dk-app">
+        <MemberSidebar id="sidebar" active="browse" open={sidebarOpen} onClose={closeSidebar} />
 
-      {/* Search Bar */}
-      <div className="px-4 py-4">
-        <div className="flex items-center bg-secondary border border-white/10 rounded-xl px-4 py-3">
-          <Search className="w-5 h-5 text-muted mr-3" />
-          <input
-            type="text"
-            placeholder="Search categories..."
+        <section className="dk-app-main">
+          {top}
+
+          {/* Search Bar */}
+          <SearchField
+            className="dk-app-search"
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="flex-1 bg-transparent text-white placeholder-muted focus:outline-none"
+            onChange={setSearchQuery}
+            placeholder="Search categories..."
+            label="Search categories"
+            iconSize={18}
           />
-        </div>
-      </div>
 
-      <div className="px-4 pb-8">
-        {/* Featured Categories */}
-        {searchQuery === '' && featuredCategories.length > 0 && (
-          <div className="mb-8">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold text-white">Featured Categories</h2>
-              <div className="flex items-center">
-                <Star className="w-4 h-4 text-primary mr-1" />
-                <span className="text-sm text-primary">Popular</span>
+          {/* Featured Categories */}
+          {searchQuery === '' && featuredCategories.length > 0 && (
+            <div className="dk-app-section">
+              <div className="dk-row between" style={{ marginBottom: 16 }}>
+                <h2 style={{ fontSize: 20 }}>Featured Categories</h2>
+                <span className="dk-status pale">
+                  <Star size={12} aria-hidden="true" />
+                  Popular
+                </span>
+              </div>
+
+              <div className="dk-grid-3" style={{ gap: 16 }}>
+                {featuredCategories.map((category) => {
+                  const IconComponent = category.icon;
+                  return (
+                    <div
+                      key={`featured-${category._id}`}
+                      role="button"
+                      tabIndex={0}
+                      className="dk-panel lift dk-cat-card"
+                      onClick={() => handleCategoryPress(category._id, category.name)}
+                      onKeyDown={pressKeys(category._id, category.name)}
+                      aria-label={`Browse ${category.name}, ${category.count} products`}
+                    >
+                      <div className="dk-row between" style={{ alignItems: 'flex-start' }}>
+                        <span className="dk-cat-icon" aria-hidden="true">
+                          <IconComponent size={24} />
+                        </span>
+                        {category.trending && (
+                          <span className="dk-status red">
+                            <TrendingUp size={12} aria-hidden="true" />
+                            HOT
+                          </span>
+                        )}
+                      </div>
+                      <h3 className="dk-cat-name">{category.name}</h3>
+                      <p className="dk-cat-desc">{category.description}</p>
+                      <div className="dk-cat-foot">
+                        <span className="dk-cat-count">{category.count} products</span>
+                        <span className="dk-cat-go">Browse</span>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
+          )}
 
-            <div className="space-y-4">
-              {featuredCategories.map((category) => {
-                const IconComponent = category.icon;
-                return (
-                  <div
-                    key={`featured-${category._id}`}
-                    role="button"
-                    tabIndex={0}
-                    className="block hover:scale-[1.02] transition-transform cursor-pointer"
-                    onClick={() => handleCategoryPress(category._id, category.name)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        handleCategoryPress(category._id, category.name);
-                      }
-                    }}
-                  >
-                  <Card className="overflow-hidden">
-                    <div className="relative">
-                      <div className="h-32 bg-gradient-to-r from-primary/20 to-info/20 flex items-center justify-center">
-                        <IconComponent className="w-12 h-12 text-primary" />
-                      </div>
-                      {category.trending && (
-                        <div className="absolute top-3 right-3 bg-primary px-2 py-1 rounded-full">
-                          <div className="flex items-center">
-                            <TrendingUp className="w-3 h-3 mr-1" />
-                            <span className="text-xs font-medium">HOT</span>
-                          </div>
-                        </div>
-                      )}
-                      <div className="absolute bottom-3 left-3">
-                        <span className="bg-white/20 backdrop-blur-sm px-2 py-1 rounded-lg text-xs text-white">
-                          Featured
-                        </span>
-                      </div>
-                    </div>
+          {/* All Categories */}
+          <div className="dk-app-section">
+            <h2 style={{ fontSize: 20, marginBottom: 16 }}>
+              {searchQuery ? `Search Results (${filteredCategories.length})` : 'All Categories'}
+            </h2>
 
-                    <div className="p-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <h3 className="font-semibold text-white">{category.name}</h3>
-                        <ChevronRight className="w-5 h-5 text-muted" />
-                      </div>
-                      <p className="text-sm text-muted mb-3">{category.description}</p>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-primary font-medium">
-                          {category.count} products
-                        </span>
-                        <Button variant="ghost" size="sm">
-                          Browse
-                        </Button>
-                      </div>
-                    </div>
-                  </Card>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* All Categories */}
-        <div>
-          <h2 className="text-xl font-bold text-white mb-4">
-            {searchQuery ? `Search Results (${filteredCategories.length})` : 'All Categories'}
-          </h2>
-
-          {filteredCategories.length > 0 ? (
-            <div className="space-y-3">
-              {regularCategories.map((category) => {
-                const IconComponent = category.icon;
-                return (
-                  <div
-                    key={category._id}
-                    role="button"
-                    tabIndex={0}
-                    className="block hover:scale-[1.02] transition-transform cursor-pointer"
-                    onClick={() => handleCategoryPress(category._id, category.name)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        handleCategoryPress(category._id, category.name);
-                      }
-                    }}
-                  >
-                  <Card className="p-4">
-                    <div className="flex items-center space-x-4">
-                      <div className="w-12 h-12 rounded-xl bg-primary/20 flex items-center justify-center">
-                        <IconComponent className="w-6 h-6 text-primary" />
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between mb-1">
-                          <h3 className="font-semibold text-white">{category.name}</h3>
-                          <ChevronRight className="w-5 h-5 text-muted" />
-                        </div>
-                        <p className="text-sm text-muted mb-2">{category.description}</p>
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm text-primary font-medium">
-                            {category.count} products available
-                          </span>
+            {filteredCategories.length > 0 ? (
+              <div className="dk-stack" style={{ gap: 12 }}>
+                {regularCategories.map((category) => {
+                  const IconComponent = category.icon;
+                  return (
+                    <div
+                      key={category._id}
+                      role="button"
+                      tabIndex={0}
+                      className="dk-panel lift dk-cat-row"
+                      onClick={() => handleCategoryPress(category._id, category.name)}
+                      onKeyDown={pressKeys(category._id, category.name)}
+                      aria-label={`Browse ${category.name}, ${category.count} products available`}
+                    >
+                      <span className="dk-cat-icon" aria-hidden="true">
+                        <IconComponent size={22} />
+                      </span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <h3 className="dk-cat-name" style={{ marginTop: 0 }}>{category.name}</h3>
+                        <p className="dk-cat-desc">{category.description}</p>
+                        <div className="dk-row wrap" style={{ gap: 8, marginTop: 8 }}>
+                          <span className="dk-cat-count">{category.count} products available</span>
                           {category.trending && (
-                            <div className="flex items-center">
-                              <TrendingUp className="w-4 h-4 text-primary mr-1" />
-                              <span className="text-xs text-primary">Trending</span>
-                            </div>
+                            <span className="dk-status pale">
+                              <TrendingUp size={12} aria-hidden="true" />
+                              Trending
+                            </span>
                           )}
                         </div>
                       </div>
+                      <span className="dk-cat-arrow" aria-hidden="true" />
                     </div>
-                  </Card>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="text-center py-12">
-              <div className="w-16 h-16 bg-secondary rounded-2xl flex items-center justify-center mx-auto mb-4">
-                <Search className="w-8 h-8 text-muted" />
+                  );
+                })}
               </div>
-              <h3 className="font-semibold text-white mb-2">No categories found</h3>
-              <p className="text-sm text-muted mb-6">
-                Try searching with different keywords
-              </p>
-              {searchQuery && (
-                <Button
-                  onClick={() => setSearchQuery('')}
-                  variant="outline"
+            ) : (
+              <div className="dk-panel" style={{ padding: 0 }}>
+                <EmptyState
+                  icon={<Search size={26} />}
+                  title="No categories found"
+                  actions={searchQuery ? (
+                    <button type="button" className="dk-btn dk-btn-red" onClick={() => setSearchQuery('')}>
+                      Clear Search
+                    </button>
+                  ) : undefined}
                 >
-                  Clear Search
-                </Button>
-              )}
-            </div>
-          )}
-        </div>
+                  Try searching with different keywords
+                </EmptyState>
+              </div>
+            )}
+          </div>
+        </section>
       </div>
-
-      {/* Bottom spacing */}
-      <div className="h-6" />
     </div>
   );
 }

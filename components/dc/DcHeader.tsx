@@ -1,153 +1,177 @@
 'use client';
 
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { LayoutDashboard, LogOut, Menu, ShoppingBag, User as UserIcon, X } from 'lucide-react';
 import { useAuthStore } from '@/store/auth';
 import { useSiteCart } from '@/store/siteCart';
-import { WaIcon } from './styles';
 import { useBusiness } from './business';
+import Brand from './kit/Brand';
+import { BagIcon, CaretIcon, CloseIcon, MenuIcon, SearchIcon, SignInIcon } from './kit/icons';
 
-/** Verbatim port of site-header.dc.html */
+type HeaderTheme = 'light' | 'dark' | 'mist';
+
+const NAV = [
+  { key: 'catalog', href: '/catalog', label: 'Catalog' },
+  { key: 'cave', href: '/cave', label: 'The Cave' },
+  { key: 'shop', href: '/shop', label: 'Shop' },
+  { key: 'visit', href: '/visit', label: 'Visit' },
+  { key: 'service', href: '/home-service', label: 'Home service' },
+] as const;
+
+function activeKey(pathname: string) {
+  if (pathname === '/cave') return 'cave';
+  if (pathname.startsWith('/catalog')) return 'catalog';
+  if (pathname.startsWith('/shop')) return 'shop';
+  if (pathname.startsWith('/visit')) return 'visit';
+  if (pathname.startsWith('/home-service')) return 'service';
+  return 'home';
+}
+
+/** Header colourway per page, as in the reference: Shop is dark, Visit is misty, the rest light. */
+function themeFor(pathname: string): HeaderTheme {
+  if (pathname.startsWith('/shop')) return 'dark';
+  if (pathname.startsWith('/visit')) return 'mist';
+  return 'light';
+}
+
+/** Store name sub-line from Business Details, e.g. "Est. 20 · Malolos City". */
+function useSubline() {
+  const biz = useBusiness();
+  return [biz.establishedYear && `Est. ${biz.establishedYear}`, biz.city].filter(Boolean).join(' · ');
+}
+
+/** Sticky site header (Cave / Shop / Visit and the other storefront pages). Home draws its own nav in the hero. */
 export default function DcHeader() {
   const pathname = usePathname();
   const biz = useBusiness();
-  const active =
-    pathname === '/cave'
-      ? 'cave'
-      : pathname.startsWith('/catalog')
-        ? 'catalog'
-        : pathname.startsWith('/shop')
-          ? 'shop'
-          : pathname.startsWith('/visit')
-            ? 'visit'
-            : pathname.startsWith('/home-service')
-              ? 'service'
-              : 'home';
-  const subline = [biz.establishedYear && `Est. ${biz.establishedYear}`, biz.city].filter(Boolean).join(' · ');
-  const [menuOpen, setMenuOpen] = useState(false);
-  // Close the mobile menu after navigating.
-  useEffect(() => setMenuOpen(false), [pathname]);
+  const subline = useSubline();
+  const [menuOpen, setMenuOpen] = useMenuToggle(pathname);
+  if (pathname === '/') return null;
 
-  const dot = (
-    <span
-      style={{
-        position: 'absolute',
-        left: '50%',
-        bottom: 2,
-        transform: 'translateX(-50%)',
-        width: 5,
-        height: 5,
-        borderRadius: 99,
-        background: 'oklch(0.52 0.216 27)',
-      }}
-    />
-  );
-  const linkStyle: CSSProperties = {
-    fontSize: 13,
-    fontWeight: 500,
-    letterSpacing: '0.01em',
-    color: 'oklch(0.40 0.012 36)',
-    padding: '8px 14px',
-    transition: 'color .2s',
-  };
+  const theme = themeFor(pathname);
+  const active = activeKey(pathname);
+  const onDark = theme === 'dark';
 
   return (
-    <header
-      style={{
-        position: 'sticky',
-        top: 0,
-        zIndex: 60,
-        background: 'oklch(0.972 0.008 78 / 0.82)',
-        backdropFilter: 'blur(18px) saturate(140%)',
-        WebkitBackdropFilter: 'blur(18px) saturate(140%)',
-        borderBottom: '1px solid oklch(0.84 0.012 66 / 0.7)',
-        fontFamily: "'Geist', system-ui, sans-serif",
-      }}
-    >
-      <div className="dc-header-row" style={{ display: 'flex', alignItems: 'center', gap: 28, maxWidth: 1280, margin: '0 auto', padding: '14px 28px' }}>
-        <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 12, flex: '0 1 auto', minWidth: 0 }}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/img/dc-logo-light.png" alt="" height={40} style={{ display: 'block', height: 40, width: 'auto' }} draggable={false} />
-          <span style={{ display: 'flex', flexDirection: 'column', lineHeight: 1, minWidth: 0 }}>
-            <span style={{ fontFamily: "'Noto Serif Display', serif", fontWeight: 800, fontSize: 16, letterSpacing: '0.01em', color: 'oklch(0.19 0.012 32)', whiteSpace: 'nowrap' }}>{biz.storeName}</span>
-            {subline && <span className="dc-hide-sm" style={{ fontFamily: "'Geist Mono', monospace", fontSize: 8.5, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'oklch(0.52 0.10 30)', marginTop: 4 }}>{subline}</span>}
-          </span>
-        </Link>
-
-        <nav className="dc-nav" aria-label="Main" style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 'auto' }}>
-          <span style={{ position: 'relative', display: 'inline-flex' }}>
-            <Link href="/catalog" className="dc-navlink" style={linkStyle}>Catalog</Link>
-            {active === 'catalog' && dot}
-          </span>
-          <span style={{ position: 'relative', display: 'inline-flex' }}>
-            <Link href="/cave" className="dc-navlink" style={linkStyle}>The Cave</Link>
-            {active === 'cave' && dot}
-          </span>
-          <span style={{ position: 'relative', display: 'inline-flex' }}>
-            <Link href="/shop" className="dc-navlink" style={linkStyle}>Shop</Link>
-            {active === 'shop' && dot}
-          </span>
-          <span style={{ position: 'relative', display: 'inline-flex' }}>
-            <Link href="/visit" className="dc-navlink" style={linkStyle}>Visit</Link>
-            {active === 'visit' && dot}
-          </span>
-          <span style={{ position: 'relative', display: 'inline-flex' }}>
-            <Link href="/home-service" className="dc-navlink" style={linkStyle}>Home service</Link>
-            {active === 'service' && dot}
-          </span>
+    <header className="dk dk-header" data-theme={theme}>
+      <div className="dk-hd-bar">
+        <Brand name={biz.storeName} sub={subline} onDark={onDark} />
+        <nav aria-label="Primary">
+          <ul className="dk-hd-links">
+            {NAV.map((n) => (
+              <li key={n.key}>
+                <Link href={n.href} aria-current={active === n.key ? 'page' : undefined}>{n.label}</Link>
+              </li>
+            ))}
+          </ul>
         </nav>
-
-        <div className="dc-push" style={{ display: 'flex', alignItems: 'center', gap: 14, flex: '0 0 auto' }}>
-          <span className="dc-hide-sm" style={{ display: 'inline-flex' }}><AccountMenu linkStyle={linkStyle} /></span>
+        <div className="dk-hd-actions">
+          <AccountControl signInClass="dk-hd-signin" />
           <CartButton />
-          <div className="dc-hide-md" style={{ width: 38, height: 38, borderRadius: 8, background: 'oklch(0.52 0.216 27)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 6px 16px -8px oklch(0.52 0.216 27 / 0.7)', transform: 'rotate(-3deg)' }}>
-            <span style={{ fontFamily: "'Noto Serif TC', serif", fontWeight: 900, fontSize: 22, lineHeight: 1, color: 'oklch(0.97 0.012 82)' }}>龍</span>
-          </div>
-          <a href={biz.generalHref} target={biz.generalHref.startsWith('http') ? '_blank' : undefined} rel="noopener" className="dc-enquire" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'oklch(0.52 0.216 27)', color: 'oklch(0.98 0.012 82)', fontSize: 12.5, fontWeight: 600, letterSpacing: '0.01em', padding: '10px 16px', borderRadius: 999, transition: 'background .2s' }}>
-            <WaIcon size={14} />
-            <span className="dc-enquire-label">Enquire</span>
-          </a>
-          <button
-            type="button"
-            className="dc-menu-btn"
-            onClick={() => setMenuOpen((o) => !o)}
-            aria-expanded={menuOpen}
-            aria-controls="dc-mobile-nav"
-            aria-label={menuOpen ? 'Close menu' : 'Open menu'}
-            style={{ width: 38, height: 38, borderRadius: 999, border: '1px solid oklch(0.84 0.012 66)', background: 'oklch(0.985 0.006 80)', color: 'oklch(0.30 0.012 34)', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
-          >
-            {menuOpen ? <X size={17} /> : <Menu size={17} />}
-          </button>
+          <EnquireLink className="dk-btn dk-btn-red dk-hd-cta" />
+          <MenuToggle open={menuOpen} onToggle={() => setMenuOpen((o) => !o)} className="dk-icon-btn dk-hd-menu" />
         </div>
       </div>
-
-      {menuOpen && (
-        <nav id="dc-mobile-nav" className="dc-mobile-nav" aria-label="Main" style={{ borderTop: '1px solid oklch(0.86 0.012 68)', padding: '4px 20px 16px', background: 'oklch(0.972 0.008 78)' }}>
-          <Link href="/catalog">Catalog</Link>
-          <Link href="/cave">The Cave</Link>
-          <Link href="/shop">Shop gear &amp; food</Link>
-          <Link href="/visit">Visit &amp; Book</Link>
-          <Link href="/home-service">Home service</Link>
-          <Link href="/contact">Contact</Link>
-          <Link href="/track">Track an order</Link>
-          <MobileAccountLink />
-        </nav>
-      )}
+      {menuOpen && <MobileMenu active={active} />}
     </header>
   );
 }
 
-/** Account entry in the mobile menu (the avatar menu is hidden on small screens). */
-function MobileAccountLink() {
+/** The nav row inside the Home hero card (white on the red gradient). */
+export function HeroNav() {
+  const pathname = usePathname();
+  const biz = useBusiness();
+  const subline = useSubline();
+  const [menuOpen, setMenuOpen] = useMenuToggle(pathname);
+
+  return (
+    <nav className="dk-nav" aria-label="Primary">
+      <Brand name={biz.storeName} sub={subline} onDark />
+      <ul className="dk-nav-links">
+        {NAV.map((n) => (
+          <li key={n.key}><Link href={n.href}>{n.label}</Link></li>
+        ))}
+      </ul>
+      <div className="dk-nav-actions">
+        <AccountControl signInClass="dk-nav-signin" />
+        <Link className="dk-icon-btn search" href="/catalog" aria-label="Search">
+          <SearchIcon size={14} />
+        </Link>
+        <CartButton />
+        <EnquireLink className="dk-btn dk-btn-red dk-nav-cta" />
+        <MenuToggle open={menuOpen} onToggle={() => setMenuOpen((o) => !o)} className="dk-icon-btn dk-menu-toggle" />
+      </div>
+      {menuOpen && <MobileMenu active={activeKey(pathname)} />}
+    </nav>
+  );
+}
+
+/** Mobile menu open state: closes on navigation and on Escape. */
+function useMenuToggle(pathname: string) {
+  const [open, setOpen] = useState(false);
+  useEffect(() => setOpen(false), [pathname]);
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false);
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [open]);
+  return [open, setOpen] as const;
+}
+
+function MenuToggle({ open, onToggle, className }: { open: boolean; onToggle: () => void; className: string }) {
+  return (
+    <button
+      type="button"
+      className={className}
+      onClick={onToggle}
+      aria-expanded={open}
+      aria-controls="dk-mobile-nav"
+      aria-label={open ? 'Close menu' : 'Open menu'}
+    >
+      {open ? <CloseIcon /> : <MenuIcon />}
+    </button>
+  );
+}
+
+/** "Inquire" — WhatsApp with a prefilled message when a number is set (Business Details), else /contact. */
+function EnquireLink({ className }: { className: string }) {
+  const biz = useBusiness();
+  const external = biz.generalHref.startsWith('http');
+  return (
+    <a href={biz.generalHref} target={external ? '_blank' : undefined} rel="noopener" className={className}>
+      Inquire
+    </a>
+  );
+}
+
+/** Dropdown panel shown below the header bar on phones. */
+function MobileMenu({ active }: { active: string }) {
+  return (
+    <nav id="dk-mobile-nav" className="dk-mnav" aria-label="Menu">
+      <Link href="/catalog" aria-current={active === 'catalog' ? 'page' : undefined}>Catalog</Link>
+      <Link href="/cave" aria-current={active === 'cave' ? 'page' : undefined}>The Cave</Link>
+      <Link href="/shop" aria-current={active === 'shop' ? 'page' : undefined}>Shop gear &amp; food</Link>
+      <Link href="/visit" aria-current={active === 'visit' ? 'page' : undefined}>Visit &amp; Book</Link>
+      <Link href="/home-service" aria-current={active === 'service' ? 'page' : undefined}>Home service</Link>
+      <Link href="/contact">Contact</Link>
+      <Link href="/track">Track an order</Link>
+      <hr />
+      <MobileAccountLinks />
+    </nav>
+  );
+}
+
+/** Account entries in the mobile menu (the account dropdown is hidden on small screens). */
+function MobileAccountLinks() {
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
   if (!mounted) return null;
-  if (!user) return <Link href="/auth/login">Sign in</Link>;
+  if (!user) return <Link href="/auth/login">Sign in <SignInIcon size={20} /></Link>;
   const isStaff = user.role === 'admin' || user.role === 'super_admin';
   return (
     <>
@@ -155,13 +179,12 @@ function MobileAccountLink() {
       {isStaff && <Link href="/admin/dashboard">Admin dashboard</Link>}
       <button
         type="button"
-        className="dc-mobile-signout"
         onClick={() => {
           logout();
           router.push('/');
         }}
       >
-        <LogOut size={16} /> Sign out
+        Sign out
       </button>
     </>
   );
@@ -178,51 +201,18 @@ function CartButton() {
   return (
     <button
       type="button"
+      className="dk-icon-btn bag"
       onClick={() => setOpen(true)}
       aria-label={shown ? `Cart, ${shown} item${shown === 1 ? '' : 's'}` : 'Cart'}
-      style={{
-        position: 'relative',
-        width: 38,
-        height: 38,
-        borderRadius: 999,
-        border: '1px solid oklch(0.84 0.012 66)',
-        background: 'oklch(0.985 0.006 80)',
-        color: 'oklch(0.30 0.012 34)',
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        cursor: 'pointer',
-      }}
     >
-      <ShoppingBag size={16} />
-      {shown > 0 && (
-        <span
-          style={{
-            position: 'absolute',
-            top: -4,
-            right: -4,
-            minWidth: 18,
-            height: 18,
-            padding: '0 5px',
-            borderRadius: 999,
-            background: 'oklch(0.52 0.216 27)',
-            color: 'oklch(0.98 0.012 82)',
-            fontSize: 10,
-            fontWeight: 700,
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          {shown > 99 ? '99+' : shown}
-        </span>
-      )}
+      <BagIcon />
+      {shown > 0 && <span className="dk-count" aria-hidden="true">{shown > 99 ? '99+' : shown}</span>}
     </button>
   );
 }
 
-/** Sign-in link for guests; name menu with account / dashboard / sign-out for signed-in users. */
-function AccountMenu({ linkStyle }: { linkStyle: CSSProperties }) {
+/** "Sign in" for guests; name + menu (account / admin dashboard / sign out) for signed-in users. */
+function AccountControl({ signInClass }: { signInClass: string }) {
   const router = useRouter();
   const { user, logout } = useAuthStore();
   const [mounted, setMounted] = useState(false);
@@ -250,115 +240,55 @@ function AccountMenu({ linkStyle }: { linkStyle: CSSProperties }) {
 
   if (!user) {
     return (
-      <Link href="/auth/login" className="dc-navlink" style={linkStyle}>
-        Sign in
+      <Link href="/auth/login" className={signInClass}>
+        Sign in <SignInIcon />
       </Link>
     );
   }
 
   const initials = `${user.firstName?.[0] || ''}${user.lastName?.[0] || ''}`.toUpperCase() || 'DC';
   const isStaff = user.role === 'admin' || user.role === 'super_admin';
-  const itemStyle: CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 10,
-    width: '100%',
-    padding: '9px 12px',
-    borderRadius: 6,
-    fontSize: 13,
-    fontWeight: 500,
-    color: 'oklch(0.30 0.012 34)',
-    background: 'transparent',
-    border: 'none',
-    cursor: 'pointer',
-    textAlign: 'left',
-    fontFamily: 'inherit',
-  };
 
   return (
-    <div ref={ref} style={{ position: 'relative' }}>
+    <div ref={ref} className="dk-acct">
       <button
         type="button"
+        className="dk-acct-btn"
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label="Account menu"
-        style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: 8,
-          padding: '4px 12px 4px 4px',
-          borderRadius: 999,
-          border: '1px solid oklch(0.84 0.012 66)',
-          background: 'oklch(0.985 0.006 80)',
-          cursor: 'pointer',
-          fontFamily: 'inherit',
-        }}
       >
-        <span
-          style={{
-            width: 28,
-            height: 28,
-            borderRadius: 999,
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: 11,
-            fontWeight: 700,
-            background: 'oklch(0.52 0.216 27 / 0.12)',
-            color: 'oklch(0.44 0.20 28)',
-          }}
-        >
-          {initials}
-        </span>
-        <span style={{ fontSize: 12.5, fontWeight: 600, color: 'oklch(0.25 0.012 32)', maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {user.firstName || 'Account'}
-        </span>
+        <span className="dk-avatar">{initials}</span>
+        <span>{user.firstName || 'Account'}</span>
+        <CaretIcon />
       </button>
 
       {open && (
-        <div
-          role="menu"
-          style={{
-            position: 'absolute',
-            right: 0,
-            top: 'calc(100% + 8px)',
-            minWidth: 200,
-            padding: 6,
-            borderRadius: 10,
-            background: 'oklch(0.99 0.004 80)',
-            border: '1px solid oklch(0.84 0.012 66)',
-            boxShadow: '0 18px 40px -16px oklch(0.19 0.012 32 / 0.35)',
-          }}
-        >
-          <div style={{ padding: '8px 12px 10px', borderBottom: '1px solid oklch(0.90 0.01 66)', marginBottom: 4 }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: 'oklch(0.19 0.012 32)' }}>
-              {`${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Collector'}
-            </div>
-            <div style={{ fontSize: 11.5, color: 'oklch(0.50 0.02 40)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {user.email}
-            </div>
+        <div role="menu" className="dk-menu">
+          <div className="dk-menu-head">
+            <b>{`${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Collector'}</b>
+            <small>{user.email}</small>
           </div>
-          <Link href="/account" role="menuitem" className="dc-menu-item" style={itemStyle} onClick={() => setOpen(false)}>
-            <UserIcon size={14} /> My account
+          <Link href="/account" role="menuitem" className="dk-menu-item" onClick={() => setOpen(false)}>
+            My account
           </Link>
           {isStaff && (
-            <Link href="/admin/dashboard" role="menuitem" className="dc-menu-item" style={itemStyle} onClick={() => setOpen(false)}>
-              <LayoutDashboard size={14} /> Admin dashboard
+            <Link href="/admin/dashboard" role="menuitem" className="dk-menu-item" onClick={() => setOpen(false)}>
+              Admin dashboard
             </Link>
           )}
           <button
             type="button"
             role="menuitem"
-            className="dc-menu-item"
-            style={{ ...itemStyle, color: 'oklch(0.48 0.20 28)' }}
+            className="dk-menu-item danger"
             onClick={() => {
               setOpen(false);
               logout();
               router.push('/');
             }}
           >
-            <LogOut size={14} /> Sign out
+            Sign out
           </button>
         </div>
       )}

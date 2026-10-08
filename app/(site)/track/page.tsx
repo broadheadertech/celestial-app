@@ -1,5 +1,4 @@
 'use client';
-/* eslint-disable @next/next/no-img-element -- product images are remote Convex storage URLs */
 
 /**
  * Track an order (ORD-…), reservation (RES-…), home service booking (HSV-…) or enquiry (INQ-…)
@@ -13,14 +12,10 @@ import { useSearchParams } from 'next/navigation';
 import { useQuery } from '@/components/dc/useQuery';
 import { api } from '@/convex/_generated/api';
 import { useBusiness } from '@/components/dc/business';
-
-const mono = "'Geist Mono', monospace";
-const serif = "'Noto Serif Display', serif";
-const ink = 'oklch(0.19 0.012 32)';
-const muted = 'oklch(0.46 0.012 34)';
-const line = 'oklch(0.86 0.012 68)';
-const red = 'oklch(0.52 0.216 27)';
-const green = 'oklch(0.46 0.14 150)';
+import NotchHero from '@/components/dc/kit/NotchHero';
+import EmptyState from '@/components/dc/kit/EmptyState';
+import Field from '@/components/dc/kit/Field';
+import Placeholder from '@/components/dc/kit/Placeholder';
 
 const fmt = (n: number) => `₱${n.toLocaleString('en-PH', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
 
@@ -76,6 +71,9 @@ const DELIVERY_NOTE: Record<string, string> = {
 
 const PAYMENT_LABEL: Record<string, string> = { unpaid: 'Not yet paid', partial: 'Partly paid', paid: 'Paid', refunded: 'Refunded' };
 
+/** Status pill tone: red when it ended badly, black once it's done, pale while it's in progress. */
+const tone = (ended: boolean, done: boolean) => (ended ? 'red' : done ? 'black' : 'pale');
+
 export default function TrackPage() {
   return (
     <Suspense fallback={null}>
@@ -113,40 +111,46 @@ function TrackInner() {
   const help = biz.wa(`Hi ${biz.storeName} — I need help finding my order${code ? ` (${code.trim().toUpperCase()})` : ''}.`);
 
   return (
-    <main style={{ background: 'oklch(0.972 0.008 78)', color: ink }}>
-      <div style={{ maxWidth: 760, margin: '0 auto', padding: '48px 28px 96px' }}>
-        <div style={{ fontFamily: mono, fontSize: 11, letterSpacing: '0.24em', textTransform: 'uppercase', color: 'oklch(0.50 0.14 30)', marginBottom: 14 }}>Order status</div>
-        <h1 style={{ fontFamily: serif, fontWeight: 800, fontSize: 'clamp(36px,5vw,58px)', letterSpacing: '-0.02em', lineHeight: 1, margin: '0 0 12px' }}>Track your order</h1>
-        <p style={{ color: muted, fontSize: 15.5, lineHeight: 1.6, margin: '0 0 28px', maxWidth: 520 }}>
+    <main className="dk dk-page" style={{ background: 'var(--dk-white)' }}>
+      <NotchHero
+        tone="dark"
+        behind="var(--dk-white)"
+        notchWide
+        notchHeight={232}
+        notchLabel="Track your order"
+        notch={
+          <form onSubmit={submit} noValidate className="dk-fgrid" style={{ alignItems: 'end' }}>
+            <Field id="tr-code" label="Order, booking or enquiry code">
+              <input id="tr-code" className="dk-input dk-mono" value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} placeholder="ORD-XXXXXX" autoComplete="off" spellCheck={false} aria-invalid={formError ? true : undefined} style={{ letterSpacing: '0.04em' }} />
+            </Field>
+            <Field id="tr-email" label="Email">
+              <input id="tr-email" className="dk-input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@email.com" autoComplete="email" aria-invalid={formError ? true : undefined} />
+            </Field>
+            {formError && <p role="alert" className="dk-err full">{formError}</p>}
+            <div className="full">
+              <button type="submit" className="dk-btn dk-btn-red">
+                Find order
+              </button>
+            </div>
+          </form>
+        }
+      >
+        <p className="dk-eyebrow">Order status</p>
+        <h1 className="dk-h1">Track your order</h1>
+        <p className="dk-lede">
           Enter the code from your confirmation and the email you used. No account needed.
         </p>
+      </NotchHero>
 
-        <form onSubmit={submit} style={{ background: 'oklch(0.99 0.005 80)', border: `1px solid ${line}`, borderRadius: 14, padding: 22, display: 'grid', gap: 14, gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', alignItems: 'end' }}>
-          <div>
-            <label htmlFor="tr-code" className="dc-lbl">Order, booking or enquiry code</label>
-            <input id="tr-code" className="dc-input" value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} placeholder="ORD-XXXXXX" autoComplete="off" spellCheck={false} style={{ fontFamily: mono, letterSpacing: '0.04em' }} />
-          </div>
-          <div>
-            <label htmlFor="tr-email" className="dc-lbl">Email</label>
-            <input id="tr-email" className="dc-input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@email.com" autoComplete="email" />
-          </div>
-          <button type="submit" className="dc-btn-primary" style={{ border: 'none', background: red, color: 'oklch(0.98 0.012 82)', fontSize: 14.5, fontWeight: 600, padding: '13px 22px', borderRadius: 999, cursor: 'pointer', height: 46 }}>
-            Find order
-          </button>
-          {formError && <div role="alert" style={{ gridColumn: '1 / -1', fontSize: 13, color: 'oklch(0.50 0.20 27)' }}>{formError}</div>}
-        </form>
-
-        <div aria-live="polite" style={{ marginTop: 28 }}>
-          {submitted && result === undefined && <p style={{ color: muted, fontSize: 14 }}>Looking it up…</p>}
+      <section className="dk-section tight" aria-live="polite">
+        <div className="dk-wrap narrow">
+          {submitted && result === undefined && <p className="dk-empty" style={{ padding: '24px 0' }}>Looking it up…</p>}
 
           {submitted && result === null && (
-            <div style={{ border: `1px solid ${line}`, borderRadius: 14, padding: 22, background: 'oklch(0.985 0.006 80)' }}>
-              <div style={{ fontWeight: 600, marginBottom: 6 }}>We couldn&rsquo;t find that order</div>
-              <p style={{ color: muted, fontSize: 14, lineHeight: 1.55, margin: 0 }}>
-                Check the code and use the same email you ordered with.{' '}
-                {help ? <a href={help} target="_blank" rel="noopener" style={{ color: red, fontWeight: 600 }}>Message us</a> : <Link href="/contact" style={{ color: red, fontWeight: 600 }}>Contact us</Link>} if you still can&rsquo;t find it.
-              </p>
-            </div>
+            <EmptyState title={<>We couldn&rsquo;t find that order</>}>
+              Check the code and use the same email you ordered with.{' '}
+              {help ? <a href={help} target="_blank" rel="noopener" className="dk-link">Message us</a> : <Link href="/contact" className="dk-link">Contact us</Link>} if you still can&rsquo;t find it.
+            </EmptyState>
           )}
 
           {result && (
@@ -155,7 +159,7 @@ function TrackInner() {
                 : <TrackResult result={result} />
           )}
         </div>
-      </div>
+      </section>
     </main>
   );
 }
@@ -165,6 +169,39 @@ type BookingData = Extract<TrackResultData, { kind: 'homeService' }>;
 type InquiryData = Extract<TrackResultData, { kind: 'inquiry' }>;
 type OrderOrReservation = Exclude<TrackResultData, { kind: 'homeService' | 'inquiry' }>;
 
+const pad = { padding: '22px 28px' };
+const foot = { padding: '18px 28px 22px', borderTop: '1px solid var(--dk-line)', background: 'var(--dk-n-100)' };
+
+/** Card header: the code, what it is, and the status pill. */
+function ResultHead({ code, sub, status, statusTone }: { code: string; sub: React.ReactNode; status: string; statusTone: string }) {
+  return (
+    <div className="dk-row between wrap" style={{ ...pad, alignItems: 'flex-start', borderBottom: '1px solid var(--dk-line)' }}>
+      <div style={{ minWidth: 0 }}>
+        <p className="dk-panel-title dk-mono">{code}</p>
+        <p className="dk-small dk-muted" style={{ marginTop: 4 }}>{sub}</p>
+      </div>
+      <span className={`dk-status ${statusTone}`}>{status}</span>
+    </div>
+  );
+}
+
+/** Progress bar of steps: red up to the current step, grey after it. */
+function Progress({ steps, currentIndex }: { steps: Step[]; currentIndex: number }) {
+  return (
+    <ol aria-label="Progress" style={{ margin: '0 0 18px', display: 'grid', gridTemplateColumns: `repeat(${steps.length}, minmax(0, 1fr))`, gap: 6 }}>
+      {steps.map((s, i) => {
+        const done = i <= currentIndex;
+        return (
+          <li key={s.key} aria-current={i === currentIndex ? 'step' : undefined}>
+            <div style={{ height: 4, borderRadius: 'var(--dk-r-pill)', background: done ? 'var(--dk-red)' : 'var(--dk-n-200)' }} />
+            <div style={{ fontSize: 12, marginTop: 8, color: done ? 'var(--dk-black)' : 'var(--dk-n-500)', fontWeight: i === currentIndex ? 700 : 400, lineHeight: 1.25 }}>{s.label}</div>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
 function TrackResult({ result }: { result: OrderOrReservation }) {
   const steps = result.kind === 'order' ? ORDER_STEPS(result.fulfilment === 'delivery') : RESERVATION_STEPS;
   const ended = result.status === 'cancelled' || result.status === 'expired';
@@ -172,39 +209,22 @@ function TrackResult({ result }: { result: OrderOrReservation }) {
   const balance = Math.max(0, result.total - result.amountPaid);
 
   return (
-    <section style={{ border: `1px solid ${line}`, borderRadius: 14, overflow: 'hidden', background: 'oklch(0.99 0.005 80)' }}>
-      <div style={{ padding: '20px 22px', borderBottom: `1px solid ${line}`, display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'baseline' }}>
-        <div>
-          <div style={{ fontFamily: mono, fontSize: 18, fontWeight: 700 }}>{result.code}</div>
-          <div style={{ fontSize: 12.5, color: muted, marginTop: 3 }}>
-            {result.kind === 'order' ? 'Shop order' : 'Reservation'} · placed {new Date(result.createdAt).toLocaleDateString('en-PH', { dateStyle: 'medium' })}
-          </div>
-        </div>
-        <span style={{ fontFamily: mono, fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', padding: '6px 10px', borderRadius: 999, background: ended ? 'oklch(0.52 0.216 27 / 0.1)' : 'oklch(0.52 0.13 150 / 0.12)', color: ended ? 'oklch(0.48 0.20 27)' : green }}>
-          {ended ? result.status : steps[currentIndex]?.label ?? result.status}
-        </span>
-      </div>
+    <section className="dk-panel flush">
+      <ResultHead
+        code={result.code}
+        sub={<>{result.kind === 'order' ? 'Shop order' : 'Reservation'} · placed {new Date(result.createdAt).toLocaleDateString('en-PH', { dateStyle: 'medium' })}</>}
+        status={ended ? result.status : steps[currentIndex]?.label ?? result.status}
+        statusTone={tone(ended, currentIndex === steps.length - 1)}
+      />
 
-      <div style={{ padding: '22px 22px 8px' }}>
-        {!ended && (
-          <ol aria-label="Progress" style={{ listStyle: 'none', margin: '0 0 18px', padding: 0, display: 'grid', gridTemplateColumns: `repeat(${steps.length}, minmax(0, 1fr))`, gap: 6 }}>
-            {steps.map((s, i) => {
-              const done = i <= currentIndex;
-              return (
-                <li key={s.key} aria-current={i === currentIndex ? 'step' : undefined}>
-                  <div style={{ height: 4, borderRadius: 99, background: done ? green : 'oklch(0.88 0.012 70)' }} />
-                  <div style={{ fontSize: 11.5, marginTop: 7, color: done ? ink : 'oklch(0.50 0.02 40)', fontWeight: i === currentIndex ? 600 : 400, lineHeight: 1.25 }}>{s.label}</div>
-                </li>
-              );
-            })}
-          </ol>
-        )}
-        <p style={{ fontSize: 14.5, color: 'oklch(0.34 0.012 34)', margin: '0 0 18px' }}>{STATUS_NOTE[result.status] ?? ''}</p>
+      <div style={{ ...pad, paddingBottom: 8 }}>
+        {!ended && <Progress steps={steps} currentIndex={currentIndex} />}
+        <p style={{ fontSize: 15, color: 'var(--dk-n-800)', margin: '0 0 18px' }}>{STATUS_NOTE[result.status] ?? ''}</p>
         {result.pickup && (
-          <p style={{ fontSize: 13.5, color: muted, margin: '-8px 0 18px' }}>Pickup: {result.pickup.date} at {result.pickup.time}</p>
+          <p className="dk-muted" style={{ fontSize: 14, margin: '-8px 0 18px' }}>Pickup: {result.pickup.date} at {result.pickup.time}</p>
         )}
         {result.kind === 'order' && result.deliveryStatus && (
-          <p style={{ fontSize: 13.5, color: muted, margin: '-8px 0 18px' }}>
+          <p className="dk-muted" style={{ fontSize: 14, margin: '-8px 0 18px' }}>
             {DELIVERY_NOTE[result.deliveryStatus] ?? ''}
             {result.deliveryDate && <> Scheduled for {new Date(`${result.deliveryDate}T00:00:00`).toLocaleDateString('en-PH', { dateStyle: 'full' })}.</>}
             {result.deliveryArea && <> Delivering to {result.deliveryArea}.</>}
@@ -212,29 +232,29 @@ function TrackResult({ result }: { result: OrderOrReservation }) {
         )}
       </div>
 
-      <div style={{ padding: '0 22px 8px' }}>
+      <ul className="dk-list" style={{ padding: '0 28px 8px' }}>
         {result.items.map((item, i) => (
-          <div key={i} style={{ display: 'grid', gridTemplateColumns: '44px 1fr auto', gap: 12, alignItems: 'center', padding: '10px 0', borderTop: `1px solid oklch(0.91 0.012 70)` }}>
-            <div style={{ width: 44, height: 44, borderRadius: 6, overflow: 'hidden', background: 'oklch(0.93 0.012 70)' }}>
-              {item.image && <img src={item.image} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+          <li key={i} className="dk-list-row" style={{ padding: '12px 0', borderTop: i === 0 ? '1px solid var(--dk-line)' : undefined }}>
+            <div className="dk-thumb" style={{ width: 48, height: 48 }}>
+              <Placeholder src={item.image} alt="" />
             </div>
-            <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: 13.5, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</div>
-              <div style={{ fontFamily: mono, fontSize: 11, color: 'oklch(0.50 0.02 40)' }}>Qty {item.quantity}</div>
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <div style={{ fontSize: 15, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</div>
+              <div className="dk-small dk-muted dk-mono">Qty {item.quantity}</div>
             </div>
-            {item.price > 0 && <div style={{ fontFamily: mono, fontSize: 13.5 }}>{fmt(item.price * item.quantity)}</div>}
-          </div>
+            {item.price > 0 && <div className="dk-mono" style={{ fontSize: 15 }}>{fmt(item.price * item.quantity)}</div>}
+          </li>
         ))}
-      </div>
+      </ul>
 
-      <div style={{ padding: '14px 22px 20px', borderTop: `1px solid ${line}`, background: 'oklch(0.965 0.009 76)', display: 'grid', gap: 6, fontSize: 14 }}>
+      <div className="dk-summary" style={foot}>
         {result.kind === 'order' && !!result.deliveryFee && (
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: muted }}>Delivery{result.deliveryArea ? ` · ${result.deliveryArea}` : ''}</span><span style={{ fontFamily: mono }}>{fmt(result.deliveryFee)}</span></div>
+          <div><span>Delivery{result.deliveryArea ? ` · ${result.deliveryArea}` : ''}</span><span className="dk-mono">{fmt(result.deliveryFee)}</span></div>
         )}
-        <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: muted }}>Total</span><span style={{ fontFamily: mono, fontWeight: 700 }}>{fmt(result.total)}</span></div>
-        <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: muted }}>Payment</span><span>{PAYMENT_LABEL[result.paymentStatus] ?? result.paymentStatus}</span></div>
+        <div><span>Total</span><span className="dk-mono" style={{ fontWeight: 700 }}>{fmt(result.total)}</span></div>
+        <div><span>Payment</span><span>{PAYMENT_LABEL[result.paymentStatus] ?? result.paymentStatus}</span></div>
         {result.amountPaid > 0 && balance > 0 && (
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: muted }}>Balance due</span><span style={{ fontFamily: mono }}>{fmt(balance)}</span></div>
+          <div><span>Balance due</span><span className="dk-mono">{fmt(balance)}</span></div>
         )}
       </div>
     </section>
@@ -247,56 +267,39 @@ function BookingResult({ result }: { result: BookingData }) {
   const currentIndex = BOOKING_STEPS.findIndex((s) => s.key === result.status);
 
   return (
-    <section style={{ border: `1px solid ${line}`, borderRadius: 14, overflow: 'hidden', background: 'oklch(0.99 0.005 80)' }}>
-      <div style={{ padding: '20px 22px', borderBottom: `1px solid ${line}`, display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'baseline' }}>
-        <div>
-          <div style={{ fontFamily: mono, fontSize: 18, fontWeight: 700 }}>{result.code}</div>
-          <div style={{ fontSize: 12.5, color: muted, marginTop: 3 }}>
-            Home service · booked {new Date(result.createdAt).toLocaleDateString('en-PH', { dateStyle: 'medium' })}
-          </div>
-        </div>
-        <span style={{ fontFamily: mono, fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', padding: '6px 10px', borderRadius: 999, background: ended ? 'oklch(0.52 0.216 27 / 0.1)' : 'oklch(0.52 0.13 150 / 0.12)', color: ended ? 'oklch(0.48 0.20 27)' : green }}>
-          {ended ? 'cancelled' : BOOKING_STEPS[currentIndex]?.label ?? result.status}
-        </span>
+    <section className="dk-panel flush">
+      <ResultHead
+        code={result.code}
+        sub={<>Home service · booked {new Date(result.createdAt).toLocaleDateString('en-PH', { dateStyle: 'medium' })}</>}
+        status={ended ? 'cancelled' : BOOKING_STEPS[currentIndex]?.label ?? result.status}
+        statusTone={tone(ended, currentIndex === BOOKING_STEPS.length - 1)}
+      />
+
+      <div style={{ ...pad, paddingBottom: 8 }}>
+        {!ended && <Progress steps={BOOKING_STEPS} currentIndex={currentIndex} />}
+        <p style={{ fontSize: 15, color: 'var(--dk-n-800)', margin: '0 0 18px' }}>{STATUS_NOTE[result.status] ?? ''}</p>
       </div>
 
-      <div style={{ padding: '22px 22px 8px' }}>
-        {!ended && (
-          <ol aria-label="Progress" style={{ listStyle: 'none', margin: '0 0 18px', padding: 0, display: 'grid', gridTemplateColumns: `repeat(${BOOKING_STEPS.length}, minmax(0, 1fr))`, gap: 6 }}>
-            {BOOKING_STEPS.map((s, i) => {
-              const done = i <= currentIndex;
-              return (
-                <li key={s.key} aria-current={i === currentIndex ? 'step' : undefined}>
-                  <div style={{ height: 4, borderRadius: 99, background: done ? green : 'oklch(0.88 0.012 70)' }} />
-                  <div style={{ fontSize: 11.5, marginTop: 7, color: done ? ink : 'oklch(0.50 0.02 40)', fontWeight: i === currentIndex ? 600 : 400, lineHeight: 1.25 }}>{s.label}</div>
-                </li>
-              );
-            })}
-          </ol>
-        )}
-        <p style={{ fontSize: 14.5, color: 'oklch(0.34 0.012 34)', margin: '0 0 18px' }}>{STATUS_NOTE[result.status] ?? ''}</p>
-      </div>
-
-      <div style={{ padding: '0 22px 8px', display: 'grid', gap: 10, fontSize: 14 }}>
+      <div style={{ padding: '0 28px 8px', fontSize: 15 }}>
         <Row label="Service" value={result.serviceName} />
         <Row label="When" value={`${result.dateLabel} at ${result.timeLabel}`} />
         <Row label="Where" value={result.address} />
         <Row label="Area" value={result.areaName} />
       </div>
 
-      <div style={{ margin: '14px 0 0', padding: '14px 22px 20px', borderTop: `1px solid ${line}`, background: 'oklch(0.965 0.009 76)', display: 'grid', gap: 6, fontSize: 14 }}>
+      <div className="dk-summary" style={{ ...foot, marginTop: 14 }}>
         {result.servicePrice !== undefined && (
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: muted }}>Service</span><span style={{ fontFamily: mono }}>{fmt(result.servicePrice)}</span></div>
+          <div><span>Service</span><span className="dk-mono">{fmt(result.servicePrice)}</span></div>
         )}
         {result.travelFee > 0 && (
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: muted }}>Travel</span><span style={{ fontFamily: mono }}>{fmt(result.travelFee)}</span></div>
+          <div><span>Travel</span><span className="dk-mono">{fmt(result.travelFee)}</span></div>
         )}
         {result.total === undefined ? (
-          <p style={{ color: muted, fontSize: 13.5, margin: 0 }}>We&rsquo;ll give you a firm price once we&rsquo;ve seen the tank. Nothing is charged yet.</p>
+          <p className="dk-muted" style={{ fontSize: 14 }}>We&rsquo;ll give you a firm price once we&rsquo;ve seen the tank. Nothing is charged yet.</p>
         ) : (
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span style={{ color: muted }}>{result.quoted ? 'Agreed price' : 'Estimated total'}</span>
-            <span style={{ fontFamily: mono, fontWeight: 700 }}>{fmt(result.total)}</span>
+          <div>
+            <span>{result.quoted ? 'Agreed price' : 'Estimated total'}</span>
+            <span className="dk-mono" style={{ fontWeight: 700 }}>{fmt(result.total)}</span>
           </div>
         )}
       </div>
@@ -306,9 +309,9 @@ function BookingResult({ result }: { result: BookingData }) {
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '92px 1fr', gap: 10, padding: '9px 0', borderTop: '1px solid oklch(0.91 0.012 70)' }}>
-      <span style={{ fontFamily: mono, fontSize: 10.5, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'oklch(0.55 0.05 40)', paddingTop: 2 }}>{label}</span>
-      <span style={{ lineHeight: 1.5 }}>{value}</span>
+    <div style={{ display: 'grid', gridTemplateColumns: '92px 1fr', gap: 12, padding: '10px 0', borderTop: '1px solid var(--dk-line)' }}>
+      <span className="dk-meta-label" style={{ paddingTop: 2 }}>{label}</span>
+      <span style={{ lineHeight: 1.5, minWidth: 0, overflowWrap: 'anywhere' }}>{value}</span>
     </div>
   );
 }
@@ -319,43 +322,40 @@ function InquiryResult({ result }: { result: InquiryData }) {
   const when = (t: number) => new Date(t).toLocaleDateString('en-PH', { dateStyle: 'medium' });
 
   return (
-    <section style={{ border: `1px solid ${line}`, borderRadius: 14, overflow: 'hidden', background: 'oklch(0.99 0.005 80)' }}>
-      <div style={{ padding: '20px 22px', borderBottom: `1px solid ${line}`, display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'baseline' }}>
-        <div>
-          <div style={{ fontFamily: mono, fontSize: 18, fontWeight: 700 }}>{result.code}</div>
-          <div style={{ fontSize: 12.5, color: muted, marginTop: 3 }}>
-            {result.productName ? `Enquiry \u00b7 ${result.productName}` : 'Enquiry'} \u00b7 sent {when(result.createdAt)}
-          </div>
-        </div>
-        <span style={{ fontFamily: mono, fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', padding: '6px 10px', borderRadius: 999, background: ended ? 'oklch(0.52 0.216 27 / 0.1)' : 'oklch(0.52 0.13 150 / 0.12)', color: ended ? 'oklch(0.48 0.20 27)' : green }}>
-          {result.replies.length > 0 ? 'replied' : result.status}
-        </span>
-      </div>
+    <section className="dk-panel flush">
+      <ResultHead
+        code={result.code}
+        sub={<>{result.productName ? `Enquiry · ${result.productName}` : 'Enquiry'} {'·'} sent {when(result.createdAt)}</>}
+        status={result.replies.length > 0 ? 'replied' : result.status}
+        statusTone={tone(ended, result.replies.length > 0 || result.status === 'won')}
+      />
 
-      <div style={{ padding: '22px 22px 10px' }}>
-        <p style={{ fontSize: 14.5, color: 'oklch(0.34 0.012 34)', margin: '0 0 18px' }}>{STATUS_NOTE[result.status] ?? ''}</p>
+      <div style={{ ...pad, paddingBottom: 10 }}>
+        <p style={{ fontSize: 15, color: 'var(--dk-n-800)', margin: '0 0 20px' }}>{STATUS_NOTE[result.status] ?? ''}</p>
 
-        <div style={{ fontFamily: mono, fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'oklch(0.55 0.05 40)', marginBottom: 8 }}>You asked</div>
-        <p style={{ fontSize: 14, lineHeight: 1.6, color: 'oklch(0.30 0.012 32)', margin: '0 0 20px', whiteSpace: 'pre-line' }}>{result.message}</p>
+        <p className="dk-meta-label" style={{ marginBottom: 8 }}>You asked</p>
+        <p style={{ fontSize: 15, lineHeight: 1.6, margin: '0 0 20px', whiteSpace: 'pre-line' }}>{result.message}</p>
 
         {result.replies.length > 0 && (
           <>
-            <div style={{ fontFamily: mono, fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'oklch(0.55 0.05 40)', marginBottom: 8 }}>Our reply</div>
-            {result.replies.map((reply, i) => (
-              <div key={i} style={{ background: 'oklch(0.965 0.009 76)', border: `1px solid oklch(0.90 0.012 70)`, borderRadius: 10, padding: '14px 16px', marginBottom: 10 }}>
-                <div style={{ fontFamily: mono, fontSize: 10.5, color: 'oklch(0.50 0.02 40)', marginBottom: 6 }}>{when(reply.sentAt)}</div>
-                <p style={{ fontSize: 14, lineHeight: 1.6, margin: 0, whiteSpace: 'pre-line' }}>{reply.body}</p>
-              </div>
-            ))}
+            <p className="dk-meta-label" style={{ marginBottom: 8 }}>Our reply</p>
+            <div className="dk-stack" style={{ gap: 10, marginBottom: 10 }}>
+              {result.replies.map((reply, i) => (
+                <div key={i} className="dk-panel muted" style={{ padding: '14px 16px' }}>
+                  <div className="dk-small dk-muted dk-mono" style={{ marginBottom: 6 }}>{when(reply.sentAt)}</div>
+                  <p style={{ fontSize: 15, lineHeight: 1.6, whiteSpace: 'pre-line' }}>{reply.body}</p>
+                </div>
+              ))}
+            </div>
           </>
         )}
       </div>
 
-      <div style={{ padding: '12px 22px 20px', borderTop: `1px solid ${line}`, background: 'oklch(0.965 0.009 76)', fontSize: 13, color: muted }}>
+      <p className="dk-small dk-muted" style={foot}>
         {result.replies.length > 0
           ? 'Reply to our email to carry on the conversation.'
-          : 'We reply by email, usually within the day. Check your spam folder if you don\u2019t see it.'}
-      </div>
+          : 'We reply by email, usually within the day. Check your spam folder if you don’t see it.'}
+      </p>
     </section>
   );
 }
