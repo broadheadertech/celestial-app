@@ -8,14 +8,12 @@ export const DC_CSS = `
 /* Visible keyboard focus everywhere on the storefront (mouse clicks don't trigger it). */
 .dc-scope a:focus-visible, .dc-scope button:focus-visible, .dc-scope select:focus-visible, .dc-scope summary:focus-visible, .dc-scope [tabindex]:focus-visible { outline: 2px solid oklch(0.52 0.216 27); outline-offset: 3px; border-radius: 6px; }
 .dc-scope .dc-input:focus-visible { outline: none; }
-.dc-scope a:hover { color: oklch(0.52 0.216 27); }
+/* Not inside the kit (.dk), which sets its own hover colours. */
+.dc-scope a:not(.dk *):hover { color: oklch(0.52 0.216 27); }
 
 .dc-navlink:hover { color: oklch(0.19 0.012 32) !important; }
-.dc-enquire:hover { background: oklch(0.44 0.20 28) !important; }
 .dc-menu-item:hover { background: oklch(0.52 0.216 27 / 0.08) !important; }
 
-.dc-btn-primary:hover { background: oklch(0.44 0.20 28) !important; }
-.dc-btn-ghost:hover { border-color: oklch(0.19 0.012 32) !important; color: oklch(0.19 0.012 32) !important; }
 
 .dc-species { transition: transform .35s cubic-bezier(.2,.8,.2,1); }
 .dc-species:hover { transform: translateY(-6px); }
@@ -66,7 +64,6 @@ export const DC_CSS = `
   .dc-cols-4, .dc-cols-3, .dc-cols-2 { grid-template-columns: minmax(0, 1fr) !important; }
   .dc-hide-sm { display: none !important; }
   .dc-header-row { gap: 10px !important; padding: 10px 16px !important; }
-  .dc-enquire-label { display: none; }
   .dc-fab { right: 16px !important; bottom: 16px !important; width: 52px !important; height: 52px !important; }
 }
 

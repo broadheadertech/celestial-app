@@ -13,14 +13,9 @@ import { useState } from 'react';
 import { useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
+import Field from '@/components/dc/kit/Field';
+import { CheckIcon, CloseIcon } from '@/components/dc/kit/icons';
 
-const mono = "'Geist Mono', monospace";
-const serif = "'Noto Serif Display', serif";
-const ink = 'oklch(0.19 0.012 32)';
-const muted = 'oklch(0.44 0.012 34)';
-const soft = 'oklch(0.50 0.02 40)';
-const line = 'oklch(0.87 0.012 68)';
-const red = 'oklch(0.52 0.216 27)';
 
 const PROMPTS = [
   'Is this one still available?',
@@ -73,17 +68,17 @@ export default function InquiryForm({
 
   if (status === 'done') {
     return (
-      <div style={{ border: `1px solid ${line}`, borderRadius: 12, padding: '22px 24px', background: 'oklch(0.99 0.005 80)', marginBottom: 26 }}>
-        <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
-          <div style={{ width: 34, height: 34, borderRadius: 999, flexShrink: 0, background: 'oklch(0.52 0.13 150 / 0.14)', color: 'oklch(0.46 0.14 150)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17 }}>✓</div>
+      <div className="dk-panel" role="status">
+        <div className="dk-row" style={{ alignItems: 'flex-start', gap: 16 }}>
+          <span className="dk-empty-icon" aria-hidden="true" style={{ width: 40, height: 40, margin: 0, flex: 'none' }}><CheckIcon size={18} /></span>
           <div>
-            <div style={{ fontFamily: serif, fontWeight: 700, fontSize: 19, color: ink, marginBottom: 6 }}>Question sent</div>
-            <p style={{ fontSize: 13.5, lineHeight: 1.6, color: muted, margin: '0 0 10px' }}>
+            <h3 className="dk-h3">Question sent</h3>
+            <p className="dk-muted" style={{ fontSize: 15, lineHeight: '24px', marginTop: 8 }}>
               Thanks, {form.name.split(' ')[0] || 'friend'} — we&rsquo;ll reply to {form.email} shortly. Your reference is{' '}
-              <b style={{ fontFamily: mono, color: ink }}>{reference}</b>.
+              <b className="dk-mono" style={{ color: 'var(--dk-black)' }}>{reference}</b>.
             </p>
-            <Link href={`/track?code=${reference}`} style={{ fontSize: 13, fontWeight: 600, color: red }}>
-              Check for a reply &rarr;
+            <Link href={`/track?code=${reference}`} className="dk-link-arrow" style={{ marginTop: 14, color: 'var(--dk-red)' }}>
+              Check for a reply
             </Link>
           </div>
         </div>
@@ -96,21 +91,11 @@ export default function InquiryForm({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        style={{
-          display: 'block',
-          width: '100%',
-          textAlign: 'left',
-          border: `1px dashed ${line}`,
-          borderRadius: 12,
-          background: 'transparent',
-          padding: '15px 18px',
-          marginBottom: 26,
-          cursor: 'pointer',
-          transition: 'border-color .18s, background .18s',
-        }}
+        className="dk-panel lift"
+        style={{ display: 'block', width: '100%', textAlign: 'left', borderStyle: 'dashed', borderColor: 'var(--dk-n-300)', padding: '18px 22px' }}
       >
-        <span style={{ fontSize: 14, fontWeight: 600, color: ink }}>Rather not use chat? Ask us here &rarr;</span>
-        <span style={{ display: 'block', fontSize: 12.5, color: soft, marginTop: 3 }}>
+        <span style={{ display: 'block', fontSize: 15, fontWeight: 700 }}>Rather not use chat? Ask us here &rarr;</span>
+        <span className="dk-small dk-muted" style={{ display: 'block', marginTop: 4 }}>
           We&rsquo;ll reply by email, and you get a reference to follow it up.
         </span>
       </button>
@@ -118,76 +103,62 @@ export default function InquiryForm({
   }
 
   return (
-    <div style={{ border: `1px solid ${line}`, borderRadius: 12, padding: '22px 24px 20px', background: 'oklch(0.99 0.005 80)', marginBottom: 26 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12, marginBottom: 4 }}>
-        <div style={{ fontFamily: mono, fontSize: 10.5, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'oklch(0.50 0.14 30)' }}>Ask about this fish</div>
-        <button type="button" onClick={() => setOpen(false)} aria-label="Close the question form" style={{ border: 'none', background: 'transparent', color: soft, fontSize: 18, lineHeight: 1, cursor: 'pointer', padding: 0 }}>
-          &times;
+    <div className="dk-panel">
+      <div className="dk-row between" style={{ alignItems: 'center' }}>
+        <p className="dk-eyebrow">Ask about this fish</p>
+        <button type="button" onClick={() => setOpen(false)} aria-label="Close the question form" className="dk-icon-btn" style={{ width: 32, height: 32, borderColor: 'var(--dk-n-300)', color: 'var(--dk-n-600)' }}>
+          <CloseIcon size={14} />
         </button>
       </div>
-      <p style={{ fontSize: 13, color: muted, margin: '0 0 16px', lineHeight: 1.55 }}>
-        About <b style={{ color: ink }}>{productTitle}</b>. We read every one of these ourselves.
+      <p className="dk-small dk-muted" style={{ margin: '6px 0 20px' }}>
+        About <b style={{ color: 'var(--dk-black)' }}>{productTitle}</b>. We read every one of these ourselves.
       </p>
 
-      <div style={{ display: 'grid', gap: 14 }}>
-        <div className="dc-cols-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-          <div>
-            <label className="dc-lbl" htmlFor="inq-name">Your name</label>
-            <input id="inq-name" className="dc-input" type="text" autoComplete="name" placeholder="Juan dela Cruz" value={form.name} onChange={set('name')} />
-          </div>
-          <div>
-            <label className="dc-lbl" htmlFor="inq-email">Email</label>
-            <input id="inq-email" className="dc-input" type="email" autoComplete="email" placeholder="you@email.com" value={form.email} onChange={set('email')} />
-          </div>
-        </div>
-        <div>
-          <label className="dc-lbl" htmlFor="inq-phone">
-            Phone <span style={{ textTransform: 'none', letterSpacing: 0, color: soft }}>(optional, if you&rsquo;d rather we called)</span>
-          </label>
-          <input id="inq-phone" className="dc-input" type="tel" autoComplete="tel" placeholder="+63 9__ ___ ____" value={form.phone} onChange={set('phone')} />
-        </div>
-        <div>
-          <label className="dc-lbl" htmlFor="inq-message">Your question</label>
+      <div className="dk-fgrid">
+        <Field id="inq-name" label="Your name">
+          <input id="inq-name" className="dk-input" type="text" autoComplete="name" placeholder="Juan dela Cruz" value={form.name} onChange={set('name')} />
+        </Field>
+        <Field id="inq-email" label="Email">
+          <input id="inq-email" className="dk-input" type="email" autoComplete="email" placeholder="you@email.com" value={form.email} onChange={set('email')} />
+        </Field>
+        <Field id="inq-phone" label="Phone" optional={<>(optional, if you&rsquo;d rather we called)</>} full>
+          <input id="inq-phone" className="dk-input" type="tel" autoComplete="tel" placeholder="+63 9__ ___ ____" value={form.phone} onChange={set('phone')} />
+        </Field>
+        <Field id="inq-message" label="Your question" full>
           <textarea
             id="inq-message"
-            className="dc-input"
+            className="dk-ta"
             rows={4}
             placeholder="Is this one still available? I have a 4ft tank and I'm looking for my first arowana."
             value={form.message}
             onChange={set('message')}
-            style={{ resize: 'vertical', minHeight: 92 }}
           />
           {!form.message && (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, marginTop: 9 }}>
+            <div className="dk-row wrap" style={{ gap: 8 }}>
               {PROMPTS.map((p) => (
                 <button
                   key={p}
                   type="button"
+                  className="dk-chip"
                   onClick={() => setForm((prev) => ({ ...prev, message: p }))}
-                  style={{ border: `1px solid ${line}`, borderRadius: 999, background: 'transparent', color: muted, fontSize: 11.5, padding: '6px 11px', cursor: 'pointer' }}
+                  style={{ height: 32, padding: '0 14px', fontSize: 13 }}
                 >
                   {p}
                 </button>
               ))}
             </div>
           )}
-        </div>
+        </Field>
       </div>
 
-      {error && <div role="alert" style={{ marginTop: 13, fontSize: 12.5, color: 'oklch(0.50 0.20 27)', fontFamily: mono }}>{error}</div>}
+      {error && <p role="alert" className="dk-alert err" style={{ marginTop: 16 }}>{error}</p>}
 
-      <button
-        type="button"
-        onClick={submit}
-        disabled={status === 'sending'}
-        className="dc-btn-primary"
-        style={{ marginTop: 16, width: '100%', boxSizing: 'border-box', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 9, background: red, color: 'oklch(0.98 0.012 82)', fontSize: 14.5, fontWeight: 600, padding: '15px 24px', borderRadius: 999, border: 'none', cursor: status === 'sending' ? 'default' : 'pointer', opacity: status === 'sending' ? 0.7 : 1, transition: '.2s' }}
-      >
+      <button type="button" onClick={submit} disabled={status === 'sending'} aria-busy={status === 'sending'} className="dk-btn dk-btn-red block" style={{ marginTop: 20 }}>
         {status === 'sending' ? 'Sending…' : 'Send my question'}
       </button>
-      <div style={{ textAlign: 'center', fontFamily: mono, fontSize: 10, letterSpacing: '0.06em', color: soft, marginTop: 10 }}>
+      <p className="dk-small dk-muted" style={{ textAlign: 'center', marginTop: 12 }}>
         No obligation &middot; we never pass your details on
-      </div>
+      </p>
     </div>
   );
 }

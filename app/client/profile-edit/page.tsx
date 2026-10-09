@@ -1,23 +1,21 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  ArrowLeft,
   User,
   Edit3,
   Save,
-  Eye,
-  EyeOff
+  RefreshCw
 } from 'lucide-react';
 import { useAuthStore, useIsAuthenticated } from '@/store/auth';
 import { useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { Id } from '@/convex/_generated/dataModel';
-import Button from '@/components/ui/Button';
-import Input from '@/components/ui/Input';
-import Card from '@/components/ui/Card';
 import { useToastHelpers } from '@/components/ui/ToastManager';
+import MemberSidebar from '@/components/dc/kit/MemberSidebar';
+import Field from '@/components/dc/kit/Field';
+import { BackIcon, EyeIcon, EyeOffIcon, MenuIcon } from '@/components/dc/kit/icons';
 
 export default function ProfileEditPage() {
   const router = useRouter();
@@ -29,6 +27,8 @@ export default function ProfileEditPage() {
   const updateProfile = useMutation(api.services.auth.updateProfile);
   const changePassword = useMutation(api.services.auth.changePassword);
 
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const closeSidebar = useCallback(() => setSidebarOpen(false), []);
   const [activeTab, setActiveTab] = useState<'profile' | 'password'>('profile');
   const [isLoading, setIsLoading] = useState(false);
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
@@ -75,10 +75,9 @@ export default function ProfileEditPage() {
   // Show loading while checking auth
   if (!isAuthenticated || user?.role === 'admin' || user?.role === 'super_admin') {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-white">Loading...</p>
+      <div className="dk dk-member">
+        <div className="dk-member-empty" role="status" style={{ margin: 24 }}>
+          <p>Loading...</p>
         </div>
       </div>
     );
@@ -211,240 +210,243 @@ export default function ProfileEditPage() {
     }
   };
 
+  type ProfileKey = 'firstName' | 'lastName' | 'email' | 'phone';
+  const setProfileField = (key: ProfileKey, value: string) => {
+    setProfileData(prev => ({ ...prev, [key]: value }));
+    if (profileErrors[key]) {
+      setProfileErrors(prev => ({ ...prev, [key]: '' }));
+    }
+  };
+
+  type PasswordKey = 'currentPassword' | 'newPassword' | 'confirmPassword';
+  const setPasswordField = (key: PasswordKey, value: string) => {
+    setPasswordData(prev => ({ ...prev, [key]: value }));
+    if (passwordErrors[key]) {
+      setPasswordErrors(prev => ({ ...prev, [key]: '' }));
+    }
+  };
+
+  const passwordFields: {
+    key: PasswordKey;
+    id: string;
+    label: string;
+    placeholder: string;
+    shown: boolean;
+    which: 'current' | 'new' | 'confirm';
+  }[] = [
+    { key: 'currentPassword', id: 'edit-pw-current', label: 'Current Password', placeholder: 'Enter your current password', shown: showCurrentPassword, which: 'current' },
+    { key: 'newPassword', id: 'edit-pw-new', label: 'New Password', placeholder: 'Enter your new password', shown: showNewPassword, which: 'new' },
+    { key: 'confirmPassword', id: 'edit-pw-confirm', label: 'Confirm New Password', placeholder: 'Confirm your new password', shown: showConfirmPassword, which: 'confirm' },
+  ];
+
+  const describe = (id: string, err?: string) => (err ? `${id}-msg` : undefined);
+
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-white/10">
-        <div className="px-4 py-4">
-          <div className="flex items-center justify-between">
-            <button
-              onClick={() => router.back()}
-              className="p-2 rounded-full bg-secondary border border-white/10 hover:bg-white/10 transition-colors"
-            >
-              <ArrowLeft className="w-5 h-5 text-white" />
-            </button>
-            <h1 className="text-xl font-semibold text-white">Edit Profile</h1>
-            <div className="w-10" />
-          </div>
-        </div>
-      </div>
+    <div className="dk dk-member">
+      <div className="dk-app">
+        <MemberSidebar id="sidebar" active="profile" open={sidebarOpen} onClose={closeSidebar} />
 
-      <div className="px-4 py-6">
-        {/* Tab Navigation */}
-        <div className="mb-6">
-          <div className="flex bg-secondary rounded-xl p-1">
-            <button
-              onClick={() => setActiveTab('profile')}
-              className={`flex-1 py-3 rounded-lg text-center transition-colors ${
-                activeTab === 'profile'
-                  ? 'bg-primary text-white'
-                  : 'text-muted hover:text-white'
-              }`}
-            >
-              Profile Info
-            </button>
-            <button
-              onClick={() => setActiveTab('password')}
-              className={`flex-1 py-3 rounded-lg text-center transition-colors ${
-                activeTab === 'password'
-                  ? 'bg-primary text-white'
-                  : 'text-muted hover:text-white'
-              }`}
-            >
-              Change Password
-            </button>
-          </div>
-        </div>
-
-        {/* Profile Tab */}
-        {activeTab === 'profile' && (
-          <div className="space-y-6">
-            {/* Profile Picture */}
-            <Card className="p-6">
-              <div className="text-center">
-                <div className="w-24 h-24 bg-primary rounded-full flex items-center justify-center mx-auto mb-4">
-                  <User className="w-12 h-12 text-white" />
-                </div>
-                <Button variant="outline" size="sm">
-                  <Edit3 className="w-4 h-4 mr-2" />
-                  Change Photo
-                </Button>
-              </div>
-            </Card>
-
-            {/* Profile Form */}
-            <Card className="p-6">
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <Input
-                      label="First Name"
-                      value={profileData.firstName}
-                      onChange={(value) => {
-                        setProfileData(prev => ({ ...prev, firstName: value }));
-                        if (profileErrors.firstName) {
-                          setProfileErrors(prev => ({ ...prev, firstName: '' }));
-                        }
-                      }}
-                      error={profileErrors.firstName}
-                      placeholder="Enter your first name"
-                    />
-                  </div>
-                  <div>
-                    <Input
-                      label="Last Name"
-                      value={profileData.lastName}
-                      onChange={(value) => {
-                        setProfileData(prev => ({ ...prev, lastName: value }));
-                        if (profileErrors.lastName) {
-                          setProfileErrors(prev => ({ ...prev, lastName: '' }));
-                        }
-                      }}
-                      error={profileErrors.lastName}
-                      placeholder="Enter your last name"
-                    />
-                  </div>
-                </div>
-
-                <Input
-                  label="Email Address"
-                  type="email"
-                  value={profileData.email}
-                  onChange={(value) => {
-                    setProfileData(prev => ({ ...prev, email: value }));
-                    if (profileErrors.email) {
-                      setProfileErrors(prev => ({ ...prev, email: '' }));
-                    }
-                  }}
-                  error={profileErrors.email}
-                  placeholder="Enter your email"
-                  // auth.updateProfile doesn't support changing the email address
-                  disabled
-                />
-
-                <Input
-                  label="Phone Number (Optional)"
-                  type="tel"
-                  value={profileData.phone}
-                  onChange={(value) => {
-                    setProfileData(prev => ({ ...prev, phone: value }));
-                    if (profileErrors.phone) {
-                      setProfileErrors(prev => ({ ...prev, phone: '' }));
-                    }
-                  }}
-                  error={profileErrors.phone}
-                  placeholder="Enter your phone number"
-                />
-
-                <Button
-                  onClick={handleSaveProfile}
-                  loading={isLoading}
-                  disabled={isLoading}
-                  className="w-full"
-                >
-                  <Save className="w-5 h-5 mr-2" />
-                  {isLoading ? 'Saving...' : 'Save Changes'}
-                </Button>
-              </div>
-            </Card>
-          </div>
-        )}
-
-        {/* Password Tab */}
-        {activeTab === 'password' && (
-          <Card className="p-6">
-            <div className="space-y-4">
-              <div className="relative">
-                <Input
-                  label="Current Password"
-                  type={showCurrentPassword ? 'text' : 'password'}
-                  value={passwordData.currentPassword}
-                  onChange={(value) => {
-                    setPasswordData(prev => ({ ...prev, currentPassword: value }));
-                    if (passwordErrors.currentPassword) {
-                      setPasswordErrors(prev => ({ ...prev, currentPassword: '' }));
-                    }
-                  }}
-                  error={passwordErrors.currentPassword}
-                  placeholder="Enter your current password"
-                />
-                <button
-                  type="button"
-                  onClick={() => togglePasswordVisibility('current')}
-                  className="absolute right-3 top-9 text-muted"
-                >
-                  {showCurrentPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                </button>
-              </div>
-
-              <div className="relative">
-                <Input
-                  label="New Password"
-                  type={showNewPassword ? 'text' : 'password'}
-                  value={passwordData.newPassword}
-                  onChange={(value) => {
-                    setPasswordData(prev => ({ ...prev, newPassword: value }));
-                    if (passwordErrors.newPassword) {
-                      setPasswordErrors(prev => ({ ...prev, newPassword: '' }));
-                    }
-                  }}
-                  error={passwordErrors.newPassword}
-                  placeholder="Enter your new password"
-                />
-                <button
-                  type="button"
-                  onClick={() => togglePasswordVisibility('new')}
-                  className="absolute right-3 top-9 text-muted"
-                >
-                  {showNewPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                </button>
-              </div>
-
-              <div className="relative">
-                <Input
-                  label="Confirm New Password"
-                  type={showConfirmPassword ? 'text' : 'password'}
-                  value={passwordData.confirmPassword}
-                  onChange={(value) => {
-                    setPasswordData(prev => ({ ...prev, confirmPassword: value }));
-                    if (passwordErrors.confirmPassword) {
-                      setPasswordErrors(prev => ({ ...prev, confirmPassword: '' }));
-                    }
-                  }}
-                  error={passwordErrors.confirmPassword}
-                  placeholder="Confirm your new password"
-                />
-                <button
-                  type="button"
-                  onClick={() => togglePasswordVisibility('confirm')}
-                  className="absolute right-3 top-9 text-muted"
-                >
-                  {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                </button>
-              </div>
-
-              <div className="bg-primary/10 border border-primary/20 rounded-lg p-4">
-                <h4 className="font-semibold text-primary mb-2">Password Requirements:</h4>
-                <ul className="text-sm text-primary space-y-1">
-                  <li>• At least 8 characters long</li>
-                  <li>• One uppercase letter</li>
-                  <li>• One lowercase letter</li>
-                  <li>• One number</li>
-                </ul>
-              </div>
-
-              <Button
-                onClick={handleChangePassword}
-                loading={isLoading}
-                disabled={isLoading}
-                className="w-full"
+        <section className="dk-app-main">
+          {/* Header */}
+          <div className="dk-app-top">
+            <div className="dk-app-top-l">
+              <button
+                type="button"
+                className="dk-view-btn dk-app-menu"
+                onClick={() => setSidebarOpen(true)}
+                aria-label="Open menu"
+                aria-controls="sidebar"
+                aria-expanded={sidebarOpen}
               >
-                <Save className="w-5 h-5 mr-2" />
-                {isLoading ? 'Changing...' : 'Change Password'}
-              </Button>
+                <MenuIcon />
+              </button>
+              <button type="button" className="dk-view-btn" onClick={() => router.back()} aria-label="Back">
+                <BackIcon />
+              </button>
+              <h1>Edit Profile</h1>
             </div>
-          </Card>
-        )}
+          </div>
+
+          <div className="dk-app-section" style={{ maxWidth: 760 }}>
+            {/* Tab Navigation */}
+            <div className="dk-tabs" role="tablist" aria-label="Edit profile sections">
+              <button
+                type="button"
+                role="tab"
+                id="tab-profile"
+                className="dk-chip"
+                aria-selected={activeTab === 'profile'}
+                aria-controls="panel-profile"
+                onClick={() => setActiveTab('profile')}
+              >
+                Profile Info
+              </button>
+              <button
+                type="button"
+                role="tab"
+                id="tab-password"
+                className="dk-chip"
+                aria-selected={activeTab === 'password'}
+                aria-controls="panel-password"
+                onClick={() => setActiveTab('password')}
+              >
+                Change Password
+              </button>
+            </div>
+
+            {/* Profile Tab */}
+            {activeTab === 'profile' && (
+              <div id="panel-profile" role="tabpanel" aria-labelledby="tab-profile" className="dk-stack lg" style={{ marginTop: 20 }}>
+                {/* Profile Picture */}
+                <div className="dk-panel">
+                  <div className="dk-row wrap" style={{ gap: 20 }}>
+                    <span className="dk-avatar" style={{ width: 80, height: 80 }} aria-hidden="true">
+                      <User size={36} />
+                    </span>
+                    <button type="button" className="dk-btn dk-btn-outline-dark plain">
+                      <Edit3 size={16} aria-hidden="true" />
+                      Change Photo
+                    </button>
+                  </div>
+                </div>
+
+                {/* Profile Form */}
+                <div className="dk-panel">
+                  <div className="dk-fgrid">
+                    <Field id="edit-first-name" label="First Name" error={profileErrors.firstName}>
+                      <input
+                        id="edit-first-name"
+                        type="text"
+                        className="dk-input"
+                        value={profileData.firstName}
+                        onChange={(e) => setProfileField('firstName', e.target.value)}
+                        placeholder="Enter your first name"
+                        autoComplete="given-name"
+                        aria-invalid={!!profileErrors.firstName}
+                        aria-describedby={describe('edit-first-name', profileErrors.firstName)}
+                      />
+                    </Field>
+
+                    <Field id="edit-last-name" label="Last Name" error={profileErrors.lastName}>
+                      <input
+                        id="edit-last-name"
+                        type="text"
+                        className="dk-input"
+                        value={profileData.lastName}
+                        onChange={(e) => setProfileField('lastName', e.target.value)}
+                        placeholder="Enter your last name"
+                        autoComplete="family-name"
+                        aria-invalid={!!profileErrors.lastName}
+                        aria-describedby={describe('edit-last-name', profileErrors.lastName)}
+                      />
+                    </Field>
+
+                    <Field id="edit-email" label="Email Address" error={profileErrors.email} full>
+                      <input
+                        id="edit-email"
+                        type="email"
+                        className="dk-input"
+                        value={profileData.email}
+                        onChange={(e) => setProfileField('email', e.target.value)}
+                        placeholder="Enter your email"
+                        // auth.updateProfile doesn't support changing the email address
+                        disabled
+                        aria-invalid={!!profileErrors.email}
+                        aria-describedby={describe('edit-email', profileErrors.email)}
+                      />
+                    </Field>
+
+                    <Field id="edit-phone" label="Phone Number" optional="(Optional)" error={profileErrors.phone} full>
+                      <input
+                        id="edit-phone"
+                        type="tel"
+                        className="dk-input"
+                        value={profileData.phone}
+                        onChange={(e) => setProfileField('phone', e.target.value)}
+                        placeholder="Enter your phone number"
+                        autoComplete="tel"
+                        aria-invalid={!!profileErrors.phone}
+                        aria-describedby={describe('edit-phone', profileErrors.phone)}
+                      />
+                    </Field>
+
+                    <div className="full">
+                      <button
+                        type="button"
+                        className="dk-btn dk-btn-red block"
+                        onClick={handleSaveProfile}
+                        disabled={isLoading}
+                        aria-busy={isLoading}
+                      >
+                        {isLoading
+                          ? <RefreshCw size={18} className="animate-spin" aria-hidden="true" />
+                          : <Save size={18} aria-hidden="true" />}
+                        {isLoading ? 'Saving...' : 'Save Changes'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Password Tab */}
+            {activeTab === 'password' && (
+              <div id="panel-password" role="tabpanel" aria-labelledby="tab-password" className="dk-panel" style={{ marginTop: 20 }}>
+                <div className="dk-stack">
+                  {passwordFields.map((f) => (
+                    <Field key={f.id} id={f.id} label={f.label} error={passwordErrors[f.key]}>
+                      <div className="dk-pw-wrap">
+                        <input
+                          id={f.id}
+                          type={f.shown ? 'text' : 'password'}
+                          className="dk-input"
+                          value={passwordData[f.key]}
+                          onChange={(e) => setPasswordField(f.key, e.target.value)}
+                          placeholder={f.placeholder}
+                          autoComplete={f.key === 'currentPassword' ? 'current-password' : 'new-password'}
+                          aria-invalid={!!passwordErrors[f.key]}
+                          aria-describedby={describe(f.id, passwordErrors[f.key])}
+                        />
+                        <button
+                          type="button"
+                          className="dk-pw-toggle"
+                          onClick={() => togglePasswordVisibility(f.which)}
+                          aria-label={f.shown ? 'Hide password' : 'Show password'}
+                          aria-pressed={f.shown}
+                        >
+                          {f.shown ? <EyeOffIcon size={20} /> : <EyeIcon size={20} />}
+                        </button>
+                      </div>
+                    </Field>
+                  ))}
+
+                  <div className="dk-alert">
+                    <h4 style={{ fontSize: 14, color: 'var(--dk-black)' }}>Password Requirements:</h4>
+                    <ul style={{ listStyle: 'disc', paddingLeft: 20, marginTop: 6 }}>
+                      <li>At least 8 characters long</li>
+                      <li>One uppercase letter</li>
+                      <li>One lowercase letter</li>
+                      <li>One number</li>
+                    </ul>
+                  </div>
+
+                  <button
+                    type="button"
+                    className="dk-btn dk-btn-red block"
+                    onClick={handleChangePassword}
+                    disabled={isLoading}
+                    aria-busy={isLoading}
+                  >
+                    {isLoading
+                      ? <RefreshCw size={18} className="animate-spin" aria-hidden="true" />
+                      : <Save size={18} aria-hidden="true" />}
+                    {isLoading ? 'Changing...' : 'Change Password'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </section>
       </div>
     </div>
   );

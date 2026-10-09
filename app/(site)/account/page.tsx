@@ -2,17 +2,45 @@
 
 import Link from 'next/link';
 import { useState, useMemo } from 'react';
-import { ArrowRight, Calendar, Package, Heart, LogOut, User as UserIcon, Trash2 } from 'lucide-react';
+import { LogOut, Trash2 } from 'lucide-react';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { Id } from '@/convex/_generated/dataModel';
 import { useAuthStore } from '@/store/auth';
 import { useRouter } from 'next/navigation';
+import NotchHero from '@/components/dc/kit/NotchHero';
+import EmptyState from '@/components/dc/kit/EmptyState';
+import Placeholder from '@/components/dc/kit/Placeholder';
+import { CalendarIcon, HeartIcon, OrdersIcon, SignInIcon } from '@/components/dc/kit/icons';
 
 const fmt = (n: number) =>
   `₱${n.toLocaleString('en-PH', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 
 type Tab = 'overview' | 'orders' | 'reservations' | 'wishlist' | 'profile';
+
+/** Kit status pill tone for an order / reservation status. */
+function statusTone(status?: string) {
+  switch (status) {
+    case 'delivered':
+    case 'completed':
+      return 'black';
+    case 'ready_for_pickup':
+      return 'red';
+    case 'pending':
+      return 'pale';
+    default:
+      return '';
+  }
+}
+
+/** Kit status pill tone for a payment status. */
+function payTone(status?: string) {
+  if (status === 'paid') return 'black';
+  if (status === 'partial') return 'pale';
+  return '';
+}
+
+const num = { fontVariantNumeric: 'tabular-nums', fontWeight: 700 } as const;
 
 export default function AccountPage() {
   const router = useRouter();
@@ -57,23 +85,26 @@ export default function AccountPage() {
 
   if (!user) {
     return (
-      <main className="py-20" style={{ padding: '80px 0' }}>
-        <div className="site-container text-center max-w-[480px] mx-auto">
-          <UserIcon size={32} className="mx-auto mb-4" style={{ color: 'var(--ink-4)' }} />
-          <h1
-            className="display mb-3"
-            style={{ fontSize: 28, fontVariationSettings: '"opsz" 32, "wght" 700' }}
-          >
-            Sign in to view your case
-          </h1>
-          <p style={{ color: 'var(--ink-3)', fontSize: 14, marginBottom: 24 }}>
-            Your orders, reservations, and wishlist live here. We&apos;ll keep them safe between
-            visits.
-          </p>
-          <Link href="/auth/login" className="b b-primary b-lg">
-            Sign in <ArrowRight size={14} />
-          </Link>
-        </div>
+      <main className="dk">
+        <section className="dk-section">
+          <div className="dk-wrap" style={{ maxWidth: 'calc(560px + var(--dk-gutter) * 2)' }}>
+            <div className="dk-panel">
+              <EmptyState
+                as="h1"
+                icon={<SignInIcon size={24} />}
+                title="Sign in to view your case"
+                actions={
+                  <Link href="/auth/login" className="dk-btn dk-btn-red">
+                    Sign in
+                  </Link>
+                }
+              >
+                Your orders, reservations, and wishlist live here. We&apos;ll keep them safe between
+                visits.
+              </EmptyState>
+            </div>
+          </div>
+        </section>
       </main>
     );
   }
@@ -81,295 +112,257 @@ export default function AccountPage() {
   const fullName = `${user.firstName} ${user.lastName}`.trim();
   const initials = `${user.firstName?.[0] || ''}${user.lastName?.[0] || ''}`.toUpperCase() || 'DC';
 
+  const tabs: { id: Tab; label: string }[] = [
+    { id: 'overview', label: 'Overview' },
+    { id: 'orders', label: `Orders · ${orders === undefined ? '…' : orders.length}` },
+    { id: 'reservations', label: `Reservations · ${reservations === undefined ? '…' : reservations.length}` },
+    { id: 'wishlist', label: `Wishlist · ${wishlist === undefined ? '…' : wishlist.length}` },
+    { id: 'profile', label: 'Profile' },
+  ];
+
   return (
-    <main>
-      {/* Hero */}
-      <section className="pt-15 pb-10" style={{ padding: '60px 0 40px' }}>
-        <div className="site-container">
-          <div className="flex items-center gap-5 flex-wrap">
-            <span
-              className="inline-flex items-center justify-center rounded-full font-bold text-[20px]"
-              style={{
-                width: 80,
-                height: 80,
-                background: 'var(--red-wash)',
-                color: 'var(--red-hi)',
-                border: '1px solid var(--red)',
-              }}
-            >
-              {initials}
-            </span>
-            <div>
-              <div className="placard mb-1">Welcome back</div>
-              <h1
-                className="display-xl"
-                style={{ fontSize: 'clamp(32px, 5vw, 56px)' }}
+    <main className="dk">
+      {/* Hero — lifetime spend in the notch */}
+      <NotchHero
+        tone="dark"
+        notchHeight={104}
+        notchLabel="Lifetime spend"
+        notch={
+          <div className="dk-stat">
+            <b style={{ fontVariantNumeric: 'tabular-nums' }}>{fmt(totalSpent)}</b>
+            <span>Lifetime spend</span>
+          </div>
+        }
+      >
+        <div className="dk-row wrap" style={{ gap: 20, alignItems: 'center' }}>
+          <span className="dk-avatar" aria-hidden="true" style={{ width: 80, height: 80, fontSize: 22 }}>
+            {initials}
+          </span>
+          <div style={{ minWidth: 0 }}>
+            <p className="dk-eyebrow">Welcome back</p>
+            <h1 className="dk-h1" style={{ marginTop: 6, overflowWrap: 'anywhere' }}>
+              {fullName || 'Collector'}
+            </h1>
+            <p className="dk-small" style={{ marginTop: 6, color: 'var(--dk-n-400)', overflowWrap: 'anywhere' }}>
+              {user.email}
+            </p>
+          </div>
+        </div>
+      </NotchHero>
+
+      {/* Tabs */}
+      <section
+        className="sticky top-[72px] min-[861px]:top-[88px] z-30"
+        style={{
+          marginTop: 32,
+          background: 'rgba(255,255,255,.94)',
+          backdropFilter: 'blur(20px)',
+          borderTop: '1px solid var(--dk-line)',
+          borderBottom: '1px solid var(--dk-line)',
+        }}
+      >
+        <div className="dk-wrap" style={{ paddingTop: 12, paddingBottom: 12 }}>
+          <div className="dk-tabs" role="tablist" aria-label="Account sections">
+            {tabs.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                role="tab"
+                id={`acct-tab-${t.id}`}
+                aria-selected={tab === t.id}
+                aria-controls="acct-panel"
+                onClick={() => setTab(t.id)}
+                className="dk-chip"
               >
-                {fullName || 'Collector'}
-              </h1>
-              <div className="placard mt-1.5" style={{ color: 'var(--ink-3)' }}>
-                {user.email}
-              </div>
-            </div>
+                {t.label}
+              </button>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* Tabs */}
-      <section
-        className="sticky top-[76px] z-30"
-        style={{
-          background: 'color-mix(in oklch, var(--bg) 92%, transparent)',
-          backdropFilter: 'blur(20px)',
-          borderTop: '1px solid var(--line-soft)',
-          borderBottom: '1px solid var(--line-soft)',
-        }}
-      >
-        <div className="site-container flex gap-1 overflow-x-auto scrollbar-hide" style={{ padding: '12px 32px' }}>
-          {([
-            { id: 'overview' as Tab, label: 'Overview' },
-            { id: 'orders' as Tab, label: `Orders · ${orders === undefined ? '…' : orders.length}` },
-            { id: 'reservations' as Tab, label: `Reservations · ${reservations === undefined ? '…' : reservations.length}` },
-            { id: 'wishlist' as Tab, label: `Wishlist · ${wishlist === undefined ? '…' : wishlist.length}` },
-            { id: 'profile' as Tab, label: 'Profile' },
-          ]).map((t) => (
-            <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
-              className="px-4 py-2 rounded text-[13px] font-semibold whitespace-nowrap"
-              style={{
-                background: tab === t.id ? 'var(--surface)' : 'transparent',
-                color: tab === t.id ? 'var(--ink)' : 'var(--ink-3)',
-                border: '1px solid ' + (tab === t.id ? 'var(--line)' : 'transparent'),
-              }}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
-      </section>
-
-      <section className="py-10" style={{ padding: '40px 0 80px' }}>
-        <div className="site-container">
+      <section className="dk-section" style={{ paddingTop: 40 }}>
+        <div className="dk-wrap" id="acct-panel" role="tabpanel" aria-labelledby={`acct-tab-${tab}`}>
           {tab === 'overview' && (
-            <div className="flex flex-col gap-7">
+            <div className="dk-stack lg">
               {/* Stats */}
-              <div
-                className="grid gap-3"
-                style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}
-              >
+              <div className="dk-grid-3">
                 <StatCard label="Orders placed" value={String(orders?.length || 0)} />
                 <StatCard label="Reservations" value={String(reservations?.length || 0)} />
                 <StatCard label="Lifetime spend" value={fmt(totalSpent)} />
               </div>
 
-              {/* Active reservation hero */}
+              {/* Active reservation */}
               {liveReservation && (
-                <div
-                  className="rounded p-7"
-                  style={{
-                    background: 'linear-gradient(135deg, var(--oxblood), oklch(0 0 0) 80%)',
-                    border: '1px solid var(--line)',
-                    color: 'oklch(0.99 0 0)',
-                  }}
-                >
-                  <div className="placard mb-3" style={{ color: 'oklch(0.99 0 0 / 0.55)' }}>
-                    Active reservation
-                  </div>
-                  <h3
-                    className="display mb-3"
-                    style={{ fontSize: 28, fontVariationSettings: '"opsz" 32, "wght" 700' }}
-                  >
+                <div className="dk-panel dark">
+                  <p className="dk-eyebrow" style={{ color: 'var(--dk-red-bright)' }}>Active reservation</p>
+                  <h3 className="dk-h3" style={{ marginTop: 8 }}>
                     {liveReservation.reservationCode || 'Specimen on hold'}
                   </h3>
-                  <p
-                    className="text-[14px] mb-5"
-                    style={{ color: 'oklch(0.99 0 0 / 0.78)', lineHeight: 1.5 }}
-                  >
+                  <p style={{ marginTop: 10, fontSize: 15, color: 'var(--dk-n-300)' }}>
                     {liveReservation.items?.length || liveReservation.totalQuantity || 1} live
                     item{(liveReservation.items?.length || liveReservation.totalQuantity) === 1 ? '' : 's'}.
-                    Status: <strong>{liveReservation.status}</strong>.
+                    Status: <strong style={{ color: 'var(--dk-white)' }}>{liveReservation.status}</strong>.
                   </p>
-                  <div className="flex gap-3 flex-wrap">
-                    {liveReservation.totalAmount && (
-                      <div className="flex items-center gap-2">
-                        <span className="placard" style={{ color: 'oklch(0.99 0 0 / 0.55)' }}>
-                          Total
-                        </span>
-                        <span className="font-mono-tabular font-bold">
-                          {fmt(liveReservation.totalAmount)}
-                        </span>
-                      </div>
-                    )}
-                  </div>
+                  {liveReservation.totalAmount && (
+                    <div className="dk-row" style={{ marginTop: 18 }}>
+                      <span className="dk-small" style={{ color: 'var(--dk-n-400)' }}>Total</span>
+                      <span style={num}>{fmt(liveReservation.totalAmount)}</span>
+                    </div>
+                  )}
                 </div>
               )}
 
               {/* Recent orders */}
-              <div>
-                <div className="placard mb-3">Recent orders</div>
+              <div className="dk-panel">
+                <div className="dk-panel-head" style={{ marginBottom: 8 }}>
+                  <h2 className="dk-panel-title">Recent orders</h2>
+                </div>
                 {orders === undefined ? (
-                  <p className="py-10 text-center text-[14px]" style={{ color: 'var(--ink-4)' }}>Loading orders…</p>
+                  <p className="dk-small dk-muted" role="status" style={{ padding: '32px 0', textAlign: 'center' }}>Loading orders…</p>
                 ) : !orders.length ? (
-                  <p className="py-10 text-center text-[14px]" style={{ color: 'var(--ink-4)' }}>
-                    No orders yet.
-                  </p>
+                  <EmptyState icon={<OrdersIcon />} title="No orders yet." />
                 ) : (
-                  <div className="flex flex-col">
-                    {orders.slice(0, 5).map((o, i) => (
-                      <div
+                  <ul className="dk-list">
+                    {orders.slice(0, 5).map((o) => (
+                      <li
                         key={o._id}
-                        className="grid items-center gap-3 py-3.5 px-1"
-                        style={{
-                          gridTemplateColumns: 'auto 1fr auto',
-                          borderBottom:
-                            i === Math.min(orders.length, 5) - 1 ? 'none' : '1px solid var(--line-soft)',
-                        }}
+                        className="dk-list-row"
+                        style={{ display: 'grid', gridTemplateColumns: 'auto minmax(0, 1fr) auto', gap: 16 }}
                       >
-                        <span
-                          className="font-mono-tabular text-[11px]"
-                          style={{ color: 'var(--ink-4)' }}
-                        >
+                        <span className="dk-small dk-muted" style={{ fontVariantNumeric: 'tabular-nums' }}>
                           {new Date(o.createdAt).toLocaleDateString('en-PH', {
                             month: 'short',
                             day: 'numeric',
                           })}
                         </span>
-                        <div>
-                          <div className="text-[13px] font-semibold">
+                        <div style={{ minWidth: 0 }}>
+                          <p style={{ fontSize: 15, fontWeight: 700 }}>
                             ORD-{String(o._id).slice(-6).toUpperCase()}
-                          </div>
-                          <div className="placard mt-0.5">
-                            {o.items.length} item{o.items.length === 1 ? '' : 's'} · {o.status}
+                          </p>
+                          <div className="dk-row wrap" style={{ gap: 8, marginTop: 4 }}>
+                            <span className="dk-small dk-muted">
+                              {o.items.length} item{o.items.length === 1 ? '' : 's'}
+                            </span>
+                            <span className={`dk-status ${statusTone(o.status)}`}>{o.status}</span>
                           </div>
                         </div>
-                        <span className="font-mono-tabular font-bold text-[14px]">
-                          {fmt(o.totalAmount)}
-                        </span>
-                      </div>
+                        <span style={num}>{fmt(o.totalAmount)}</span>
+                      </li>
                     ))}
-                  </div>
+                  </ul>
                 )}
               </div>
             </div>
           )}
 
           {tab === 'orders' && (
-            <div className="flex flex-col gap-2">
+            <>
               {orders === undefined ? (
-                <p className="py-10 text-center text-[14px]" style={{ color: 'var(--ink-4)' }}>Loading orders…</p>
+                <p className="dk-small dk-muted" role="status" style={{ padding: '40px 0', textAlign: 'center' }}>Loading orders…</p>
               ) : !orders.length ? (
-                <p className="py-10 text-center text-[14px]" style={{ color: 'var(--ink-4)' }}>
-                  No orders yet.
-                </p>
+                <div className="dk-panel">
+                  <EmptyState icon={<OrdersIcon />} title="No orders yet." />
+                </div>
               ) : (
-                orders.map((o) => (
-                  <div
-                    key={o._id}
-                    className="grid items-center gap-4 py-4 px-5 rounded"
-                    style={{
-                      gridTemplateColumns: 'auto 1fr auto auto',
-                      background: 'var(--surface)',
-                      border: '1px solid var(--line-soft)',
-                    }}
-                  >
-                    <Package size={18} style={{ color: 'var(--ink-3)' }} />
-                    <div>
-                      <div className="text-[14px] font-semibold">
-                        ORD-{String(o._id).slice(-6).toUpperCase()}
-                      </div>
-                      <div className="placard mt-1">
-                        {new Date(o.createdAt).toLocaleDateString('en-PH', {
-                          dateStyle: 'medium',
-                        })}{' '}
-                        · {o.items.length} item{o.items.length === 1 ? '' : 's'} · {o.status}
-                      </div>
-                    </div>
-                    <span className="font-mono-tabular font-bold text-[14px]">
-                      {fmt(o.totalAmount)}
-                    </span>
-                    <span
-                      className="placard px-2 py-1 rounded"
-                      style={{
-                        background: 'var(--bg-2)',
-                        color: 'var(--ink-3)',
-                      }}
+                <ul className="dk-panel dk-list" style={{ paddingTop: 4, paddingBottom: 4 }}>
+                  {orders.map((o) => (
+                    <li
+                      key={o._id}
+                      className="dk-list-row"
+                      style={{ display: 'grid', gridTemplateColumns: 'auto minmax(0, 1fr) auto', gap: 16 }}
                     >
-                      {o.paymentStatus || 'unpaid'}
-                    </span>
-                  </div>
-                ))
+                      <span style={{ color: 'var(--dk-n-500)' }}><OrdersIcon /></span>
+                      <div style={{ minWidth: 0 }}>
+                        <p style={{ fontSize: 15, fontWeight: 700 }}>
+                          ORD-{String(o._id).slice(-6).toUpperCase()}
+                        </p>
+                        <div className="dk-row wrap" style={{ gap: 8, marginTop: 4 }}>
+                          <span className="dk-small dk-muted">
+                            {new Date(o.createdAt).toLocaleDateString('en-PH', {
+                              dateStyle: 'medium',
+                            })}{' '}
+                            · {o.items.length} item{o.items.length === 1 ? '' : 's'}
+                          </span>
+                          <span className={`dk-status ${statusTone(o.status)}`}>{o.status}</span>
+                        </div>
+                      </div>
+                      <div style={{ display: 'grid', justifyItems: 'end', gap: 6 }}>
+                        <span style={num}>{fmt(o.totalAmount)}</span>
+                        <span className={`dk-status ${payTone(o.paymentStatus)}`}>
+                          {o.paymentStatus || 'unpaid'}
+                        </span>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
               )}
-            </div>
+            </>
           )}
 
           {tab === 'reservations' && (
-            <div className="flex flex-col gap-2">
+            <>
               {reservations === undefined ? (
-                <p className="py-10 text-center text-[14px]" style={{ color: 'var(--ink-4)' }}>Loading reservations…</p>
+                <p className="dk-small dk-muted" role="status" style={{ padding: '40px 0', textAlign: 'center' }}>Loading reservations…</p>
               ) : !reservations.length ? (
-                <p className="py-10 text-center text-[14px]" style={{ color: 'var(--ink-4)' }}>
-                  No reservations yet.
-                </p>
+                <div className="dk-panel">
+                  <EmptyState icon={<CalendarIcon />} title="No reservations yet." />
+                </div>
               ) : (
-                reservations.map((r) => (
-                  <div
-                    key={r._id}
-                    className="grid items-center gap-4 py-4 px-5 rounded"
-                    style={{
-                      gridTemplateColumns: 'auto 1fr auto auto',
-                      background: 'var(--surface)',
-                      border: '1px solid var(--line-soft)',
-                    }}
-                  >
-                    <Calendar size={18} style={{ color: 'var(--red-hi)' }} />
-                    <div>
-                      <div className="text-[14px] font-semibold">
-                        {r.reservationCode || `RES-${String(r._id).slice(-6).toUpperCase()}`}
-                      </div>
-                      <div className="placard mt-1">
-                        {new Date(r.reservationDate || r.createdAt).toLocaleDateString('en-PH', {
-                          dateStyle: 'medium',
-                        })}{' '}
-                        · {r.items?.length || r.totalQuantity || 1} live · {r.status}
-                      </div>
-                    </div>
-                    <span className="font-mono-tabular font-bold text-[14px]">
-                      {fmt(r.totalAmount || 0)}
-                    </span>
-                    <span
-                      className="placard px-2 py-1 rounded"
-                      style={{
-                        background:
-                          r.status === 'pending' ? 'var(--gold-wash)' : 'var(--bg-2)',
-                        color:
-                          r.status === 'pending' ? 'var(--gold-deep)' : 'var(--ink-3)',
-                      }}
+                <ul className="dk-panel dk-list" style={{ paddingTop: 4, paddingBottom: 4 }}>
+                  {reservations.map((r) => (
+                    <li
+                      key={r._id}
+                      className="dk-list-row"
+                      style={{ display: 'grid', gridTemplateColumns: 'auto minmax(0, 1fr) auto', gap: 16 }}
                     >
-                      {r.paymentStatus || 'deposit'}
-                    </span>
-                  </div>
-                ))
+                      <span style={{ color: 'var(--dk-red)' }}><CalendarIcon /></span>
+                      <div style={{ minWidth: 0 }}>
+                        <p style={{ fontSize: 15, fontWeight: 700 }}>
+                          {r.reservationCode || `RES-${String(r._id).slice(-6).toUpperCase()}`}
+                        </p>
+                        <div className="dk-row wrap" style={{ gap: 8, marginTop: 4 }}>
+                          <span className="dk-small dk-muted">
+                            {new Date(r.reservationDate || r.createdAt).toLocaleDateString('en-PH', {
+                              dateStyle: 'medium',
+                            })}{' '}
+                            · {r.items?.length || r.totalQuantity || 1} live
+                          </span>
+                          <span className={`dk-status ${statusTone(r.status)}`}>{r.status}</span>
+                        </div>
+                      </div>
+                      <div style={{ display: 'grid', justifyItems: 'end', gap: 6 }}>
+                        <span style={num}>{fmt(r.totalAmount || 0)}</span>
+                        <span className={`dk-status ${r.status === 'pending' ? 'pale' : payTone(r.paymentStatus)}`}>
+                          {r.paymentStatus || 'deposit'}
+                        </span>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
               )}
-            </div>
+            </>
           )}
 
           {tab === 'wishlist' && (
             <>
               {wishlist === undefined ? (
-                <p className="py-10 text-center text-[14px]" style={{ color: 'var(--ink-4)' }}>Loading wishlist…</p>
+                <p className="dk-small dk-muted" role="status" style={{ padding: '40px 0', textAlign: 'center' }}>Loading wishlist…</p>
               ) : !wishlist.length ? (
-                <div className="text-center py-20" style={{ color: 'var(--ink-3)' }}>
-                  <Heart size={28} className="mx-auto mb-4" style={{ color: 'var(--ink-4)' }} />
-                  <p className="text-[14px] mb-4">Nothing on hold for later yet.</p>
-                  <Link href="/catalog" className="b">
-                    Browse the gallery <ArrowRight size={12} />
-                  </Link>
+                <div className="dk-panel">
+                  <EmptyState
+                    icon={<HeartIcon size={24} />}
+                    title="Nothing on hold for later yet."
+                    actions={
+                      <Link href="/catalog" className="dk-btn dk-btn-red">
+                        Browse the gallery
+                      </Link>
+                    }
+                  />
                 </div>
               ) : (
                 <div
-                  className="grid gap-4"
-                  style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))' }}
+                  style={{ display: 'grid', gap: 24, gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))' }}
                 >
                   {wishlist.map((item) => {
                     if (!item.product) return null;
@@ -383,54 +376,25 @@ export default function AccountPage() {
                       stock?: number;
                     };
                     return (
-                      <div
-                        key={item._id}
-                        className="rounded overflow-hidden flex flex-col"
-                        style={{
-                          background: 'var(--surface)',
-                          border: '1px solid var(--line-soft)',
-                        }}
-                      >
-                        <Link
-                          href={`/specimen-detail?id=${p._id}`}
-                          className="block"
-                          style={{ color: 'var(--ink)' }}
-                        >
-                          <div
-                            className="aspect-[4/3]"
-                            style={{
-                              background:
-                                'radial-gradient(ellipse at 50% 40%, var(--oxblood), oklch(0 0 0))',
-                              position: 'relative',
-                              overflow: 'hidden',
-                            }}
-                          >
-                            {p.image ? (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img
-                                src={p.image}
-                                alt={p.name}
-                                className="absolute inset-0 w-full h-full object-cover"
-                              />
-                            ) : null}
-                          </div>
+                      <div key={item._id} className="dk-panel flush lift" style={{ display: 'flex', flexDirection: 'column' }}>
+                        <Link href={`/specimen-detail?id=${p._id}`} style={{ display: 'block' }}>
+                          <Placeholder
+                            src={p.image}
+                            alt={p.name}
+                            style={{ aspectRatio: '4/3', borderRadius: 0, borderWidth: p.image ? 0 : '0 0 1px' }}
+                          />
                         </Link>
-                        <div className="p-4 flex flex-col gap-2 flex-1">
-                          <div className="placard">{p.categoryName || 'Specimen'}</div>
+                        <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 6, flex: 1 }}>
+                          <p className="dk-small dk-muted">{p.categoryName || 'Specimen'}</p>
                           <Link
                             href={`/specimen-detail?id=${p._id}`}
-                            className="display text-[15px] line-clamp-2"
-                            style={{
-                              color: 'var(--ink)',
-                              fontVariationSettings: '"opsz" 22, "wght" 600',
-                            }}
+                            className="dk-h4"
+                            style={{ fontSize: 17, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}
                           >
                             {p.name}
                           </Link>
-                          <div className="flex items-center justify-between mt-auto pt-2">
-                            <span className="font-mono-tabular text-[14px] font-bold">
-                              {fmt(p.price)}
-                            </span>
+                          <div className="dk-row between" style={{ marginTop: 'auto', paddingTop: 8 }}>
+                            <span style={num}>{fmt(p.price)}</span>
                             <button
                               type="button"
                               onClick={async () => {
@@ -441,10 +405,10 @@ export default function AccountPage() {
                                 });
                               }}
                               aria-label="Remove"
-                              className="p-1.5 rounded"
-                              style={{ color: 'var(--ink-4)' }}
+                              className="dk-btn dk-btn-outline-dark xs"
+                              style={{ width: 32, padding: 0 }}
                             >
-                              <Trash2 size={13} />
+                              <Trash2 size={14} aria-hidden="true" />
                             </button>
                           </div>
                         </div>
@@ -457,24 +421,11 @@ export default function AccountPage() {
           )}
 
           {tab === 'profile' && (
-            <div className="max-w-[480px] flex flex-col gap-5">
-              <div>
-                <div className="placard mb-1.5">Name</div>
-                <div className="input" style={{ background: 'var(--bg-2)' }}>
-                  {fullName || '—'}
-                </div>
-              </div>
-              <div>
-                <div className="placard mb-1.5">Email</div>
-                <div className="input" style={{ background: 'var(--bg-2)' }}>
-                  {user.email}
-                </div>
-              </div>
-              <div>
-                <div className="placard mb-1.5">Phone</div>
-                <div className="input" style={{ background: 'var(--bg-2)' }}>
-                  {user.phone || '—'}
-                </div>
+            <div className="dk-panel" style={{ maxWidth: 520 }}>
+              <div className="dk-stack">
+                <ProfileField label="Name" value={fullName || '—'} />
+                <ProfileField label="Email" value={user.email} />
+                <ProfileField label="Phone" value={user.phone || '—'} />
               </div>
               <button
                 type="button"
@@ -482,9 +433,10 @@ export default function AccountPage() {
                   logout();
                   router.push('/');
                 }}
-                className="b mt-4 self-start"
+                className="dk-btn dk-btn-outline-dark"
+                style={{ marginTop: 28 }}
               >
-                <LogOut size={14} />
+                <LogOut size={16} aria-hidden="true" />
                 Sign out
               </button>
             </div>
@@ -497,15 +449,20 @@ export default function AccountPage() {
 
 function StatCard({ label, value }: { label: string; value: string }) {
   return (
-    <div
-      className="p-5 rounded"
-      style={{ background: 'var(--surface)', border: '1px solid var(--line-soft)' }}
-    >
-      <div className="placard">{label}</div>
-      <div
-        className="display font-mono-tabular mt-2"
-        style={{ fontSize: 28, fontVariationSettings: '"opsz" 36, "wght" 700' }}
-      >
+    <div className="dk-panel">
+      <p className="dk-small dk-muted">{label}</p>
+      <p className="dk-h3" style={{ marginTop: 8, fontFamily: 'var(--dk-f-display)', fontWeight: 800, fontVariantNumeric: 'tabular-nums' }}>
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function ProfileField({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="dk-field">
+      <span className="dk-label">{label}</span>
+      <div className="dk-input" style={{ display: 'flex', alignItems: 'center', background: 'var(--dk-n-100)', overflowWrap: 'anywhere' }}>
         {value}
       </div>
     </div>

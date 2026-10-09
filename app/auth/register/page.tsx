@@ -2,11 +2,10 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Eye, EyeOff, Check, X } from 'lucide-react';
-import Button from '@/components/ui/Button';
-import Input from '@/components/ui/Input';
-import Card from '@/components/ui/Card';
+import Link from 'next/link';
 import SafeAreaProvider from '@/components/provider/SafeAreaProvider';
+import AuthShell from '@/components/dc/kit/AuthShell';
+import { CheckIcon, CrossIcon, EyeIcon, EyeOffIcon } from '@/components/dc/kit/icons';
 import { isValidEmail, isValidPhone, validatePassword } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -129,198 +128,130 @@ function RegisterContent() {
     }
   };
 
+  const field = (
+    id: keyof FormData,
+    label: string,
+    input: React.InputHTMLAttributes<HTMLInputElement>,
+    toggle?: { shown: boolean; onToggle: () => void },
+  ) => (
+    <div className="dk-field">
+      <label htmlFor={`r-${id}`}>{label} <span className="dk-req">*</span></label>
+      <div className={toggle ? 'dk-pw-wrap' : undefined}>
+        <input
+          id={`r-${id}`}
+          className="dk-input"
+          value={formData[id]}
+          onChange={(e) => handleInputChange(id, e.target.value)}
+          aria-invalid={!!errors[id] || undefined}
+          aria-describedby={errors[id] ? `r-${id}-err` : undefined}
+          required
+          {...input}
+        />
+        {toggle && (
+          <button
+            type="button"
+            className="dk-pw-toggle"
+            onClick={toggle.onToggle}
+            aria-label={toggle.shown ? 'Hide password' : 'Show password'}
+            aria-pressed={toggle.shown}
+          >
+            {toggle.shown ? <EyeOffIcon /> : <EyeIcon />}
+          </button>
+        )}
+      </div>
+      {errors[id] && <p id={`r-${id}-err`} className="dk-err">{errors[id]}</p>}
+    </div>
+  );
+
   return (
-    <div className="min-h-screen flex flex-col px-6 py-8">
-      {/* Header with Safe Area */}
-      <div className="flex items-center justify-between mb-8 safe-area-top pt-4">
-        <button
-          onClick={handleBack}
-          className="flex items-center justify-center w-10 h-10 rounded-full bg-secondary border border-white/10 hover:bg-white/10 transition-colors"
-        >
-          <ArrowLeft className="w-5 h-5 text-white" />
-        </button>
-        <h1 className="text-xl font-semibold text-white">Create Account</h1>
-        <div className="w-10" /> {/* Spacer for center alignment */}
-      </div>
-
-      {/* Progress Indicator */}
-      <div className="flex items-center justify-center mb-8">
-        <div className="flex items-center space-x-4">
-          <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${
-            currentStep >= 1 ? 'bg-primary border-primary text-white' : 'border-muted text-muted'
-          }`}>
-            1
+    <AuthShell
+      register
+      title={<>Join Dragon<br />Cave</>}
+      tagline={currentStep === 1 ? 'Tell us about yourself' : 'Create your secure password'}
+      onBack={() => (window.history.length > 1 ? router.back() : router.push('/'))}
+      card={
+        <>
+          <div className="dk-reg-head">
+            <h2>Create account</h2>
+            <div className="dk-stepper" aria-label={`Step ${currentStep} of 2`}>
+              {currentStep === 2 ? (
+                <button type="button" className="on" onClick={handleBack} aria-label="Back to step 1">1</button>
+              ) : (
+                <span className="on" aria-current="step">1</span>
+              )}
+              <i aria-hidden="true" />
+              <span className={currentStep === 2 ? 'on' : undefined} aria-current={currentStep === 2 ? 'step' : undefined}>2</span>
+            </div>
           </div>
-          <div className={`w-16 h-0.5 ${currentStep >= 2 ? 'bg-primary' : 'bg-muted'}`} />
-          <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${
-            currentStep >= 2 ? 'bg-primary border-primary text-white' : 'border-muted text-muted'
-          }`}>
-            2
-          </div>
-        </div>
-      </div>
+          <p className="dk-sub">Welcome back, let&apos;s get you to the water.</p>
 
-      {/* Welcome Section */}
-      <div className="text-center mb-8">
-        <h2 className="text-3xl font-bold text-white mb-2">Join Dragon Cave</h2>
-        <p className="text-muted">
-          {currentStep === 1 ? 'Tell us about yourself' : 'Create your secure password'}
-        </p>
-      </div>
-
-      {/* Registration Form */}
-      <div className="flex-1 max-w-sm mx-auto w-full pb-8">
-        <Card className="mb-6">
-          <form onSubmit={currentStep === 1 ? (e) => { e.preventDefault(); handleNext(); } : handleSubmit} className="space-y-6">
-            {errors.general && (
-              <div className="p-3 rounded-lg bg-error/10 border border-error/20">
-                <p className="text-error text-sm">{errors.general}</p>
-              </div>
-            )}
-
+          <form onSubmit={currentStep === 1 ? (e) => { e.preventDefault(); handleNext(); } : handleSubmit} className="dk-auth-form">
             {currentStep === 1 && (
-              <>
-                <div className="grid grid-cols-2 gap-3">
-                  <Input
-                    label="First Name"
-                    placeholder="John"
-                    value={formData.firstName}
-                    onChange={(value) => handleInputChange('firstName', value)}
-                    error={errors.firstName}
-                    required
-                  />
-                  <Input
-                    label="Last Name"
-                    placeholder="Doe"
-                    value={formData.lastName}
-                    onChange={(value) => handleInputChange('lastName', value)}
-                    error={errors.lastName}
-                    required
-                  />
+              <fieldset>
+                <legend className="sr-only">About you</legend>
+                <div className="dk-two">
+                  {field('firstName', 'First name', { placeholder: 'Juan', autoComplete: 'given-name' })}
+                  {field('lastName', 'Last name', { placeholder: 'Dela cruz', autoComplete: 'family-name' })}
                 </div>
-
-                <Input
-                  label="Email Address"
-                  type="email"
-                  placeholder="john@example.com"
-                  value={formData.email}
-                  onChange={(value) => handleInputChange('email', value)}
-                  error={errors.email}
-                  required
-                />
-
-                <Input
-                  label="Phone Number "
-                  type="tel"
-                  placeholder="+63 or 09 followed by 9 digits"
-                  value={formData.phone}
-                  onChange={(value) => handleInputChange('phone', value)}
-                  error={errors.phone}
-                  required
-                />
-
-                <Button
-                  type="submit"
-                  className="w-full"
-                  size="lg"
-                >
-                  Continue
-                </Button>
-              </>
+                {field('email', 'Email', { type: 'email', placeholder: 'Juan@example.com', autoComplete: 'email' })}
+                {field('phone', 'Phone number', { type: 'tel', placeholder: '+63 or 09 followed by 9 digits', autoComplete: 'tel' })}
+              </fieldset>
             )}
 
             {currentStep === 2 && (
-              <>
-                <div className="relative">
-                  <Input
-                    label="Password"
-                    type={showPassword ? 'text' : 'password'}
-                    placeholder="Create a secure password"
-                    value={formData.password}
-                    onChange={(value) => handleInputChange('password', value)}
-                    error={errors.password}
-                    required
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-9 text-muted-dark hover:text-white transition-colors"
-                  >
-                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                  </button>
-                </div>
+              <fieldset>
+                <legend className="sr-only">Password</legend>
+                {field(
+                  'password',
+                  'Password',
+                  { type: showPassword ? 'text' : 'password', placeholder: 'At least 8 characters', autoComplete: 'new-password' },
+                  { shown: showPassword, onToggle: () => setShowPassword(!showPassword) },
+                )}
 
                 {/* Password Requirements */}
                 {formData.password && (
-                  <div className="bg-secondary/50 rounded-lg p-4 space-y-2">
-                    <p className="text-sm font-medium text-white">Password Requirements:</p>
+                  <ul className="dk-req-list" aria-label="Password Requirements">
                     {[
                       { check: formData.password.length >= 8, text: 'At least 8 characters' },
                       { check: /[A-Z]/.test(formData.password), text: 'One uppercase letter' },
                       { check: /[a-z]/.test(formData.password), text: 'One lowercase letter' },
                       { check: /\d/.test(formData.password), text: 'One number' },
                     ].map((requirement, index) => (
-                      <div key={index} className="flex items-center space-x-2">
-                        {requirement.check ? (
-                          <Check className="w-4 h-4 text-success" />
-                        ) : (
-                          <X className="w-4 h-4 text-error" />
-                        )}
-                        <span className={`text-sm ${requirement.check ? 'text-success' : 'text-muted'}`}>
-                          {requirement.text}
-                        </span>
-                      </div>
+                      <li key={index} className={requirement.check ? 'ok' : undefined}>
+                        {requirement.check ? <CheckIcon /> : <CrossIcon />}
+                        {requirement.text}
+                      </li>
                     ))}
-                  </div>
+                  </ul>
                 )}
 
-                <div className="relative">
-                  <Input
-                    label="Confirm Password"
-                    type={showConfirmPassword ? 'text' : 'password'}
-                    placeholder="Re-enter your password"
-                    value={formData.confirmPassword}
-                    onChange={(value) => handleInputChange('confirmPassword', value)}
-                    error={errors.confirmPassword}
-                    required
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute right-3 top-9 text-muted-dark hover:text-white transition-colors"
-                  >
-                    {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                  </button>
-                </div>
+                {field(
+                  'confirmPassword',
+                  'Confirm password',
+                  { type: showConfirmPassword ? 'text' : 'password', placeholder: 'Repeat your password', autoComplete: 'new-password' },
+                  { shown: showConfirmPassword, onToggle: () => setShowConfirmPassword(!showConfirmPassword) },
+                )}
+              </fieldset>
+            )}
 
-                <Button
-                  type="submit"
-                  loading={isSubmitting}
-                  disabled={isSubmitting || !passwordValidation.isValid}
-                  className="w-full"
-                  size="lg"
-                >
-                  {isSubmitting ? 'Creating Account...' : 'Create Account'}
-                </Button>
-              </>
+            {errors.general && <p className="dk-form-msg" role="alert">{errors.general}</p>}
+
+            {currentStep === 1 ? (
+              <button type="submit" className="dk-btn dk-btn-red">Continue</button>
+            ) : (
+              <button type="submit" className="dk-btn dk-btn-red" disabled={isSubmitting || !passwordValidation.isValid} aria-busy={isSubmitting}>
+                {isSubmitting ? 'Creating Account...' : 'Create Account'}
+              </button>
             )}
           </form>
-        </Card>
-
-        {/* Footer Links */}
-        <div className="text-center">
-          <p className="text-sm text-muted">
-            Already have an account?{' '}
-            <button
-              onClick={() => router.push('/auth/login')}
-              className="text-primary hover:underline font-medium"
-            >
-              Sign In
-            </button>
-          </p>
-        </div>
-      </div>
-    </div>
+        </>
+      }
+      below={
+        <p className="dk-auth-alt">
+          Already have an account? <Link href="/auth/login">Sign In</Link>
+        </p>
+      }
+    />
   );
 }
 

@@ -2,14 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Eye, EyeOff, ArrowLeft } from 'lucide-react';
+import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
-import Button from '@/components/ui/Button';
-import Input from '@/components/ui/Input';
-import Card from '@/components/ui/Card';
 import { isValidEmail } from '@/lib/utils';
 import { useAuthStore } from '@/store/auth';
 import SafeAreaProvider from '@/components/provider/SafeAreaProvider';
+import AuthShell from '@/components/dc/kit/AuthShell';
+import { EyeIcon, EyeOffIcon } from '@/components/dc/kit/icons';
 
 // Login Content Component
 function LoginContent() {
@@ -114,164 +113,78 @@ function LoginContent() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-background to-background-dark">
-      {/* Header - Fixed position with safe area top */}
-      <div className="ml-2 sticky top-0 z-10 bg-gradient-to-br from-background to-background-dark/95 backdrop-blur-sm border-b border-white/5 safe-area-top">
-        <div className="flex items-center justify-between px-4 sm:px-6 py-4 safe-area-horizontal">
-          <button
-            onClick={handleBack}
-            className="flex items-center justify-center w-11 h-11 sm:w-12 sm:h-12"
-            aria-label="Back"
-          >
-            <ArrowLeft className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-          </button>
-          <h1 className="text-lg sm:text-xl font-semibold text-white">Sign In</h1>
-          <div className="w-11 sm:w-12" />
-        </div>
-      </div>
+    <AuthShell
+      title={<>Welcome<br />Back!</>}
+      tagline="Sign in to access your aquatic paradise"
+      onBack={handleBack}
+      card={
+        <>
+          <h2>Sign in</h2>
+          <p className="dk-sub">Welcome back, let&apos;s get you to the water.</p>
+          <form onSubmit={handleSubmit} className="dk-auth-form">
+            <div className="dk-field">
+              <label htmlFor="l-email">Email <span className="dk-req">*</span></label>
+              <input
+                id="l-email"
+                className="dk-input"
+                type="email"
+                placeholder="Enter your email"
+                autoComplete="email"
+                value={formData.email}
+                onChange={(e) => handleInputChange('email', e.target.value)}
+                aria-invalid={!!errors.email || undefined}
+                aria-describedby={errors.email ? 'l-email-err' : undefined}
+                required
+              />
+              {errors.email && <p id="l-email-err" className="dk-err">{errors.email}</p>}
+            </div>
 
-      {/* Main Content - Scrollable with safe area padding */}
-      <div className="flex-1 overflow-y-auto safe-area-horizontal">
-        <div className="px-4 sm:px-6 py-6 sm:py-8 max-w-md mx-auto w-full">
-          {/* Welcome Section */}
-          <div className="text-center mb-8 sm:mb-10">
-            <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white mb-2 sm:mb-3">
-              Welcome Back!
-            </h2>
-            <p className="text-sm sm:text-base text-muted">
-              Sign in to access your aquatic paradise
-            </p>
-          </div>
-
-          {/* Login Form */}
-          <Card className="mb-6">
-            <form onSubmit={handleSubmit} className="space-y-5 sm:space-y-6">
-              {errors.general && (
-                <div className="p-3 sm:p-4 rounded-lg bg-error/10 border border-error/20 animate-shake">
-                  <p className="text-error text-xs sm:text-sm leading-relaxed">
-                    {errors.general}
-                  </p>
-                </div>
-              )}
-
-              <div className="space-y-4 sm:space-y-5">
-                <Input
-                  label="Email Address"
-                  type="email"
-                  placeholder="Enter your email"
-                  value={formData.email}
-                  onChange={(value) => handleInputChange('email', value)}
-                  error={errors.email}
+            <div className="dk-field">
+              <div className="dk-lbl-row">
+                <label htmlFor="l-pass">Password <span className="dk-req">*</span></label>
+                <button type="button" onClick={() => router.push('/auth/forgot_password')}>Forgot Password?</button>
+              </div>
+              <div className="dk-pw-wrap">
+                <input
+                  id="l-pass"
+                  className="dk-input"
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="Enter your password"
+                  autoComplete="current-password"
+                  value={formData.password}
+                  onChange={(e) => handleInputChange('password', e.target.value)}
+                  aria-invalid={!!errors.password || undefined}
+                  aria-describedby={errors.password ? 'l-pass-err' : undefined}
                   required
                 />
-
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <label className="block text-sm font-medium text-white">
-                      Password <span className="text-error ml-1">*</span>
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() => router.push('/auth/forgot_password')}
-                      className="text-xs sm:text-sm text-primary hover:text-primary/80 font-medium transition-colors touch-manipulation active:opacity-80"
-                    >
-                      Forgot Password?
-                    </button>
-                  </div>
-                  <div className="relative">
-                    <input
-                      type={showPassword ? 'text' : 'password'}
-                      placeholder="Enter your password"
-                      value={formData.password}
-                      onChange={(e) => handleInputChange('password', e.target.value)}
-                      required
-                      className={`w-full px-4 py-3 rounded-xl bg-secondary border ${
-                        errors.password ? 'border-error ring-1 ring-error' : 'border-white/10'
-                      } text-white placeholder:text-muted-dark focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent`}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 sm:right-4 top-1/2 -translate-y-1/2 p-1 text-muted-dark hover:text-white active:scale-95 transition-all touch-manipulation"
-                      aria-label={showPassword ? 'Hide password' : 'Show password'}
-                    >
-                      {showPassword ? (
-                        <EyeOff className="w-5 h-5 sm:w-6 sm:h-6" />
-                      ) : (
-                        <Eye className="w-5 h-5 sm:w-6 sm:h-6" />
-                      )}
-                    </button>
-                  </div>
-                  {errors.password && (
-                    <p className="text-sm text-error">{errors.password}</p>
-                  )}
-                </div>
+                <button
+                  type="button"
+                  className="dk-pw-toggle"
+                  onClick={() => setShowPassword(!showPassword)}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  aria-pressed={showPassword}
+                >
+                  {showPassword ? <EyeOffIcon /> : <EyeIcon />}
+                </button>
               </div>
+              {errors.password && <p id="l-pass-err" className="dk-err">{errors.password}</p>}
+            </div>
 
-              <Button
-                type="submit"
-                loading={isSubmitting}
-                disabled={isSubmitting}
-                className="w-full mt-6 sm:mt-8 h-12 sm:h-14 text-base sm:text-lg font-medium active:scale-98 transition-transform"
-                size="lg"
-              >
-                {isSubmitting ? 'Signing In...' : 'Sign In'}
-              </Button>
-            </form>
+            {errors.general && <p className="dk-form-msg" role="alert">{errors.general}</p>}
 
-            {/* Divider */}
-            {/* <div className="relative my-6 sm:my-8">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-white/10"></div>
-              </div>
-              <div className="relative flex justify-center text-xs sm:text-sm">
-                <span className="px-3 sm:px-4 bg-background text-muted">
-                  or continue with
-                </span>
-              </div>
-            </div> */}
-
-            {/* Facebook Login Button */}
-            {/* <Button
-              onClick={handleFacebookLogin}
-              loading={isLoading}
-              disabled={isLoading}
-              className="w-full bg-[#1877F2] hover:bg-[#166FE5] border-[#1877F2] text-white hover:text-white h-12 sm:h-14 active:scale-98 transition-transform"
-              size="lg"
-            >
-              {isLoading ? (
-                'Connecting...'
-              ) : (
-                <div className="flex items-center justify-center gap-2 sm:gap-3">
-                  <svg
-                    className="w-5 h-5 sm:w-6 sm:h-6 flex-shrink-0"
-                    fill="currentColor"
-                    viewBox="0 0 24 24"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
-                  </svg>
-                  <span className="text-sm sm:text-base">Continue with Facebook</span>
-                </div>
-              )}
-            </Button> */}
-          </Card>
-
-          {/* Footer Links with safe area bottom padding */}
-          <div className="text-center pb-6 sm:pb-8 safe-area-inset-bottom">
-            <p className="text-xs sm:text-sm text-muted">
-              Don&apos;t have an account?{' '}
-              <button
-                onClick={() => router.push('/auth/register')}
-                className="text-primary hover:underline font-medium active:opacity-80 transition-opacity touch-manipulation"
-              >
-                Sign Up
-              </button>
-            </p>
-          </div>
-        </div>
-      </div>
-    </div>
+            <button type="submit" className="dk-btn dk-btn-red" disabled={isSubmitting} aria-busy={isSubmitting}>
+              {isSubmitting ? 'Signing In...' : 'Sign In'}
+            </button>
+          </form>
+          <hr className="dk-auth-divider" />
+        </>
+      }
+      below={
+        <p className="dk-auth-alt">
+          Don&apos;t have an account? <Link href="/auth/register">Sign Up</Link>
+        </p>
+      }
+    />
   );
 }
 

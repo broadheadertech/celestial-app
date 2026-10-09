@@ -1,16 +1,15 @@
 'use client';
-/* eslint-disable @next/next/no-img-element -- product images are remote Convex storage URLs */
 
 /**
- * The Catalog — the design, wired to real Convex data.
- * Shows in-stock arowana ("the dragons") from the Fish category.
+ * The Catalog — in-stock arowana ("the dragons") from the Fish category, wired to real Convex data.
+ * No page of its own in design-reference/dragoncave-site.html, so it reuses The Cave's toolbar,
+ * chips and specimen cards under a compact page head.
  */
 
-import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { useQuery } from '@/components/dc/useQuery';
 import { api } from '@/convex/_generated/api';
-import { bloodlineOf, buildChips, DcProduct, fmtPeso, isArowana, isFish, tintFor, kindName } from '@/components/dc/fish';
+import { bloodlineOf, buildChips, DcProduct, fmtPeso, isArowana, isFish, kindName } from '@/components/dc/fish';
 import { useBusiness } from '@/components/dc/business';
 import VideoBadge from '@/components/dc/VideoBadge';
 import PreorderBadge from '@/components/dc/PreorderBadge';
@@ -18,9 +17,10 @@ import { incomingLabel, isIncoming, isListable } from '@/components/dc/preorder'
 import CatalogSearchBar from '@/components/dc/CatalogSearchBar';
 import RehomedStrip from '@/components/dc/RehomedStrip';
 import { matchesSearch, sortProducts, type CatalogSort } from '@/components/dc/catalogFilters';
-
-const mono = "'Geist Mono', monospace";
-const serif = "'Noto Serif Display', serif";
+import Chips from '@/components/dc/kit/Chips';
+import SpecimenCard from '@/components/dc/kit/SpecimenCard';
+import NotchHero from '@/components/dc/kit/NotchHero';
+import EmptyState from '@/components/dc/kit/EmptyState';
 
 export default function CatalogPage() {
   const products = useQuery(api.services.products.getCatalogProducts, {}) as DcProduct[] | undefined;
@@ -54,110 +54,80 @@ export default function CatalogPage() {
   const loading = products === undefined;
 
   return (
-    <>
+    <div className="dk dk-cave">
       {/* HERO */}
-      <section style={{ position: 'relative', overflow: 'hidden', borderBottom: '1px solid oklch(0.86 0.012 68)', background: 'oklch(0.972 0.008 78)' }}>
-        <div style={{ position: 'absolute', right: -90, top: -40, fontFamily: "'Noto Serif TC', serif", fontWeight: 900, fontSize: 340, lineHeight: 1, color: 'oklch(0.52 0.216 27 / 0.05)', pointerEvents: 'none', userSelect: 'none' }}>龍</div>
-        <div style={{ position: 'relative', maxWidth: 1280, margin: '0 auto', padding: '56px 28px 40px' }}>
-          <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 28, flexWrap: 'wrap' }}>
-            <div>
-              <div style={{ fontFamily: mono, fontSize: 11, letterSpacing: '0.26em', textTransform: 'uppercase', color: 'oklch(0.50 0.14 30)', marginBottom: 16 }}>The catalog</div>
-              <h1 style={{ fontFamily: serif, fontWeight: 800, fontSize: 'clamp(44px,6.4vw,84px)', lineHeight: 0.94, letterSpacing: '-0.02em', margin: 0, color: 'oklch(0.19 0.012 32)' }}>The living <span style={{ fontStyle: 'italic', fontWeight: 600, color: 'oklch(0.50 0.216 27)' }}>gallery.</span></h1>
-              <p style={{ fontSize: 16.5, lineHeight: 1.6, maxWidth: 520, color: 'oklch(0.42 0.012 34)', margin: '18px 0 0' }}>Each fish is held in our gallery water until the right collector takes it home. Message us for a full video and lineage card.</p>
-            </div>
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ fontFamily: serif, fontWeight: 700, fontSize: 46, lineHeight: 1, color: 'oklch(0.50 0.216 27)' }}>{loading ? '—' : items.length}</div>
-              <div style={{ fontFamily: mono, fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'oklch(0.50 0.02 40)', marginTop: 6 }}>On display</div>
+      <NotchHero
+        tone="light"
+        notchHeight={96}
+        notchLabel="On display"
+        notch={
+          <div className="dk-stat">
+            <b>{loading ? '—' : items.length}</b>
+            <span>On display</span>
+          </div>
+        }
+      >
+        <p className="dk-eyebrow">The catalog</p>
+        <h1 className="dk-h1">The living gallery.</h1>
+        <p className="dk-lede">Each fish is held in our gallery water until the right collector takes it home. Message us for a full video and lineage card.</p>
+      </NotchHero>
+
+      {/* TOOLBAR */}
+      <section className="dk-toolbar">
+        <div className="dk-wrap">
+          <CatalogSearchBar query={query} onQuery={setQuery} sort={sort} onSort={setSort} placeholder="Search by name, bloodline, grade…" searchLabel="Search the catalog" />
+          <div className="dk-tb-row dk-tb-row-2">
+            <div className="dk-tb-chips">
+              <Chips label="Filter by bloodline" visibleLabel="Bloodline" options={bloodlineChips} value={bloodline} onChange={setBloodline} renderLabel={(c) => (c === 'all' ? 'All' : c)} />
+              {gradeChips.length > 1 && (
+                <Chips label="Filter by grade" visibleLabel="Grade" options={gradeChips} value={grade} onChange={setGrade} renderLabel={(c) => (c === 'all' ? 'All' : c)} />
+              )}
             </div>
           </div>
-        </div>
-      </section>
-
-      {/* FILTERS */}
-      <section className="dc-sticky-md" style={{ position: 'sticky', top: 70, zIndex: 40, background: 'oklch(0.972 0.008 78 / 0.9)', backdropFilter: 'blur(14px)', borderBottom: '1px solid oklch(0.87 0.012 68)' }}>
-        <div style={{ maxWidth: 1280, margin: '0 auto', padding: '16px 28px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <CatalogSearchBar query={query} onQuery={setQuery} sort={sort} onSort={setSort} placeholder="Search by name, bloodline, grade…" />
-          <ChipRow label="Bloodline" chips={bloodlineChips} value={bloodline} onChange={setBloodline} />
-          {gradeChips.length > 1 && <ChipRow label="Grade" chips={gradeChips} value={grade} onChange={setGrade} />}
         </div>
       </section>
 
       {/* GRID */}
-      <section style={{ background: 'oklch(0.972 0.008 78)', padding: '44px 0 96px' }}>
-        <div style={{ maxWidth: 1280, margin: '0 auto', padding: '0 28px' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(232px,1fr))', gap: 24 }}>
+      <section className="dk-catalog" aria-label="Catalog">
+        <div className="dk-wrap">
+          <div className="dk-cards">
             {items.map((item) => (
-              <div key={item._id} className="dc-card" style={{ display: 'flex', flexDirection: 'column' }}>
-                <Link href={`/specimen-detail?id=${item._id}`} className="dc-card-media" style={{ position: 'relative', aspectRatio: '3/4', background: 'radial-gradient(circle at 50% 42%, oklch(0.30 0.015 50), oklch(0.145 0.01 40) 100%)', boxShadow: '0 22px 46px -28px oklch(0.16 0.02 40 / 0.7), inset 0 0 0 1px oklch(0.70 0.12 80 / 0.28)' }}>
-                  {item.videos?.length ? <VideoBadge count={item.videos.length} /> : null}
-                  {isIncoming(item) ? <PreorderBadge label={incomingLabel(item)} /> : null}
-                  <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse 66% 46% at 50% 47%, oklch(0.86 0.08 68 / 0.20), transparent 70%)' }} />
-                  <div style={{ position: 'absolute', inset: 0, opacity: 0.38, backgroundImage: 'radial-gradient(circle at 50% 0, transparent 0 7px, oklch(1 0 0 / 0.05) 7px 8px, transparent 8px)', backgroundSize: '24px 12px' }} />
-                  {item.image ? (
-                    <img src={item.image} alt={item.name} style={{ position: 'absolute', left: '50%', top: '46%', transform: 'translate(-50%,-50%)', width: '100%', height: '100%', objectFit: 'contain', padding: '12%', filter: 'drop-shadow(0 14px 22px oklch(0 0 0 / 0.5))' }} draggable={false} />
-                  ) : (
-                    <Silhouette tint={tintFor(item._id)} />
-                  )}
-                  {item.tankNumber && <div style={{ position: 'absolute', top: 12, left: 13, fontFamily: mono, fontSize: 9, letterSpacing: '0.14em', color: 'oklch(0.9 0.02 60 / 0.6)' }}>{item.tankNumber}</div>}
-                  {item.grade && <div style={{ position: 'absolute', top: 11, right: 12, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 26, height: 22, padding: '0 6px', borderRadius: 6, background: 'oklch(0.72 0.14 82 / 0.14)', border: '1px solid oklch(0.72 0.13 82 / 0.45)', fontFamily: serif, fontWeight: 700, fontSize: 12, color: 'oklch(0.82 0.13 84)' }}>{item.grade}</div>}
-                </Link>
-                <div style={{ padding: '15px 4px 4px', display: 'flex', flexDirection: 'column', flex: 1 }}>
-                  <div style={{ fontFamily: mono, fontSize: 9.5, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'oklch(0.50 0.03 34)', marginBottom: 6 }}>{bloodlineOf(kindName(item))}</div>
-                  <Link href={`/specimen-detail?id=${item._id}`} style={{ fontFamily: serif, fontWeight: 600, fontSize: 19, lineHeight: 1.15, color: 'oklch(0.19 0.012 32)', marginBottom: 4 }}>{item.name}</Link>
-                  <div style={{ fontFamily: mono, fontSize: 13, color: 'oklch(0.22 0.012 32)', fontWeight: 600, marginBottom: 14 }}>{fmtPeso(item.price)}</div>
-                  <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 13, borderTop: '1px solid oklch(0.88 0.012 68)' }}>
-                    <a href={biz.enquireHref(item.name, item.tankNumber || String(item.sku || ''))} target="_blank" rel="noopener" className="dc-enq" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 600, color: 'oklch(0.50 0.216 27)', transition: 'color .18s' }}>
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v7A2.5 2.5 0 0 1 17.5 15H9l-4 3.5V15H6.5A2.5 2.5 0 0 1 4 12.5v-7Z" fill="oklch(0.50 0.216 27)" /></svg>
-                      Enquire
-                    </a>
-                    <span style={{ fontFamily: mono, fontSize: 10, letterSpacing: '0.06em', color: 'oklch(0.50 0.02 40)' }}>{item.stock === 1 ? '1 of 1' : `${item.stock} avail`}</span>
-                  </div>
-                </div>
-              </div>
+              <SpecimenCard
+                key={item._id}
+                href={`/specimen-detail?id=${item._id}`}
+                image={item.image}
+                name={item.name}
+                category={bloodlineOf(kindName(item))}
+                price={fmtPeso(item.price)}
+                priceStyle="cut"
+                action={{ href: biz.enquireHref(item.name, item.tankNumber || String(item.sku || '')), label: 'Enquire' }}
+                overlay={
+                  <>
+                    {item.videos?.length ? <VideoBadge count={item.videos.length} /> : null}
+                    {isIncoming(item) ? <PreorderBadge label={incomingLabel(item)} /> : null}
+                  </>
+                }
+              />
             ))}
           </div>
 
           {!loading && items.length === 0 && (
-            <div style={{ textAlign: 'center', padding: '80px 0', color: 'oklch(0.50 0.012 34)' }}>
-              <div style={{ fontFamily: "'Noto Serif TC', serif", fontSize: 56, color: 'oklch(0.52 0.216 27 / 0.3)', marginBottom: 12 }}>龍</div>
-              <div style={{ fontFamily: serif, fontSize: 22, color: 'oklch(0.30 0.012 32)', marginBottom: 8 }}>No specimens match those filters</div>
-              <div style={{ fontSize: 14 }}>Message us &mdash; we often have unlisted fish in quarantine.</div>
-              {(query || bloodline !== 'all' || grade !== 'all') && (
-                <button type="button" className="dc-chip" style={{ marginTop: 18 }} onClick={() => { setQuery(''); setBloodline('all'); setGrade('all'); }}>
+            <EmptyState
+              title="No specimens match those filters"
+              actions={(query || bloodline !== 'all' || grade !== 'all') ? (
+                <button type="button" className="dk-btn dk-btn-outline-dark" onClick={() => { setQuery(''); setBloodline('all'); setGrade('all'); }}>
                   Clear search &amp; filters
                 </button>
-              )}
-            </div>
+              ) : undefined}
+            >
+              Message us — we often have unlisted fish in quarantine.
+            </EmptyState>
           )}
-          {loading && <div style={{ textAlign: 'center', padding: '80px 0', fontFamily: mono, fontSize: 12, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'oklch(0.50 0.02 40)' }}>Loading the gallery&hellip;</div>}
+          {loading && <div className="dk-empty" role="status">Loading the gallery…</div>}
         </div>
       </section>
 
       <RehomedStrip arowana={true} />
-    </>
-  );
-}
-
-function ChipRow({ label, chips, value, onChange }: { label: string; chips: string[]; value: string; onChange: (v: string) => void }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
-      <span style={{ fontFamily: mono, fontSize: 9.5, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'oklch(0.50 0.02 40)', minWidth: 64 }}>{label}</span>
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        {chips.map((c) => (
-          <button key={c} className="dc-chip" type="button" aria-pressed={value === c} onClick={() => onChange(c)}>{c === 'all' ? 'All' : c}</button>
-        ))}
-      </div>
     </div>
-  );
-}
-
-function Silhouette({ tint }: { tint: string }) {
-  return (
-    <span className="dc-sil" style={{ position: 'absolute', left: '50%', top: '46%', transform: 'translate(-50%,-50%)', color: tint }}>
-      <svg width="200" height="100" viewBox="0 0 240 120" style={{ display: 'block', filter: 'drop-shadow(0 12px 20px oklch(0 0 0 / 0.4))' }} aria-hidden="true">
-        <path d="M14 60 C 30 42, 56 28, 90 28 C 130 28, 162 42, 184 56 C 196 50, 212 46, 226 50 C 218 56, 212 62, 208 68 C 218 76, 222 84, 226 92 C 212 88, 196 86, 184 80 C 162 92, 130 102, 90 102 C 56 102, 30 92, 14 76 C 22 72, 28 68, 30 60 Z" fill="currentColor" opacity="0.9" />
-        <circle cx="40" cy="56" r="3" fill="oklch(0.16 0.01 40)" />
-      </svg>
-    </span>
   );
 }

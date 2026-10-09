@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Bell,
   X,
@@ -16,6 +16,7 @@ import {
   Percent,
   CalendarCheck
 } from 'lucide-react';
+import EmptyState from '@/components/dc/kit/EmptyState';
 
 // Real Convex notification type
 interface ConvexNotification {
@@ -103,7 +104,7 @@ const getNotificationIcon = (type: string, actionType?: string) => {
       case 'order_update': return ShoppingBag;
     }
   }
-  
+
   switch (type) {
     case 'promotion': return Gift;
     case 'reservation': return Calendar;
@@ -113,26 +114,10 @@ const getNotificationIcon = (type: string, actionType?: string) => {
   }
 };
 
-const getNotificationColor = (type: string) => {
-  switch (type) {
-    case 'promotion': return 'text-amber-500';
-    case 'reservation': return 'text-success';
-    case 'order': return 'text-info';
-    case 'info': return 'text-muted';
-    default: return 'text-muted';
-  }
-};
-
-const getNotificationBgColor = (type: string) => {
-  switch (type) {
-    case 'promotion': return 'bg-amber-500/10';
-    case 'reservation': return 'bg-success/10';
-    case 'order': return 'bg-info/10';
-    case 'info': return 'bg-muted/10';
-    default: return 'bg-muted/10';
-  }
-};
-
+/**
+ * Member notifications, shown as a right-hand drawer in the Dragon's Cave kit (same pattern as the cart drawer).
+ * Unread items are marked by a red icon tile + dot; everything else stays black / grey so the list reads calmly.
+ */
 export default function ClientNotifModal({
   isOpen,
   onClose,
@@ -145,6 +130,21 @@ export default function ClientNotifModal({
   onReservationClick
 }: ClientNotifModalProps) {
   const [selectedFilter, setSelectedFilter] = useState<'all' | 'promotions' | 'reservations'>('all');
+  const closeRef = useRef<HTMLButtonElement>(null);
+  // Parents may pass a new onClose each render; read it through a ref so the effect below only runs on open.
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  // Escape closes; focus starts on the close button so keyboard users land inside the panel.
+  useEffect(() => {
+    if (!isOpen) return;
+    closeRef.current?.focus();
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onCloseRef.current();
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [isOpen]);
 
   // Use only real notifications from Convex
   const displayNotifications = notifications || [];
@@ -160,19 +160,19 @@ export default function ClientNotifModal({
   const unreadCount = filteredNotifications.filter(n => !n.isRead).length;
   const promoCount = displayNotifications.filter(n => getClientNotificationType(n) === 'promotion' && !n.isRead).length;
   const reservationCount = displayNotifications.filter(n => getClientNotificationType(n) === 'reservation' && !n.isRead).length;
-  
+
   const handleMarkAsRead = (id: string) => {
     if (onMarkAsRead) {
       onMarkAsRead(id);
     }
   };
-  
+
   const handleMarkAllAsRead = () => {
     if (onMarkAllAsRead) {
       onMarkAllAsRead();
     }
   };
-  
+
   const handleDeleteNotification = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     if (onDeleteNotification) {
@@ -198,210 +198,151 @@ export default function ClientNotifModal({
 
   if (!isOpen) return null;
 
+  const tabs: { key: 'all' | 'promotions' | 'reservations'; label: string; icon?: typeof Gift; count?: number }[] = [
+    { key: 'all', label: 'All' },
+    { key: 'promotions', label: 'Promotions', icon: Gift, count: promoCount },
+    { key: 'reservations', label: 'Reservations', icon: Calendar, count: reservationCount },
+  ];
+
   return (
-    <>
+    <div className="dk">
       {/* Backdrop */}
-      <div 
-        className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50"
-        onClick={onClose}
-      />
-      
-      {/* Modal */}
-      <div className="fixed inset-0 flex items-start justify-center z-50 p-4 pt-20">
-        <div className="bg-background border border-primary/20 rounded-xl shadow-xl w-full max-w-md max-h-[80vh] overflow-hidden">
-          {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b border-white/10">
-            <div className="flex items-center space-x-3">
-              <div className="p-2 bg-primary/10 rounded-lg">
-                <Bell className="w-5 h-5 text-primary" />
-              </div>
-              <div>
-                <h2 className="text-lg font-bold text-foreground">Notifications</h2>
-                {unreadCount > 0 && (
-                  <p className="text-sm text-muted">{unreadCount} unread</p>
-                )}
-              </div>
+      <button type="button" className="dk-scrim" onClick={onClose} aria-label="Close notifications" tabIndex={-1} />
+
+      {/* Panel */}
+      <aside className="dk-drawer dk-notif" role="dialog" aria-modal="true" aria-labelledby="notif-title">
+        {/* Header */}
+        <div className="dk-drawer-head">
+          <div className="dk-row" style={{ gap: 12, minWidth: 0 }}>
+            <span className="dk-notif-bell" aria-hidden="true"><Bell size={18} /></span>
+            <div style={{ minWidth: 0 }}>
+              <h2 id="notif-title" className="dk-h4" style={{ fontSize: 20 }}>Notifications</h2>
+              {unreadCount > 0 && <p className="dk-small dk-muted">{unreadCount} unread</p>}
             </div>
+          </div>
+          <button ref={closeRef} type="button" className="dk-notif-close" onClick={onClose} aria-label="Close notifications">
+            <X size={18} aria-hidden="true" />
+          </button>
+        </div>
+
+        {/* Filter Tabs */}
+        <div className="dk-notif-tabs" role="tablist" aria-label="Filter notifications">
+          {tabs.map(({ key, label, icon: Icon, count }) => (
             <button
-              onClick={onClose}
-              className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+              key={key}
+              type="button"
+              role="tab"
+              aria-selected={selectedFilter === key}
+              className="dk-chip"
+              onClick={() => setSelectedFilter(key)}
             >
-              <X className="w-5 h-5 text-muted" />
+              {Icon && <Icon size={15} aria-hidden="true" />}
+              {label}
+              {count ? <span className="dk-notif-count">{count}</span> : null}
+            </button>
+          ))}
+        </div>
+
+        {/* Actions */}
+        {filteredNotifications.length > 0 && (
+          <div className="dk-notif-actions">
+            <button type="button" className="dk-btn dk-btn-text" onClick={handleMarkAllAsRead} disabled={unreadCount === 0}>
+              Mark all as read
+            </button>
+            <button type="button" className="dk-btn dk-btn-text dk-notif-clear" onClick={handleClearAll}>
+              Clear all
             </button>
           </div>
+        )}
 
-          {/* Filter Tabs */}
-          <div className="flex items-center p-4 space-x-2 border-b border-white/10">
-            <button
-              onClick={() => setSelectedFilter('all')}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                selectedFilter === 'all' 
-                  ? 'bg-primary text-primary-foreground' 
-                  : 'text-muted hover:text-foreground hover:bg-white/10'
-              }`}
-            >
-              All
-            </button>
-            <button
-              onClick={() => setSelectedFilter('promotions')}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center space-x-1 ${
-                selectedFilter === 'promotions' 
-                  ? 'bg-primary text-primary-foreground' 
-                  : 'text-muted hover:text-foreground hover:bg-white/10'
-              }`}
-            >
-              <Gift className="w-4 h-4" />
-              <span>Promotions</span>
-              {promoCount > 0 && (
-                <span className="ml-1 px-1.5 py-0.5 text-xs bg-amber-500 text-white rounded-full">
-                  {promoCount}
-                </span>
-              )}
-            </button>
-            <button
-              onClick={() => setSelectedFilter('reservations')}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center space-x-1 ${
-                selectedFilter === 'reservations' 
-                  ? 'bg-primary text-primary-foreground' 
-                  : 'text-muted hover:text-foreground hover:bg-white/10'
-              }`}
-            >
-              <Calendar className="w-4 h-4" />
-              <span>Reservations</span>
-              {reservationCount > 0 && (
-                <span className="ml-1 px-1.5 py-0.5 text-xs bg-success text-white rounded-full">
-                  {reservationCount}
-                </span>
-              )}
-            </button>
-          </div>
-
-          {/* Actions */}
-          {filteredNotifications.length > 0 && (
-            <div className="px-4 py-2 border-b border-white/10">
-              <div className="flex items-center justify-between">
-                <button
-                  onClick={handleMarkAllAsRead}
-                  className="text-sm text-primary hover:text-primary/80 transition-colors"
-                  disabled={unreadCount === 0}
-                >
-                  Mark all as read
-                </button>
-                <button
-                  onClick={handleClearAll}
-                  className="text-sm text-error hover:text-error/80 transition-colors"
-                >
-                  Clear all
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Notifications List */}
-          <div className="max-h-96 overflow-y-auto">
-            {filteredNotifications.length === 0 ? (
-              <div className="flex flex-col items-center justify-center p-8 text-center">
-                <Fish className="w-12 h-12 text-muted/50 mb-3" />
-                <p className="text-foreground font-medium mb-1">No notifications</p>
-                <p className="text-sm text-muted">
-                  {selectedFilter === 'promotions' 
-                    ? "No promotions at the moment" 
-                    : selectedFilter === 'reservations'
-                    ? "No reservation updates"
-                    : "You're all caught up!"}
-                </p>
-              </div>
-            ) : (
-              <div className="divide-y divide-white/10">
-                {filteredNotifications.map((notification) => {
-                  const clientType = getClientNotificationType(notification);
-                  const actionType = getClientActionType(notification);
-                  const IconComponent = getNotificationIcon(clientType, actionType);
-                  return (
+        {/* Notifications List */}
+        <div className="dk-drawer-body" style={{ padding: 0 }}>
+          {filteredNotifications.length === 0 ? (
+            <EmptyState icon={<Fish size={26} />} title="No notifications">
+              {selectedFilter === 'promotions'
+                ? 'No promotions at the moment'
+                : selectedFilter === 'reservations'
+                ? 'No reservation updates'
+                : "You're all caught up!"}
+            </EmptyState>
+          ) : (
+            <ul className="dk-notif-list">
+              {filteredNotifications.map((notification) => {
+                const clientType = getClientNotificationType(notification);
+                const actionType = getClientActionType(notification);
+                const IconComponent = getNotificationIcon(clientType, actionType);
+                return (
+                  <li key={notification._id}>
                     <div
-                      key={notification._id}
-                      className={`group p-4 hover:bg-white/5 transition-colors cursor-pointer ${
-                        !notification.isRead ? 'bg-primary/5' : ''
-                      }`}
+                      className={`dk-notif-item${notification.isRead ? '' : ' unread'}`}
+                      role="button"
+                      tabIndex={0}
                       onClick={() => handleNotificationClick(notification)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          handleNotificationClick(notification);
+                        }
+                      }}
+                      aria-label={`${notification.isRead ? '' : 'Unread: '}${notification.title}`}
                     >
-                      <div className="flex items-start space-x-3">
-                        <div className={`p-2 rounded-lg ${getNotificationBgColor(clientType)} flex-shrink-0`}>
-                          <IconComponent className={`w-4 h-4 ${getNotificationColor(clientType)}`} />
+                      <span className="dk-notif-icon" aria-hidden="true">
+                        <IconComponent size={17} />
+                      </span>
+
+                      <div className="dk-notif-text">
+                        <div className="dk-notif-top">
+                          <p className="dk-notif-title">{notification.title}</p>
+                          {!notification.isRead && <span className="dk-notif-dot" aria-hidden="true" />}
                         </div>
+                        <p className="dk-notif-msg">{notification.message}</p>
 
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-start justify-between mb-1">
-                            <p className="text-sm font-medium text-foreground line-clamp-1">
-                              {notification.title}
-                            </p>
-                            <div className="flex items-center space-x-2 ml-2">
-                              {!notification.isRead && (
-                                <div className="w-2 h-2 bg-primary rounded-full flex-shrink-0" />
-                              )}
-                              <button
-                                onClick={(e) => handleDeleteNotification(notification._id, e)}
-                                className="p-1 hover:bg-white/10 rounded hover:opacity-100 opacity-60 transition-all"
-                                title="Delete notification"
-                              >
-                                <Trash2 className="w-3 h-3 text-muted hover:text-error" />
-                              </button>
-                            </div>
-                          </div>
-                          <p className="text-sm text-muted line-clamp-2 mb-2">
-                            {notification.message}
-                          </p>
-
-                          {/* Action buttons for promotions and reservations */}
-                          {notification.metadata && (
-                            <div className="flex items-center justify-between mb-2">
-                              {notification.metadata.promoCode && (
-                                <div className="flex items-center space-x-2">
-                                  <span className="px-2 py-1 bg-amber-500/20 text-amber-500 text-xs font-semibold rounded">
-                                    CODE: {notification.metadata.promoCode}
-                                  </span>
-                                  {notification.metadata.discount && (
-                                    <span className="flex items-center text-xs text-amber-500">
-                                      <Percent className="w-3 h-3 mr-1" />
-                                      {notification.metadata.discount}% OFF
-                                    </span>
-                                  )}
-                                </div>
-                              )}
-                              {notification.relatedId && notification.relatedType === 'reservation' && (
-                                <span className="px-2 py-1 bg-success/20 text-success text-xs font-semibold rounded">
-                                  {notification.relatedId}
-                                </span>
-                              )}
-                              {notification.relatedId && notification.relatedType === 'order' && (
-                                <span className="px-2 py-1 bg-info/20 text-info text-xs font-semibold rounded">
-                                  {notification.relatedId}
-                                </span>
-                              )}
-                            </div>
-                          )}
-
-                          <div className="flex items-center justify-between">
-                            <p className="text-xs text-muted">
-                              {formatTimeAgo(notification.createdAt)}
-                            </p>
-                            {notification.metadata?.expiryDate && (
-                              <p className="text-xs text-warning flex items-center">
-                                <Clock className="w-3 h-3 mr-1" />
-                                Expires {formatTimeAgo(notification.metadata.expiryDate).replace('ago', 'left')}
-                              </p>
+                        {/* Promo code, discount and related reference */}
+                        {notification.metadata && (notification.metadata.promoCode || notification.relatedId) && (
+                          <div className="dk-row wrap" style={{ gap: 6, marginTop: 8 }}>
+                            {notification.metadata.promoCode && (
+                              <span className="dk-status pale">CODE: {notification.metadata.promoCode}</span>
+                            )}
+                            {notification.metadata.promoCode && notification.metadata.discount && (
+                              <span className="dk-status">
+                                <Percent size={12} aria-hidden="true" />
+                                {notification.metadata.discount}% OFF
+                              </span>
+                            )}
+                            {notification.relatedId && (notification.relatedType === 'reservation' || notification.relatedType === 'order') && (
+                              <span className="dk-status">{notification.relatedId}</span>
                             )}
                           </div>
+                        )}
+
+                        <div className="dk-notif-meta">
+                          <span>{formatTimeAgo(notification.createdAt)}</span>
+                          {notification.metadata?.expiryDate && (
+                            <span className="dk-notif-expiry">
+                              <Clock size={12} aria-hidden="true" />
+                              Expires {formatTimeAgo(notification.metadata.expiryDate).replace('ago', 'left')}
+                            </span>
+                          )}
                         </div>
                       </div>
+
+                      <button
+                        type="button"
+                        className="dk-notif-del"
+                        onClick={(e) => handleDeleteNotification(notification._id, e)}
+                        aria-label="Delete notification"
+                        title="Delete notification"
+                      >
+                        <Trash2 size={15} aria-hidden="true" />
+                      </button>
                     </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
         </div>
-      </div>
-    </>
+      </aside>
+    </div>
   );
 }

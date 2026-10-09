@@ -152,12 +152,14 @@ function ResetPasswordContent() {
                   {error || "This password reset link is invalid or has expired. Please request a new one."}
                 </p>
 
+                <div className="dk">
                 <button
                   onClick={() => router.push("/auth/forgot_password")}
-                  className="w-full bg-primary hover:bg-primary/90 text-white font-semibold py-3 rounded-lg transition-all duration-200 shadow-lg hover:shadow-primary/50 active:scale-98 touch-manipulation"
+                  className="dk-btn dk-btn-red block"
                 >
                   Request New Reset Link
                 </button>
+                </div>
               </div>
 
               <div className="pb-6 safe-area-inset-bottom"></div>
@@ -204,12 +206,14 @@ function ResetPasswordContent() {
                   Your password has been changed. Redirecting to login...
                 </p>
 
+                <div className="dk">
                 <button
                   onClick={() => router.push("/auth/login")}
-                  className="w-full bg-primary hover:bg-primary/90 text-white font-semibold py-3 rounded-lg transition-all duration-200 shadow-lg hover:shadow-primary/50 active:scale-98 touch-manipulation"
+                  className="dk-btn dk-btn-red block"
                 >
                   Continue to Login
                 </button>
+                </div>
               </div>
 
               <div className="pb-6 safe-area-inset-bottom"></div>
@@ -398,10 +402,12 @@ function ResetPasswordContent() {
               )}
 
               {/* Submit Button */}
+              <div className="dk">
               <button
                 onClick={handleSubmit}
                 disabled={isLoading || !token}
-                className="w-full bg-primary hover:bg-primary/90 text-white font-semibold py-3 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center shadow-lg hover:shadow-primary/50 active:scale-98 touch-manipulation"
+                aria-busy={isLoading}
+                className="dk-btn dk-btn-red block"
               >
                 {isLoading ? (
                   <>
@@ -431,6 +437,7 @@ function ResetPasswordContent() {
                   "Reset Password"
                 )}
               </button>
+              </div>
             </div>
           </div>
 

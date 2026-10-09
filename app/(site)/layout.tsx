@@ -3,6 +3,7 @@ import type { Metadata, Viewport } from 'next';
 import DcHeader from '@/components/dc/DcHeader';
 import DcFooter from '@/components/dc/DcFooter';
 import { DC_CSS } from '@/components/dc/styles';
+import '@/components/dc/kit.css';
 import CartDrawer from '@/components/site/CartDrawer';
 
 const SITE_URL = 'https://dc.broadheader.com';
@@ -30,7 +31,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 5,
   userScalable: true,
-  themeColor: '#A02323',
+  themeColor: '#000000',
 };
 
 /**
@@ -44,8 +45,8 @@ export default function SiteLayout({ children }: { children: ReactNode }) {
       className="dc-scope"
       style={{
         fontFamily: "'Geist', system-ui, sans-serif",
-        background: 'oklch(0.972 0.008 78)',
-        color: 'oklch(0.19 0.012 32)',
+        background: '#fff',
+        color: '#000',
         minHeight: '100vh',
         display: 'flex',
         flexDirection: 'column',

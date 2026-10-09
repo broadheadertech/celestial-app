@@ -1,4 +1,5 @@
 import { ReactNode } from 'react';
+import '@/components/dc/kit.css';
 
 /**
  * Sign-in, registration and password-reset screens.

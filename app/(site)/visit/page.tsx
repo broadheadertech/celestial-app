@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * Visit — the design (`dragons-cave-visit`), wired to the real `createViewing`
+ * Visit — design-reference/dragoncave-site.html (Visit), wired to the real `createViewing`
  * Convex mutation (falls back to a WhatsApp message). The design form gained an
  * email field because the viewings table requires one.
  */
@@ -10,9 +10,11 @@ import { useEffect, useMemo, useState } from 'react';
 import { useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { groupHours, hoursSummary, useBusiness, type BusinessHours } from '@/components/dc/business';
+import { BrandMark } from '@/components/dc/kit/Brand';
+import Placeholder from '@/components/dc/kit/Placeholder';
+import NotchHero from '@/components/dc/kit/NotchHero';
+import { CheckIcon, WhatsAppIcon } from '@/components/dc/kit/icons';
 
-const mono = "'Geist Mono', monospace";
-const serif = "'Noto Serif Display', serif";
 
 const GUEST_LABEL: Record<string, string> = { '1': 'Just me', '2': '2 of us', '3': '3 of us', '4+': '4 or more' };
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -114,157 +116,167 @@ export default function VisitPage() {
   }
 
   return (
-    <>
+    <div className="dk dk-visit">
       {/* HERO */}
-      <section style={{ position: 'relative', overflow: 'hidden', background: 'oklch(0.972 0.008 78)', borderBottom: '1px solid oklch(0.86 0.012 68)' }}>
-        <div className="dc-split" style={{ position: 'relative', maxWidth: 1280, margin: '0 auto', padding: '60px 28px 64px', display: 'grid', gridTemplateColumns: '1fr 0.92fr', gap: 56, alignItems: 'center' }}>
-          <div>
-            <div style={{ fontFamily: mono, fontSize: 11, letterSpacing: '0.24em', textTransform: 'uppercase', color: 'oklch(0.50 0.14 30)', marginBottom: 22 }}>By appointment</div>
-            <h1 style={{ fontFamily: serif, fontWeight: 800, fontSize: 'clamp(46px,6.6vw,92px)', lineHeight: 0.92, letterSpacing: '-0.02em', margin: '0 0 22px', color: 'oklch(0.19 0.012 32)' }}>Visit the <span style={{ fontStyle: 'italic', fontWeight: 600, color: 'oklch(0.50 0.216 27)' }}>gallery.</span></h1>
-            <p style={{ fontSize: 17.5, lineHeight: 1.6, maxWidth: 480, color: 'oklch(0.40 0.012 34)', margin: '0 0 34px' }}>By appointment only. Bring a friend. We&rsquo;ll pour tea and you can take as long as you need with the fish &mdash; there&rsquo;s never any pressure to buy.</p>
-            <div className="dc-cols-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,auto)', gap: 34, justifyContent: 'start' }}>
-              {heroFacts.map(([h, a, b]) => (
-                <div key={h}>
-                  <div style={{ fontFamily: mono, fontSize: 9.5, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'oklch(0.50 0.02 40)', marginBottom: 8 }}>{h}</div>
-                  <div style={{ fontFamily: mono, fontSize: 13, lineHeight: 1.5, color: 'oklch(0.26 0.012 32)' }}>{a}{b && <><br />{b}</>}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div style={{ position: 'relative' }}>
-            <div className="dc-gallery-art" style={{ position: 'relative', aspectRatio: '4/5', borderRadius: 12, overflow: 'hidden', background: 'radial-gradient(ellipse 90% 80% at 50% 40%, oklch(0.30 0.12 25), oklch(0.14 0.05 24) 100%)', boxShadow: 'inset 0 0 0 1px oklch(0.70 0.12 80 / 0.4), 0 40px 84px -46px oklch(0.30 0.08 40 / 0.5)' }}>
-              <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse 60% 40% at 50% 48%, oklch(0.86 0.10 70 / 0.22), transparent 70%)' }} />
-              <div style={{ position: 'absolute', inset: 0, opacity: 0.4, backgroundImage: 'radial-gradient(circle at 50% 0, transparent 0 9px, oklch(1 0 0 / 0.05) 9px 10px, transparent 10px)', backgroundSize: '30px 15px' }} />
-              {/* The swim keyframes set `transform`, so animate a wrapper and centre the image inside it. */}
-              <div style={{ position: 'absolute', inset: 0, animation: 'dcSwim 9s ease-in-out infinite' }}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/img/highback-gold.webp" alt="Highback golden arowana" style={{ position: 'absolute', left: '50%', top: '48%', transform: 'translate(-50%,-50%)', width: '115%', maxWidth: 'none', filter: 'drop-shadow(0 20px 36px oklch(0 0 0 / 0.55))' }} draggable={false} />
+      <NotchHero
+        tone="white"
+        behind="var(--dk-n-100)"
+        className="dk-visit-hero"
+        notchWide
+        notchHeight={110}
+        notchLabel="Address and hours"
+        notch={
+          <div className="dk-stats">
+            {heroFacts.map(([h, a, b]) => (
+              <div key={h}>
+                <p className="dk-meta-label">{h}</p>
+                <p className="dk-meta-val">
+                  {a}
+                  {h === 'Hours' ? (
+                    <><br /><a href="#hours">See hours</a></>
+                  ) : (
+                    b && <><br />{b}</>
+                  )}
+                </p>
               </div>
-            </div>
-            <div className="dc-hide-sm" style={{ position: 'absolute', top: -14, left: -14, width: 56, height: 56, borderRadius: 12, background: 'oklch(0.52 0.216 27)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 12px 26px -10px oklch(0.52 0.216 27 / 0.7)', transform: 'rotate(-6deg)' }}><span style={{ fontFamily: "'Noto Serif TC', serif", fontWeight: 900, fontSize: 30, color: 'oklch(0.97 0.012 82)' }}>龍</span></div>
-            <div style={{ position: 'absolute', bottom: 14, left: 16, fontFamily: mono, fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'oklch(0.98 0.01 82)', background: 'oklch(0.19 0.012 32 / 0.55)', backdropFilter: 'blur(6px)', padding: '6px 11px', borderRadius: 6, pointerEvents: 'none' }}>The gallery{biz.city && <> &middot; {biz.city}</>}</div>
+            ))}
           </div>
-        </div>
-      </section>
+        }
+        aside={
+          <figure className="dk-specimen dk-dark">
+            <BrandMark onDark />
+            <Placeholder src="/img/arowana-red.png" alt="Super Red arowana" contain />
+            <figcaption className="dk-specimen-cap">The gallery{biz.city && <> &middot; {biz.city}</>}</figcaption>
+          </figure>
+        }
+      >
+        <p className="dk-eyebrow">By appointment</p>
+        <h1>Visit the gallery.</h1>
+        <p className="dk-lede">By appointment only. Bring a friend. We&rsquo;ll pour tea and you can take as long as you need with the fish &mdash; there&rsquo;s never any pressure to buy.</p>
+      </NotchHero>
 
       {/* BOOKING + LOCATION */}
-      <section style={{ background: 'oklch(0.955 0.010 74)', padding: '76px 0' }}>
-        <div className="dc-split" style={{ maxWidth: 1280, margin: '0 auto', padding: '0 28px', display: 'grid', gridTemplateColumns: '1.15fr 0.85fr', gap: 40, alignItems: 'start' }}>
-
-          {/* FORM */}
-          <div style={{ background: 'oklch(0.99 0.005 80)', border: '1px solid oklch(0.87 0.012 68)', borderRadius: 14, padding: '36px 36px 32px', boxShadow: '0 30px 70px -50px oklch(0.30 0.03 40 / 0.5)' }}>
+      <section className="dk-booking" aria-labelledby="book-title">
+        <div>
+          <div className="dk-form-card">
             {status === 'done' ? (
-              <div style={{ textAlign: 'center', padding: '30px 10px 20px' }}>
-                <div style={{ width: 56, height: 56, borderRadius: 999, margin: '0 auto 20px', background: 'oklch(0.52 0.13 150 / 0.14)', color: 'oklch(0.46 0.14 150)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26 }}>✓</div>
-                <h2 style={{ fontFamily: serif, fontWeight: 700, fontSize: 28, margin: '0 0 10px', color: 'oklch(0.19 0.012 32)' }}>Request received</h2>
-                <p style={{ fontSize: 14.5, lineHeight: 1.6, color: 'oklch(0.44 0.012 34)', maxWidth: 380, margin: '0 auto 24px' }}>Thank you, {s.name.split(' ')[0] || 'friend'}. We&rsquo;ll confirm your {s.date || 'preferred'} slot within the day. Watch your phone &mdash; we usually reply on WhatsApp.</p>
+              <div className="dk-form-done" role="status">
+                <span className="dk-empty-icon" aria-hidden="true"><CheckIcon size={22} /></span>
+                <h2 id="book-title">Request received</h2>
+                <p>Thank you, {s.name.split(' ')[0] || 'friend'}. We&rsquo;ll confirm your {s.date || 'preferred'} slot within the day. Watch your phone &mdash; we usually reply on WhatsApp.</p>
                 {waHref && (
-                  <a href={waHref} target="_blank" rel="noopener" className="dc-btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: 9, background: 'oklch(0.52 0.216 27)', color: 'oklch(0.98 0.012 82)', fontSize: 14, fontWeight: 600, padding: '13px 22px', borderRadius: 999 }}>
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v7A2.5 2.5 0 0 1 17.5 15H9l-4 3.5V15H6.5A2.5 2.5 0 0 1 4 12.5v-7Z" fill="oklch(0.98 0.012 82)" /></svg>
+                  <a href={waHref} target="_blank" rel="noopener" className="dk-btn dk-btn-red">
+                    <WhatsAppIcon size={18} />
                     Message us to confirm faster
                   </a>
                 )}
               </div>
             ) : (
-              <>
-                <div style={{ fontFamily: mono, fontSize: 11, letterSpacing: '0.24em', textTransform: 'uppercase', color: 'oklch(0.50 0.14 30)', marginBottom: 12 }}>Request a viewing</div>
-                <h2 style={{ fontFamily: serif, fontWeight: 700, fontSize: 30, lineHeight: 1.05, letterSpacing: '-0.015em', margin: '0 0 8px', color: 'oklch(0.19 0.012 32)' }}>Tell us when to expect you</h2>
-                <p style={{ fontSize: 14, color: 'oklch(0.46 0.012 34)', margin: '0 0 28px' }}>We log your request and confirm your slot within the day.</p>
+              <form
+                noValidate
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  submit();
+                }}
+              >
+                <p className="dk-eyebrow">Request a viewing</p>
+                <h2 id="book-title">Tell us when to expect you</h2>
+                <p className="dk-sub">We log your request and confirm your slot within the day.</p>
 
-                <div className="dc-cols-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '18px 18px' }}>
-                  <div><label className="dc-lbl" htmlFor="vw-name">Your name</label><input id="vw-name" className="dc-input" type="text" autoComplete="name" placeholder="Juan dela Cruz" value={s.name} onChange={set('name')} /></div>
-                  <div><label className="dc-lbl" htmlFor="vw-email">Email</label><input id="vw-email" className="dc-input" type="email" autoComplete="email" placeholder="you@email.com" value={s.email} onChange={set('email')} /></div>
-                  <div><label className="dc-lbl" htmlFor="vw-phone">Phone / WhatsApp</label><input id="vw-phone" className="dc-input" type="tel" autoComplete="tel" placeholder="+63 9__ ___ ____" value={s.contact} onChange={set('contact')} /></div>
-                  <div>
-                    <label className="dc-lbl" htmlFor="vw-date">Preferred date</label>
-                    <input id="vw-date" className="dc-input" type="date" min={minDate || undefined} value={s.date} onChange={set('date')} aria-describedby="vw-date-hint" />
-                    <div id="vw-date-hint" style={{ fontSize: 11.5, marginTop: 6, color: closedOnDate ? 'oklch(0.50 0.20 27)' : 'oklch(0.50 0.02 40)' }}>
-                      {closedOnDate ? `Closed on ${dayNameOf(s.date)}s — pick another day.` : closedDays.length ? `Closed ${closedDays.join(', ')}` : ' '}
-                    </div>
+                <div className="dk-fgrid">
+                  <div className="dk-field"><label htmlFor="vw-name">YOUR NAME</label><input id="vw-name" className="dk-input" type="text" autoComplete="name" placeholder="Juan dela Cruz" value={s.name} onChange={set('name')} /></div>
+                  <div className="dk-field"><label htmlFor="vw-email">EMAIL</label><input id="vw-email" className="dk-input" type="email" autoComplete="email" placeholder="you@email.com" value={s.email} onChange={set('email')} /></div>
+                  <div className="dk-field"><label htmlFor="vw-phone">PHONE / WHATSAPP</label><input id="vw-phone" className="dk-input" type="tel" autoComplete="tel" placeholder="+63 9__ ___ ____" value={s.contact} onChange={set('contact')} /></div>
+                  <div className="dk-field">
+                    <label htmlFor="vw-date">PREFERRED DATE</label>
+                    <input id="vw-date" className="dk-input" type="date" min={minDate || undefined} value={s.date} onChange={set('date')} aria-describedby="vw-date-hint" aria-invalid={closedOnDate || undefined} />
+                    <p id="vw-date-hint" className={`dk-hint${closedOnDate ? ' err' : ''}`}>
+                      {closedOnDate ? `Closed on ${dayNameOf(s.date)}s — pick another day.` : closedDays.length ? `Closed ${closedDays.join(', ')}` : ' '}
+                    </p>
                   </div>
-                  <div><label className="dc-lbl" htmlFor="vw-time">Preferred time</label>
-                    <select id="vw-time" className="dc-input" value={s.time} onChange={set('time')} disabled={timeSlots.length === 0}>
+                  <div className="dk-field"><label htmlFor="vw-time">PREFERRED TIME</label>
+                    <select id="vw-time" className="dk-input" value={s.time} onChange={set('time')} disabled={timeSlots.length === 0}>
                       {timeSlots.length === 0 ? <option value="">No slots this day</option> : timeSlots.map((t) => <option key={t} value={t}>{t}</option>)}
                     </select>
                   </div>
-                  <div><label className="dc-lbl" htmlFor="vw-guests">Guests</label>
-                    <select id="vw-guests" className="dc-input" value={s.guests} onChange={set('guests')}>
-                      <option value="1">Just me</option><option value="2">2 of us</option><option value="3">3 of us</option><option value="4+">4 or more</option>
+                  <div className="dk-field"><label htmlFor="vw-guests">GUESTS</label>
+                    <select id="vw-guests" className="dk-input" value={s.guests} onChange={set('guests')}>
+                      <option value="1">Just me</option><option value="2">2 people</option><option value="3">3 people</option><option value="4+">4+ people</option>
                     </select>
                   </div>
-                  <div><label className="dc-lbl" htmlFor="vw-interest">Fish of interest <span style={{ textTransform: 'none', letterSpacing: 0, color: 'oklch(0.50 0.02 40)' }}>(optional)</span></label><input id="vw-interest" className="dc-input" type="text" placeholder="e.g. Chili Super Red" value={s.interest} onChange={set('interest')} /></div>
-                  <div style={{ gridColumn: '1 / -1' }}><label className="dc-lbl" htmlFor="vw-notes">Anything else? <span style={{ textTransform: 'none', letterSpacing: 0, color: 'oklch(0.50 0.02 40)' }}>(optional)</span></label><textarea id="vw-notes" className="dc-input" rows={3} placeholder="First arowana, upgrading my display, bringing my kids…" style={{ resize: 'vertical', minHeight: 78 }} value={s.notes} onChange={set('notes')} /></div>
+                  <div className="dk-field"><label htmlFor="vw-interest">FISH OF INTEREST (optional)</label><input id="vw-interest" className="dk-input" type="text" placeholder="e.g. Chili Super Red" value={s.interest} onChange={set('interest')} /></div>
+                  <div className="dk-field full"><label htmlFor="vw-notes">ANYTHING ELSE? (optional)</label><textarea id="vw-notes" className="dk-ta" placeholder="First arowana, upgrading my display, bringing my kids…" value={s.notes} onChange={set('notes')} /></div>
                 </div>
 
-                {error && <div role="alert" style={{ marginTop: 16, fontSize: 13, color: 'oklch(0.50 0.20 27)', fontFamily: mono }}>{error}</div>}
+                {error && <p role="alert" className="dk-err" style={{ marginTop: 16 }}>{error}</p>}
 
-                <button type="button" onClick={submit} disabled={status === 'sending'} className="dc-btn-primary" style={{ marginTop: 22, width: '100%', boxSizing: 'border-box', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 10, background: 'oklch(0.52 0.216 27)', color: 'oklch(0.98 0.012 82)', fontSize: 15, fontWeight: 600, padding: '16px 24px', borderRadius: 999, border: 'none', cursor: status === 'sending' ? 'default' : 'pointer', opacity: status === 'sending' ? 0.7 : 1, transition: '.2s', boxShadow: '0 16px 34px -16px oklch(0.52 0.216 27 / 0.7)' }}>
+                <button type="submit" disabled={status === 'sending'} aria-busy={status === 'sending'} className="dk-btn dk-btn-red">
                   {status === 'sending' ? 'Sending…' : 'Send viewing request'}
                 </button>
-                <div style={{ textAlign: 'center', fontFamily: mono, fontSize: 10.5, letterSpacing: '0.06em', color: 'oklch(0.50 0.02 40)', marginTop: 14 }}>
-                  No deposit needed &middot; viewings are free
-                  {waHref && <> &middot; or{' '}<a href={waHref} target="_blank" rel="noopener" style={{ color: 'oklch(0.50 0.216 27)', fontWeight: 600 }}>send on WhatsApp</a></>}
-                </div>
-              </>
+              </form>
             )}
           </div>
-
-          {/* LOCATION SIDEBAR */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
-            <div style={{ background: 'oklch(0.99 0.005 80)', border: '1px solid oklch(0.87 0.012 68)', borderRadius: 14, overflow: 'hidden' }}>
-              {mapEmbed && (
-                <div style={{ position: 'relative', aspectRatio: '16/10', background: 'oklch(0.93 0.012 70)' }}>
-                  <iframe title={`Map to ${biz.storeName}`} src={mapEmbed} loading="lazy" referrerPolicy="no-referrer-when-downgrade" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 0 }} />
-                </div>
-              )}
-              <div style={{ padding: '20px 22px' }}>
-                <div style={{ fontFamily: serif, fontWeight: 700, fontSize: 19, color: 'oklch(0.19 0.012 32)', marginBottom: 4 }}>{biz.storeName} Gallery</div>
-                {(biz.address || biz.city) && <div style={{ fontSize: 13.5, lineHeight: 1.55, color: 'oklch(0.44 0.012 34)', marginBottom: 14 }}>{biz.address}{biz.address && biz.city && <br />}{biz.city}</div>}
-                {biz.mapUrl && <a href={biz.mapUrl} target="_blank" rel="noopener" style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 13, fontWeight: 600, color: 'oklch(0.50 0.216 27)' }}>Open in Maps &rarr;</a>}
-              </div>
-            </div>
-
-            <div style={{ background: 'oklch(0.99 0.005 80)', border: '1px solid oklch(0.87 0.012 68)', borderRadius: 14, padding: '22px 22px' }}>
-              <div style={{ fontFamily: mono, fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'oklch(0.55 0.05 40)', marginBottom: 16 }}>Opening hours</div>
-              {hourGroups.map(({ days, hours, closed }, i) => (
-                <div key={days} style={{ display: 'flex', justifyContent: 'space-between', padding: '9px 0', borderBottom: i < hourGroups.length - 1 ? '1px solid oklch(0.91 0.012 70)' : 'none', fontSize: 13.5 }}>
-                  <span style={{ color: 'oklch(0.30 0.012 32)' }}>{days}</span>
-                  <span style={{ fontFamily: mono, color: closed ? 'oklch(0.60 0.02 40)' : 'oklch(0.42 0.012 34)' }}>{hours}</span>
-                </div>
-              ))}
-              {biz.hoursNote && <div style={{ marginTop: 12, fontSize: 12.5, color: 'oklch(0.50 0.02 40)' }}>{biz.hoursNote}</div>}
-            </div>
-
-            {waQuestion && (
-              <a href={waQuestion} target="_blank" rel="noopener" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9, border: '1px solid oklch(0.52 0.216 27 / 0.5)', color: 'oklch(0.50 0.216 27)', fontSize: 13.5, fontWeight: 600, padding: 14, borderRadius: 999 }}>
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v7A2.5 2.5 0 0 1 17.5 15H9l-4 3.5V15H6.5A2.5 2.5 0 0 1 4 12.5v-7Z" fill="oklch(0.50 0.216 27)" /></svg>
-                Just have a question?
-              </a>
-            )}
-          </div>
+          {status !== 'done' && (
+            <p className="dk-form-note">
+              No deposit needed &middot; viewings are free
+              {waHref && <> &middot; or{' '}<a href={waHref} target="_blank" rel="noopener">send on WhatsApp</a></>}
+            </p>
+          )}
         </div>
+
+        <aside>
+          <div className="dk-map-card">
+            <div className="dk-map">
+              {mapEmbed ? (
+                <iframe title={`Map to ${biz.storeName}`} src={mapEmbed} loading="lazy" referrerPolicy="no-referrer-when-downgrade" />
+              ) : (
+                <>
+                  <svg className="dk-map-art" viewBox="0 0 362 248" preserveAspectRatio="none" aria-hidden="true">
+                    <path d="M0 160 C 70 140, 120 175, 200 158 S 320 140, 362 152 L362 182 C 310 172, 250 192, 190 188 S 70 170, 0 190 Z" fill="#d4d4d4" />
+                    <path d="M0 95 H362" stroke="#fff" strokeWidth="7" />
+                    <path d="M200 0 V248" stroke="#fff" strokeWidth="7" />
+                  </svg>
+                  <svg className="dk-map-pin" width="48" height="58" viewBox="0 0 48 58" aria-hidden="true"><path d="M24 57S2 34 2 22a22 22 0 0 1 44 0c0 12-22 35-22 35z" fill="#e10600" /><circle cx="24" cy="21" r="8" fill="#fff" /></svg>
+                </>
+              )}
+              {biz.mapUrl && <a className="dk-map-open" href={biz.mapUrl} target="_blank" rel="noopener">Open in Maps ↗</a>}
+            </div>
+            <div className="dk-map-info">
+              <h3>{biz.storeName} Gallery</h3>
+              {(biz.address || biz.city) && <p>{biz.address}{biz.address && biz.city && <br />}{biz.city}</p>}
+            </div>
+          </div>
+
+          <div className="dk-hours-card" id="hours">
+            <p className="dk-eyebrow">Opening hours</p>
+            {hourGroups.map(({ days, hours, closed }) => (
+              <div key={days} className={`dk-hours-row${closed ? ' closed' : ''}`}>
+                <span>{days}</span>
+                <span>{hours}</span>
+              </div>
+            ))}
+            {biz.hoursNote && <p className="dk-hours-note">{biz.hoursNote}</p>}
+          </div>
+
+          {waQuestion && (
+            <a href={waQuestion} target="_blank" rel="noopener" className="dk-btn dk-btn-outline-dark dk-ask">
+              <WhatsAppIcon size={18} />
+              Just have a question?
+            </a>
+          )}
+        </aside>
       </section>
 
       {/* WHAT TO EXPECT */}
-      <section style={{ background: 'oklch(0.972 0.008 78)', borderTop: '1px solid oklch(0.86 0.012 68)', padding: '72px 0 84px' }}>
-        <div style={{ maxWidth: 1280, margin: '0 auto', padding: '0 28px' }}>
-          <h2 style={{ fontFamily: serif, fontWeight: 700, fontSize: 'clamp(28px,3.6vw,42px)', letterSpacing: '-0.015em', margin: '0 0 40px', color: 'oklch(0.19 0.012 32)' }}>What a visit <span style={{ fontStyle: 'italic', color: 'oklch(0.50 0.216 27)' }}>looks like.</span></h2>
-          <div className="dc-cols-4" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 20 }}>
-            {[
-              { n: '01', t: 'You book a slot', b: 'Send the form and we confirm a private time — no overlapping viewings.' },
-              { n: '02', t: 'We pour tea', b: 'Sit with the fish. We’ll talk bloodline, husbandry, and what suits your setup.' },
-              { n: '03', t: 'Take your time', b: 'No pressure to buy. Ask us to hold a fish while you prepare a tank.' },
-              { n: '04', t: 'We stay in touch', b: 'Bought or not, our line stays open for the life of your fish.' },
-            ].map((c) => (
-              <div key={c.n} style={{ padding: '26px 24px', border: '1px solid oklch(0.86 0.012 68)', borderTop: '2px solid oklch(0.70 0.12 80)', borderRadius: 8, background: 'oklch(0.985 0.006 80)' }}>
-                <div style={{ fontFamily: mono, fontSize: 12, color: 'oklch(0.50 0.216 27)', marginBottom: 14 }}>{c.n}</div>
-                <div style={{ fontFamily: serif, fontWeight: 700, fontSize: 18, color: 'oklch(0.19 0.012 32)', marginBottom: 9 }}>{c.t}</div>
-                <p style={{ fontSize: 13, lineHeight: 1.6, color: 'oklch(0.44 0.012 34)', margin: 0 }}>{c.b}</p>
-              </div>
-            ))}
-          </div>
-        </div>
+      <section className="dk-steps" aria-labelledby="steps-title">
+        <h2 id="steps-title">What a visit looks like.</h2>
+        <ol>
+          <li><h3>You book a slot</h3><p>Send the form and we confirm a private time — no overlapping viewings.</p></li>
+          <li><h3>We pour tea</h3><p>Sit with the fish. We&rsquo;ll talk bloodline, husbandry, and what suits your setup.</p></li>
+          <li><h3>Take your time</h3><p>No pressure to buy. Ask us to hold a fish while you prepare a tank.</p></li>
+          <li><h3>We stay in touch</h3><p>Bought or not, our line stays open for the life of your fish.</p></li>
+        </ol>
       </section>
-    </>
+    </div>
   );
 }

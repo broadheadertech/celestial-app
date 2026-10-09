@@ -7,6 +7,8 @@ import { Doc, Id } from '@/convex/_generated/dataModel';
 import { Camera, Eye, ImageIcon, PenLine, RefreshCw, X, XCircle } from 'lucide-react';
 import ConfirmationModal from '@/components/ui/ConfirmationModal';
 import JournalBody from '@/components/dc/JournalBody';
+// The article body is styled by the storefront kit (dk-prose), so the preview matches the live page.
+import '@/components/dc/kit.css';
 import { uploadOptimizedImage } from '@/lib/optimizeImage';
 
 /** Keep in sync with the server-side limits in convex/services/journal.ts. */
@@ -466,7 +468,7 @@ function PreviewPane({ f }: { f: { title: string; kicker: string; excerpt: strin
           />
         )}
         {f.body.trim() ? (
-          <JournalBody body={f.body} />
+          <div className="dk"><JournalBody body={f.body} /></div>
         ) : (
           <p style={{ fontSize: 15, color: 'oklch(0.50 0.02 40)', fontStyle: 'italic' }}>Nothing written yet.</p>
         )}

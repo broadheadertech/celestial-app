@@ -1,21 +1,35 @@
 'use client';
 
+/**
+ * Shop · Gear & food — design-reference/dragoncave-site.html (Shop), wired to the catalog query
+ * and the site cart. Only products set to "Add to cart" in the admin are listed (live fish are enquiry-only).
+ */
+
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
-import { Plus, Search, X } from 'lucide-react';
 import { useQuery } from '@/components/dc/useQuery';
 import { api } from '@/convex/_generated/api';
 import type { FunctionReturnType } from 'convex/server';
-import { GearPlate } from '@/components/site/ArowanaSilhouette';
 import { useSiteCart } from '@/store/siteCart';
+import { useBusiness } from '@/components/dc/business';
 import VideoBadge from '@/components/dc/VideoBadge';
+import Brand from '@/components/dc/kit/Brand';
+import Chips from '@/components/dc/kit/Chips';
+import Placeholder from '@/components/dc/kit/Placeholder';
+import SearchField from '@/components/dc/kit/SearchField';
+import NotchHero from '@/components/dc/kit/NotchHero';
+import EmptyState from '@/components/dc/kit/EmptyState';
+import { NeIcon } from '@/components/dc/kit/icons';
 
 const fmt = (n: number) =>
   `₱${n.toLocaleString('en-PH', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 
+type CatalogProduct = FunctionReturnType<typeof api.services.products.getCatalogProducts>[number];
+
 export default function ShopPage() {
   const products = useQuery(api.services.products.getCatalogProducts, {});
   const add = useSiteCart((s) => s.add);
+  const biz = useBusiness();
 
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [search, setSearch] = useState('');
@@ -55,135 +69,74 @@ export default function ShopPage() {
     return list;
   }, [gearProducts, selectedCategory, search]);
 
+  const chipIds = useMemo(() => ['all', ...categories.map((c) => c.id)], [categories]);
+  const chipLabel = (id: string) => {
+    if (id === 'all') return `All gear · ${gearProducts.length}`;
+    const c = categories.find((x) => x.id === id);
+    return c ? `${c.name} · ${c.count}` : id;
+  };
+  /** Packing-slip rows jump to the list with that category selected. */
+  const jumpTo = (id: string) => {
+    setSelectedCategory(id);
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    document.getElementById('shop-list')?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+  };
+  const subline = [biz.establishedYear && `Est. ${biz.establishedYear}`, biz.city].filter(Boolean).join(' · ');
+
   return (
-    <main>
-      {/* Hero */}
-      <section className="py-15" style={{ padding: '60px 0 40px' }}>
-        <div className="site-container">
-          <div className="placard mb-4" style={{ color: 'var(--red-hi)' }}>
-            Shop · gear &amp; food
-          </div>
-          <h1
-            className="display-xl mb-5"
-            style={{ fontSize: 'clamp(40px, 7vw, 88px)' }}
-          >
-            For the long <em className="italic-flourish">keep.</em>
-          </h1>
-          <p
-            className="max-w-[620px]"
-            style={{
-              fontSize: 18,
-              color: 'var(--ink-2)',
-              fontVariationSettings: '"opsz" 22, "wght" 500',
-              fontFamily: '"Bricolage Grotesque", sans-serif',
-              letterSpacing: '-0.015em',
-              lineHeight: 1.45,
-            }}
-          >
-            What we use ourselves. Tanks, filtration, food, lighting, medicines. Curated, not catalogued.
-          </p>
-        </div>
-      </section>
-
-      {/* Filter strip */}
-      <section
-        className="sticky top-[76px] z-30"
-        style={{
-          background: 'color-mix(in oklch, var(--bg) 92%, transparent)',
-          backdropFilter: 'blur(20px)',
-          borderTop: '1px solid var(--line-soft)',
-          borderBottom: '1px solid var(--line-soft)',
-        }}
-      >
-        <div
-          className="site-container py-4 flex items-center gap-3 flex-wrap"
-          style={{ padding: '16px 32px' }}
-        >
-          <div className="relative flex-1 min-w-[200px]">
-            <Search
-              className="absolute left-3.5 top-1/2 -translate-y-1/2"
-              size={15}
-              style={{ color: 'var(--ink-4)' }}
-            />
-            <input
-              type="text"
-              placeholder="Search gear, food, brand…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full"
-              style={{
-                paddingLeft: 38,
-                paddingRight: 36,
-                paddingTop: 10,
-                paddingBottom: 10,
-                background: 'var(--surface)',
-                border: '1px solid var(--line)',
-                borderRadius: 8,
-                color: 'var(--ink)',
-                fontSize: 13.5,
-                outline: 'none',
-              }}
-            />
-            {search && (
-              <button
-                onClick={() => setSearch('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2"
-                style={{ color: 'var(--ink-4)' }}
-              >
-                <X size={14} />
+    <main className="dk dk-shop">
+      {/* HERO */}
+      <NotchHero
+        tone="dark"
+        notchWide
+        notchHeight={100}
+        notchLabel="Search the shop"
+        notch={<SearchField value={search} onChange={setSearch} placeholder="Search gear, food, brand…" label="Search the shop" />}
+        aside={
+          <div className="dk-slip" aria-label="Shop summary">
+            <Brand name={biz.storeName} sub={subline} className="dk-brand dk-slip-brand" />
+            <hr className="dk-slip-rule" />
+            {categories.map((c) => (
+              <button key={c.id} type="button" className="dk-slip-row" onClick={() => jumpTo(c.id)}>
+                <span>{c.name}</span>
+                <span className="dk-leader" aria-hidden="true" />
+                <b>{c.count}</b>
+                <NeIcon />
               </button>
-            )}
+            ))}
+            <div className="dk-slip-total"><span>All gear</span><b>{products === undefined ? '—' : gearProducts.length}</b></div>
+            <div className="dk-barcode" aria-hidden="true" />
+            <p className="dk-slip-foot">Kept, not merely sold.</p>
           </div>
+        }
+      >
+        <div className="dk-shop-copy">
+          <p className="dk-eyebrow">Shop · Gear &amp; food</p>
+          <h1>For the long<br />keep.</h1>
+          <p className="dk-lede">What we use ourselves. Tanks, filtration, food, lighting, medicines. Curated, not catalogued.</p>
+          <span className="dk-scroll-hint" aria-hidden="true">Scroll</span>
         </div>
+      </NotchHero>
 
-        <div
-          className="site-container flex gap-2 overflow-x-auto scrollbar-hide pb-3"
-          style={{ padding: '0 32px 12px' }}
-        >
-          <button
-            onClick={() => setSelectedCategory('all')}
-            className="flex-shrink-0 px-3.5 py-1.5 rounded-full text-[12px] font-semibold border whitespace-nowrap"
-            style={{
-              borderColor: selectedCategory === 'all' ? 'var(--red)' : 'var(--line)',
-              background: selectedCategory === 'all' ? 'var(--red)' : 'transparent',
-              color: selectedCategory === 'all' ? 'oklch(0.99 0 0)' : 'var(--ink-2)',
-            }}
-          >
-            All gear · {gearProducts.length}
-          </button>
-          {categories.map((c) => (
-            <button
-              key={c.id}
-              onClick={() => setSelectedCategory(c.id)}
-              className="flex-shrink-0 px-3.5 py-1.5 rounded-full text-[12px] font-semibold border whitespace-nowrap"
-              style={{
-                borderColor: selectedCategory === c.id ? 'var(--red)' : 'var(--line)',
-                background: selectedCategory === c.id ? 'var(--red)' : 'transparent',
-                color: selectedCategory === c.id ? 'oklch(0.99 0 0)' : 'var(--ink-2)',
-              }}
-            >
-              {c.name} · {c.count}
-            </button>
-          ))}
+      {/* TOOLBAR */}
+      <section className="dk-toolbar dk-shop-toolbar" id="shop-list" style={{ scrollMarginTop: 96 }}>
+        <div className="dk-wrap">
+          <div className="dk-tb-row dk-tb-row-2">
+            <Chips label="Filter by category" options={chipIds} value={selectedCategory} onChange={setSelectedCategory} renderLabel={chipLabel} />
+            {products !== undefined && <p className="dk-tb-count" aria-live="polite">Showing {visible.length} of {gearProducts.length}</p>}
+          </div>
         </div>
       </section>
 
-      {/* Grid */}
-      <section className="py-15" style={{ padding: '40px 0 80px' }}>
-        <div className="site-container">
+      {/* GRID */}
+      <section className="dk-shop-products" aria-label="Products">
+        <div className="dk-wrap">
           {products === undefined ? (
-            <div className="py-20 text-center" style={{ color: 'var(--ink-4)' }}>
-              Loading the shop…
-            </div>
+            <div className="dk-empty" role="status">Loading the shop…</div>
           ) : visible.length === 0 ? (
-            <div className="py-20 text-center" style={{ color: 'var(--ink-4)' }}>
-              {gearProducts.length === 0 ? 'Nothing in the shop right now — check back soon.' : 'No gear matches these filters.'}
-            </div>
+            <EmptyState title={gearProducts.length === 0 ? 'Nothing in the shop right now — check back soon.' : 'No gear matches these filters.'} />
           ) : (
-            <div
-              className="grid gap-7"
-              style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))' }}
-            >
+            <div className="dk-products">
               {visible.map((p) => (
                 <GearTile
                   key={p._id}
@@ -211,48 +164,22 @@ export default function ShopPage() {
   );
 }
 
-type CatalogProduct = FunctionReturnType<typeof api.services.products.getCatalogProducts>[number];
-
 function GearTile({ product, onAdd }: { product: CatalogProduct; onAdd: () => void }) {
+  const href = `/specimen-detail?id=${product._id}`;
   return (
-    <div
-      className="lift-card relative"
-      style={{ background: 'transparent', color: 'var(--ink)' }}
-    >
-      <Link href={`/specimen-detail?id=${product._id}`}>
-        <span style={{ position: 'relative', display: 'block' }}>
-          <GearPlate product={{ sku: product.sku ? String(product.sku) : undefined, name: product.name, image: product.image }} ratio="1 / 1" />
-          {product.videos?.length ? <VideoBadge count={product.videos.length} /> : null}
-        </span>
-      </Link>
-      <div style={{ padding: '18px 4px 8px' }}>
-        <Link href={`/specimen-detail?id=${product._id}`} className="block">
-          <div className="placard mb-1 truncate">{product.categoryName || 'Gear'}</div>
-          <div
-            className="display truncate"
-            style={{
-              fontSize: 17,
-              fontVariationSettings: '"opsz" 22, "wght" 600',
-              letterSpacing: '-0.015em',
-              lineHeight: 1.2,
-            }}
-          >
-            {product.name}
-          </div>
+    <article className="dk-product">
+      <div className="dk-p-img">
+        <Link href={href} aria-label={product.name} style={{ position: 'absolute', inset: 0 }}>
+          <Placeholder src={product.image} alt={product.name} contain />
         </Link>
-        <div className="flex justify-between items-baseline mt-3.5">
-          <div className="font-mono-tabular text-[15px] font-semibold">{fmt(product.price)}</div>
-          <button
-            type="button"
-            onClick={onAdd}
-            className="b b-sm"
-            style={{ padding: '6px 12px' }}
-          >
-            <Plus size={12} />
-            Add
-          </button>
+        {product.videos?.length ? <VideoBadge count={product.videos.length} /> : null}
+        <div className="dk-cut">
+          <button className="dk-pill" type="button" onClick={onAdd} aria-label={`Add ${product.name} to cart`}>+ Add</button>
         </div>
       </div>
-    </div>
+      <p className="dk-p-cat">{product.categoryName || 'Gear'}</p>
+      <h3><Link href={href} className="dk-p-name" title={product.name}>{product.name}</Link></h3>
+      <p className="dk-p-price">{fmt(product.price)}</p>
+    </article>
   );
 }

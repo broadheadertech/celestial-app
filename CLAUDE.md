@@ -557,6 +557,29 @@ npx cap run android      # Build and run on device/emulator
   mounted once in AdminLayoutWrapper) — never `alert()`.
 - **Responsive storefront:** inline grid templates are overridden on small screens by utility classes in
   `components/dc/styles.tsx` (`dc-split`, `dc-cols-2/3/4`, `dc-hide-md/sm`, `dc-sticky-md`).
+- **Storefront kit** (`design-reference/dragoncave-site.html`): `components/dc/kit.css` holds the `--dk-*` tokens
+  (namespaced — globals.css already owns `--ink`/`--red`) and `dk-*` classes, all scoped under a `.dk` root; imported by
+  the (site), auth and client layouts. React pieces live in `components/dc/kit/` (Brand, Placeholder, Chips,
+  SearchField, SpecimenCard, MemberProductCard, MemberSidebar, AuthShell, NotchHero, EmptyState, Field, icons).
+  Header theme (light/dark/grey) and footer theme (dark/light) are picked by route in `DcHeader`/`DcFooter`; Home
+  draws its nav inside the hero (`HeroNav`). Every storefront page and every `/client` screen uses it (the
+  member app uses `MemberSidebar` as its navigation; `ClientBottomNavbar` is no longer used there). Brand rules:
+  palette black / #E10600 / #FF453A on dark / white / greys F5,E5,D4,A3,73,52,26 only; headings Plus Jakarta Sans 800;
+  no shadows or gradients except the red glow on hero/banner blocks; heroes use `NotchHero`; images without a data
+  photo use `Placeholder` (dashed box) — decorative stock art is not used; empty/error states use `EmptyState`;
+  form fields use `Field`. Exception: the big hero cards (Home hero, dark `NotchHero`, auth panel) keep the
+  reference's red gradient + grain (`--dk-hero-red`, `--dk-auth-red`, `--dk-grain`).
+- **Buttons ("arrow chip")**: `dk-btn` + `dk-btn-red` (primary) / `dk-btn-outline-dark|light` (secondary) / `.sm`
+  (46px compact) render a pill with a round arrow chip (CSS pseudo-elements — no extra markup). Colours follow the
+  surface automatically (light → black pill + red chip, black → red pill + white chip, red gradient → white pill +
+  black chip); force one with `on-light` / `on-black` / `on-red`. Text CTAs use `dk-link-arrow`. Set
+  `aria-busy={submitting}` on submit buttons for the chip spinner. Utility buttons that must NOT get a chip: `.xs`,
+  `.plain`, `.dk-pc-btn`, `.dk-btn-text`. Never put "→" in a button label.
+- **Home hero aquarium** (`components/dc/Aquarium.tsx`): six arowana steering at three depths plus rising bubbles,
+  behind all hero content (z-index 0, aria-hidden, no pointer events). Tune via `AQUARIUM_CONFIG` at the top of the
+  file. Sprites: transparent, right-facing ~480px WebPs in `public/img/aquarium/arowana-{red,gold,albino}.webp`
+  (generated from `public/img/red.png` / `24k-gold.png`; albino is a recoloured gold). One rAF loop, paused when
+  off-screen or the tab is hidden; static tank under `prefers-reduced-motion`.
 - **Turbopack:** Faster builds and development
 - **Image Optimization:** Next.js Image component
 - **Code Splitting:** Automatic route-based splitting

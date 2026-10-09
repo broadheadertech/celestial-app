@@ -1,14 +1,14 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
-  ArrowLeft,
   Plus,
   Minus,
   Trash2,
-  ShoppingBag,
   Clock,
+  Loader2,
 } from 'lucide-react';
 import { useCartStore, useCartItems, useCartTotal } from '@/store/cart';
 import { useAuthStore, useIsAuthenticated } from '@/store/auth';
@@ -16,12 +16,13 @@ import { formatCurrency } from '@/lib/utils';
 import { useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { Id } from '@/convex/_generated/dataModel';
-import Button from '@/components/ui/Button';
-import Input from '@/components/ui/Input';
-import Card from '@/components/ui/Card';
-import ClientBottomNavbar from '@/components/client/ClientBottomNavbar';
 import { useReservation } from '@/context/ReservationContext';
 import SafeAreaProvider from '@/components/provider/SafeAreaProvider';
+import MemberSidebar from '@/components/dc/kit/MemberSidebar';
+import EmptyState from '@/components/dc/kit/EmptyState';
+import Field from '@/components/dc/kit/Field';
+import Placeholder from '@/components/dc/kit/Placeholder';
+import { BackIcon, CaretIcon, CartIcon, MenuIcon } from '@/components/dc/kit/icons';
 
 function CartContent() {
   const router = useRouter();
@@ -49,6 +50,8 @@ function CartContent() {
     notes: '',
   });
   const [guestErrors, setGuestErrors] = useState<Record<string, string>>({});
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const closeSidebar = useCallback(() => setSidebarOpen(false), []);
 
   // Redirect admins and super_admins to their respective dashboards
   useEffect(() => {
@@ -164,315 +167,282 @@ function CartContent() {
     }
   };
 
-  if (showGuestForm && !isAuthenticated) {
-    return (
-      <div className="min-h-screen bg-background">
-        {/* Header with Safe Area */}
-        <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-white/10 safe-area-top">
-          <div className="px-4 py-4">
-            <div className="flex items-center space-x-4">
+  const itemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+
+  // Member layout shell: sidebar drawer + top bar with the screen title.
+  const shell = (title: string, onBack: () => void, children: React.ReactNode) => (
+    <div className="dk dk-member">
+      <div className="dk-app">
+        <MemberSidebar id="sidebar" active="cart" open={sidebarOpen} onClose={closeSidebar} />
+
+        <section className="dk-app-main safe-area-top safe-area-bottom">
+          <div className="dk-app-top">
+            <div className="dk-app-top-l">
               <button
-                onClick={() => setShowGuestForm(false)}
-                className="p-2 rounded-full bg-secondary border border-white/10 hover:bg-white/10 transition-colors"
+                type="button"
+                className="dk-view-btn dk-app-menu"
+                onClick={() => setSidebarOpen(true)}
+                aria-label="Open menu"
+                aria-controls="sidebar"
+                aria-expanded={sidebarOpen}
               >
-                <ArrowLeft className="w-5 h-5 text-white" />
+                <MenuIcon />
               </button>
-              <h1 className="text-xl font-semibold text-white">Guest Information</h1>
+              <button type="button" className="dk-view-btn" onClick={onBack} aria-label="Back">
+                <BackIcon />
+              </button>
+              <h1>{title}</h1>
             </div>
+            <div className="dk-app-actions">
+              {user ? (
+                <Link className="dk-user-pill" href="/client/profile" aria-label="Account">
+                  <span className="dk-avatar">{(user.firstName?.[0] || 'D').toUpperCase()}</span>
+                  <span><CaretIcon /></span>
+                </Link>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="dk-app-section">{children}</div>
+        </section>
+      </div>
+    </div>
+  );
+
+  if (showGuestForm && !isAuthenticated) {
+    const guestField = (
+      field: keyof typeof guestInfo,
+      label: string,
+      opts: { type?: string; placeholder?: string; required?: boolean; full?: boolean } = {},
+    ) => {
+      const id = `guest-${field}`;
+      const error = guestErrors[field];
+      return (
+        <Field id={id} label={label} required={opts.required} error={error || undefined} full={opts.full}>
+          <input
+            id={id}
+            className="dk-input"
+            type={opts.type || 'text'}
+            placeholder={opts.placeholder}
+            value={guestInfo[field]}
+            onChange={(e) => handleGuestInputChange(field, e.target.value)}
+            required={opts.required}
+            aria-invalid={error ? true : undefined}
+            aria-describedby={error ? `${id}-msg` : undefined}
+          />
+        </Field>
+      );
+    };
+
+    return shell('Guest Information', () => setShowGuestForm(false), (
+      <div className="dk-split">
+        <div className="dk-panel">
+          <div className="dk-stack lg">
+            <section aria-labelledby="guest-contact">
+              <h3 id="guest-contact" className="dk-h4" style={{ marginBottom: 16 }}>Contact Information</h3>
+              <div className="dk-fgrid">
+                {guestField('name', 'Full Name', { placeholder: 'Enter your full name', required: true, full: true })}
+                {guestField('email', 'Email Address', { type: 'email', placeholder: 'Enter your email', required: true })}
+                {guestField('phone', 'Phone Number', { type: 'tel', placeholder: 'Enter your phone number', required: true })}
+              </div>
+            </section>
+
+            <div className="dk-divider" />
+
+            <section aria-labelledby="guest-pickup">
+              <h3 id="guest-pickup" className="dk-h4" style={{ marginBottom: 16 }}>Pickup Information</h3>
+              <div className="dk-fgrid">
+                {guestField('address', 'Complete Address', { placeholder: 'Enter your complete address', required: true, full: true })}
+                {guestField('pickupDate', 'Pickup Date', { type: 'date', required: true })}
+                {guestField('pickupTime', 'Pickup Time', { type: 'time', required: true })}
+                {guestField('notes', 'Special Notes (Optional)', { placeholder: 'Any special instructions...', full: true })}
+              </div>
+            </section>
           </div>
         </div>
 
-        {/* Guest Form */}
-        <div className="px-4 py-6 safe-area-bottom">
-          <Card className="mb-6">
-            <div className="space-y-4">
-              <div>
-                <h3 className="font-semibold text-white mb-2">Contact Information</h3>
-                <div className="space-y-3">
-                  <Input
-                    label="Full Name"
-                    placeholder="Enter your full name"
-                    value={guestInfo.name}
-                    onChange={(value) => handleGuestInputChange('name', value)}
-                    error={guestErrors.name}
-                    required
-                  />
-                  <Input
-                    label="Email Address"
-                    type="email"
-                    placeholder="Enter your email"
-                    value={guestInfo.email}
-                    onChange={(value) => handleGuestInputChange('email', value)}
-                    error={guestErrors.email}
-                    required
-                  />
-                  <Input
-                    label="Phone Number"
-                    type="tel"
-                    placeholder="Enter your phone number"
-                    value={guestInfo.phone}
-                    onChange={(value) => handleGuestInputChange('phone', value)}
-                    error={guestErrors.phone}
-                    required
-                  />
-                </div>
-              </div>
+        <aside className="dk-panel dk-sticky">
+          <div className="dk-stack">
+            <button
+              type="button"
+              onClick={handleCheckout}
+              disabled={isCheckingOut}
+              className="dk-btn dk-btn-red block"
+            >
+              {isCheckingOut && <Loader2 className="animate-spin" size={16} aria-hidden="true" />}
+              {isCheckingOut ? 'Creating Reservation...' : `Reserve Items - ${formatCurrency(cartTotal)}`}
+            </button>
 
-              <div>
-                <h3 className="font-semibold text-white mb-2">Pickup Information</h3>
-                <div className="space-y-3">
-                  <Input
-                    label="Complete Address"
-                    placeholder="Enter your complete address"
-                    value={guestInfo.address}
-                    onChange={(value) => handleGuestInputChange('address', value)}
-                    error={guestErrors.address}
-                    required
-                  />
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <Input
-                      label="Pickup Date"
-                      type="date"
-                      value={guestInfo.pickupDate}
-                      onChange={(value) => handleGuestInputChange('pickupDate', value)}
-                      error={guestErrors.pickupDate}
-                      required
-                    />
-                    <Input
-                      label="Pickup Time"
-                      type="time"
-                      value={guestInfo.pickupTime}
-                      onChange={(value) => handleGuestInputChange('pickupTime', value)}
-                      error={guestErrors.pickupTime}
-                      required
-                    />
-                  </div>
-                  <Input
-                    label="Special Notes (Optional)"
-                    placeholder="Any special instructions..."
-                    value={guestInfo.notes}
-                    onChange={(value) => handleGuestInputChange('notes', value)}
-                  />
-                </div>
-              </div>
-            </div>
-          </Card>
-
-          <Button
-            onClick={handleCheckout}
-            loading={isCheckingOut}
-            disabled={isCheckingOut}
-            className="w-full"
-            size="lg"
-          >
-            {isCheckingOut ? 'Creating Reservation...' : `Reserve Items - ${formatCurrency(cartTotal)}`}
-          </Button>
-
-          <div className="mt-4 text-center">
-            <p className="text-sm text-muted mb-2">Have an account?</p>
-            <Button
-              variant="outline"
+            <p className="dk-small dk-muted" style={{ textAlign: 'center' }}>Have an account?</p>
+            <button
+              type="button"
               onClick={() => router.push('/auth/login')}
-              className="w-full"
+              className="dk-btn dk-btn-outline-dark block"
             >
               Sign In Instead
-            </Button>
+            </button>
           </div>
-        </div>
+        </aside>
       </div>
-    );
+    ));
   }
 
-  return (
-    <div className="min-h-screen bg-background">
-      {/* Header with Safe Area */}
-      <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-white/10 safe-area-top">
-        <div className="px-4 py-4">
-          <div className="flex items-center space-x-4">
-            <button
-              onClick={() => router.back()}
-              className="p-2 rounded-full bg-secondary border border-white/10 hover:bg-white/10 transition-colors"
-            >
-              <ArrowLeft className="w-5 h-5 text-white" />
-            </button>
-            <h1 className="text-xl font-semibold text-white">
-              Shopping Cart ({cartItems.length})
-            </h1>
-          </div>
-        </div>
-      </div>
-
-      {/* Cart Content */}
-      <div className="px-4 py-6">
-        {cartItems.length === 0 ? (
-          <div className="text-center py-12">
-            <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-primary/20 to-info/20 rounded-full flex items-center justify-center">
-              <ShoppingBag className="w-10 h-10 text-primary" />
-            </div>
-            <h3 className="text-xl font-semibold text-white mb-2">Your cart is empty</h3>
-            <p className="text-muted mb-6 max-w-sm mx-auto">
-              Start building your aquarium! Browse our collection of fish, tanks, and accessories.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <Button onClick={() => router.push('/client/search')}>
+  return shell(`Shopping Cart (${cartItems.length})`, () => router.back(), (
+    cartItems.length === 0 ? (
+      <div className="dk-panel">
+        <EmptyState
+          icon={<CartIcon />}
+          title="Your cart is empty"
+          actions={
+            <>
+              <button type="button" className="dk-btn dk-btn-red" onClick={() => router.push('/client/search')}>
                 Browse Products
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => router.push('/client/categories')}
-                className="border-white/20 text-white hover:bg-white/10"
-              >
+              </button>
+              <button type="button" className="dk-btn dk-btn-outline-dark" onClick={() => router.push('/client/categories')}>
                 View Categories
-              </Button>
+              </button>
+            </>
+          }
+        >
+          Start building your aquarium! Browse our collection of fish, tanks, and accessories.
+        </EmptyState>
+      </div>
+    ) : (
+      <div className="dk-split">
+        {/* Cart Items */}
+        <div className="dk-panel" style={{ paddingTop: 8, paddingBottom: 8 }}>
+          <ul className="dk-list">
+            {cartItems.map((item) => (
+              <li key={item.productId} className="dk-list-row">
+                <div className="dk-thumb">
+                  <Placeholder
+                    src={item.product?.image || null}
+                    alt={item.product?.name || ''}
+                    style={{ width: '100%', height: '100%' }}
+                  />
+                </div>
+
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <h3
+                    className="dk-h4"
+                    style={{ fontSize: 16, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                  >
+                    {item.product?.name}
+                  </h3>
+                  <p className="dk-small dk-muted" style={{ marginTop: 2 }}>
+                    {formatCurrency(item.product?.price || 0)} each
+                  </p>
+
+                  <div className="dk-row between wrap" style={{ marginTop: 10 }}>
+                    <div className="dk-qty">
+                      <button
+                        type="button"
+                        onClick={() => handleQuantityChange(item.productId, -1)}
+                        aria-label={`Decrease quantity of ${item.product?.name ?? 'item'}`}
+                      >
+                        <Minus size={14} aria-hidden="true" />
+                      </button>
+                      <span>{item.quantity}</span>
+                      <button
+                        type="button"
+                        className="plus"
+                        onClick={() => handleQuantityChange(item.productId, 1)}
+                        disabled={item.quantity >= (item.product?.stock || 0)}
+                        aria-label={`Increase quantity of ${item.product?.name ?? 'item'}`}
+                      >
+                        <Plus size={14} aria-hidden="true" />
+                      </button>
+                    </div>
+
+                    <div className="dk-row" style={{ gap: 10 }}>
+                      <span className="dk-mono" style={{ fontWeight: 800 }}>
+                        {formatCurrency((item.product?.price || 0) * item.quantity)}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => removeItem(item.productId)}
+                        className="dk-view-btn"
+                        aria-label={`Remove ${item.product?.name ?? 'item'}`}
+                        style={{ width: 32, height: 32, color: 'var(--dk-red)' }}
+                      >
+                        <Trash2 size={15} aria-hidden="true" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <aside className="dk-sticky dk-stack">
+          {/* Reservation Notice */}
+          <div className="dk-panel muted" style={{ padding: 20 }}>
+            <div className="dk-row" style={{ alignItems: 'flex-start' }}>
+              <Clock size={20} aria-hidden="true" style={{ color: 'var(--dk-red)', flex: 'none', marginTop: 2 }} />
+              <div>
+                <h3 className="dk-h4">Reservation System</h3>
+                <p className="dk-small dk-muted" style={{ marginTop: 4 }}>
+                  Items will be reserved for 48 hours. You can pick them up at our store or
+                  arrange for delivery within Metro Manila.
+                </p>
+              </div>
             </div>
           </div>
-        ) : (
-          <>
-            {/* Cart Items */}
-            <div className="space-y-4 mb-6">
-              {cartItems.map((item) => (
-                <Card key={item.productId} className="p-4">
-                  <div className="flex space-x-4">
-                    <div className="w-16 h-16 rounded-lg bg-gradient-to-br from-primary/20 to-info/20 overflow-hidden">
-                      {item.product?.image ? (
-                        <img
-                          src={item.product.image}
-                          alt={item.product.name}
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            e.currentTarget.style.display = 'none';
-                            e.currentTarget.nextElementSibling?.classList.remove('hidden');
-                          }}
-                        />
-                      ) : null}
-                      <div className={`w-full h-full bg-gradient-to-br from-primary/20 to-info/20 flex items-center justify-center ${item.product?.image ? 'hidden' : ''}`}>
-                        <span className="text-xs text-muted">IMG</span>
-                      </div>
-                    </div>
 
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold text-white mb-1 line-clamp-1">
-                        {item.product?.name}
-                      </h3>
-                      <p className="text-sm text-muted mb-2">
-                        {formatCurrency(item.product?.price || 0)} each
-                      </p>
-
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-2">
-                          <button
-                            onClick={() => handleQuantityChange(item.productId, -1)}
-                            className="w-8 h-8 rounded-full bg-secondary border border-white/10 flex items-center justify-center hover:bg-white/10 transition-colors"
-                          >
-                            <Minus className="w-4 h-4 text-white" />
-                          </button>
-                          <span className="text-white font-medium w-8 text-center">
-                            {item.quantity}
-                          </span>
-                          <button
-                            onClick={() => handleQuantityChange(item.productId, 1)}
-                            disabled={item.quantity >= (item.product?.stock || 0)}
-                            className="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center disabled:opacity-50 hover:bg-primary/90 transition-colors"
-                          >
-                            <Plus className="w-4 h-4" />
-                          </button>
-                        </div>
-
-                        <div className="flex items-center space-x-3">
-                          <span className="font-bold text-white">
-                            {formatCurrency((item.product?.price || 0) * item.quantity)}
-                          </span>
-                          <button
-                            onClick={() => removeItem(item.productId)}
-                            className="p-1 text-error hover:bg-error/10 rounded transition-colors"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </Card>
-              ))}
+          {/* Total Summary */}
+          <div className="dk-panel">
+            <div className="dk-summary">
+              <div>
+                <span>Subtotal ({itemCount} items)</span>
+                <span className="dk-mono">{formatCurrency(cartTotal)}</span>
+              </div>
+              <div>
+                <span>Reservation Fee</span>
+                <span className="dk-status black">FREE</span>
+              </div>
+              <div className="total">
+                <span>Total</span>
+                <span className="dk-mono" style={{ color: 'var(--dk-red)' }}>{formatCurrency(cartTotal)}</span>
+              </div>
             </div>
-
-            {/* Reservation Notice */}
-            <Card variant="glass" className="mb-6 bg-info/10 border-info/20">
-              <div className="flex items-start space-x-3">
-                <Clock className="w-5 h-5 text-info mt-0.5" />
-                <div>
-                  <h3 className="font-medium text-white mb-1">Reservation System</h3>
-                  <p className="text-sm text-muted">
-                    Items will be reserved for 48 hours. You can pick them up at our store or
-                    arrange for delivery within Metro Manila.
-                  </p>
-                </div>
-              </div>
-            </Card>
-
-            {/* Total Summary */}
-            <Card className="mb-6">
-              <div className="space-y-3">
-                <div className="flex items-center justify-between text-muted">
-                  <span>Subtotal ({cartItems.reduce((sum, item) => sum + item.quantity, 0)} items)</span>
-                  <span>{formatCurrency(cartTotal)}</span>
-                </div>
-                <div className="flex items-center justify-between text-success">
-                  <span>Reservation Fee</span>
-                  <span>FREE</span>
-                </div>
-                <div className="border-t border-white/10 pt-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-lg font-semibold text-white">Total</span>
-                    <span className="text-xl font-bold text-primary">
-                      {formatCurrency(cartTotal)}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </Card>
 
             {/* Checkout Button */}
-            <Button
+            <button
+              type="button"
               onClick={handleCheckout}
-              loading={isCheckingOut}
               disabled={isCheckingOut || cartItems.length === 0}
-              className="w-full"
-              size="lg"
+              className="dk-btn dk-btn-red block"
+              style={{ marginTop: 22 }}
             >
+              {isCheckingOut && <Loader2 className="animate-spin" size={16} aria-hidden="true" />}
               {isCheckingOut
                 ? 'Processing...'
                 : isAuthenticated
                 ? 'Reserve Now'
                 : 'Continue as Guest'
               }
-            </Button>
+            </button>
 
             {!isAuthenticated && (
-              <div className="mt-4 text-center">
-                <p className="text-sm text-muted mb-2">
+              <div className="dk-stack" style={{ marginTop: 18, gap: 10 }}>
+                <p className="dk-small dk-muted" style={{ textAlign: 'center' }}>
                   Sign in to save your preferences and track reservations
                 </p>
-                <Button
-                  variant="outline"
+                <button
+                  type="button"
                   onClick={() => router.push('/auth/login')}
-                  className="w-full"
+                  className="dk-btn dk-btn-outline-dark block"
                 >
                   Sign In
-                </Button>
+                </button>
               </div>
             )}
-          </>
-        )}
+          </div>
+        </aside>
       </div>
-
-      {/* Client Bottom Navigation */}
-      <ClientBottomNavbar />
-
-      {/* Bottom padding with safe area */}
-      <div className="h-16 safe-area-bottom" />
-    </div>
-  );
+    )
+  ));
 }
 
 export default function CartPage() {

@@ -1,42 +1,36 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import useWindowSize from "@/hooks/useWindowSize";
+import { useState, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
-  ArrowLeft,
-  Package,
   Clock,
-  CheckCircle,
-  XCircle,
   Calendar,
   MapPin,
-  User,
-  Search,
-  Filter,
-  Eye,
   Phone,
   Mail,
-  FileText,
   RefreshCw,
   ChevronDown,
   ChevronUp,
-  Truck,
-  AlertCircle,
-  X,
 } from "lucide-react";
 import { useAuthStore, useIsAuthenticated, useIsGuest } from "@/store/auth";
 import { formatCurrency, formatDateTime, getRelativeTime } from "@/lib/utils";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import Button from "@/components/ui/Button";
-import Card from "@/components/ui/Card";
-import ClientBottomNavbar from "@/components/client/ClientBottomNavbar";
 import SafeAreaProvider from "@/components/provider/SafeAreaProvider";
+import MemberSidebar from "@/components/dc/kit/MemberSidebar";
+import SearchField from "@/components/dc/kit/SearchField";
+import EmptyState from "@/components/dc/kit/EmptyState";
+import {
+  AlertIcon,
+  BackIcon,
+  CalendarIcon,
+  CheckIcon,
+  CloseIcon,
+  MenuIcon,
+} from "@/components/dc/kit/icons";
 
 function ReservationsContent() {
   const router = useRouter();
-  const { width } = useWindowSize();
   const { user, guestId } = useAuthStore();
   const isAuthenticated = useIsAuthenticated();
   const isGuest = useIsGuest();
@@ -47,6 +41,7 @@ function ReservationsContent() {
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [cancelModal, setCancelModal] = useState<{
     isOpen: boolean;
     reservationCode: string;
@@ -57,6 +52,8 @@ function ReservationsContent() {
     message: string;
     type: "success" | "error";
   }>({ show: false, message: "", type: "success" });
+
+  const closeSidebar = useCallback(() => setSidebarOpen(false), []);
 
   // Fetch reservations data from Convex
   // Build query args based on auth state
@@ -102,10 +99,10 @@ function ReservationsContent() {
         userId: isAuthenticated && user ? user._id : undefined,
         guestId: isGuest && guestId ? guestId : undefined,
       });
-      
+
       // Close modal
       setCancelModal({ isOpen: false, reservationCode: "", reservationId: "" });
-      
+
       // Show success message
       showToast(
         `Reservation ${cancelModal.reservationCode} has been cancelled successfully`,
@@ -126,6 +123,14 @@ function ReservationsContent() {
     setCancelModal({ isOpen: true, reservationCode, reservationId });
   };
 
+  const closeCancelModal = () => {
+    setCancelModal({
+      isOpen: false,
+      reservationCode: "",
+      reservationId: "",
+    });
+  };
+
   const toggleCardExpansion = (reservationId: string) => {
     const newExpanded = new Set(expandedCards);
     if (newExpanded.has(reservationId)) {
@@ -136,36 +141,19 @@ function ReservationsContent() {
     setExpandedCards(newExpanded);
   };
 
+  // Status pill variant (kit .dk-status):
+  // pending = outline (waiting on the shop), confirmed / completed = black (settled),
+  // expired / cancelled = pale red (ended without a pickup).
   const getStatusBadge = (status: string) => {
-    const colors = {
-      pending: "bg-orange-500/20 text-orange-400 border-orange-500/30",
-      confirmed: "bg-green-500/20 text-green-400 border-green-500/30",
-      completed: "bg-blue-500/20 text-blue-400 border-blue-500/30",
-      expired: "bg-red-500/20 text-red-400 border-red-500/30",
-      cancelled: "bg-red-500/20 text-red-400 border-red-500/30",
+    const variants = {
+      pending: "",
+      confirmed: "black",
+      completed: "black",
+      expired: "pale",
+      cancelled: "pale",
     };
 
-    return (
-      colors[status as keyof typeof colors] ||
-      "bg-gray-500/20 text-gray-400 border-gray-500/30"
-    );
-  };
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case "pending":
-        return <Clock className="w-3 h-3 sm:w-4 sm:h-4" />;
-      case "confirmed":
-        return <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4" />;
-      case "completed":
-        return <Package className="w-3 h-3 sm:w-4 sm:h-4" />;
-      case "expired":
-        return <AlertCircle className="w-3 h-3 sm:w-4 sm:h-4" />;
-      case "cancelled":
-        return <XCircle className="w-3 h-3 sm:w-4 sm:h-4" />;
-      default:
-        return <Package className="w-3 h-3 sm:w-4 sm:h-4" />;
-    }
+    return variants[status as keyof typeof variants] ?? "";
   };
 
   const getStatusText = (status: string) => {
@@ -218,421 +206,370 @@ function ReservationsContent() {
     });
   }, [reservationsQuery, searchQuery, selectedStatus]);
 
+  const iconStyle = { color: "var(--dk-n-500)", flex: "none" } as const;
+
   return (
-    <div className="min-h-screen bg-black">
-      {/* Enhanced Header with Safe Area */}
-      <div className="sticky top-0 z-50 bg-black/95 backdrop-blur-md border-b border-orange-500/20 safe-area-top">
-        <div className="px-3 sm:px-6 py-3 sm:py-4">
-          <div className="flex items-center justify-between mb-3 sm:mb-4">
-            <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+    <div className="dk dk-member">
+      <div className="dk-app">
+        <MemberSidebar id="sidebar" active="reservations" open={sidebarOpen} onClose={closeSidebar} />
+
+        <section className="dk-app-main">
+          <div className="dk-app-top">
+            <div className="dk-app-top-l">
               <button
-                onClick={() => router.back()}
-                className="p-2 sm:p-2.5 rounded-xl bg-gray-900/60 border border-gray-800 hover:bg-gray-800/80 transition-all shrink-0"
+                type="button"
+                className="dk-view-btn dk-app-menu"
+                onClick={() => setSidebarOpen(true)}
+                aria-label="Open menu"
+                aria-controls="sidebar"
+                aria-expanded={sidebarOpen}
               >
-                <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+                <MenuIcon />
               </button>
-              <div className="min-w-0 flex-1">
-                <h1 className="text-lg sm:text-xl font-bold text-white truncate">
-                  My Reservations
-                </h1>
-                <p className="text-xs sm:text-sm text-gray-400">
+              <button
+                type="button"
+                className="dk-view-btn"
+                onClick={() => router.back()}
+                aria-label="Back"
+              >
+                <BackIcon />
+              </button>
+              <div>
+                <h1>My Reservations</h1>
+                <p className="dk-small dk-muted" aria-live="polite">
                   {filteredReservations.length} reservation
                   {filteredReservations.length !== 1 ? "s" : ""} found
                 </p>
               </div>
             </div>
 
-            <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-              <Button
-                variant="ghost"
-                size="sm"
+            <div className="dk-app-actions">
+              <button
+                type="button"
+                className="dk-btn dk-btn-outline-dark plain"
                 onClick={handleRefresh}
                 disabled={isRefreshing}
-                className="border border-gray-800 hover:border-orange-500/30 px-2 sm:px-3 text-xs sm:text-sm"
+                aria-label="Refresh"
               >
                 <RefreshCw
-                  className={`w-3 h-3 sm:w-4 sm:h-4 ${isRefreshing ? "animate-spin" : ""} ${
-                    width && width < 640 ? "" : "mr-2"
-                  }`}
+                  size={16}
+                  className={isRefreshing ? "animate-spin" : ""}
+                  aria-hidden="true"
                 />
                 <span className="hidden sm:inline">Refresh</span>
-              </Button>
+              </button>
             </div>
           </div>
 
-          {/* Enhanced search and filter row */}
-          <div className="flex gap-2 sm:gap-3">
-            <div className="flex-1 relative min-w-0">
-              <Search className="absolute left-3 sm:left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500 shrink-0" />
-              <input
-                type="text"
-                placeholder="Search reservations, products..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 sm:pl-12 pr-3 sm:pr-4 py-2.5 sm:py-3 border rounded-lg sm:rounded-xl transition-all text-sm sm:text-base bg-gray-900/60 border-gray-800 text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500/30"
-              />
-            </div>
+          {/* Search and filter row */}
+          <div className="dk-row dk-app-search">
+            <SearchField
+              value={searchQuery}
+              onChange={setSearchQuery}
+              placeholder="Search reservations, products..."
+              label="Search reservations, products"
+              iconSize={18}
+            />
             <button
+              type="button"
+              className="dk-chip"
               onClick={() => setShowFilters(!showFilters)}
-              className={`px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg sm:rounded-xl border transition-all flex items-center gap-1 sm:gap-2 shrink-0 ${
-                showFilters
-                  ? "bg-orange-600 border-orange-500 text-white"
-                  : "bg-gray-900/60 border-gray-800 text-white hover:bg-gray-800/80"
-              }`}
+              aria-pressed={showFilters}
+              aria-expanded={showFilters}
+              aria-controls="reservation-filters"
+              style={{ height: 48, flex: "none" }}
             >
-              <Filter className="w-4 h-4" />
-              <span className="hidden xs:inline text-sm sm:text-base">
-                Filters
-              </span>
+              Filters
             </button>
           </div>
-        </div>
-      </div>
 
-      {/* Enhanced Filters */}
-      {showFilters && (
-        <div className="bg-gray-900/40 backdrop-blur-sm border-b border-gray-800 px-3 sm:px-6 py-3 sm:py-4">
-          <div className="space-y-3">
-            <p className="text-sm font-medium text-white">Filter by Status</p>
-            <div className="flex flex-wrap gap-2">
-              {[
-                { value: "all", label: "All" },
-                { value: "pending", label: "Pending" },
-                { value: "confirmed", label: "Confirmed" },
-                { value: "completed", label: "Completed" },
-                { value: "expired", label: "Expired" },
-                { value: "cancelled", label: "Cancelled" },
-              ].map((filter) => (
-                <button
-                  key={filter.value}
-                  onClick={() => setSelectedStatus(filter.value)}
-                  className={`px-3 py-1.5 rounded-lg text-xs sm:text-sm border transition-colors touch-manipulation ${
-                    selectedStatus === filter.value
-                      ? "bg-orange-600 border-orange-500 text-white"
-                      : "border-gray-800 text-gray-400 hover:text-white hover:border-gray-700"
-                  }`}
-                >
-                  {filter.label}
-                </button>
-              ))}
+          {/* Filters */}
+          {showFilters && (
+            <div id="reservation-filters" className="dk-panel dk-app-section" style={{ marginTop: 16 }}>
+              <div className="dk-stack">
+                <p className="dk-meta-label" id="status-filter-label">Filter by Status</p>
+                <div className="dk-tabs" role="group" aria-labelledby="status-filter-label">
+                  {[
+                    { value: "all", label: "All" },
+                    { value: "pending", label: "Pending" },
+                    { value: "confirmed", label: "Confirmed" },
+                    { value: "completed", label: "Completed" },
+                    { value: "expired", label: "Expired" },
+                    { value: "cancelled", label: "Cancelled" },
+                  ].map((filter) => (
+                    <button
+                      key={filter.value}
+                      type="button"
+                      className="dk-chip"
+                      aria-pressed={selectedStatus === filter.value}
+                      onClick={() => setSelectedStatus(filter.value)}
+                    >
+                      {filter.label}
+                    </button>
+                  ))}
+                </div>
+                <div>
+                  <button
+                    type="button"
+                    className="dk-btn dk-btn-text"
+                    onClick={() => {
+                      setSearchQuery("");
+                      setSelectedStatus("all");
+                    }}
+                  >
+                    Clear Filters
+                  </button>
+                </div>
+              </div>
             </div>
-            <Button
-              onClick={() => {
-                setSearchQuery("");
-                setSelectedStatus("all");
-              }}
-              variant="outline"
-              className="border-orange-500/30 text-orange-400 hover:bg-orange-500/10"
-            >
-              Clear Filters
-            </Button>
-          </div>
-        </div>
-      )}
+          )}
 
-      {/* Content */}
-      <div className="px-3 sm:px-6 py-4 sm:py-6 safe-area-bottom">
-        {!isAuthenticated && (
-          <Card
-            variant="glass"
-            className="mb-4 sm:mb-6 bg-blue-500/10 border-blue-500/20"
-          >
-            <div className="text-center p-4">
-              <h3 className="font-semibold text-white mb-2 text-sm sm:text-base">
-                Sign in to track all reservations
-              </h3>
-              <p className="text-xs sm:text-sm text-gray-400 mb-4">
-                Create an account to easily manage and track all your
-                reservations
-              </p>
-              <Button
-                onClick={() => router.push("/auth/login")}
-                size="sm"
-                className="touch-manipulation"
-              >
-                Sign In
-              </Button>
-            </div>
-          </Card>
-        )}
+          {/* Content */}
+          <div className="dk-app-section dk-stack lg" style={{ marginTop: 24 }}>
+            {!isAuthenticated && (
+              <div className="dk-panel muted">
+                <div className="dk-row between wrap">
+                  <div>
+                    <h3 className="dk-h4">Sign in to track all reservations</h3>
+                    <p className="dk-small dk-muted" style={{ marginTop: 4 }}>
+                      Create an account to easily manage and track all your
+                      reservations
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    className="dk-btn dk-btn-red sm"
+                    onClick={() => router.push("/auth/login")}
+                  >
+                    Sign In
+                  </button>
+                </div>
+              </div>
+            )}
 
-        {filteredReservations.length === 0 ? (
-          <div className="text-center py-8 sm:py-12">
-            <Package className="w-12 h-12 sm:w-16 sm:h-16 text-gray-500 mx-auto mb-4" />
-            <h3 className="text-lg sm:text-xl font-semibold text-white mb-2">
-              No reservations found
-            </h3>
-            <p className="text-gray-400 mb-4 sm:mb-6 text-sm sm:text-base px-4">
-              {searchQuery || selectedStatus !== "all"
-                ? "No reservations match your search criteria"
-                : "You haven't made any reservations yet"}
-            </p>
-            <Button
-              onClick={() => router.push("/client/search")}
-              className="touch-manipulation"
-            >
-              Start Shopping
-            </Button>
-          </div>
-        ) : (
-          <div className="space-y-4 sm:space-y-6">
-            {filteredReservations.map((reservation) => {
-              const isExpanded = expandedCards.has(reservation._id);
-
-              return (
-                <div
-                  key={reservation._id}
-                  className="bg-gray-900/40 backdrop-blur-sm border border-gray-800 rounded-xl hover:border-orange-500/30 transition-all duration-200 overflow-hidden"
+            {filteredReservations.length === 0 ? (
+              <div className="dk-panel">
+                <EmptyState
+                  icon={<CalendarIcon />}
+                  title="No reservations found"
+                  actions={
+                    <button
+                      type="button"
+                      className="dk-btn dk-btn-red"
+                      onClick={() => router.push("/client/search")}
+                    >
+                      Start Shopping
+                    </button>
+                  }
                 >
-                  {/* Compact Header */}
-                  <div className="bg-gradient-to-r from-orange-600/20 to-orange-500/10 p-3 sm:p-4 border-b border-orange-500/20">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-                        <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center shrink-0 bg-orange-500/20 border border-orange-500/30">
-                          <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-orange-400" />
+                  {searchQuery || selectedStatus !== "all"
+                    ? "No reservations match your search criteria"
+                    : "You haven't made any reservations yet"}
+                </EmptyState>
+              </div>
+            ) : (
+              filteredReservations.map((reservation) => {
+                const isExpanded = expandedCards.has(reservation._id);
+                const detailsId = `res-details-${reservation._id}`;
+
+                return (
+                  <article key={reservation._id} className="dk-panel flush">
+                    {/* Header */}
+                    <div className="dk-row between" style={{ padding: "20px 24px", alignItems: "flex-start" }}>
+                      <div style={{ minWidth: 0 }}>
+                        <div className="dk-row wrap" style={{ gap: 10 }}>
+                          <h3 className="dk-h4" style={{ overflowWrap: "anywhere" }}>
+                            {reservation.reservationCode ||
+                              `RES-${reservation._id.slice(-6)}`}
+                          </h3>
+                          <span className={`dk-status ${getStatusBadge(reservation.status)}`.trim()}>
+                            {getStatusText(reservation.status)}
+                          </span>
                         </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <h3 className="font-bold text-white text-sm sm:text-base truncate">
-                              {reservation.reservationCode ||
-                                `RES-${reservation._id.slice(-6)}`}
-                            </h3>
-                            <div
-                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${getStatusBadge(reservation.status)}`}
-                            >
-                              {getStatusIcon(reservation.status)}
-                              <span className="capitalize hidden sm:inline">
-                                {getStatusText(reservation.status)}
-                              </span>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-3 text-xs text-gray-400">
-                            <span>{formatDateTime(reservation.createdAt)}</span>
-                            <span>•</span>
-                            <span>
-                              {formatCurrency(reservation.totalAmount || 0)}
-                            </span>
-                            <span>•</span>
-                            <span>{reservation.totalQuantity || 0} items</span>
-                          </div>
-                        </div>
+                        <p className="dk-small dk-muted" style={{ marginTop: 6 }}>
+                          <span>{formatDateTime(reservation.createdAt)}</span>
+                          <span aria-hidden="true"> · </span>
+                          <span>{formatCurrency(reservation.totalAmount || 0)}</span>
+                          <span aria-hidden="true"> · </span>
+                          <span>{reservation.totalQuantity || 0} items</span>
+                        </p>
                       </div>
                       <button
+                        type="button"
+                        className="dk-view-btn"
                         onClick={() => toggleCardExpansion(reservation._id)}
-                        className="p-1.5 sm:p-2 rounded-lg bg-gray-800/50 hover:bg-gray-800 transition-colors"
+                        aria-expanded={isExpanded}
+                        aria-controls={detailsId}
+                        aria-label={isExpanded ? "Hide details" : "Show details"}
                       >
-                        {isExpanded ? (
-                          <ChevronUp className="w-4 h-4 text-gray-300" />
-                        ) : (
-                          <ChevronDown className="w-4 h-4 text-gray-300" />
-                        )}
+                        {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                       </button>
                     </div>
-                  </div>
 
-                  {/* Expandable Content */}
-                  {isExpanded && (
-                    <div className="p-4 sm:p-6 space-y-6">
-                      {/* Customer Information */}
-                      <div className="bg-gray-900/30 rounded-lg p-4 border border-gray-800">
-                        <div className="flex items-center gap-2 mb-4">
-                          <User className="w-5 h-5 text-orange-400" />
-                          <h4 className="font-semibold text-white">
-                            Customer Information
-                          </h4>
-                        </div>
+                    {/* Expandable Content */}
+                    {isExpanded && (
+                      <div
+                        id={detailsId}
+                        className="dk-stack lg"
+                        style={{ padding: "4px 24px 24px", borderTop: "1px solid var(--dk-line)", paddingTop: 24 }}
+                      >
+                        {/* Customer Information */}
+                        <section>
+                          <h4 className="dk-h4" style={{ fontSize: 16 }}>Customer Information</h4>
+                          <dl className="dk-grid-2" style={{ marginTop: 14, gap: 16 }}>
+                            <div className="dk-kv">
+                              <dt>Full Name</dt>
+                              <dd>
+                                {reservation.guestInfo?.name ||
+                                  (isAuthenticated && user
+                                    ? `${user.firstName} ${user.lastName}`
+                                    : "Guest Customer")}
+                              </dd>
+                            </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                          <div>
-                            <p className="text-gray-400 text-sm mb-1">
-                              Full Name
-                            </p>
-                            <p className="text-white font-medium">
-                              {reservation.guestInfo?.name ||
-                                (isAuthenticated && user
-                                  ? `${user.firstName} ${user.lastName}`
-                                  : "Guest Customer")}
-                            </p>
-                          </div>
-
-                          {reservation.guestInfo?.email && (
-                            <div>
-                              <p className="text-gray-400 text-sm mb-1">
-                                Email Address
-                              </p>
-                              <div className="flex items-center gap-2">
-                                <Mail className="w-4 h-4 text-gray-400" />
-                                <p className="text-white font-medium break-all">
-                                  {reservation.guestInfo.email}
-                                </p>
+                            {reservation.guestInfo?.email && (
+                              <div className="dk-kv">
+                                <dt>Email Address</dt>
+                                <dd className="dk-row" style={{ gap: 8 }}>
+                                  <Mail size={16} style={iconStyle} aria-hidden="true" />
+                                  <span style={{ overflowWrap: "anywhere" }}>{reservation.guestInfo.email}</span>
+                                </dd>
                               </div>
-                            </div>
-                          )}
+                            )}
 
-                          {reservation.guestInfo?.phone && (
-                            <div>
-                              <p className="text-gray-400 text-sm mb-1">
-                                Phone Number
-                              </p>
-                              <div className="flex items-center gap-2">
-                                <Phone className="w-4 h-4 text-gray-400" />
-                                <p className="text-white font-medium">
-                                  {reservation.guestInfo.phone}
-                                </p>
+                            {reservation.guestInfo?.phone && (
+                              <div className="dk-kv">
+                                <dt>Phone Number</dt>
+                                <dd className="dk-row" style={{ gap: 8 }}>
+                                  <Phone size={16} style={iconStyle} aria-hidden="true" />
+                                  <span>{reservation.guestInfo.phone}</span>
+                                </dd>
                               </div>
-                            </div>
-                          )}
+                            )}
 
-                          {reservation.guestInfo?.completeAddress && (
-                            <div className="sm:col-span-2">
-                              <p className="text-gray-400 text-sm mb-1">
-                                Complete Address
-                              </p>
-                              <div className="flex items-start gap-2">
-                                <MapPin className="w-4 h-4 text-gray-400 mt-0.5" />
-                                <p className="text-white font-medium">
-                                  {reservation.guestInfo.completeAddress}
-                                </p>
+                            {reservation.guestInfo?.completeAddress && (
+                              <div className="dk-kv" style={{ gridColumn: "1 / -1" }}>
+                                <dt>Complete Address</dt>
+                                <dd className="dk-row" style={{ gap: 8, alignItems: "flex-start" }}>
+                                  <MapPin size={16} style={{ ...iconStyle, marginTop: 3 }} aria-hidden="true" />
+                                  <span>{reservation.guestInfo.completeAddress}</span>
+                                </dd>
                               </div>
-                            </div>
-                          )}
-                        </div>
+                            )}
+                          </dl>
 
-                        {reservation.guestInfo?.pickupSchedule && (
-                          <div className="mt-4 p-4 bg-orange-500/10 rounded-lg border border-orange-500/20">
-                            <div className="flex items-center gap-2 mb-3">
-                              <Truck className="w-5 h-5 text-orange-400" />
-                              <h5 className="font-medium text-white">
-                                Pickup Schedule
-                              </h5>
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                              <div className="flex items-center gap-2">
-                                <Calendar className="w-4 h-4 text-gray-400" />
-                                <span className="text-white">
+                          {reservation.guestInfo?.pickupSchedule && (
+                            <div className="dk-panel muted" style={{ marginTop: 16, padding: 20 }}>
+                              <h5 className="dk-meta-label">Pickup Schedule</h5>
+                              <div className="dk-row wrap" style={{ marginTop: 10, gap: 24 }}>
+                                <span className="dk-row" style={{ gap: 8 }}>
+                                  <Calendar size={16} style={iconStyle} aria-hidden="true" />
                                   {reservation.guestInfo.pickupSchedule.date}
                                 </span>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <Clock className="w-4 h-4 text-gray-400" />
-                                <span className="text-white">
+                                <span className="dk-row" style={{ gap: 8 }}>
+                                  <Clock size={16} style={iconStyle} aria-hidden="true" />
                                   {reservation.guestInfo.pickupSchedule.time}
                                 </span>
                               </div>
                             </div>
-                          </div>
-                        )}
-                      </div>
+                          )}
+                        </section>
 
-                      {/* Reserved Items */}
-                      <div className="bg-gray-900/30 rounded-lg p-3 border border-gray-800">
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="flex items-center gap-2">
-                            <Package className="w-4 h-4 text-orange-400" />
-                            <h4 className="font-semibold text-white text-sm">
-                              Reserved Items
-                            </h4>
+                        {/* Reserved Items */}
+                        <section>
+                          <div className="dk-row between">
+                            <h4 className="dk-h4" style={{ fontSize: 16 }}>Reserved Items</h4>
+                            <span className="dk-small dk-muted">
+                              {reservation.items?.length || 0} items
+                            </span>
                           </div>
-                          <span className="text-xs text-gray-400">
-                            {reservation.items?.length || 0} items
-                          </span>
-                        </div>
 
-                        <div className="space-y-2">
-                          {reservation.items?.slice(0, 3).map((item, index) => (
-                            <div
-                              key={index}
-                              className="flex items-center justify-between p-2 bg-gray-800/30 rounded border border-gray-700"
-                            >
-                              <div className="flex-1 min-w-0">
-                                <p className="text-white font-medium text-sm truncate">
-                                  {item.product?.name || "Unknown Product"}
-                                </p>
-                                <div className="flex items-center gap-3 text-xs text-gray-400 mt-0.5">
-                                  <span>Qty: {item.quantity}</span>
-                                  <span>
-                                    @ {formatCurrency(item.reservedPrice)}
-                                  </span>
+                          <div className="dk-list" style={{ marginTop: 6 }}>
+                            {reservation.items?.slice(0, 3).map((item, index) => (
+                              <div key={index} className="dk-list-row" style={{ padding: "12px 0" }}>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                  <p style={{ fontWeight: 700, fontSize: 15, overflowWrap: "anywhere" }}>
+                                    {item.product?.name || "Unknown Product"}
+                                  </p>
+                                  <p className="dk-small dk-muted">
+                                    <span>Qty: {item.quantity}</span>
+                                    <span style={{ marginLeft: 12 }}>
+                                      @ {formatCurrency(item.reservedPrice)}
+                                    </span>
+                                  </p>
                                 </div>
-                              </div>
-                              <div className="text-right ml-2">
-                                <p className="text-white font-semibold text-sm">
+                                <p style={{ fontWeight: 700, fontSize: 15, whiteSpace: "nowrap" }}>
                                   {formatCurrency(
                                     item.reservedPrice * item.quantity
                                   )}
                                 </p>
                               </div>
-                            </div>
-                          ))}
-                          {reservation.items &&
-                            reservation.items.length > 3 && (
-                              <div className="text-center py-1">
-                                <p className="text-xs text-gray-400">
+                            ))}
+                            {reservation.items &&
+                              reservation.items.length > 3 && (
+                                <p className="dk-small dk-muted" style={{ padding: "10px 0 0", textAlign: "center" }}>
                                   +{reservation.items.length - 3} more items
                                 </p>
-                              </div>
-                            )}
-                        </div>
-                      </div>
-
-                      {/* Quick Details */}
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="bg-gray-900/30 rounded-lg p-3 border border-gray-800">
-                          <p className="text-gray-400 text-xs mb-1">Expires</p>
-                          <p
-                            className={`text-sm font-medium ${
-                              reservation.expiryDate < Date.now()
-                                ? "text-red-400"
-                                : "text-green-400"
-                            }`}
-                          >
-                            {getRelativeTime(reservation.expiryDate)}
-                          </p>
-                        </div>
-                        <div className="bg-gray-900/30 rounded-lg p-3 border border-gray-800">
-                          <p className="text-gray-400 text-xs mb-1">Total</p>
-                          <p className="text-sm font-medium text-white">
-                            {formatCurrency(reservation.totalAmount || 0)}
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Notes */}
-                      {reservation.notes && (
-                        <div className="bg-gray-900/30 rounded-lg p-4 border border-gray-800">
-                          <div className="flex items-center gap-2 mb-3">
-                            <FileText className="w-5 h-5 text-orange-400" />
-                            <h4 className="font-semibold text-white">
-                              Special Notes
-                            </h4>
+                              )}
                           </div>
-                          <div className="bg-gray-800/30 rounded-lg p-3">
-                            <p className="text-gray-300 text-sm leading-relaxed">
+                        </section>
+
+                        {/* Quick Details */}
+                        <div className="dk-grid-2" style={{ gap: 12 }}>
+                          <div className="dk-panel muted dk-kv" style={{ padding: 16 }}>
+                            <span className="k">Expires</span>
+                            <span
+                              className="v"
+                              style={{
+                                fontWeight: 700,
+                                color:
+                                  reservation.expiryDate < Date.now()
+                                    ? "var(--dk-red)"
+                                    : "var(--dk-black)",
+                              }}
+                            >
+                              {getRelativeTime(reservation.expiryDate)}
+                            </span>
+                          </div>
+                          <div className="dk-panel muted dk-kv" style={{ padding: 16 }}>
+                            <span className="k">Total</span>
+                            <span className="v" style={{ fontWeight: 700 }}>
+                              {formatCurrency(reservation.totalAmount || 0)}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Notes */}
+                        {reservation.notes && (
+                          <section>
+                            <h4 className="dk-h4" style={{ fontSize: 16 }}>Special Notes</h4>
+                            <div className="dk-alert" style={{ marginTop: 10 }}>
                               {reservation.notes}
-                            </p>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
+                            </div>
+                          </section>
+                        )}
+                      </div>
+                    )}
 
-                  {/* Action Buttons */}
-                  <div className="p-3 sm:p-4 border-t border-gray-800">
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        className="flex-1 flex items-center justify-center space-x-1 text-xs border-gray-700 text-gray-300 hover:bg-gray-800 min-h-[36px]"
+                    {/* Action Buttons */}
+                    <div className="dk-row" style={{ padding: "16px 24px", borderTop: "1px solid var(--dk-line)", gap: 10 }}>
+                      <button
+                        type="button"
+                        className="dk-btn dk-btn-outline-dark plain"
+                        style={{ flex: 1 }}
                         onClick={() => toggleCardExpansion(reservation._id)}
+                        aria-expanded={isExpanded}
+                        aria-controls={detailsId}
                       >
-                        <Eye className="w-3 h-3" />
-                        <span>{isExpanded ? "Hide" : "Details"}</span>
-                      </Button>
+                        {isExpanded ? "Hide" : "Details"}
+                      </button>
 
                       {(reservation.status === "pending" ||
                         reservation.status === "confirmed") && (
-                        <Button
-                          variant="outline"
-                          className="flex-1 flex items-center justify-center space-x-1 text-xs text-red-400 border-red-500/30 hover:bg-red-500/10 min-h-[36px]"
+                        <button
+                          type="button"
+                          className="dk-btn dk-btn-red plain"
+                          style={{ flex: 1 }}
                           onClick={() =>
                             openCancelModal(
                               reservation.reservationCode ||
@@ -641,78 +578,69 @@ function ReservationsContent() {
                             )
                           }
                         >
-                          <XCircle className="w-3 h-3" />
-                          <span>Cancel</span>
-                        </Button>
+                          Cancel
+                        </button>
                       )}
                     </div>
-                  </div>
-                </div>
-              );
-            })}
+                  </article>
+                );
+              })
+            )}
           </div>
-        )}
+        </section>
       </div>
 
       {/* Cancel Confirmation Modal */}
       {cancelModal.isOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200 p-4"
-          onClick={(e) => {
-            // Close modal when clicking backdrop (not the modal content)
-            if (e.target === e.currentTarget && !isCancelling) {
-              setCancelModal({
-                isOpen: false,
-                reservationCode: "",
-                reservationId: "",
-              });
-            }
-          }}
-        >
+        <>
           <div
-            className="bg-gray-900 border border-red-500/30 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in slide-in-from-bottom-4 sm:slide-in-from-bottom-0"
-            onClick={(e) => e.stopPropagation()}
+            className="dk-scrim"
+            aria-hidden="true"
+            onClick={() => {
+              // Close modal when clicking backdrop (not the modal content)
+              if (!isCancelling) closeCancelModal();
+            }}
+          />
+          <div
+            className="dk-modal"
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="cancel-res-title"
+            aria-describedby="cancel-res-warning"
           >
             {/* Modal Header */}
-            <div className="bg-gradient-to-r from-red-600/20 to-red-500/10 p-4 sm:p-6 border-b border-red-500/20">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-full bg-red-500/20 border border-red-500/30 flex items-center justify-center">
-                  <AlertCircle className="w-6 h-6 text-red-400" />
-                </div>
-                <div>
-                  <h3 className="text-lg sm:text-xl font-bold text-white">
-                    Cancel Reservation
-                  </h3>
-                  <p className="text-sm text-gray-400">
-                    {cancelModal.reservationCode}
-                  </p>
-                </div>
+            <div className="dk-row" style={{ gap: 14 }}>
+              <span className="dk-empty-icon" style={{ width: 48, height: 48, margin: 0, flex: "none" }} aria-hidden="true">
+                <AlertIcon size={22} />
+              </span>
+              <div style={{ minWidth: 0 }}>
+                <h3 id="cancel-res-title" className="dk-h3" style={{ fontSize: 20 }}>
+                  Cancel Reservation
+                </h3>
+                <p className="dk-small dk-muted" style={{ overflowWrap: "anywhere" }}>
+                  {cancelModal.reservationCode}
+                </p>
               </div>
             </div>
 
             {/* Modal Body */}
-            <div className="p-4 sm:p-6 space-y-4">
-              <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4">
-                <div className="flex gap-3">
-                  <AlertCircle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-white font-medium mb-2">
-                      Warning: This action cannot be undone
-                    </p>
-                    <p className="text-sm text-gray-300 leading-relaxed">
-                      Once you cancel this reservation, you will not be able to restore it. 
-                      The reserved items will be returned to the available stock, and you will 
-                      need to create a new reservation if you change your mind.
-                    </p>
-                  </div>
-                </div>
+            <div className="dk-stack" style={{ marginTop: 20 }}>
+              <div id="cancel-res-warning" className="dk-alert err">
+                <p style={{ fontWeight: 700 }}>
+                  Warning: This action cannot be undone
+                </p>
+                <p style={{ marginTop: 6, color: "var(--dk-n-600)" }}>
+                  Once you cancel this reservation, you will not be able to restore it.
+                  The reserved items will be returned to the available stock, and you will
+                  need to create a new reservation if you change your mind.
+                </p>
               </div>
 
-              <div className="space-y-2">
-                <p className="text-gray-400 text-sm">
+              <div>
+                <p className="dk-small dk-muted">
                   Are you sure you want to cancel this reservation?
                 </p>
-                <ul className="text-sm text-gray-300 space-y-1 pl-5 list-disc">
+                <ul className="dk-small" style={{ listStyle: "disc", paddingLeft: 20, marginTop: 8, display: "grid", gap: 4 }}>
                   <li>Your reserved items will become available again</li>
                   <li>You will receive a cancellation confirmation</li>
                   <li>This action is permanent and irreversible</li>
@@ -721,75 +649,72 @@ function ReservationsContent() {
             </div>
 
             {/* Modal Footer */}
-            <div className="p-4 sm:p-6 bg-gray-900/50 border-t border-gray-800 flex gap-3">
-              <Button
-                variant="outline"
-                className="flex-1 border-gray-700 text-gray-300 hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
-                onClick={() =>
-                  setCancelModal({
-                    isOpen: false,
-                    reservationCode: "",
-                    reservationId: "",
-                  })
-                }
+            <div className="dk-row" style={{ marginTop: 24, gap: 10 }}>
+              <button
+                type="button"
+                className="dk-btn dk-btn-outline-dark plain"
+                style={{ flex: 1 }}
+                onClick={closeCancelModal}
                 disabled={isCancelling}
               >
-                <X className="w-4 h-4 mr-2" />
                 Keep Reservation
-              </Button>
-              <Button
-                variant="outline"
-                className="flex-1 bg-red-500/10 border-red-500/30 text-red-400 hover:bg-red-500/20 hover:border-red-500/50 disabled:opacity-50 disabled:cursor-not-allowed"
+              </button>
+              <button
+                type="button"
+                className="dk-btn dk-btn-red plain"
+                style={{ flex: 1 }}
                 onClick={handleCancelReservation}
                 disabled={isCancelling}
+                aria-busy={isCancelling}
               >
                 {isCancelling ? (
                   <>
-                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                    <RefreshCw size={16} className="animate-spin" aria-hidden="true" />
                     Cancelling...
                   </>
                 ) : (
-                  <>
-                    <XCircle className="w-4 h-4 mr-2" />
-                    Yes, Cancel It
-                  </>
+                  "Yes, Cancel It"
                 )}
-              </Button>
+              </button>
             </div>
           </div>
-        </div>
+        </>
       )}
 
       {/* Toast Notification */}
       {toast.show && (
-        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-[60] animate-in slide-in-from-top-2 duration-300">
+        <div
+          role="status"
+          aria-live="polite"
+          style={{
+            position: "fixed",
+            top: 16,
+            left: "50%",
+            transform: "translateX(-50%)",
+            zIndex: 95,
+            width: "min(480px, calc(100% - 32px))",
+          }}
+        >
           <div
-            className={`flex items-center gap-3 px-4 py-3 rounded-lg shadow-2xl border backdrop-blur-md ${
-              toast.type === "success"
-                ? "bg-green-500/20 border-green-500/30 text-green-400"
-                : "bg-red-500/20 border-red-500/30 text-red-400"
-            }`}
+            className={`dk-alert ${toast.type === "success" ? "ok" : "err"} dk-row`}
+            style={{ gap: 10, alignItems: "center" }}
           >
-            {toast.type === "success" ? (
-              <CheckCircle className="w-5 h-5 shrink-0" />
-            ) : (
-              <AlertCircle className="w-5 h-5 shrink-0" />
-            )}
-            <p className="text-sm font-medium text-white">{toast.message}</p>
+            {toast.type === "success" ? <CheckIcon /> : <AlertIcon size={18} />}
+            <p style={{ flex: 1, fontWeight: 500 }}>{toast.message}</p>
             <button
+              type="button"
+              className="dk-search-clear"
+              style={{ position: "static" }}
               onClick={() =>
                 setToast({ show: false, message: "", type: "success" })
               }
-              className="ml-2 hover:opacity-70 transition-opacity"
+              aria-label="Dismiss"
             >
-              <X className="w-4 h-4" />
+              <CloseIcon size={14} />
             </button>
           </div>
         </div>
       )}
-
-      {/* Client Bottom Navigation */}
-      <ClientBottomNavbar />
     </div>
   );
 }

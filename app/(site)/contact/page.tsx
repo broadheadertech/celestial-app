@@ -1,25 +1,35 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ArrowRight, ChevronDown, Mail, MapPin, MessageCircle, Phone } from 'lucide-react';
+import { Mail, MapPin, MessageCircle, Phone } from 'lucide-react';
 import { useMutation } from 'convex/react';
 import { useQuery } from '@/components/dc/useQuery';
 import { api } from '@/convex/_generated/api';
 import { Id } from '@/convex/_generated/dataModel';
 import { useAuthStore } from '@/store/auth';
 import { useBusiness } from '@/components/dc/business';
+import NotchHero from '@/components/dc/kit/NotchHero';
+import Field from '@/components/dc/kit/Field';
+import { CheckIcon } from '@/components/dc/kit/icons';
 
 export default function ContactPage() {
   const { user } = useAuthStore();
   const createContactMessage = useMutation(api.services.contact.createContactMessage);
   const biz = useBusiness();
+  const tel = (n: string) => `tel:${n.replace(/[^\d+]/g, '')}`;
+  // WhatsApp chat when a number is set in Business Details, otherwise a plain call.
+  const mobileHref = biz.generalHref.startsWith('http') ? biz.generalHref : biz.phone ? tel(biz.phone) : undefined;
+  // Every direct line is something you can tap: call, WhatsApp, Messenger, email, map.
   const directLines: { icon: typeof Phone; label: string; value: string; href?: string }[] = [
-    { icon: Phone, label: 'Phone', value: biz.landline },
-    { icon: MessageCircle, label: 'Mobile / WhatsApp', value: biz.phone },
-    { icon: MessageCircle, label: 'Messenger', value: biz.messenger ? biz.messenger.replace('https://', '') : '', href: biz.messenger ?? undefined },
+    { icon: Phone, label: 'Phone', value: biz.landline, href: biz.landline ? tel(biz.landline) : undefined },
+    { icon: MessageCircle, label: 'Mobile / WhatsApp', value: biz.phone, href: mobileHref },
+    // The raw page link means nothing to people, so the row says what it does (same wording as the footer button).
+    { icon: MessageCircle, label: 'Messenger', value: biz.messenger ? 'Message us on Messenger' : '', href: biz.messenger ?? undefined },
     { icon: Mail, label: 'Email', value: biz.email, href: biz.email ? `mailto:${biz.email}` : undefined },
-    { icon: MapPin, label: 'Gallery', value: [biz.address, biz.city].filter(Boolean).join('\n') },
+    { icon: MapPin, label: 'Gallery', value: [biz.address, biz.city].filter(Boolean).join('\n'), href: biz.mapUrl ?? undefined },
   ].filter((l) => l.value);
+  // The hero notch carries the quickest ways to reach us (phone, mobile, email).
+  const heroFacts = directLines.filter((l) => l.label === 'Phone' || l.label === 'Mobile / WhatsApp' || l.label === 'Email');
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -27,7 +37,6 @@ export default function ContactPage() {
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
   const [submitted, setSubmitted] = useState(false);
-  const [openFaq, setOpenFaq] = useState<number | null>(null);
   // Admin → FAQs; the section is hidden when nothing is published.
   const faqs = useQuery(api.services.faqs.listPublished, {});
 
@@ -69,267 +78,179 @@ export default function ContactPage() {
     }
   };
 
-  return (
-    <main>
-      <section className="pt-15 pb-10" style={{ padding: '60px 0 40px' }}>
-        <div className="site-container">
-          <div className="placard mb-4" style={{ color: 'var(--red-hi)' }}>Contact</div>
-          <h1 className="display-xl mb-5" style={{ fontSize: 'clamp(40px, 7vw, 88px)' }}>
-            Write to <em className="italic-flourish">us.</em>
-          </h1>
-          <p
-            className="max-w-[620px]"
-            style={{
-              fontSize: 18,
-              color: 'var(--ink-2)',
-              fontVariationSettings: '"opsz" 22, "wght" 500',
-              fontFamily: '"Bricolage Grotesque", sans-serif',
-              letterSpacing: '-0.015em',
-              lineHeight: 1.45,
-            }}
-          >
-            One inbox, one phone, one address. We read every letter, and we answer within
-            twenty-four hours.
-          </p>
-        </div>
-      </section>
+  const renderValue = (value: string, href?: string) =>
+    href ? (
+      <a href={href} target={href.startsWith('http') ? '_blank' : undefined} rel="noopener">{value}</a>
+    ) : (
+      value
+    );
 
-      <section className="py-10" style={{ padding: '0 0 80px' }}>
-        <div
-          className="site-container grid gap-10 dc-split"
-          style={{ gridTemplateColumns: 'minmax(0, 1.3fr) minmax(0, 1fr)' }}
-        >
-          {/* Form */}
-          <div
-            className="p-7 rounded"
-            style={{ background: 'var(--surface)', border: '1px solid var(--line-soft)' }}
-          >
-            {submitted ? (
-              <div className="text-center py-10">
-                <div
-                  className="inline-flex items-center justify-center w-14 h-14 rounded-full mb-5"
-                  style={{
-                    background: 'var(--jade-wash)',
-                    color: 'var(--jade)',
-                    border: '1px solid var(--jade)',
-                  }}
-                >
-                  ✓
+  return (
+    <main className="dk">
+      {/* HERO */}
+      <NotchHero
+        tone="dark"
+        notchWide
+        notchHeight={110}
+        notchLabel="Direct lines"
+        notch={
+          heroFacts.length > 0 ? (
+            <div className="dk-stats">
+              {heroFacts.map(({ label, value, href }) => (
+                <div key={label}>
+                  <p className="dk-meta-label">{label}</p>
+                  <p className="dk-meta-val dk-mono">{renderValue(value, href)}</p>
                 </div>
-                <h2
-                  className="display mb-3"
-                  style={{ fontSize: 28, fontVariationSettings: '"opsz" 32, "wght" 700' }}
-                >
-                  Letter received.
-                </h2>
-                <p style={{ color: 'var(--ink-3)', fontSize: 14, maxWidth: 440, margin: '0 auto' }}>
-                  We&apos;ll reply to <strong style={{ color: 'var(--ink)' }}>{email}</strong> within a day.
+              ))}
+            </div>
+          ) : undefined
+        }
+      >
+        <p className="dk-eyebrow">Contact</p>
+        <h1 className="dk-h1">Write to us.</h1>
+        <p className="dk-lede">
+          One inbox, one phone, one address. We read every letter, and we answer within
+          twenty-four hours.
+        </p>
+      </NotchHero>
+
+      {/* FORM + DIRECT LINES */}
+      <section className="dk-section">
+        <div className="dk-wrap dk-split dk-contact-split">
+          {/* Form */}
+          <div className="dk-form-card">
+            {submitted ? (
+              <div className="dk-form-done" role="status">
+                <span className="dk-empty-icon" aria-hidden="true"><CheckIcon size={22} /></span>
+                <h2>Letter received.</h2>
+                <p>
+                  We&apos;ll reply to <strong style={{ color: 'var(--dk-black)' }}>{email}</strong> within a day.
                 </p>
               </div>
             ) : (
-              <form onSubmit={submit} className="flex flex-col gap-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label htmlFor="ct-name" className="placard mb-1.5 block">Name</label>
+              <form onSubmit={submit}>
+                <div className="dk-fgrid" style={{ marginTop: 0 }}>
+                  <Field id="ct-name" label="Name" required>
                     <input
                       id="ct-name"
                       autoComplete="name"
                       required
-                      className="input"
+                      className="dk-input"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                     />
-                  </div>
-                  <div>
-                    <label htmlFor="ct-phone" className="placard mb-1.5 block">Phone</label>
+                  </Field>
+                  <Field id="ct-email" label="Email" required>
+                    <input
+                      id="ct-email"
+                      autoComplete="email"
+                      required
+                      type="email"
+                      className="dk-input"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                    />
+                  </Field>
+                  <Field id="ct-phone" label="Phone" optional="(optional)">
                     <input
                       id="ct-phone"
                       type="tel"
                       autoComplete="tel"
-                      className="input"
+                      className="dk-input"
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
                     />
-                  </div>
-                </div>
-                <div>
-                  <label htmlFor="ct-email" className="placard mb-1.5 block">Email</label>
-                  <input
-                    id="ct-email"
-                    autoComplete="email"
-                    required
-                    type="email"
-                    className="input"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label htmlFor="ct-subject" className="placard mb-1.5 block">Subject</label>
-                  <input
-                    id="ct-subject"
-                    required
-                    className="input"
-                    value={subject}
-                    onChange={(e) => setSubject(e.target.value)}
-                    placeholder="I'd like to ask about…"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="ct-message" className="placard mb-1.5 block">Message</label>
-                  <textarea
-                    id="ct-message"
-                    required
-                    rows={6}
-                    className="input"
-                    value={message}
-                    onChange={(e) => setMessage(e.target.value)}
-                    placeholder="Tell us what you're after, what you've kept before, and how soon you'd like to visit."
-                  />
+                  </Field>
+                  <Field id="ct-subject" label="Subject" required>
+                    <input
+                      id="ct-subject"
+                      required
+                      className="dk-input"
+                      value={subject}
+                      onChange={(e) => setSubject(e.target.value)}
+                      placeholder="I'd like to ask about…"
+                    />
+                  </Field>
+                  <Field id="ct-message" label="Message" required full>
+                    <textarea
+                      id="ct-message"
+                      required
+                      rows={6}
+                      className="dk-ta"
+                      style={{ height: 'auto', minHeight: 160 }}
+                      value={message}
+                      onChange={(e) => setMessage(e.target.value)}
+                      placeholder="Tell us what you're after, what you've kept before, and how soon you'd like to visit."
+                    />
+                  </Field>
                 </div>
                 {error && (
-                  <div
-                    role="alert"
-                    className="text-[12px] px-3 py-2 rounded"
-                    style={{
-                      background: 'var(--red-wash)',
-                      border: '1px solid var(--red)',
-                      color: 'var(--red-hi)',
-                    }}
-                  >
+                  <div role="alert" className="dk-alert err" style={{ marginTop: 20 }}>
                     {error}
                   </div>
                 )}
-                <button
-                  type="submit"
-                  className="b b-primary b-lg self-start mt-2"
-                  disabled={isSubmitting}
-                >
+                <button type="submit" className="dk-btn dk-btn-red" disabled={isSubmitting} aria-busy={isSubmitting}>
                   {isSubmitting ? 'Sending…' : 'Send letter'}
-                  {!isSubmitting && <ArrowRight size={14} />}
                 </button>
               </form>
             )}
           </div>
 
           {/* Direct lines */}
-          <aside
-            className="rounded sticky top-[100px]"
-            style={{
-              background: 'linear-gradient(135deg, var(--oxblood), oklch(0 0 0) 80%)',
-              border: '1px solid var(--line)',
-              color: 'oklch(0.99 0 0)',
-              height: 'fit-content',
-            }}
-          >
-            <div className="p-7">
-              <div className="placard mb-3" style={{ color: 'oklch(0.99 0 0 / 0.55)' }}>
-                Direct lines
-              </div>
-              <h3
-                className="display mb-7"
-                style={{ fontSize: 26, fontVariationSettings: '"opsz" 32, "wght" 700' }}
-              >
-                Skip the form.
-              </h3>
+          <aside className="dk-panel dark dk-dark dk-sticky" aria-labelledby="ct-direct-title">
+            <p className="dk-eyebrow">Direct lines</p>
+            <h3 id="ct-direct-title" className="dk-h3" style={{ marginTop: 6 }}>Skip the form.</h3>
 
-              <div className="flex flex-col gap-5">
-                {directLines.map(({ icon: Icon, label, value, href }) => (
-                  <div key={label} className="flex items-start gap-3">
-                    <span
-                      className="inline-flex items-center justify-center w-9 h-9 rounded-full flex-shrink-0"
-                      style={{
-                        background: 'oklch(1 0 0 / 0.08)',
-                        color: 'oklch(0.99 0 0 / 0.7)',
-                      }}
-                    >
-                      <Icon size={14} />
+            <ul className="dk-cl-list">
+              {directLines.map(({ icon: Icon, label, value, href }) => {
+                const body = (
+                  <>
+                    <span className="dk-cl-icon" aria-hidden="true"><Icon size={16} /></span>
+                    <span className="dk-cl-text">
+                      <span className="dk-cl-label">{label}</span>
+                      <span className="dk-cl-value">{value}</span>
                     </span>
-                    <div>
-                      <div className="placard" style={{ color: 'oklch(0.99 0 0 / 0.5)' }}>
-                        {label}
-                      </div>
-                      <div
-                        className="font-mono-tabular text-[13px] mt-1 whitespace-pre-line"
-                        style={{ color: 'oklch(0.99 0 0 / 0.92)' }}
-                      >
-                        {href ? (
-                          <a href={href} target={href.startsWith('http') ? '_blank' : undefined} rel="noopener" style={{ color: 'inherit', textDecoration: 'underline', textUnderlineOffset: 3 }}>{value}</a>
-                        ) : (
-                          value
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+                  </>
+                );
+                return (
+                  <li key={label}>
+                    {href ? (
+                      <a className="dk-cl" href={href} target={href.startsWith('http') ? '_blank' : undefined} rel="noopener">{body}</a>
+                    ) : (
+                      <div className="dk-cl">{body}</div>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
           </aside>
         </div>
       </section>
 
       {/* FAQ */}
       {faqs && faqs.length > 0 && (
-      <section className="py-15" style={{ padding: '80px 0', background: 'var(--bg-2)' }}>
-        <div className="site-container max-w-[760px]">
-          <div className="placard mb-3">Frequently asked</div>
-          <h2 className="display-xl mb-10" style={{ fontSize: 'clamp(32px, 5vw, 56px)' }}>
-            The usual questions.
-          </h2>
-          <div className="flex flex-col">
-            {faqs.map((f, i) => (
-              <div
-                key={f._id}
-                style={{
-                  borderBottom: i === faqs.length - 1 ? 'none' : '1px solid var(--line-soft)',
-                }}
-              >
-                <button
-                  type="button"
-                  onClick={() => setOpenFaq(openFaq === i ? null : i)}
-                  aria-expanded={openFaq === i}
-                  aria-controls={`faq-${i}`}
-                  className="w-full flex justify-between items-center py-5 text-left"
-                >
-                  <span
-                    className="text-[16px] font-semibold"
-                    style={{
-                      fontFamily: '"Bricolage Grotesque", sans-serif',
-                      fontVariationSettings: '"opsz" 22, "wght" 600',
-                      color: 'var(--ink)',
-                    }}
-                  >
-                    {f.question}
-                  </span>
-                  <ChevronDown
-                    size={18}
-                    className="transition-transform flex-shrink-0"
-                    style={{
-                      color: 'var(--ink-3)',
-                      transform: openFaq === i ? 'rotate(180deg)' : 'rotate(0)',
-                    }}
-                  />
-                </button>
-                {openFaq === i && (
-                  <div
-                    id={`faq-${i}`}
-                    className="pb-5 pr-10 text-[15px] whitespace-pre-line"
-                    style={{
-                      color: 'var(--ink-2)',
-                      lineHeight: 1.55,
-                      fontFamily: '"Bricolage Grotesque", sans-serif',
-                      fontVariationSettings: '"opsz" 22, "wght" 400',
-                      letterSpacing: '-0.012em',
-                    }}
-                  >
+        <section className="dk-section alt" aria-labelledby="ct-faq-title">
+          {/* Same container as the form above, heading left / questions right, so the left edges line up. */}
+          <div className="dk-wrap dk-faq">
+            <div>
+              <p className="dk-eyebrow">Frequently asked</p>
+              <h2 id="ct-faq-title" className="dk-h2" style={{ marginTop: 8 }}>
+                The usual questions.
+              </h2>
+            </div>
+            <div className="dk-acc">
+              {faqs.map((f, i) => (
+                // One answer open at a time, as before (exclusive accordion via the shared `name`).
+                <details key={f._id} name="contact-faq">
+                  <summary>{f.question}</summary>
+                  <div id={`faq-${i}`} style={{ whiteSpace: 'pre-line' }}>
                     {f.answer}
                   </div>
-                )}
-              </div>
-            ))}
+                </details>
+              ))}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
       )}
     </main>
   );

@@ -40,30 +40,17 @@ export function formatJournalDate(ts: number | undefined): string {
   return new Date(ts).toLocaleDateString('en-PH', { day: 'numeric', month: 'long', year: 'numeric' });
 }
 
-const serif = "'Noto Serif Display', serif";
-
 export default function JournalBody({ body }: { body: string }) {
   const blocks = parseJournalBody(body);
   return (
-    <div style={{ fontSize: 17.5, lineHeight: 1.75, color: 'oklch(0.30 0.012 34)', overflowWrap: 'break-word' }}>
+    <div className="dk-prose" style={{ overflowWrap: 'break-word' }}>
       {blocks.map((b, i) =>
         b.type === 'h2' ? (
-          <h2
-            key={i}
-            style={{
-              fontFamily: serif,
-              fontWeight: 700,
-              fontSize: 'clamp(24px, 3.2vw, 30px)',
-              lineHeight: 1.15,
-              letterSpacing: '-0.012em',
-              color: 'oklch(0.19 0.012 32)',
-              margin: i === 0 ? '0 0 14px' : '44px 0 14px',
-            }}
-          >
+          <h2 key={i} style={i === 0 ? { marginTop: 0 } : undefined}>
             {b.text}
           </h2>
         ) : (
-          <p key={i} style={{ margin: '0 0 22px' }}>
+          <p key={i}>
             {b.lines.map((l, j) => (
               <Fragment key={j}>
                 {j > 0 && <br />}
