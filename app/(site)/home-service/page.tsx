@@ -18,6 +18,7 @@ import { formatDuration, formatPeso, quoteHomeService } from '@/convex/lib/servi
 import NotchHero from '@/components/dc/kit/NotchHero';
 import Field from '@/components/dc/kit/Field';
 import { CheckIcon } from '@/components/dc/kit/icons';
+import { StepCalendarIcon, StepHouseIcon, StepPhoneIcon, StepPlanIcon } from '@/components/dc/kit/StepIcons';
 
 const pad = (n: number) => String(n).padStart(2, '0');
 /** Today as YYYY-MM-DD in the visitor's local time (not UTC). */
@@ -28,10 +29,17 @@ const todayLocal = () => {
 const TIME_SLOTS = ['08:00', '09:00', '10:00', '11:00', '13:00', '14:00', '15:00', '16:00'];
 
 const STEPS = [
-  { t: 'You tell us the job', b: 'Pick the service, your area and a day that suits you. You see the price before you send it.' },
-  { t: 'We confirm by phone', b: 'We check the slot and confirm the final figure. Nothing is charged until the work is agreed.' },
-  { t: 'We come to you', b: 'We bring our own equipment, treated water and test kit. Your floors stay dry.' },
-  { t: 'We leave you a plan', b: 'Water readings, what we changed, and what to watch before the next visit.' },
+  { icon: <StepCalendarIcon />, t: 'You tell us the job', b: 'Pick the service, your area and a day that suits you. You see the price before you send it.' },
+  { icon: <StepPhoneIcon />, t: 'We confirm by phone', b: 'We check the slot and confirm the final figure. Nothing is charged until the work is agreed.' },
+  { icon: <StepHouseIcon />, t: 'We come to you', b: 'We bring our own equipment, treated water and test kit. Your floors stay dry.' },
+  { icon: <StepPlanIcon />, t: 'We leave you a plan', b: 'Water readings, what we changed, and what to watch before the next visit.' },
+];
+
+/** What comes with every visit — shown beside the hero copy. */
+const INCLUDED = [
+  { t: 'Price agreed before we travel', b: 'You see the figure first. Nothing is charged until the work is agreed.' },
+  { t: 'Our own equipment', b: 'Treated water, tools and a test kit. Your floors stay dry.' },
+  { t: 'A care plan when we leave', b: 'Water readings, what we changed, and what to watch next.' },
 ];
 
 export default function HomeServicePage() {
@@ -114,7 +122,7 @@ export default function HomeServicePage() {
     <div>
       <p className="dk-eyebrow">Bookings paused</p>
       <h2 className="dk-h3">Let&rsquo;s arrange it directly</h2>
-      <p className="dk-sub" style={{ fontSize: 15, lineHeight: '24px', marginTop: 8, color: 'var(--dk-n-600)' }}>
+      <p className="dk-hs-note">
         We&rsquo;re not taking online bookings at the moment, but we&rsquo;re still working. Send us a message with your tank size and where you
         are, and we&rsquo;ll come back to you with a slot and a price.
       </p>
@@ -165,6 +173,19 @@ export default function HomeServicePage() {
             </>
           )
         }
+        aside={
+          <div className="dk-hs-included">
+            <p className="dk-eyebrow">Every visit includes</p>
+            <ul>
+              {INCLUDED.map((i) => (
+                <li key={i.t}>
+                  <span className="dk-hs-check" aria-hidden="true"><CheckIcon size={14} /></span>
+                  <span><b>{i.t}</b>{i.b}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        }
       >
         <p className="dk-eyebrow">We come to you</p>
         <h1 className="dk-h1">Home service.</h1>
@@ -180,15 +201,14 @@ export default function HomeServicePage() {
         <div className="dk-wrap dk-split even">
           {/* THE MENU */}
           <div>
-            <h2 className="dk-h3" style={{ fontSize: 30 }}>What we can do</h2>
-            <p className="dk-muted" style={{ fontSize: 15, marginTop: 8, marginBottom: 24 }}>
-              {catalog?.note || 'Pick a service to see the price. Travel is added by area.'}
-            </p>
+            <p className="dk-eyebrow">Services</p>
+            <h2 className="dk-h2 dk-hs-title">What we can do</h2>
+            <p className="dk-hs-note">{catalog?.note || 'Pick a service to see the price. Travel is added by area.'}</p>
 
             {catalog === undefined ? (
               <p role="status" className="dk-small dk-muted">Loading services…</p>
             ) : (
-              <div role="radiogroup" aria-label="Service" className="dk-stack" style={{ gap: 12 }}>
+              <div role="radiogroup" aria-label="Service" className="dk-hs-menu">
                 {services.map((s) => {
                   const active = s._id === serviceId;
                   const duration = formatDuration(s.durationMinutes);
@@ -199,25 +219,19 @@ export default function HomeServicePage() {
                       role="radio"
                       aria-checked={active}
                       onClick={() => setServiceId(s._id)}
-                      className="dk-choice"
-                      style={{ textAlign: 'left', width: '100%', padding: '18px 20px' }}
+                      className="dk-hs-option"
                     >
-                      <span style={{ display: 'block', flex: 1, minWidth: 0 }}>
-                        <span className="dk-row between" style={{ alignItems: 'baseline', gap: 14 }}>
-                          <span className="dk-h4" style={{ fontFamily: 'var(--dk-f-display)', fontWeight: 800, fontSize: 18, letterSpacing: '-0.02em' }}>{s.name}</span>
-                          <span className="dk-mono" style={{ fontSize: 15, fontWeight: 700, whiteSpace: 'nowrap', color: s.price === undefined ? 'var(--dk-n-500)' : 'var(--dk-red)' }}>
+                      <span className="dk-hs-radio" aria-hidden="true" />
+                      <span className="dk-hs-body">
+                        <span className="dk-hs-head">
+                          <span className="dk-hs-name">{s.name}</span>
+                          <span className={`dk-hs-price${s.price === undefined ? ' quoted' : ''}`}>
                             {s.price === undefined ? 'Quoted' : formatPeso(s.price)}
                           </span>
                         </span>
-                        {s.description && (
-                          <span className="dk-small" style={{ display: 'block', color: 'var(--dk-n-600)', marginTop: 8, fontSize: 14, lineHeight: '22px' }}>
-                            {s.description}
-                          </span>
-                        )}
+                        {s.description && <span className="dk-hs-desc">{s.description}</span>}
                         {(duration || s.priceNote) && (
-                          <span className="dk-small dk-muted" style={{ display: 'block', marginTop: 10, fontSize: 12 }}>
-                            {[duration && `about ${duration}`, s.priceNote].filter(Boolean).join(' · ')}
-                          </span>
+                          <span className="dk-hs-meta">{[duration && `About ${duration}`, s.priceNote].filter(Boolean).join(' · ')}</span>
                         )}
                       </span>
                     </button>
@@ -325,11 +339,12 @@ export default function HomeServicePage() {
 
       {/* HOW IT WORKS — a genuine sequence, so it stays an ordered list. */}
       <section className="dk-section alt" aria-labelledby="hs-steps-title">
-        <div className="dk-steps" style={{ paddingTop: 0, paddingBottom: 0 }}>
+        <div className="dk-steps flush">
           <h2 id="hs-steps-title">How a visit works.</h2>
           <ol>
             {STEPS.map((c) => (
               <li key={c.t}>
+                <span className="dk-step-icon" aria-hidden="true">{c.icon}</span>
                 <h3>{c.t}</h3>
                 <p>{c.b}</p>
               </li>

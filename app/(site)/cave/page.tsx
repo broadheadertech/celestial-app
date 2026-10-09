@@ -20,11 +20,11 @@ import Chips from '@/components/dc/kit/Chips';
 import SpecimenCard from '@/components/dc/kit/SpecimenCard';
 import NotchHero from '@/components/dc/kit/NotchHero';
 import EmptyState from '@/components/dc/kit/EmptyState';
-import { ChatIcon, ChipIcon, ClockIcon, ImageFrameIcon, PhoneIcon } from '@/components/dc/kit/icons';
+import Placeholder from '@/components/dc/kit/Placeholder';
+import { ChatIcon, ChipIcon, ClockIcon, PhoneIcon } from '@/components/dc/kit/icons';
 
-/** The tank rack in the hero: one tank per family, showing a fish from that family when there is one. */
-const RACK_TOP = ['Exotic', 'Stingray'];
-const RACK_MID = ['Cichlid', 'Oddball', 'Predator'];
+/** Families shown as photo tiles in the hero — the biggest ones that have a photo. */
+const MOSAIC_SIZE = 4;
 
 export default function CavePage() {
   const products = useQuery(api.services.products.getCatalogProducts, {}) as DcProduct[] | undefined;
@@ -55,8 +55,28 @@ export default function CavePage() {
     [cave, family, grade, query, sort],
   );
   const loading = products === undefined;
-  const tankImage = (fam: string) => cave.find((p) => p.image && familyOf(kindName(p)) === fam)?.image;
-  const wideImage = cave.find((p) => p.image && !RACK_TOP.includes(familyOf(kindName(p))) && !RACK_MID.includes(familyOf(kindName(p))))?.image;
+  const familyCount = familyChips.length - 1;
+
+  /** Hero tiles: one per family (largest first), each with a representative photo and how many are in. */
+  const mosaic = useMemo(() => {
+    const byFamily = new Map<string, { family: string; count: number; image?: string }>();
+    for (const p of cave) {
+      const fam = familyOf(kindName(p));
+      const entry = byFamily.get(fam) ?? { family: fam, count: 0 };
+      entry.count += 1;
+      if (!entry.image && p.image) entry.image = p.image;
+      byFamily.set(fam, entry);
+    }
+    return [...byFamily.values()].filter((e) => e.image).sort((a, b) => b.count - a.count).slice(0, MOSAIC_SIZE);
+  }, [cave]);
+
+  /** A hero tile filters the grid to its family and brings the grid into view. */
+  const showFamily = (fam: string) => {
+    setFamily(fam);
+    setGrade('all');
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    document.getElementById('cave-grid')?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+  };
 
   return (
     <div className="dk dk-cave">
@@ -71,19 +91,16 @@ export default function CavePage() {
           </a>
         }
         aside={
-          <div className="dk-rack" aria-label="Tanks in the cave">
-            <div className="dk-shelf dk-shelf-2">
-              {RACK_TOP.map((f) => <Tank key={f} family={f} src={tankImage(f)} />)}
-            </div>
-            <div className="dk-shelf dk-shelf-3">
-              {RACK_MID.map((f) => <Tank key={f} family={f} src={tankImage(f)} />)}
-            </div>
-            <div className="dk-shelf">
-              <div className="dk-tank-slot">
-                <TankBox src={wideImage} wide />
-                <span className="dk-cave-count"><b>{loading ? '—' : cave.length}</b> In the cave</span>
-              </div>
-            </div>
+          <div className="dk-cave-mosaic" aria-label="Browse by family">
+            {mosaic.length > 0
+              ? mosaic.map((m) => (
+                  <button key={m.family} type="button" className="dk-cave-tile" onClick={() => showFamily(m.family)} aria-label={`Show ${m.family} (${m.count})`}>
+                    {/* eslint-disable-next-line @next/next/no-img-element -- product photos are remote Convex storage URLs */}
+                    <img src={m.image} alt="" loading="lazy" decoding="async" draggable={false} />
+                    <span className="dk-cave-tile-label" aria-hidden="true">{m.family}<span>{m.count}</span></span>
+                  </button>
+                ))
+              : Array.from({ length: MOSAIC_SIZE }, (_, i) => <Placeholder key={i} className="dk-cave-tile" />)}
           </div>
         }
       >
@@ -91,7 +108,12 @@ export default function CavePage() {
           <p className="dk-eyebrow">The cave · Beyond the dragons</p>
           <h1>The wider<br />water.</h1>
           <p className="dk-lede">Beyond the dragons, the rest of the water monster-tank centrepieces, ancient oddballs, and quiet exotics. Each grown on in our own systems and released only when it is ready to keep.</p>
-          <span className="dk-scroll-hint" aria-hidden="true">Scroll</span>
+          <div className="dk-stats dk-cave-stats">
+            <div className="dk-stat"><b>{loading ? '—' : cave.length}</b><span>In the cave now</span></div>
+            <div className="dk-stat"><b>{loading ? '—' : familyCount}</b><span>Families</span></div>
+            <div className="dk-stat"><b>21</b><span>Days in quarantine</span></div>
+          </div>
+          <a className="dk-btn dk-btn-outline-dark dk-cave-browse" href="#cave-grid">Browse the cave</a>
         </div>
       </NotchHero>
 
@@ -111,7 +133,7 @@ export default function CavePage() {
       </section>
 
       {/* TOOLBAR */}
-      <section className="dk-toolbar">
+      <section className="dk-toolbar" id="cave-grid">
         <div className="dk-wrap">
           <CatalogSearchBar query={query} onQuery={setQuery} sort={sort} onSort={setSort} placeholder="Search by name, family, grade…" searchLabel="Search the cave" />
           <div className="dk-tb-row dk-tb-row-2">
@@ -171,24 +193,3 @@ export default function CavePage() {
   );
 }
 
-function TankBox({ src, wide = false }: { src?: string; wide?: boolean }) {
-  return (
-    <div className={`dk-tank${wide ? ' dk-tank-wide' : ''}${src ? ' has-img' : ''}`}>
-      {src ? (
-        // eslint-disable-next-line @next/next/no-img-element -- product photos are remote Convex storage URLs
-        <img src={src} alt="" loading="lazy" decoding="async" draggable={false} />
-      ) : (
-        <><ImageFrameIcon /><span>Image placeholder</span></>
-      )}
-    </div>
-  );
-}
-
-function Tank({ family, src }: { family: string; src?: string }) {
-  return (
-    <div className="dk-tank-slot">
-      <TankBox src={src} />
-      <span className="dk-tank-tag">{family}</span>
-    </div>
-  );
-}

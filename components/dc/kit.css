@@ -1,17 +1,17 @@
-/* ─────────────────────────────────────────────────────────────────────────────
-   Dragon's Cave — storefront kit
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+   Dragon's Cave â€” storefront kit
    Source: design-reference/dragoncave-site.html, tightened to the strict brand rules:
-   • Palette: black, red #E10600, red-on-dark #FF453A, white, grays F5/E5/D4/A3/73/52/26 only
+   â€¢ Palette: black, red #E10600, red-on-dark #FF453A, white, grays F5/E5/D4/A3/73/52/26 only
      (plus #FBD2CF for the empty-state icon circle, #1F1F1F/#333 for dark borders/placeholders).
-   • Headings: Plus Jakarta Sans 800, tight tracking. Body: Geist.
-   • No drop shadows (a subtle hover lift is the only exception), no gradients except the red glow
-     on hero / banner blocks. Cards 10–16px radius, hero/notch shapes up to 40px.
-   • Image areas without a photo are dashed "Image placeholder" boxes (components/dc/kit/Placeholder).
+   â€¢ Headings: Plus Jakarta Sans 800, tight tracking. Body: Geist.
+   â€¢ No drop shadows (a subtle hover lift is the only exception), no gradients except the red glow
+     on hero / banner blocks. Cards 10â€“16px radius, hero/notch shapes up to 40px.
+   â€¢ Image areas without a photo are dashed "Image placeholder" boxes (components/dc/kit/Placeholder).
    Tokens are namespaced --dk-* because app/globals.css already uses --ink, --red and --white with
    different (theme-dependent) meanings for the admin. Every rule is scoped under `.dk` so nothing
    leaks into admin / Tailwind screens and so these rules out-rank the .theme-compat / .dc-scope layers.
    Imported by app/(site)/layout.tsx, app/auth/layout.tsx and app/client/layout.tsx.
-   ───────────────────────────────────────────────────────────────────────────── */
+   â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 :root {
   --dk-black: #000;
@@ -32,7 +32,7 @@
   --dk-line-dark-2: #1f1f1f;
   --dk-ph-dark: #333;
 
-  /* Red glow — hero / banner blocks only */
+  /* Red glow â€” hero / banner blocks only */
   --dk-glow: radial-gradient(60% 70% at 85% 15%, rgba(225,6,0,.55) 0%, rgba(225,6,0,0) 70%),
              radial-gradient(50% 60% at 0% 100%, rgba(225,6,0,.22) 0%, rgba(225,6,0,0) 70%);
   /* Big hero cards (design reference): the red gradient + film grain. Exempt from the flat-palette rule by request. */
@@ -49,19 +49,33 @@
   --dk-f-display: "Plus Jakarta Sans", system-ui, sans-serif;
   --dk-f-body: "Geist", "Plus Jakarta Sans", system-ui, sans-serif;
 
-  --dk-r-hero: 40px;
-  --dk-r-card: 16px;
+  /* â”€â”€ Page frame & spacing system: the one place layout sizes are defined. â”€â”€
+     Every storefront page (hero, sections, header, footer, auth, member app) reads these; pages never set
+     their own wrapper widths. Namespaced --dk-* because Tailwind (admin) already owns --radius-lg/--radius-md. */
+  --dk-frame: clamp(8px, 1.2vw, 20px);        /* thin frame around hero cards / footer */
+  --dk-gutter: clamp(18px, 3vw, 56px);        /* inner side padding */
+  --dk-section-y: clamp(40px, 6vw, 96px);     /* vertical space of a section */
+  --dk-gap: clamp(12px, 1.6vw, 24px);         /* grid / card gaps */
+  --dk-radius-lg: clamp(24px, 3vw, 40px);     /* hero and big cards */
+  --dk-radius-md: clamp(16px, 1.6vw, 24px);   /* cards */
+  --dk-card-pad: clamp(16px, 1.6vw, 24px);    /* card padding */
+  --dk-content-max: 1680px;                   /* cap for inner content on ultrawide */
+  --dk-nav-h: clamp(64px, 6vw, 84px);
+  --dk-hero-min: clamp(320px, 46svh, 560px);  /* inner-page hero */
+
+  --dk-r-hero: var(--dk-radius-lg);
+  --dk-r-card: var(--dk-radius-md);
   --dk-r-sm: 10px;
   --dk-r-pill: 999px;
-  --dk-gutter: 64px;
-  --dk-maxw: 1312px;
+  --dk-maxw: var(--dk-content-max);
   --dk-ring: 0 0 0 3px rgba(225,6,0,.1);
   --dk-lift: 0 10px 24px rgba(0,0,0,.08);
 
   --dk-ease: cubic-bezier(.2, .7, .2, 1);
 }
-@media (max-width: 1100px) { :root { --dk-gutter: 40px; } }
-@media (max-width: 600px) { :root { --dk-gutter: 20px; } }
+@media (max-width: 768px) {
+  :root { --dk-frame: 8px; --dk-gutter: 18px; --dk-section-y: 40px; --dk-hero-min: 44svh; }
+}
 
 /* =========================================================
    1. BASE + TYPE
@@ -82,15 +96,20 @@
 
 .dk .dk-wrap { width: 100%; max-width: calc(var(--dk-maxw) + var(--dk-gutter) * 2); margin: 0 auto; padding: 0 var(--dk-gutter); }
 .dk .dk-wrap.narrow { max-width: calc(880px + var(--dk-gutter) * 2); }
-/* Small eyebrow tag — the only place all-caps is allowed (when the copy itself is caps). */
+/* Single forms (sign-in prompts, Visit / Login / Register cards) never run wider than 560px. */
+.dk .dk-wrap.form { max-width: calc(560px + var(--dk-gutter) * 2); }
+/* Small eyebrow tag â€” the only place all-caps is allowed (when the copy itself is caps). */
 .dk .dk-eyebrow { font-size: 13px; font-weight: 500; color: var(--dk-red); letter-spacing: .01em; }
 .dk :is(.dk-dark, .dk-on-dark) .dk-eyebrow { color: var(--dk-red-bright); }
-.dk .dk-display { font-size: clamp(52px, 7.4vw, 104px); line-height: .95; letter-spacing: -0.04em; }
-.dk .dk-h1 { font-size: clamp(40px, 5.4vw, 72px); line-height: 1.02; letter-spacing: -0.035em; }
-.dk .dk-h2 { font-size: clamp(32px, 4.4vw, 52px); line-height: 1.12; letter-spacing: -0.03em; }
+/* Page titles share one scale (the landing headline keeps its own); section titles share another. */
+.dk .dk-display, .dk .dk-h1, .dk :is(.dk-cave-copy, .dk-shop-copy, .dk-visit-hero, .dk-auth-title) h1 { font-size: clamp(40px, 6vw, 96px); }
+.dk .dk-display { line-height: .95; letter-spacing: -0.04em; }
+.dk .dk-h1 { line-height: 1.02; letter-spacing: -0.035em; }
+.dk .dk-h2, .dk .dk-steps h2 { font-size: clamp(28px, 3.2vw, 48px); line-height: 1.12; letter-spacing: -0.03em; }
 .dk .dk-h3 { font-size: 22px; line-height: 1.27; }
 .dk .dk-h4 { font-size: 17px; line-height: 1.3; }
-.dk .dk-lede { font-size: 17px; line-height: 28px; color: var(--dk-n-600); }
+.dk .dk-lede { font-size: 17px; line-height: 28px; color: var(--dk-n-600); max-width: 70ch; }
+.dk .dk-prose { max-width: 70ch; }
 .dk :is(.dk-dark, .dk-on-dark) .dk-lede { color: var(--dk-n-400); }
 .dk .dk-muted { color: var(--dk-n-500); }
 .dk .dk-small { font-size: 13px; line-height: 20px; }
@@ -117,12 +136,12 @@
 .dk .dk-ph > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .dk .dk-ph.contain > img { object-fit: contain; padding: 8%; }
 
-/* ── Buttons: the "Arrow chip" system ─────────────────────────────────────────
+/* â”€â”€ Buttons: the "Arrow chip" system â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
    A pill with the label on the left and a round chip on the right holding an arrow.
    The chip (::after) and arrow (::before) are pseudo-elements, so they're decorative by construction
    (never read out) and every `.dk-btn` gets them without extra markup.
    Colours come from the SURFACE the button sits on (custom properties below; the nearest surface wins):
-     light → black pill + red chip · black → red pill + white chip · red gradient → white pill + black chip.
+     light â†’ black pill + red chip Â· black â†’ red pill + white chip Â· red gradient â†’ white pill + black chip.
    Variants: primary = .dk-btn-red (.dk-btn-black / .dk-btn-deep are aliases), secondary = .dk-btn-outline-dark /
    .dk-btn-outline-light (both follow the surface), tertiary link = .dk-link-arrow, compact = .sm.
    NOT converted (kept as small utility buttons): .xs, .plain, .dk-pc-btn ("+ Add"), .dk-btn-text. */
@@ -168,7 +187,7 @@
   box-shadow: var(--_ringsh, 0 0 #0000), var(--_lift, 0 0 #0000), var(--_focus, 0 0 #0000);
   transition: transform .25s, background-color .2s, color .2s, box-shadow .25s;
 }
-/* Leading icon (WhatsApp, chat, …) sits a little closer to the label than the chip gap. */
+/* Leading icon (WhatsApp, chat, â€¦) sits a little closer to the label than the chip gap. */
 .dk .dk-btn > svg:first-child:not(:only-child) { flex: none; margin-right: calc(10px - var(--_gap)); }
 .dk .dk-btn.sm, .dk :is(.dk-hd-cta, .dk-nav-cta, .dk-notch .dk-btn, .dk-nhero-notch .dk-btn, .dk-f-btns .dk-btn) {
   --_h: 46px; --_chip: 34px; --_inset: 6px; --_gap: 14px; --_pl: 20px;
@@ -281,15 +300,21 @@
 .dk button.dk-pill { min-width: 84px; }
 .dk button.dk-pill:hover:not(:disabled) { background: var(--dk-red); }
 
-/* ── Notched hero (components/dc/kit/NotchHero.tsx) ── */
-.dk .dk-nhero { padding: 32px var(--dk-gutter) 0; }
+/* â”€â”€ Notched hero (components/dc/kit/NotchHero.tsx) â”€â”€ */
+/* Inner-page hero: full width inside the frame, tall enough that the next section starts within the first
+   screen. The copy is centred in whatever height is left above the notch. On short screens the min-height
+   gives way (min()) so the hero never pushes its own button below the fold. */
+.dk .dk-nhero { padding: var(--dk-frame) var(--dk-frame) 0; }
 .dk .dk-nhero.flush { padding: 0; }
 .dk .dk-empty-state h1 { font-size: clamp(28px, 3.4vw, 40px); letter-spacing: -0.03em; }
 .dk .dk-nhero-card {
-  position: relative; isolation: isolate; overflow: hidden;
-  max-width: calc(var(--dk-maxw) + 32px); margin: 0 auto; border-radius: var(--dk-r-hero);
-  padding: 72px 64px calc(var(--notch-h, 132px) + 48px);
+  position: relative; isolation: isolate; overflow: hidden; border-radius: var(--dk-radius-lg);
+  display: flex; flex-direction: column; justify-content: center;
+  min-height: min(var(--dk-hero-min), calc(100svh - var(--dk-nav-h) - 2 * var(--dk-frame)));
+  padding: clamp(32px, 5vw, 72px) var(--dk-gutter) calc(var(--notch-h, 132px) + clamp(28px, 3.4vw, 48px));
 }
+.dk .dk-nhero-card > .dk-nhero-grid { width: 100%; max-width: var(--dk-content-max); margin: auto; }
+.dk .dk-nhero.flush .dk-nhero-card { min-height: 0; }
 .dk .dk-nhero-card.dark { background: var(--dk-hero-red); color: var(--dk-white); }
 .dk :is(.dk-nhero-card.dark, .dk-hero-card, .dk-auth-panel)::after {
   content: ""; position: absolute; inset: 0; z-index: -1; opacity: .18; mix-blend-mode: overlay; pointer-events: none; background-image: var(--dk-grain);
@@ -302,7 +327,7 @@
 .dk .dk-nhero-card.dark .dk-nhero-copy :is(.dk-link, .dk-meta-val a) { color: var(--dk-white); text-decoration: underline; text-underline-offset: 3px; }
 .dk .dk-nhero-card.light { background: var(--dk-glow-soft), var(--dk-n-100); color: var(--dk-black); }
 .dk .dk-nhero-card.white { background: var(--dk-glow-soft), var(--dk-white); color: var(--dk-black); border: 1px solid var(--dk-line); }
-.dk .dk-nhero-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 520px); gap: 56px; align-items: center; }
+.dk .dk-nhero-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, clamp(440px, 38%, 720px)); gap: calc(var(--dk-gap) * 2.4); align-items: center; }
 .dk .dk-nhero-grid.single { grid-template-columns: minmax(0, 760px); }
 .dk .dk-nhero-copy .dk-eyebrow + :is(h1, .dk-display, .dk-h1) { margin-top: 14px; }
 .dk .dk-nhero-copy .dk-lede { margin-top: 24px; max-width: 520px; }
@@ -344,8 +369,8 @@
 .dk .dk-status.pale { background: var(--dk-red-pale); border-color: var(--dk-red-pale); color: var(--dk-red); }
 
 /* Specimen card (home / cave) */
-.dk .dk-cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 24px; align-items: start; }
-.dk .dk-card-img { position: relative; display: block; height: 260px; border-radius: var(--dk-r-card); overflow: hidden; }
+.dk .dk-cards { align-items: start; }
+.dk .dk-card-img { position: relative; display: block; aspect-ratio: 4 / 3; border-radius: var(--dk-r-card); overflow: hidden; }
 .dk .dk-card-img .dk-ph { height: 100%; border-radius: var(--dk-r-card); transition: transform .5s var(--dk-ease); }
 .dk .dk-card:hover .dk-card-img .dk-ph.has-img { transform: scale(1.03); }
 .dk .dk-price-tag {
@@ -386,7 +411,7 @@
 .dk .dk-select:focus { outline: none; border-color: var(--dk-red); box-shadow: var(--dk-ring); }
 
 /* Shared toolbar (Cave / Shop / Catalog) */
-.dk .dk-toolbar { padding-top: 48px; }
+.dk .dk-toolbar { padding-top: calc(var(--dk-section-y) * .5); }
 .dk .dk-tb-row { display: flex; align-items: center; gap: 24px; }
 .dk .dk-tb-row .dk-select { width: 240px; }
 .dk .dk-tb-label { font-size: 12px; color: var(--dk-n-500); white-space: nowrap; }
@@ -398,7 +423,7 @@
 .dk .dk-scroll-hint { display: inline-flex; align-items: center; gap: 12px; font-size: 12px; color: var(--dk-n-500); margin-top: 40px; }
 .dk .dk-scroll-hint::after { content: ""; width: 40px; height: 1px; background: currentColor; }
 
-/* ── Forms ── */
+/* â”€â”€ Forms â”€â”€ */
 .dk .dk-fgrid { display: grid; grid-template-columns: 1fr 1fr; column-gap: 24px; row-gap: 18px; }
 .dk .dk-field { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .dk .dk-field.full, .dk .dk-fgrid > .full { grid-column: 1 / -1; }
@@ -432,19 +457,26 @@
 .dk .dk-check input:checked::after { opacity: 1; }
 .dk .dk-check input:focus-visible { outline: 2px solid var(--dk-red); outline-offset: 2px; }
 
-/* ── Layout blocks for content pages ── */
-.dk .dk-section { padding: 80px 0; }
-.dk .dk-section.tight { padding: 48px 0; }
+/* â”€â”€ Layout blocks for content pages â”€â”€ */
+.dk .dk-section { padding: var(--dk-section-y) 0; }
+.dk .dk-section.tight { padding: calc(var(--dk-section-y) * .6) 0; }
 .dk .dk-section.alt { background: var(--dk-n-100); }
 .dk .dk-section.dark, .dk .dk-dark { background: var(--dk-black); color: var(--dk-white); }
 .dk .dk-sec-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-bottom: 36px; }
 .dk .dk-sec-head .dk-eyebrow + * { margin-top: 8px; }
-.dk .dk-split { display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: 32px; align-items: start; }
+.dk .dk-split { display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: calc(var(--dk-gap) * 1.4); align-items: start; }
 .dk .dk-split.even { grid-template-columns: 1fr 1fr; }
 .dk .dk-sticky { position: sticky; top: 112px; }
-.dk .dk-grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
-.dk .dk-grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; }
-.dk .dk-grid-4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 24px; }
+.dk .dk-grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--dk-gap); }
+/* Card grids â€” one rule for every page: auto-fill, â‰¥260px cards, at most 4 across, 1 on phones.
+   Small product tiles (Shop) keep 2 across on phones as long as each stays â‰¥150px. */
+.dk :is(.dk-grid-3, .dk-grid-4, .dk-cards, .dk-sold-grid, .dk-tm-grid, .dk-products) {
+  display: grid; gap: var(--dk-gap);
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, max(260px, (100% - 3 * var(--dk-gap)) / 4)), 1fr));
+}
+@media (max-width: 600px) {
+  .dk .dk-products { grid-template-columns: repeat(auto-fill, minmax(max(150px, (100% - var(--dk-gap)) / 2), 1fr)); }
+}
 .dk .dk-stack { display: grid; gap: 16px; }
 .dk .dk-stack.lg { gap: 24px; }
 .dk .dk-row { display: flex; align-items: center; gap: 12px; }
@@ -454,7 +486,7 @@
 .dk :is(.dk-dark, .dk-on-dark) .dk-divider { border-top-color: var(--dk-line-dark); }
 
 /* Panel / card: white, 1px #E5E5E5, 16px radius, no shadow. */
-.dk .dk-panel { background: var(--dk-white); border: 1px solid var(--dk-line); border-radius: var(--dk-r-card); padding: 28px; }
+.dk .dk-panel { background: var(--dk-white); border: 1px solid var(--dk-line); border-radius: var(--dk-r-card); padding: var(--dk-card-pad); }
 .dk .dk-panel.flush { padding: 0; overflow: hidden; }
 .dk .dk-panel.muted { background: var(--dk-n-100); }
 .dk .dk-panel.dark { background: var(--dk-black); color: var(--dk-white); border-color: var(--dk-line-dark); }
@@ -489,7 +521,7 @@
 .dk .dk-empty-state h3 { font-size: 22px; }
 .dk .dk-empty-state p { color: var(--dk-n-500); font-size: 15px; line-height: 24px; max-width: 420px; margin-top: 8px; }
 .dk .dk-empty-state .dk-actions { justify-content: center; margin-top: 24px; }
-.dk .dk-empty { text-align: center; padding: 80px 0; color: var(--dk-n-500); font-size: 15px; }
+.dk .dk-empty { text-align: center; padding: var(--dk-section-y) 0; color: var(--dk-n-500); font-size: 15px; }
 
 /* Contact: direct lines as tappable rows (call / WhatsApp / Messenger / email / map). */
 .dk .dk-cl-list { display: grid; gap: 4px; margin-top: 22px; }
@@ -609,18 +641,19 @@
 .dk .dk-avatar { width: 30px; height: 30px; border-radius: 50%; background: var(--dk-red); color: var(--dk-white); font-weight: 700; font-size: 12px; display: grid; place-items: center; flex: none; }
 
 /* =========================================================
-   3. SITE HEADER (light / dark / mist→grey) + home hero nav
+   3. SITE HEADER (light / dark / mistâ†’grey) + home hero nav
    ========================================================= */
 .dk-header {
   --hd-bg: rgba(255,255,255,.94); --hd-fg: var(--dk-black); --hd-muted: var(--dk-n-500); --hd-line: var(--dk-line);
-  position: sticky; top: 0; z-index: 60; height: 88px;
+  position: sticky; top: 0; z-index: 60; height: var(--dk-nav-h);
   background: var(--hd-bg); color: var(--hd-fg); border-bottom: 1px solid var(--hd-line);
   backdrop-filter: saturate(1.4) blur(12px); -webkit-backdrop-filter: saturate(1.4) blur(12px);
 }
 .dk-header[data-theme="dark"] { --hd-bg: rgba(0,0,0,.94); --hd-fg: var(--dk-white); --hd-muted: var(--dk-n-400); --hd-line: var(--dk-line-dark); }
 .dk-header[data-theme="mist"] { --hd-bg: rgba(245,245,245,.94); --hd-line: var(--dk-line); }
 .dk .dk-hd-bar {
-  position: relative; max-width: 1440px; height: 100%; margin: 0 auto; padding: 0 64px 0 59px;
+  /* Lines up with the hero copy and section content, which are capped at --dk-content-max on ultrawide. */
+  position: relative; height: 100%; padding: 0 max(calc(var(--dk-frame) + var(--dk-gutter)), calc((100% - var(--dk-content-max)) / 2));
   display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 24px;
 }
 .dk .dk-hd-links { display: flex; gap: 28px; }
@@ -666,7 +699,7 @@
 
 /* Mobile menu panel (header + home hero) */
 .dk .dk-mnav {
-  position: absolute; top: calc(100% + 8px); left: 16px; right: 16px; z-index: 65;
+  position: absolute; top: calc(100% + 8px); left: var(--dk-frame); right: var(--dk-frame); z-index: 65;
   display: flex; flex-direction: column; align-items: stretch; padding: 14px 22px;
   background: var(--dk-black); border: 1px solid var(--dk-line-dark); border-radius: 20px; color: var(--dk-n-300);
 }
@@ -681,13 +714,22 @@
    4. HOME
    ========================================================= */
 .dk.dk-home { background: var(--dk-black); color: var(--dk-white); }
-.dk .dk-hero { padding: 48px 48px 0; }
+/* Full-screen hero: the card fills the first screen inside a thin black frame. Everything inside is placed
+   relative to the card (%, clamp) so it scales from 1025px laptops to 2560px ultrawides.
+   â‰¤1024px switches to a stacked column â€” see "Landing hero on phones and tablets" near the end. */
+.dk .dk-hero { --hero-frame: var(--dk-frame); --hero-pad: var(--dk-gutter); padding: var(--hero-frame); }
 .dk .dk-hero-card {
+  --notch-w: clamp(420px, 36%, 560px);
+  --seal-size: clamp(108px, 7vw, 132px);
+  --seal-right: clamp(32px, 4vw, 72px);
   position: relative; isolation: isolate; overflow: hidden;
-  max-width: 1344px; min-height: 864px; margin: 0 auto; border-radius: 32px;
+  /* Floor gives way on short laptops (<700px tall) so the notch button stays on the first screen. */
+  min-height: clamp(520px, calc(100vh - 2 * var(--hero-frame)), 1100px);
+  min-height: clamp(520px, calc(100svh - 2 * var(--hero-frame)), 1100px);
+  border-radius: var(--dk-radius-lg);
   background: var(--dk-hero-red);
 }
-.dk .dk-nav { position: relative; z-index: 5; display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 40px 40px 0 47px; }
+.dk .dk-nav { position: relative; z-index: 5; display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: clamp(22px, 2.4vw, 36px) var(--hero-pad) 0; }
 .dk .dk-nav .dk-brand-sub { color: rgba(255,255,255,.7); opacity: 1; }
 .dk .dk-nav-links { display: flex; align-items: center; gap: 22px; margin: 0 auto; padding-left: 180px; }
 .dk .dk-nav-links a, .dk .dk-nav-signin { font-size: 17px; color: rgba(255,255,255,.88); position: relative; white-space: nowrap; transition: color .2s; }
@@ -708,14 +750,20 @@
 .dk .dk-nav-cta { width: auto; }
 .dk .dk-nav .dk-menu-toggle { display: none; }
 
-.dk .dk-hero-fish { position: absolute; z-index: 1; right: 35px; top: 299px; width: 480px; height: 232px; pointer-events: none; }
-.dk .dk-hero-fish .dk-ph { height: 100%; border-radius: 18px; background: rgba(255,255,255,.14); border: 1px dashed rgba(255,255,255,.5); color: rgba(255,255,255,.85); box-shadow: 0 10px 10px rgba(0,0,0,.3); }
+/* Featured fish: ~25% of the card width, sitting just above the notch and reaching a little past its left edge,
+   so it reads as the photo of the specimen named in the notch. The notch is at least 36% tall (or its content,
+   ~290px), so the fish clears it on every height. */
+.dk .dk-hero-fish {
+  position: absolute; z-index: 1; bottom: calc(max(36%, 290px) + 12px); right: calc(var(--notch-w) * .45);
+  width: clamp(280px, 25%, 600px); aspect-ratio: 480 / 232; pointer-events: none;
+}
+.dk .dk-hero-fish .dk-ph { position: absolute; inset: 0; height: auto; border-radius: 18px; background: rgba(255,255,255,.14); border: 1px dashed rgba(255,255,255,.5); color: rgba(255,255,255,.85); box-shadow: 0 10px 10px rgba(0,0,0,.3); }
 .dk .dk-hero-fish .dk-ph > svg { color: rgba(255,255,255,.7); }
 /* With the photo in place the box disappears and the fish floats on the gradient. */
 .dk .dk-hero-fish .dk-ph.has-img { background: transparent; border: 0; box-shadow: none; overflow: visible; }
 .dk .dk-hero-fish .dk-ph.has-img > img { padding: 0; filter: drop-shadow(0 10px 10px rgba(0,0,0,.3)); }
 /* Living aquarium (components/dc/Aquarium.tsx): decorative layers under all hero content.
-   Back to front inside the layer: haze → far fish (1) → mid fish (2) → bubbles (3) → near fish (4) → headline scrim (5).
+   Back to front inside the layer: haze â†’ far fish (1) â†’ mid fish (2) â†’ bubbles (3) â†’ near fish (4) â†’ headline scrim (5).
    The whole layer is z-index 0, so the nav (5), copy (2), placeholder (1) and the black notch (2) always sit above it. */
 .dk .dk-aq { position: absolute; inset: 0; z-index: 0; overflow: hidden; border-radius: inherit; pointer-events: none; opacity: 0; transition: opacity 600ms ease; }
 .dk .dk-aq.ready { opacity: 1; }
@@ -737,25 +785,42 @@
 .dk .dk-aq.static .dk-aq-bubbles { display: none; }
 /* Keeps the headline area as readable as before, whatever swims behind it. */
 .dk .dk-aq-scrim { position: absolute; inset: 0; z-index: 5; background: radial-gradient(48% 40% at 22% 66%, rgba(20,2,3,.30) 0%, rgba(20,2,3,0) 72%); }
-@media (max-width: 860px) { .dk .dk-aq-scrim { background: radial-gradient(90% 30% at 30% 52%, rgba(20,2,3,.30) 0%, rgba(20,2,3,0) 72%); } }
-.dk .dk-hero-copy { position: absolute; z-index: 2; left: 34px; top: 447px; max-width: 580px; }
-/* Rotating "Featured this fortnight" seal (replaces the old pill badge). */
-.dk .dk-seal {
-  position: absolute; z-index: 3; right: 64px; top: 150px; width: 104px; height: 104px; border-radius: 50%;
-  background: rgba(0,0,0,.28); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
-  display: grid; place-items: center; pointer-events: none;
+@media (max-width: 1024px) { .dk .dk-aq-scrim { background: radial-gradient(90% 30% at 30% 52%, rgba(20,2,3,.30) 0%, rgba(20,2,3,0) 72%); } }
+/* Headline + intro anchored bottom-left, never reaching under the notch. */
+.dk .dk-hero-copy {
+  position: absolute; z-index: 2; left: var(--hero-pad); bottom: clamp(32px, 5vh, 64px);
+  max-width: calc(100% - var(--hero-pad) - var(--notch-w) - 24px);
 }
-.dk .dk-seal-ring { position: absolute; inset: 0; width: 100%; height: 100%; transform-origin: 50% 50%; animation: dkSealSpin 22s linear infinite; }
-.dk .dk-seal-ring text { fill: #fff; font-family: var(--dk-f-body); font-weight: 700; font-size: 10px; text-transform: uppercase; }
-.dk .dk-seal-core { position: relative; width: 38px; height: 38px; border-radius: 50%; background: #000; display: grid; place-items: center; }
-.dk .dk-seal-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--dk-red-bright); animation: dkSealPulse 2s ease-out infinite; }
+/* "Featured this fortnight" seal: solid black stamp, static centre label, slowly turning rim text, red hairline.
+   Solid black (not glass) so it stays legible on every part of the red gradient and over the swimming fish. */
+.dk .dk-seal {
+  position: absolute; z-index: 3; right: var(--seal-right); top: clamp(110px, 12vh, 170px);
+  display: block; width: var(--seal-size); height: var(--seal-size); border-radius: 50%;
+  transition: transform .35s var(--dk-ease);
+}
+.dk .dk-seal svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.dk a.dk-seal:hover { transform: scale(1.05) rotate(-4deg); }
+.dk a.dk-seal:focus-visible { outline: 2px solid var(--dk-white); outline-offset: 4px; border-radius: 50%; }
+.dk .dk-seal-disc { fill: var(--dk-black); }
+.dk .dk-seal-rim { fill: none; stroke: var(--dk-red-bright); stroke-width: 1.2; }
+.dk .dk-seal-inner { fill: none; stroke: rgba(255,255,255,.16); stroke-width: 1; }
+.dk .dk-seal-spin { transform-box: view-box; transform-origin: 50% 50%; animation: dkSealSpin 30s linear infinite; }
+.dk a.dk-seal:hover .dk-seal-spin { animation-duration: 8s; }
+.dk .dk-seal-ring-text { fill: var(--dk-n-300); font-family: var(--dk-f-body); font-weight: 600; font-size: 8.4px; text-transform: uppercase; letter-spacing: .08em; }
+.dk .dk-seal-title { fill: var(--dk-white); font-family: var(--dk-f-display); font-weight: 800; font-size: 15px; letter-spacing: -0.02em; }
+.dk .dk-seal-sub { fill: var(--dk-n-400); font-family: var(--dk-f-body); font-weight: 500; font-size: 9px; }
+.dk .dk-seal-dot { fill: var(--dk-red-bright); transform-box: fill-box; transform-origin: center; animation: dkSealPulse 2s ease-in-out infinite; }
 @keyframes dkSealSpin { to { transform: rotate(360deg); } }
-@keyframes dkSealPulse { 0% { box-shadow: 0 0 0 0 rgba(255,69,58,.6); } 100% { box-shadow: 0 0 0 9px rgba(255,69,58,0); } }
-.dk .dk-hero h1 { color: var(--dk-n-200); font-weight: 500; font-size: clamp(56px, 7.8vw, 112px); line-height: .94; letter-spacing: -0.035em; margin-top: 34px; }
+@keyframes dkSealPulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .45; transform: scale(.7); } }
+.dk .dk-hero h1 { color: var(--dk-n-200); font-weight: 500; font-size: clamp(72px, 9vw, 168px); line-height: .94; letter-spacing: -0.035em; }
 .dk .dk-hero h1 span { display: block; }
-.dk .dk-hero-lede { margin-top: 18px; padding-left: 6px; max-width: 560px; color: rgba(255,255,255,.8); font-size: 17px; line-height: 28px; }
+.dk .dk-hero-lede { margin-top: 18px; padding-left: 6px; width: clamp(480px, 34vw, 640px); max-width: 100%; color: rgba(255,255,255,.8); font-size: 17px; line-height: 28px; }
 
-.dk .dk-hero-notch { z-index: 2; width: 512px; padding: 26px 30px 54px 28px; display: grid; grid-template-columns: 1fr auto; column-gap: 24px; align-items: end; }
+/* ~36% of the card each way, bottom-right; content sits at the bottom so a taller notch never stretches it. */
+.dk .dk-hero-notch {
+  z-index: 2; width: var(--notch-w); min-height: 36%; padding: clamp(26px, 2vw, 36px) clamp(28px, 2.2vw, 40px) clamp(40px, 5vh, 54px);
+  display: grid; grid-template-columns: 1fr auto; column-gap: 24px; align-items: end;
+}
 .dk .dk-spec-title { font-size: 22px; line-height: 1.27; }
 .dk .dk-spec-title a:hover { color: var(--dk-red-bright); }
 .dk .dk-spec-sku { font-size: 13px; color: var(--dk-n-400); margin-top: 6px; }
@@ -767,17 +832,17 @@
 .dk .dk-spec-links a { color: var(--dk-n-300); }
 .dk .dk-spec-links a:hover { color: var(--dk-white); }
 
-.dk .dk-trust { padding: 72px 0; }
+.dk .dk-trust { padding: calc(var(--dk-section-y) * .6) 0; }
 .dk .dk-trust ul { display: grid; grid-template-columns: repeat(5, auto); justify-content: space-between; align-items: center; }
 .dk .dk-trust li { display: flex; align-items: center; gap: 12px; font-size: 15px; white-space: nowrap; }
 .dk .dk-trust li + li { border-left: 1px solid var(--dk-line-dark); padding-left: 26px; }
 .dk .dk-trust svg { color: var(--dk-red-bright); flex: none; }
 
-.dk .dk-balance { background: var(--dk-n-100); color: var(--dk-black); padding: 97px 0 136px; }
+.dk .dk-balance { background: var(--dk-n-100); color: var(--dk-black); padding: var(--dk-section-y) 0; }
 .dk .dk-balance .dk-wrap { display: grid; grid-template-columns: minmax(0, 1fr) 540px; gap: 48px; align-items: start; }
 .dk .dk-balance .dk-h2 { margin-top: 20px; }
 .dk .dk-balance .dk-body { margin-top: 28px; color: var(--dk-n-600); font-size: 17px; line-height: 28px; max-width: 420px; }
-.dk .dk-yin-yang { display: flex; justify-content: flex-end; margin-top: 83px; }
+.dk .dk-yin-yang { display: flex; justify-content: flex-end; margin-top: calc(var(--dk-section-y) * .6); }
 .dk .dk-yy-item { display: flex; flex-direction: column; align-items: center; gap: 26px; }
 .dk .dk-yy-item + .dk-yy-item { margin-left: -20px; }
 .dk .dk-yy-circle { width: 280px; height: 280px; border-radius: 50%; transition: transform .4s var(--dk-ease); }
@@ -789,24 +854,32 @@
 .dk .dk-yy-cap { font-size: 14px; color: var(--dk-n-600); }
 .dk .dk-yy-gold + .dk-yy-cap, .dk .dk-yy-item:has(.dk-yy-gold) .dk-yy-cap { color: var(--dk-n-600); }
 
-.dk .dk-bloodlines { background: var(--dk-white); color: var(--dk-black); padding: 80px 0; }
+.dk .dk-bloodlines { background: var(--dk-white); color: var(--dk-black); padding: var(--dk-section-y) 0; }
 .dk .dk-bl-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; }
 .dk .dk-bl-head .dk-h2 { margin-top: 6px; }
 .dk .dk-bl-all { margin-bottom: 4px; }
 .dk .dk-bloodlines .dk-filters { margin-top: 26px; }
 .dk .dk-bloodlines .dk-cards { margin-top: 32px; }
 .dk .dk-card-gallery {
-  position: relative; display: flex; flex-direction: column; justify-content: flex-end;
-  min-height: 364px; padding: 28px; border-radius: var(--dk-r-card); background: var(--dk-black); color: var(--dk-white);
+  position: relative; display: flex; flex-direction: column; justify-content: flex-start;
+  min-height: 364px; padding: var(--dk-card-pad); border-radius: var(--dk-r-card); background: var(--dk-black); color: var(--dk-white);
   overflow: hidden; transition: transform .3s, box-shadow .3s; border: 1px solid var(--dk-black);
 }
 .dk .dk-card-gallery:hover { transform: translateY(-4px); box-shadow: var(--dk-lift); color: var(--dk-white); }
-.dk .dk-gal-mark { position: absolute; top: 32px; left: 28px; width: 48px; height: 48px; border-radius: 12px; display: grid; place-items: center; background: var(--dk-red); font-family: var(--dk-f-display); font-weight: 800; font-size: 21px; }
+/* Logo, then a 2×2 preview of real specimens (the last tile counts the rest), then the title block. */
+.dk .dk-gal-logo { position: relative; height: 40px; width: auto; align-self: flex-start; }
+/* Fills whatever height the row gives the card (it stretches to match the specimen cards beside it). */
+.dk .dk-card-gallery { align-self: stretch; }
+.dk .dk-gal-preview { position: relative; flex: 1 1 0; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 18px 0 22px; min-height: 120px; }
+.dk .dk-gal-preview > * { display: block; width: 100%; height: 100%; min-height: 0; border-radius: 10px; overflow: hidden; background: var(--dk-n-800); }
+.dk .dk-gal-preview > img { object-fit: cover; transition: transform .5s var(--dk-ease); }
+.dk .dk-card-gallery:hover .dk-gal-preview > img { transform: scale(1.06); }
+.dk .dk-gal-more { display: grid; place-items: center; background: var(--dk-red); color: var(--dk-white); font-family: var(--dk-f-display); font-weight: 800; font-size: 24px; letter-spacing: -0.02em; }
 .dk .dk-gal-title { font-family: var(--dk-f-display); font-weight: 800; font-size: 26px; line-height: 1.27; letter-spacing: -0.02em; position: relative; }
 .dk .dk-gal-sub { font-size: 14px; color: var(--dk-n-400); margin-top: 7px; position: relative; }
 .dk .dk-gal-link { margin-top: 18px; color: var(--dk-red-bright); position: relative; align-self: flex-start; }
 
-.dk .dk-provenance { background: var(--dk-black); color: var(--dk-white); padding: 80px 0 97px; }
+.dk .dk-provenance { background: var(--dk-black); color: var(--dk-white); padding: var(--dk-section-y) 0; }
 .dk .dk-provenance .dk-wrap { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; }
 .dk .dk-provenance .dk-eyebrow { color: var(--dk-red-bright); }
 .dk .dk-provenance .dk-h2 { margin-top: 8px; }
@@ -816,11 +889,11 @@
 .dk .dk-promise h3 { font-size: 22px; line-height: 1.27; margin-top: 28px; }
 .dk .dk-promise p { color: var(--dk-n-400); font-size: 15px; line-height: 24px; margin-top: 11px; max-width: 280px; }
 
-.dk .dk-testimonials { background: var(--dk-white); color: var(--dk-black); padding: 80px 0; }
-.dk .dk-tm-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); gap: 24px; margin-top: 40px; }
+.dk .dk-testimonials { background: var(--dk-white); color: var(--dk-black); padding: var(--dk-section-y) 0; }
+.dk .dk-tm-grid { margin-top: 40px; }
 .dk .dk-tm { display: flex; flex-direction: column; background: var(--dk-white); border: 1px solid var(--dk-line); border-radius: var(--dk-r-card); overflow: hidden; }
 .dk .dk-tm .dk-ph { aspect-ratio: 4 / 3; }
-.dk .dk-tm-body { display: flex; flex-direction: column; flex: 1; padding: 26px 26px 24px; }
+.dk .dk-tm-body { display: flex; flex-direction: column; flex: 1; padding: var(--dk-card-pad); }
 .dk .dk-tm-stars { color: var(--dk-red); font-size: 14px; letter-spacing: 2px; margin-bottom: 10px; }
 .dk .dk-tm-stars span { color: var(--dk-n-300); }
 .dk .dk-tm blockquote { font-family: var(--dk-f-display); font-weight: 500; font-size: 18px; line-height: 1.5; flex: 1; margin-bottom: 22px; }
@@ -828,11 +901,12 @@
 .dk .dk-tm figcaption b { display: block; font-size: 14px; }
 .dk .dk-tm figcaption small { display: block; font-size: 12px; color: var(--dk-n-500); }
 
-.dk .dk-visit-band { background: var(--dk-n-100); padding: 60px 0; color: var(--dk-black); }
+.dk .dk-visit-band { background: var(--dk-n-100); padding: calc(var(--dk-section-y) * .6) 0; color: var(--dk-black); }
 .dk .dk-visit-card { position: relative; overflow: hidden; isolation: isolate; min-height: 420px; border-radius: var(--dk-r-hero); background: var(--dk-glow), var(--dk-black); color: var(--dk-white); padding: 57px 48px 116px; }
 .dk .dk-visit-photo { position: absolute; z-index: -1; right: 130px; top: 70px; width: 420px; height: 200px; border-radius: var(--dk-r-card); }
 .dk .dk-visit-photo.has-img { background: transparent; overflow: visible; }
-.dk .dk-visit-photo.has-img > img { object-fit: contain; padding: 0; }
+.dk .dk-visit-photo.has-img > img { object-fit: contain; padding: 0; filter: drop-shadow(0 16px 20px rgba(0,0,0,.55)); animation: dkVisitFloat 6s ease-in-out infinite; }
+@keyframes dkVisitFloat { 0%, 100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-8px) rotate(-1deg); } }
 .dk .dk-visit-band .dk-eyebrow { color: var(--dk-red-bright); }
 .dk .dk-visit-band .dk-h2 { margin-top: 14px; }
 .dk .dk-visit-band .dk-body { margin-top: 17px; color: var(--dk-n-400); font-size: 17px; line-height: 26px; max-width: 420px; }
@@ -843,30 +917,26 @@
    5. THE CAVE / CATALOG
    ========================================================= */
 .dk.dk-cave { background: var(--dk-white); color: var(--dk-black); }
-.dk .dk-cave-copy h1 { font-size: clamp(56px, 7vw, 104px); line-height: .9; letter-spacing: -0.04em; }
-.dk .dk-cave-copy .dk-btn { margin-top: 40px; }
-.dk .dk-rack { display: grid; gap: 24px; }
-.dk .dk-shelf { display: grid; gap: 16px; }
-.dk .dk-shelf-2 { grid-template-columns: 320fr 316fr; }
-.dk .dk-shelf-3 { grid-template-columns: repeat(3, 1fr); }
-.dk .dk-tank-slot { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
-.dk .dk-tank {
-  position: relative; overflow: hidden; border-radius: 8px; background: var(--dk-black); border: 1px solid var(--dk-line-dark);
-  color: var(--dk-n-500); font-size: 13px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; height: 200px;
-  transition: transform .3s, box-shadow .3s;
+.dk .dk-cave-copy h1 { line-height: .9; letter-spacing: -0.04em; }
+.dk .dk-cave-copy .dk-btn { margin-top: 28px; }
+/* Hero: one photo tile per family (cover-cropped, label chip bottom-left). A tile filters the grid below. */
+.dk .dk-cave-mosaic { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--dk-gap); }
+.dk .dk-cave-tile {
+  position: relative; display: block; aspect-ratio: 4 / 3; overflow: hidden; padding: 0; border: 0;
+  border-radius: var(--dk-r-card); background: var(--dk-black); cursor: pointer; text-align: left;
 }
-.dk .dk-tank:not(.has-img) { border-style: dashed; border-color: var(--dk-ph-dark); }
-.dk .dk-tank::before { content: ""; position: absolute; z-index: 1; left: 0; right: 0; top: 0; height: 14px; background: var(--dk-n-800); }
-.dk .dk-tank > img { position: absolute; inset: 14px 0 0; width: 100%; height: calc(100% - 14px); object-fit: contain; padding: 10px; }
-.dk .dk-tank > svg { color: var(--dk-n-600); }
-.dk .dk-tank-slot:hover .dk-tank { transform: translateY(-3px); box-shadow: var(--dk-lift); }
-.dk .dk-shelf-3 .dk-tank, .dk .dk-tank-wide { height: 180px; }
-.dk .dk-tank-wide { border: 1.2px solid var(--dk-red) !important; }
-.dk .dk-tank-tag { font-size: 12px; font-weight: 700; color: var(--dk-black); }
-.dk .dk-cave-count { display: inline-flex; align-items: center; gap: 8px; height: 28px; padding: 0 14px; align-self: flex-start; background: var(--dk-red); color: var(--dk-white); font-size: 12px; border-radius: 6px; }
-.dk .dk-cave-count b { font-size: 15px; }
+.dk .dk-cave-tile > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transition: transform .6s var(--dk-ease); }
+.dk button.dk-cave-tile:hover > img { transform: scale(1.05); }
+.dk .dk-cave-tile-label {
+  position: absolute; left: 12px; bottom: 12px; display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 6px 0 14px;
+  border-radius: var(--dk-r-pill); background: var(--dk-white); color: var(--dk-black); font-size: 13px; font-weight: 700;
+}
+.dk .dk-cave-tile-label span { min-width: 22px; height: 22px; padding: 0 7px; border-radius: var(--dk-r-pill); display: grid; place-items: center; background: var(--dk-black); color: var(--dk-white); font-size: 11px; }
+.dk button.dk-cave-tile:hover .dk-cave-tile-label span { background: var(--dk-red); }
+.dk .dk-cave-stats { margin-top: 32px; padding-top: 24px; border-top: 1px solid var(--dk-n-200); }
+.dk .dk-cave-stats .dk-stat b { color: var(--dk-black); font-size: clamp(26px, 2.4vw, 34px); }
 
-.dk .dk-cave-promise { background: var(--dk-black); color: var(--dk-white); padding: 48px 0; margin-top: 64px; }
+.dk .dk-cave-promise { background: var(--dk-black); color: var(--dk-white); padding: calc(var(--dk-section-y) * .6) 0; margin-top: calc(var(--dk-section-y) * .6); }
 .dk .dk-cave-promise .dk-wrap > .dk-cp-grid { display: grid; grid-template-columns: 472px repeat(3, 1fr); }
 .dk .dk-cave-promise .dk-eyebrow { color: var(--dk-red-bright); }
 .dk .dk-cave-promise h2 { font-size: 32px; line-height: 1.25; margin-top: 8px; }
@@ -875,14 +945,14 @@
 .dk .dk-cp-item h3 { font-size: 20px; margin-top: 16px; }
 .dk .dk-cp-item p { font-size: 15px; line-height: 22px; color: var(--dk-n-400); margin-top: 8px; }
 
-.dk .dk-catalog { padding: 40px 0 72px; }
-.dk .dk-catalog .dk-cards { row-gap: 52px; }
+.dk .dk-catalog { padding: calc(var(--dk-section-y) * .4) 0 var(--dk-section-y); }
+.dk .dk-catalog .dk-cards { row-gap: calc(var(--dk-gap) * 2); }
 .dk .dk-catalog .dk-card-name { font-size: 18px; }
 
-.dk .dk-rehomed { background: var(--dk-n-100); color: var(--dk-black); padding: 80px 0 72px; }
+.dk .dk-rehomed { background: var(--dk-n-100); color: var(--dk-black); padding: var(--dk-section-y) 0; }
 .dk .dk-rehomed .dk-h2 { margin-top: 6px; }
-.dk .dk-sold-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 38px 24px; margin-top: 42px; }
-.dk .dk-sold-img { position: relative; height: 180px; border-radius: var(--dk-r-card); border: 1px solid var(--dk-line); overflow: hidden; background: var(--dk-white); }
+.dk .dk-sold-grid { row-gap: calc(var(--dk-gap) * 1.5); margin-top: 42px; }
+.dk .dk-sold-img { position: relative; aspect-ratio: 4 / 3; border-radius: var(--dk-r-card); border: 1px solid var(--dk-line); overflow: hidden; background: var(--dk-white); }
 .dk .dk-sold-img .dk-ph { height: 100%; border: 0; }
 .dk .dk-sold-img .dk-ph.has-img > img { filter: grayscale(1); }
 .dk .dk-sold-tag {
@@ -896,7 +966,7 @@
    6. SHOP
    ========================================================= */
 .dk.dk-shop { background: var(--dk-white); color: var(--dk-black); }
-.dk .dk-shop-copy h1 { font-size: clamp(56px, 6.7vw, 96px); line-height: .93; letter-spacing: -0.04em; }
+.dk .dk-shop-copy h1 { line-height: .93; letter-spacing: -0.04em; }
 .dk .dk-shop-copy .dk-lede { color: var(--dk-n-400); }
 .dk .dk-shop-copy .dk-scroll-hint { color: var(--dk-n-500); }
 
@@ -926,7 +996,7 @@
 }
 .dk .dk-slip-foot { font-family: var(--dk-f-display); font-weight: 800; font-size: 15px; margin-top: 10px; }
 
-.dk .dk-products { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 23px; padding: 40px 0 0; }
+.dk .dk-products { padding: calc(var(--dk-gap) * 1.6) 0 0; }
 .dk .dk-p-img { position: relative; display: block; aspect-ratio: 1; border-radius: var(--dk-r-card); overflow: hidden; }
 .dk .dk-p-img .dk-ph { height: 100%; border-radius: var(--dk-r-card); transition: transform .5s var(--dk-ease); }
 .dk .dk-product:hover .dk-p-img .dk-ph.has-img { transform: scale(1.04); }
@@ -934,13 +1004,13 @@
 .dk .dk-p-name { display: block; font-family: var(--dk-f-display); font-weight: 800; font-size: 17px; letter-spacing: -0.01em; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: color .2s; }
 .dk .dk-p-name:hover { color: var(--dk-red); }
 .dk .dk-p-price { font-family: var(--dk-f-display); font-weight: 800; font-size: 17px; color: var(--dk-red); margin-top: 6px; }
-.dk .dk-shop-products { padding-bottom: 72px; }
+.dk .dk-shop-products { padding-bottom: var(--dk-section-y); }
 
 /* =========================================================
    7. VISIT
    ========================================================= */
 .dk.dk-visit { background: var(--dk-n-100); color: var(--dk-black); position: relative; overflow: hidden; }
-.dk .dk-visit-hero h1 { font-size: clamp(48px, 5.8vw, 84px); line-height: 1.05; letter-spacing: -0.04em; }
+.dk .dk-visit-hero h1 { line-height: 1.05; letter-spacing: -0.04em; }
 .dk .dk-specimen { position: relative; height: 384px; border-radius: var(--dk-r-card); overflow: hidden; background: var(--dk-glow), var(--dk-black); }
 .dk .dk-specimen .dk-ph { position: absolute; left: 25px; right: 38px; top: 43px; height: 310px; border-radius: var(--dk-r-sm); }
 .dk .dk-specimen .dk-ph.has-img { background: transparent; }
@@ -948,8 +1018,8 @@
 .dk .dk-specimen .dk-brand-mark { position: absolute; z-index: 2; top: 14px; left: 19px; height: 28px; }
 .dk .dk-specimen-cap { position: absolute; z-index: 2; left: 0; bottom: 0; height: 36px; width: 280px; display: flex; align-items: center; padding: 0 21px; font-size: 12px; color: var(--dk-white); background: var(--dk-black); border-top-right-radius: 10px; }
 
-.dk .dk-booking { max-width: 1118px; margin: 0 auto; padding: 64px 24px 0; display: grid; grid-template-columns: minmax(0, 676px) 362px; gap: 32px; align-items: start; }
-.dk .dk-form-card { background: var(--dk-white); border: 1px solid var(--dk-line); border-radius: var(--dk-r-card); padding: 32px 34px 28px; }
+.dk .dk-booking { padding: var(--dk-section-y) var(--dk-gutter) 0; display: grid; grid-template-columns: minmax(0, 620px) minmax(300px, 380px); justify-content: center; gap: calc(var(--dk-gap) * 1.4); align-items: start; }
+.dk .dk-form-card { background: var(--dk-white); border: 1px solid var(--dk-line); border-radius: var(--dk-r-card); padding: calc(var(--dk-card-pad) * 1.4); }
 .dk .dk-form-card h2 { font-size: 26px; margin-top: 4px; }
 .dk .dk-form-card .dk-sub { font-size: 14px; color: var(--dk-n-600); margin-top: 6px; }
 .dk .dk-form-card .dk-fgrid { margin-top: 28px; }
@@ -972,10 +1042,10 @@
 .dk .dk-map-open:hover { background: var(--dk-red); border-color: var(--dk-red); color: var(--dk-white); }
 .dk .dk-map-pin { position: absolute; left: 50%; top: 51px; transform: translateX(-50%); animation: dkBob 2.4s ease-in-out infinite; }
 @keyframes dkBob { 50% { transform: translate(-50%, -5px); } }
-.dk .dk-map-info { padding: 24px 28px 22px; }
+.dk .dk-map-info { padding: var(--dk-card-pad); }
 .dk .dk-map-info h3 { font-size: 17px; }
 .dk .dk-map-info p { font-size: 13px; color: var(--dk-n-600); line-height: 18px; margin-top: 6px; }
-.dk .dk-hours-card { margin-top: 24px; padding: 28px 24px; scroll-margin-top: 110px; }
+.dk .dk-hours-card { margin-top: var(--dk-gap); padding: var(--dk-card-pad); scroll-margin-top: 110px; }
 .dk .dk-hours-card .dk-eyebrow { font-size: 12px; margin-bottom: 14px; }
 .dk .dk-hours-row { display: flex; justify-content: space-between; gap: 16px; font-size: 15px; padding: 13px 0; }
 .dk .dk-hours-row + .dk-hours-row { border-top: 1px solid var(--dk-line); }
@@ -983,19 +1053,76 @@
 .dk .dk-hours-note { font-size: 13px; color: var(--dk-n-500); margin-top: 10px; }
 .dk .dk-ask { width: 100%; margin-top: 24px; }
 
-.dk .dk-steps { max-width: 1104px; margin: 0 auto; padding: 72px 24px 120px; }
-.dk .dk-steps h2 { font-size: clamp(30px, 3vw, 40px); }
-.dk .dk-steps ol { margin: 44px 0 0; display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
-.dk .dk-steps li { border-top: 3px solid var(--dk-red); padding: 28px 10px 0; }
+.dk .dk-steps { max-width: calc(var(--dk-content-max) + var(--dk-gutter) * 2); margin: 0 auto; padding: var(--dk-section-y) var(--dk-gutter); }
+
+.dk .dk-steps.flush { padding-top: 0; padding-bottom: 0; }
+/* Step cards (Visit, Home service): an icon tile per step, linked to the next card by a dashed line. */
+.dk .dk-steps ol { margin: clamp(28px, 3vw, 44px) 0 0; display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--dk-gap); }
+.dk .dk-steps li {
+  position: relative; padding: var(--dk-card-pad); padding-top: calc(var(--dk-card-pad) + 4px);
+  background: var(--dk-white); border: 1px solid var(--dk-line); border-radius: var(--dk-r-card);
+}
+/* Duotone vector icon (components/dc/kit/StepIcons.tsx), no tile behind it. */
+.dk .dk-step-icon { display: block; width: 52px; height: 52px; margin-bottom: 16px; transition: transform .3s var(--dk-ease); }
+.dk .dk-step-icon svg { display: block; width: 100%; height: 100%; }
+.dk .dk-steps li:hover .dk-step-icon { transform: translateY(-2px); }
+/* Connector: from this card's icon level across the gap to the next card (4-across layout only). */
+@media (min-width: 1101px) {
+  .dk .dk-steps li:not(:last-child)::after {
+    content: ""; position: absolute; top: calc(var(--dk-card-pad) + 30px); left: 100%; width: var(--dk-gap);
+    border-top: 1.5px dashed var(--dk-n-400);
+  }
+}
 .dk .dk-steps h3 { font-size: 18px; }
-.dk .dk-steps p { font-size: 14px; line-height: 22px; color: var(--dk-n-600); margin-top: 10px; }
+.dk .dk-steps p { font-size: 15px; line-height: 1.6; color: var(--dk-n-600); margin-top: 8px; }
+@media (max-width: 600px) {
+  .dk .dk-steps li { display: grid; grid-template-columns: 40px minmax(0, 1fr); column-gap: 14px; align-items: start; }
+  .dk .dk-step-icon { grid-row: span 2; margin-bottom: 0; width: 44px; height: 44px; }
+  .dk .dk-steps h3 { align-self: center; min-height: 40px; display: flex; align-items: center; }
+  .dk .dk-steps p { margin-top: 2px; }
+}
+
+/* =========================================================
+   7b. HOME SERVICE
+   ========================================================= */
+/* Hero aside: what every visit includes. */
+.dk .dk-hs-included { background: var(--dk-black); color: var(--dk-white); border-radius: var(--dk-r-card); padding: calc(var(--dk-card-pad) * 1.3); }
+.dk .dk-hs-included .dk-eyebrow { color: var(--dk-red-bright); }
+.dk .dk-hs-included ul { display: grid; gap: 18px; margin-top: 18px; }
+.dk .dk-hs-included li { display: flex; gap: 14px; align-items: flex-start; }
+.dk .dk-hs-included li + li { padding-top: 18px; border-top: 1px solid var(--dk-line-dark); }
+.dk .dk-hs-included b { display: block; font-family: var(--dk-f-display); font-weight: 800; font-size: 17px; letter-spacing: -0.01em; }
+.dk .dk-hs-included li > span:last-child { font-size: 14px; line-height: 1.55; color: var(--dk-n-400); }
+.dk .dk-hs-check { flex: none; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: var(--dk-red); color: var(--dk-white); }
+/* Service menu: radio cards with name + price on one line, description and timing under it. */
+.dk .dk-hs-title { margin-top: 8px; }
+.dk .dk-hs-note { margin-top: 10px; font-size: 15px; line-height: 1.6; color: var(--dk-n-600); max-width: 60ch; }
+.dk .dk-hs-menu { display: grid; gap: 12px; margin-top: 28px; }
+.dk .dk-hs-option {
+  display: flex; gap: 16px; align-items: flex-start; width: 100%; padding: var(--dk-card-pad); text-align: left;
+  background: var(--dk-white); border: 1px solid var(--dk-line); border-radius: var(--dk-r-card); transition: border-color .2s, box-shadow .2s;
+}
+.dk .dk-hs-option:hover { border-color: var(--dk-n-400); }
+.dk .dk-hs-option[aria-checked="true"] { border-color: var(--dk-red); box-shadow: var(--dk-ring); }
+.dk .dk-hs-radio { flex: none; width: 20px; height: 20px; margin-top: 2px; border-radius: 50%; border: 1.5px solid var(--dk-n-400); transition: border-color .2s, border-width .2s; }
+.dk .dk-hs-option[aria-checked="true"] .dk-hs-radio { border: 6px solid var(--dk-red); }
+.dk .dk-hs-body { display: block; flex: 1; min-width: 0; }
+.dk .dk-hs-head { display: flex; justify-content: space-between; align-items: baseline; gap: 14px; }
+.dk .dk-hs-name { font-family: var(--dk-f-display); font-weight: 800; font-size: 18px; letter-spacing: -0.02em; }
+.dk .dk-hs-price { font-weight: 700; font-size: 16px; white-space: nowrap; color: var(--dk-red); font-variant-numeric: tabular-nums; }
+.dk .dk-hs-price.quoted { color: var(--dk-n-500); font-weight: 500; }
+.dk .dk-hs-desc { display: block; margin-top: 6px; font-size: 14px; line-height: 1.6; color: var(--dk-n-600); }
+.dk .dk-hs-meta { display: inline-block; margin-top: 10px; padding: 3px 10px; border-radius: var(--dk-r-pill); background: var(--dk-n-100); font-size: 12px; color: var(--dk-n-600); }
 
 /* =========================================================
    8. FOOTER (dark / light) + WhatsApp button
    ========================================================= */
-.dk-footer { background: var(--dk-black); color: var(--dk-white); padding: 64px 0 34px; }
+.dk-footer {
+  background: var(--dk-black); color: var(--dk-white); margin: 0 var(--dk-frame); border-radius: var(--dk-radius-lg) var(--dk-radius-lg) 0 0;
+  padding: clamp(32px, 4vw, 64px) 0 calc(clamp(24px, 2.4vw, 34px) + env(safe-area-inset-bottom));
+}
 .dk-footer[data-theme="cream"], .dk-footer[data-theme="light"] { background: var(--dk-n-100); color: var(--dk-black); border-top: 3px solid var(--dk-red); }
-.dk .dk-footer-top { display: grid; grid-template-columns: 1fr 240px 300px 240px; gap: 32px; }
+.dk .dk-footer-top { display: grid; grid-template-columns: 1fr 240px 300px 240px; gap: calc(var(--dk-gap) * 1.4); }
 .dk-footer .dk-brand-mark { height: 32px; }
 .dk-footer .dk-brand-name { font-size: 18px; }
 .dk .dk-footer-about { color: var(--dk-n-400); font-size: 14px; line-height: 22px; max-width: 270px; margin-top: 24px; }
@@ -1014,13 +1141,13 @@
 .dk .dk-f-btns { margin-top: 16px; display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
 .dk-footer:is([data-theme="cream"], [data-theme="light"]) .dk-btn-outline-light { color: var(--dk-black); border-color: var(--dk-black); }
 .dk-footer:is([data-theme="cream"], [data-theme="light"]) .dk-btn-outline-light:hover { background: var(--dk-black); color: var(--dk-white); }
-.dk .dk-footer-bottom { margin-top: 38px; padding-top: 30px; border-top: 1px solid var(--dk-line-dark); display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
+.dk .dk-footer-bottom { margin-top: clamp(24px, 2.6vw, 38px); padding-top: clamp(20px, 2vw, 30px); border-top: 1px solid var(--dk-line-dark); display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
 .dk-footer:is([data-theme="cream"], [data-theme="light"]) .dk-footer-bottom { border-top-color: var(--dk-n-300); }
 .dk .dk-copy { font-size: 12px; color: var(--dk-n-500); }
 .dk .dk-tagline { font-family: var(--dk-f-display); font-weight: 800; font-size: 15px; letter-spacing: -0.01em; }
 
 .dk .dk-fab {
-  position: fixed; right: 24px; bottom: 24px; z-index: 80; width: 56px; height: 56px; border-radius: 50%;
+  position: fixed; right: 24px; bottom: calc(24px + env(safe-area-inset-bottom)); z-index: 80; width: 56px; height: 56px; border-radius: 50%;
   display: grid; place-items: center; background: var(--dk-red); color: var(--dk-white); transition: transform .2s, background-color .2s;
 }
 .dk .dk-fab:hover { transform: scale(1.06); background: var(--dk-red-bright); color: var(--dk-white); }
@@ -1028,34 +1155,40 @@
 /* =========================================================
    9. AUTH (Login / Register)
    ========================================================= */
-.dk.dk-auth { background: var(--dk-black); color: var(--dk-white); min-height: 100vh; padding: 16px; }
-.dk .dk-auth-frame { position: relative; max-width: 1408px; min-height: 868px; margin: 0 auto; border: 1px solid var(--dk-line-dark); border-radius: 24px; overflow: hidden; }
+/* Frame fills the screen (thin frame, like the landing hero). The brand panel / form card composition is the
+   reference one; its pieces are placed in proportion to the frame instead of at fixed px:
+   the form card ends at 87.5% of the width, the panel ends 313px before that, and the extra height is split
+   above and below the card (--auth-y). */
+.dk.dk-auth { background: var(--dk-black); color: var(--dk-white); min-height: 100vh; min-height: 100svh; padding: var(--dk-frame); }
+.dk .dk-auth-frame {
+  --auth-y: calc(284px + max(0px, (100svh - 2 * var(--dk-frame) - 868px) / 2));
+  position: relative; min-height: max(760px, calc(100svh - 2 * var(--dk-frame)));
+  border: 1px solid var(--dk-line-dark); border-radius: var(--dk-radius-lg); overflow: hidden;
+}
+.dk .dk-auth-frame:has(.dk-auth-side.reg) { --auth-y: calc(212px + max(0px, (100svh - 2 * var(--dk-frame) - 868px) / 2)); }
 .dk .dk-auth-panel {
-  position: absolute; left: 32px; top: 34px; bottom: 30px; width: 887px; border-radius: var(--dk-r-hero); overflow: hidden; isolation: isolate;
+  position: absolute; left: 32px; top: 34px; bottom: 30px; width: calc(87.5% - 345px); border-radius: var(--dk-r-hero); overflow: hidden; isolation: isolate;
   background: var(--dk-auth-red);
 }
-.dk .dk-auth-panel::before {
-  content: "龍"; position: absolute; z-index: -1; right: -60px; top: 40px; pointer-events: none;
-  font-family: var(--dk-f-display); font-weight: 800; font-size: 640px; line-height: 1; color: rgba(255,255,255,.05);
-}
-.dk .dk-auth-panel::after { content: ""; position: absolute; left: 600px; top: 447px; width: 420px; height: 420px; background: var(--dk-black); border-top-left-radius: var(--dk-r-hero); }
-.dk .dk-auth-panel.reg::after { top: 400px; }
+.dk .dk-auth-panel::after { content: ""; position: absolute; left: calc(100% - 287px); top: calc(var(--auth-y) + 163px); width: 420px; height: 420px; background: var(--dk-black); border-top-left-radius: var(--dk-r-hero); }
+.dk .dk-auth-panel.reg::after { top: calc(var(--auth-y) + 188px); }
+/* Above the aquarium layer (components/dc/Aquarium.tsx), which fills the panel. */
+.dk :is(.dk-auth-brand, .dk-auth-title, .dk-auth-back) { z-index: 1; }
 .dk .dk-auth-brand { position: absolute; left: 57px; top: 42px; }
 .dk .dk-auth-brand .dk-brand-sub { color: rgba(255,255,255,.8); opacity: 1; }
 .dk .dk-auth-title { position: absolute; left: 41px; top: 178px; }
-.dk .dk-auth-title h1 { font-size: clamp(52px, 5.5vw, 76px); line-height: 1; letter-spacing: -0.04em; }
+.dk .dk-auth-title h1 { line-height: 1; letter-spacing: -0.04em; }
 .dk .dk-auth-title p { font-size: 17px; margin-top: 20px; color: rgba(255,255,255,.9); }
 .dk .dk-auth-back { position: absolute; left: 43px; bottom: 40px; display: inline-flex; align-items: center; gap: 10px; padding: 0; border: 0; background: none; font-size: 14px; color: rgba(255,255,255,.9); transition: gap .2s, color .2s; }
 .dk .dk-auth-back:hover { gap: 14px; color: var(--dk-white); }
 
-.dk .dk-auth-side { position: absolute; left: 672px; top: 284px; width: 560px; }
-.dk .dk-auth-side.reg { top: 212px; }
-.dk .dk-auth-card { background: var(--dk-white); color: var(--dk-black); border-radius: var(--dk-r-card); padding: 40px 40px 24px; }
+.dk .dk-auth-side { position: absolute; left: calc(87.5% - 560px); top: var(--auth-y); width: 560px; }
+.dk .dk-auth-card { background: var(--dk-white); color: var(--dk-black); border-radius: var(--dk-r-card); padding: calc(var(--dk-card-pad) * 1.6) calc(var(--dk-card-pad) * 1.6) var(--dk-card-pad); }
 .dk .dk-auth-card h2 { font-size: 26px; }
 .dk .dk-auth-card .dk-sub { font-size: 14px; color: var(--dk-n-600); margin-top: 8px; }
 .dk .dk-auth-form { margin-top: 30px; display: grid; gap: 22px; }
 .dk .dk-auth-form fieldset { display: grid; gap: 22px; }
-.dk .dk-auth-form .dk-input { height: 52px; padding: 0 20px; }
+.dk .dk-auth-form .dk-input { height: 48px; padding: 0 20px; }
 .dk .dk-lbl-row { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
 .dk .dk-lbl-row a, .dk .dk-lbl-row button { font-size: 13px; color: var(--dk-red); font-weight: 700; border: 0; background: none; padding: 0; }
 .dk .dk-lbl-row :is(a, button):hover { text-decoration: underline; }
@@ -1065,9 +1198,13 @@
 .dk .dk-pw-toggle:hover { color: var(--dk-black); background: var(--dk-n-100); }
 .dk .dk-auth-form > .dk-btn { width: 100%; margin-top: 2px; }
 .dk .dk-auth-divider { border: 0; border-top: 1px solid var(--dk-line); margin: 30px 0 0; }
-.dk .dk-auth-alt { text-align: center; font-size: 14px; color: var(--dk-n-400); margin-top: 16px; }
+/* Sits partly over the red panel, so it gets its own black pill to stay readable on any part of the gradient. */
+.dk .dk-auth-alt { display: table; margin: 16px auto 0; padding: 8px 18px; border-radius: var(--dk-r-pill); background: var(--dk-black); text-align: center; font-size: 14px; color: var(--dk-n-300); }
 .dk .dk-auth-alt a { color: var(--dk-red-bright); font-weight: 700; }
 .dk .dk-auth-alt a:hover { text-decoration: underline; }
+/* Forgot password: confirmation state */
+.dk .dk-sent-to { margin-top: 6px; font-size: 16px; font-weight: 700; overflow-wrap: anywhere; }
+.dk .dk-steps-list { list-style: decimal; margin-top: 6px; padding-left: 1.2em; }
 .dk .dk-two { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
 .dk .dk-reg-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 .dk .dk-stepper { display: flex; align-items: center; gap: 4px; }
@@ -1105,7 +1242,7 @@
 .dk .dk-sb-user a:hover { color: var(--dk-white); }
 .dk .dk-sb-close { display: none; }
 
-.dk .dk-app-main { padding: 42px 40px 64px; min-width: 0; }
+.dk .dk-app-main { padding: calc(var(--dk-section-y) * .5) var(--dk-gutter) var(--dk-section-y); min-width: 0; }
 .dk .dk-app-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
 .dk .dk-app-top-l { display: flex; gap: 14px; align-items: flex-start; min-width: 0; }
 .dk .dk-app-top .dk-eyebrow { font-size: 12px; font-weight: 700; letter-spacing: .04em; }
@@ -1118,7 +1255,7 @@
 .dk .dk-app-search { margin-top: 17px; }
 .dk .dk-app-search input { height: 48px; }
 .dk .dk-app-section { margin-top: 32px; }
-/* Dashboard promo banner as a cover strip (≈3.2:1, capped at 320px tall; a little taller on small screens).
+/* Dashboard promo banner as a cover strip (â‰ˆ3.2:1, capped at 320px tall; a little taller on small screens).
    The artwork has its own headline baked in, so it is never cropped: it sits whole in the centre and a blurred,
    darkened copy of it fills the rest of the strip. Finish on top: soft edge vignette, bottom fade for the dots,
    faint brand-red glow. */
@@ -1188,7 +1325,7 @@
 .dk .dk-view-btn[aria-pressed="true"] { background: var(--dk-red); border-color: var(--dk-red); color: var(--dk-white); }
 .dk .dk-view-btn:not([aria-pressed="true"]):hover { border-color: var(--dk-black); }
 
-.dk .dk-pgrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; margin-top: 20px; }
+.dk .dk-pgrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--dk-gap); margin-top: 20px; }
 .dk .dk-pgrid.cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .dk .dk-pcard { background: var(--dk-white); border: 1px solid var(--dk-line); border-radius: 14px; padding: 9px; transition: transform .25s, box-shadow .25s; min-width: 0; }
 .dk .dk-pcard:hover { transform: translateY(-3px); box-shadow: var(--dk-lift); }
@@ -1265,20 +1402,15 @@
   .dk .dk-cave-promise .dk-wrap > .dk-cp-grid { grid-template-columns: 1fr 1fr 1fr; row-gap: 32px; }
   .dk .dk-cave-promise .dk-cp-grid > div:first-child { grid-column: 1 / -1; }
   .dk .dk-cp-item:nth-child(2) { border-left: 0; padding-left: 0; }
-  .dk .dk-products { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .dk .dk-pgrid, .dk .dk-pgrid.cols-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .dk .dk-hd-bar { padding: 0 32px; }
   .dk .dk-hd-links { gap: 20px; }
-  .dk .dk-nhero-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 440px); gap: 40px; }
-  .dk .dk-grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 /* Auth: switch from absolute composition to stacked flow */
 @media (max-width: 1260px) {
-  .dk .dk-auth-frame { min-height: 0; padding: 24px 24px 40px; }
-  .dk .dk-auth-panel { position: relative; left: auto; top: auto; bottom: auto; width: auto; min-height: 460px; border-radius: 32px; }
+  .dk .dk-auth-frame { min-height: 0; padding: var(--dk-frame) var(--dk-frame) var(--dk-section-y); }
+  .dk .dk-auth-panel { position: relative; left: auto; top: auto; bottom: auto; width: auto; min-height: var(--dk-hero-min); }
   .dk .dk-auth-panel::after { display: none; }
-  .dk .dk-auth-panel::before { font-size: 420px; top: 0; }
   .dk .dk-auth-brand { left: 36px; top: 34px; }
   .dk .dk-auth-title { left: 36px; top: 150px; right: 36px; }
   .dk .dk-auth-back { left: 36px; bottom: 32px; }
@@ -1286,41 +1418,33 @@
 }
 
 @media (max-width: 1100px) {
-  /* Nav collapses into the menu button here (reference: 860px) — this site has a fifth link and an account menu. */
-  .dk .dk-hd-bar { display: flex; justify-content: space-between; padding: 0 32px; }
+  /* Nav collapses into the menu button here (reference: 860px) â€” this site has a fifth link and an account menu. */
+  .dk .dk-hd-bar { display: flex; justify-content: space-between; }
   .dk .dk-hd-bar > nav { display: none; }
   .dk .dk-hd-signin, .dk-header .dk-acct { display: none; }
   .dk .dk-hd-menu { display: grid; }
   .dk .dk-nav-links, .dk .dk-nav-signin, .dk .dk-nav .dk-acct, .dk .dk-nav .dk-icon-btn.search { display: none; }
   .dk .dk-nav .dk-menu-toggle { display: grid; }
   .dk .dk-nav .dk-mnav { top: 92px; }
-  .dk .dk-hero { padding: 24px 24px 0; }
-  .dk .dk-hero-fish { width: 380px; height: 184px; top: 220px; }
-  .dk .dk-seal { top: 108px; }
   .dk .dk-trust ul { grid-template-columns: repeat(3, auto); row-gap: 20px; justify-content: start; column-gap: 26px; }
   .dk .dk-trust li:nth-child(4) { border-left: 0; padding-left: 0; }
-  .dk .dk-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .dk .dk-card-gallery { min-height: 358px; }
   .dk .dk-balance .dk-wrap, .dk .dk-provenance .dk-wrap { grid-template-columns: 1fr; }
   .dk .dk-yin-yang { justify-content: flex-start; margin-top: 16px; }
   .dk .dk-footer-top { grid-template-columns: 1fr 1fr; row-gap: 40px; }
-  .dk .dk-sold-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .dk .dk-slip { max-width: 515px; width: 100%; justify-self: center; }
-  .dk .dk-products { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .dk .dk-booking { grid-template-columns: 1fr; max-width: 720px; }
+  .dk .dk-booking { grid-template-columns: minmax(0, 1fr); }
   .dk .dk-booking aside { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
   .dk .dk-booking aside .dk-ask { grid-column: 1 / -1; margin-top: 0; }
   .dk .dk-hours-card { margin-top: 0; }
   .dk .dk-steps ol { grid-template-columns: repeat(2, 1fr); row-gap: 40px; }
-  .dk .dk-nhero-card { padding: 56px 40px calc(var(--notch-h, 132px) + 40px); }
   .dk .dk-nhero-grid { grid-template-columns: 1fr; gap: 48px; }
   .dk .dk-split { grid-template-columns: 1fr; }
-  /* Contact: "Skip the form." first on stacked layouts — the quickest route shouldn't sit below the whole form. */
+  /* Contact: "Skip the form." first on stacked layouts â€” the quickest route shouldn't sit below the whole form. */
   .dk .dk-contact-split > aside { order: -1; }
   /* Specimen page: the facts (papers, care) come before the pre-order / question forms on stacked layouts. */
   .dk .dk-spec-details > .dk-spec-facts { order: -1; }
   .dk .dk-sticky { position: static; }
-  .dk .dk-grid-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .dk .dk-app { grid-template-columns: 1fr; }
   .dk .dk-sidebar { position: fixed; z-index: 90; left: 0; top: 0; width: 264px; transform: translateX(-100%); visibility: hidden; transition: transform .3s var(--dk-ease), visibility 0s linear .3s; }
   .dk .dk-sidebar.open { transform: none; visibility: visible; transition: transform .3s var(--dk-ease), visibility 0s; }
@@ -1345,32 +1469,15 @@
 }
 
 @media (max-width: 860px) {
-  .dk .dk-nav { padding: 24px 20px 0 22px; }
-  .dk .dk-nav .dk-mnav { top: 76px; }
-  .dk .dk-hero-card { min-height: 0; display: flex; flex-direction: column; }
-  .dk .dk-hero-fish { position: relative; right: auto; top: auto; width: auto; height: 180px; margin: 40px 124px 0 20px; }
-  .dk .dk-seal { right: 20px; top: 110px; }
-  .dk .dk-hero h1 { margin-top: 0; }
-  .dk .dk-hero-copy { position: relative; left: auto; top: auto; padding: 32px 20px 36px; max-width: none; }
-  /* Notch panels stack under their cards on phones, keeping a rounded top edge as the carved tab. */
-  .dk .dk-hero-notch { position: relative; width: auto; border-radius: 28px 28px 0 0; padding: 26px 22px 30px; grid-template-columns: 1fr; }
-  .dk .dk-hero-notch::before, .dk .dk-hero-notch::after { display: none; }
-  .dk .dk-spec-links { text-align: left; margin-top: 26px; flex-direction: row; flex-wrap: wrap; gap: 10px 20px; }
-  .dk .dk-spec-cta { width: 100%; }
-  .dk .dk-trust { padding: 40px 0; }
   .dk .dk-visit-card { padding: 44px 28px 0; }
   .dk .dk-visit-notch { position: relative; width: auto; margin: 36px -28px 0; padding: 24px 28px; border-radius: 28px 28px 0 0; }
   .dk .dk-visit-notch::before, .dk .dk-visit-notch::after { display: none; }
   .dk .dk-visit-photo { position: relative; right: auto; top: auto; width: 100%; height: 180px; margin-top: 36px; }
 
-  .dk .dk-nhero { padding: 16px 12px 0; }
-  .dk .dk-nhero.flush { padding: 0; }
-  .dk .dk-nhero-card { padding: 44px 24px 0; border-radius: 28px; }
-  .dk .dk-nhero-notch, .dk .dk-nhero-notch.wide { position: relative; width: auto; min-height: 0; margin: 40px -24px 0; border-radius: 28px 28px 0 0; padding: 26px 24px 28px; }
+  .dk .dk-nhero-card:has(> .dk-notch) { padding-bottom: 0; }
+  .dk .dk-nhero-notch, .dk .dk-nhero-notch.wide { position: relative; width: auto; min-height: 0; margin: 40px calc(var(--dk-gutter) * -1) 0; border-radius: 28px 28px 0 0; padding: 26px var(--dk-gutter) 28px; }
   .dk .dk-nhero-notch::before, .dk .dk-nhero-notch::after { display: none; }
 
-  .dk-header { height: 72px; }
-  .dk .dk-hd-bar { padding: 0 20px; }
   .dk .dk-tb-row { flex-wrap: wrap; }
   .dk .dk-tb-row .dk-search { flex-basis: 100%; }
   .dk .dk-tb-row-2 { flex-direction: column; align-items: flex-start; }
@@ -1383,15 +1490,16 @@
 }
 /* The notch fills the bottom-right corner, so square it off underneath to avoid an anti-aliased red arc. */
 @media (min-width: 861px) {
-  .dk :is(.dk-hero-card, .dk-nhero-card):has(> .dk-notch) { border-bottom-right-radius: 0; }
+  .dk .dk-nhero-card:has(> .dk-notch) { border-bottom-right-radius: 0; }
+}
+@media (min-width: 1025px) {
+  .dk .dk-hero-card:has(> .dk-notch) { border-bottom-right-radius: 0; }
 }
 
 @media (max-width: 600px) {
   .dk { font-size: 16px; }
   /* 16px+ stops iOS zooming the page when a field is focused */
   .dk :is(.dk-search input, .dk-input, .dk-ta, .dk-select) { font-size: 16px; }
-  .dk .dk-hero { padding: 12px 12px 0; }
-  .dk .dk-hero-card { border-radius: 24px; }
   .dk .dk-brand-sub { display: none; }
   /* 390px phones: logo + name + cart + Inquire + menu must fit without overlapping */
   .dk .dk-nav { gap: 12px; }
@@ -1403,77 +1511,54 @@
   .dk .dk-hd-bar .dk-brand { gap: 8px; }
   .dk .dk-hd-bar .dk-brand-name { font-size: 14px; }
   .dk .dk-hd-bar .dk-brand-mark { height: 30px; }
-  .dk .dk-hero h1 { font-size: clamp(52px, 16vw, 72px); }
-  .dk .dk-hero-lede { font-size: 16px; line-height: 26px; }
   .dk .dk-trust ul { grid-template-columns: 1fr; }
   .dk .dk-trust li, .dk .dk-trust li + li { border-left: 0; padding-left: 0; white-space: normal; }
-  .dk .dk-balance { padding: 64px 0 80px; }
   .dk .dk-yin-yang { justify-content: center; }
   .dk .dk-yy-circle { width: 168px; height: 168px; font-size: 12px; }
-  .dk :is(.dk-bloodlines, .dk-provenance, .dk-testimonials, .dk-rehomed) { padding: 60px 0; }
-  .dk .dk-section { padding: 56px 0; }
   .dk .dk-bl-head { flex-direction: column; align-items: flex-start; }
   .dk .dk-filters, .dk .dk-tabs { flex-wrap: nowrap; overflow-x: auto; margin-left: calc(var(--dk-gutter) * -1); margin-right: calc(var(--dk-gutter) * -1); padding: 0 var(--dk-gutter) 8px; scrollbar-width: none; }
   .dk .dk-tb-row-2 .dk-filters { width: calc(100% + var(--dk-gutter) * 2); }
   .dk .dk-filters::-webkit-scrollbar, .dk .dk-tabs::-webkit-scrollbar { display: none; }
   .dk .dk-chip, .dk .dk-filters .dk-tb-label { flex: none; }
-  .dk .dk-cards { grid-template-columns: 1fr; }
-  .dk .dk-card-img { height: 240px; }
   .dk .dk-promises { grid-template-columns: 1fr; row-gap: 40px; }
   .dk .dk-promise h3 { margin-top: 20px; }
-  .dk .dk-visit-band { padding: 40px 0; }
   .dk .dk-visit-card { border-radius: 28px; }
   .dk .dk-visit-cta { width: 100%; }
   .dk .dk-visit-notch { grid-template-columns: 1fr; gap: 20px; }
   .dk .dk-footer-top { grid-template-columns: 1fr; }
   .dk .dk-footer-bottom { flex-direction: column; align-items: flex-start; }
   .dk .dk-fab { right: 16px; bottom: 16px; width: 52px; height: 52px; }
-  .dk .dk-grid-3, .dk .dk-grid-4 { grid-template-columns: 1fr; }
   .dk .dk-fgrid { grid-template-columns: 1fr; }
-  .dk .dk-panel { padding: 22px 20px; }
   .dk .dk-nhero-notch .dk-btn { align-self: stretch; }
   /* Primary + secondary pairs stack full-width on phones. */
   .dk .dk-actions { flex-direction: column; align-items: stretch; }
   .dk .dk-actions > .dk-btn:not(.xs, .plain) { width: 100%; }
 
   .dk .dk-cave-copy .dk-btn { width: 100%; }
-  .dk .dk-shelf-2, .dk .dk-shelf-3 { grid-template-columns: 1fr 1fr; }
-  .dk .dk-shelf-3 .dk-tank-slot:last-child { grid-column: 1 / -1; }
-  .dk .dk-tank, .dk .dk-shelf-3 .dk-tank, .dk .dk-tank-wide { height: 150px; }
   .dk .dk-cave-promise .dk-wrap > .dk-cp-grid { grid-template-columns: 1fr; }
   .dk .dk-cp-item, .dk .dk-cp-item:nth-child(2) { border-left: 0; padding: 20px 0 0; border-top: 1px solid var(--dk-line-dark); }
   .dk .dk-tb-row .dk-select { width: 100%; }
   .dk .dk-tb-row > .dk-tb-label { display: none; }
-  .dk .dk-sold-grid { gap: 28px 16px; }
-  .dk .dk-sold-img { height: 130px; }
   .dk .dk-sold-name { font-size: 15px; }
   .dk .dk-rehomed .dk-bl-all { width: 100%; }
   .dk .dk-slip { padding: 22px 22px 32px; transform: rotate(1.5deg); }
   .dk .dk-slip-total b { font-size: 44px; }
   .dk .dk-barcode { width: 100%; max-width: 240px; }
-  .dk .dk-products { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px 14px; }
   .dk .dk-pill { height: 38px; min-width: 0; padding: 0 14px; font-size: 13px; }
   .dk button.dk-pill { min-width: 0; }
   .dk .dk-p-name { font-size: 15px; }
   .dk .dk-specimen { height: 280px; }
   .dk .dk-specimen .dk-ph { height: 200px; }
   .dk .dk-specimen-cap { width: auto; right: 40px; }
-  .dk .dk-booking { padding: 48px 16px 0; }
-  .dk .dk-form-card { padding: 24px 20px 20px; }
   .dk .dk-booking aside { grid-template-columns: 1fr; }
-  .dk .dk-steps { padding: 56px 20px 80px; }
   .dk .dk-steps ol { grid-template-columns: 1fr; }
 
-  .dk.dk-auth { padding: 0; }
-  .dk .dk-auth-frame { border: 0; border-radius: 0; padding: 12px 12px 32px; }
-  .dk .dk-auth-panel { min-height: 420px; border-radius: 28px; }
+  .dk .dk-auth-frame { border: 0; border-radius: 0; }
   .dk .dk-auth-brand, .dk .dk-auth-title, .dk .dk-auth-back { left: 24px; }
   .dk .dk-auth-title { top: 120px; right: 24px; }
   .dk .dk-auth-side, .dk .dk-auth-side.reg { width: calc(100% - 24px); margin-top: -80px; }
-  .dk .dk-auth-card { padding: 28px 22px 20px; }
   .dk .dk-two { grid-template-columns: 1fr; gap: 22px; }
 
-  .dk .dk-app-main { padding: 24px 16px 56px; }
   .dk .dk-app-actions { gap: 10px; }
   .dk .dk-user-pill { padding-right: 8px; }
   .dk .dk-user-pill > span:last-child { display: none; }
@@ -1500,40 +1585,200 @@
   .dk :is(.dk-hd-bar, .dk-nav) .dk-brand-name { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 }
 
-/* ── Landing hero on phones (≤700px) ─────────────────────────────────────────────
-   Order inside the red card: nav → headline → fish → product card (the notch) → intro.
-   .dk-hero-copy becomes display:contents so the headline and the intro can take separate places in the card's
-   flex column — the same elements are reordered, nothing is duplicated. Desktop/tablet rules above are untouched. */
-@media (max-width: 700px) {
+/* â”€â”€ Landing hero on phones and tablets (â‰¤1024px) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+   The card fills the screen (svh, so browser bars don't cut it) as a flex column:
+   nav â†’ headline â†’ fish (grows into the free space, image centred) â†’ product card (the notch) â†’ intro.
+   .dk-hero-copy becomes display:contents so the headline and the intro can take separate places in the column â€”
+   the same elements are reordered, nothing is duplicated. */
+@media (max-width: 1024px) {
+  .dk .dk-hero-card {
+    --seal-size: clamp(80px, 20vw, 96px);
+    display: flex; flex-direction: column;
+    min-height: max(620px, calc(100vh - 2 * var(--hero-frame)));
+    min-height: max(620px, calc(100svh - 2 * var(--hero-frame)));
+    padding-bottom: env(safe-area-inset-bottom);
+  }
   .dk .dk-hero-copy { display: contents; }
-  .dk .dk-nav { order: 1; padding: 20px 18px 0 20px; }
+  .dk .dk-nav { order: 1; padding: 20px var(--hero-pad) 0; }
+  .dk .dk-nav .dk-mnav { top: 76px; }
+  .dk .dk-hero h1 { order: 2; position: relative; z-index: 2; margin: 26px var(--hero-pad) 0; font-size: clamp(48px, 14vw, 84px); }
+  .dk .dk-hero-fish {
+    order: 3; position: relative; z-index: 3; top: auto; right: auto; bottom: auto; transform: none;
+    width: auto; aspect-ratio: auto; flex: 1 0 clamp(150px, 30svh, 380px); margin: 8px var(--hero-pad) 0;
+  }
+  .dk .dk-hero-notch {
+    order: 4; position: relative; right: auto; bottom: auto; z-index: 4; width: auto; min-height: 0;
+    margin: 8px calc(var(--hero-pad) - 6px) 0; border-radius: 22px; padding: 22px 24px 24px;
+  }
+  .dk .dk-hero-notch::before, .dk .dk-hero-notch::after { display: none; }
+  /* The intro sits under the headline (filling the space above the product card), not after the card. */
+  .dk .dk-hero-lede { order: 3; position: relative; z-index: 2; width: auto; max-width: 560px; margin: 16px var(--hero-pad) 0; padding-left: 0; font-size: 16px; line-height: 26px; color: rgba(255,255,255,.88); }
+  /* Seal beside the first line ("Living" is short), clear of the nav and of the second line's ascenders. */
+  .dk .dk-seal { right: var(--hero-pad); top: clamp(66px, 11vw, 100px); }
+}
+
+@media (max-width: 700px) {
   .dk .dk-nav-cta { display: none; }
   .dk .dk-nav .dk-brand-name { position: static; width: auto; height: auto; overflow: visible; clip: auto; font-size: 15px; }
-  .dk .dk-hero h1 { order: 2; position: relative; z-index: 2; margin: 26px 20px 0; font-size: 56px; line-height: .94; }
-  .dk .dk-hero-fish { order: 3; position: relative; z-index: 3; right: auto; top: auto; width: auto; height: 190px; margin: -22px 14px 0; }
-  .dk .dk-hero-notch { order: 4; z-index: 4; width: auto; margin: -18px 14px 0; border-radius: 22px; padding: 18px 20px 20px; }
+  .dk .dk-hero-notch { grid-template-columns: 1fr; padding: 18px 20px 20px; }
   .dk .dk-spec-title { font-size: 20px; }
   .dk .dk-spec-label { margin-top: 12px; }
   .dk .dk-spec-price { font-size: 26px; }
   .dk .dk-spec-cta { width: 100%; margin-top: 14px; }
-  .dk .dk-spec-links { margin-top: 16px; gap: 10px 18px; }
-  .dk .dk-hero-lede { order: 5; margin: 18px 20px 24px; padding-left: 0; max-width: none; font-size: 14.5px; line-height: 1.6; }
-  /* Seal beside the first line ("Living" is short), clear of the nav and of the second line's ascenders. */
-  .dk .dk-seal { width: 66px; height: 66px; right: 22px; top: 66px; }
-  /* Compact sticky bar once the product card has scrolled away (components: app/(site)/page.tsx). */
-  .dk .dk-hero-bar {
-    position: fixed; z-index: 70; left: 0; right: 0; bottom: 0; display: flex; align-items: center; gap: 12px;
-    padding: 10px 12px calc(10px + env(safe-area-inset-bottom)) 16px; background: rgba(0,0,0,.94); border-top: 1px solid var(--dk-line-dark);
-    color: var(--dk-white); transform: translateY(110%); transition: transform .3s var(--dk-ease);
-  }
-  .dk .dk-hero-bar.show { transform: none; }
-  .dk .dk-hero-bar-info { flex: 1; min-width: 0; line-height: 1.25; }
-  .dk .dk-hero-bar-info b { display: block; font-family: var(--dk-f-display); font-weight: 800; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .dk .dk-hero-bar-info span { font-size: 13px; color: var(--dk-n-300); }
-  body:has(.dk-hero-bar.show) .dk-fab { transform: translateY(-72px); }
+  .dk .dk-spec-links { text-align: left; align-items: flex-start; flex-direction: row; flex-wrap: wrap; margin-top: 16px; gap: 10px 18px; }
+  .dk .dk-hero-lede { max-width: none; font-size: 14.5px; line-height: 1.6; }
 }
-@media (min-width: 701px) { .dk .dk-hero-bar { display: none; } }
+
+/* ── Fish inside the hero notch, beside the specimen name ──────────────────────────
+   Grid: details span both rows on the left; the fish sits top-right, the shortcut links bottom-right. */
+.dk .dk-hero-notch:has(.dk-notch-fish) { grid-template-rows: auto 1fr; }
+.dk .dk-hero-notch:has(.dk-notch-fish) > div:first-child { grid-row: 1 / span 2; }
+.dk .dk-notch-fish {
+  grid-column: 2; grid-row: 1; align-self: start; justify-self: end;
+  display: block; width: clamp(150px, 13vw, 220px); margin: -6px -8px 0 0; transition: transform .35s var(--dk-ease);
+}
+.dk .dk-notch-fish img { display: block; width: 100%; height: auto; filter: drop-shadow(0 8px 10px rgba(0,0,0,.45)); }
+.dk .dk-notch-fish:hover { transform: translateX(-6px) rotate(-2deg); }
+.dk .dk-notch-fish:focus-visible { outline: 2px solid var(--dk-white); outline-offset: 4px; border-radius: 8px; }
+.dk .dk-hero-notch:has(.dk-notch-fish) .dk-spec-links { grid-column: 2; grid-row: 2; align-self: end; }
+/* Stacked hero (≤1024px): the notch is pushed to the bottom by its own margin now that no fish fills the column. */
+/* The notch is the last item: pushed to the bottom of the screen, with the same inset below it as at its sides. */
+@media (max-width: 1024px) { .dk .dk-hero-notch { margin-top: auto; margin-bottom: calc(var(--hero-pad) - 6px); } .dk .dk-hero-lede + .dk-hero-notch, .dk .dk-hero-notch { min-height: 0; } }
+/* Phones: one-column notch — the fish floats top-right and the title leaves room for it. */
+/* Stacked hero (≤1024px): the fish moves out of the notch into the free space above it, sized to that space. */
+.dk .dk-hero-fish-m { display: none; }
+@media (max-width: 1024px) {
+  .dk .dk-notch-fish { display: none; }
+  .dk .dk-hero-notch:has(.dk-notch-fish) { grid-template-rows: none; }
+  .dk .dk-hero-notch:has(.dk-notch-fish) > div:first-child { grid-row: auto; }
+  .dk .dk-hero-notch:has(.dk-notch-fish) .dk-spec-links { grid-row: auto; }
+  .dk .dk-hero-fish-m {
+    order: 4; position: relative; z-index: 3; display: flex; align-items: flex-end; justify-content: center;
+    flex: 1 1 0; min-height: 0; max-height: 340px; margin: 12px var(--hero-pad) -14px; pointer-events: none;
+  }
+  .dk .dk-hero-fish-m img { width: 100%; max-width: 560px; height: 100%; max-height: 100%; object-fit: contain; object-position: center bottom; filter: drop-shadow(0 10px 10px rgba(0,0,0,.3)); }
+  .dk .dk-hero-fish-m + .dk-hero-notch { order: 5; }
+}
+@media (max-width: 700px) {
+  .dk .dk-hero-notch:has(.dk-notch-fish) .dk-spec-links { grid-column: auto; }
+}
 
 @media (prefers-reduced-motion: reduce) {
   .dk *, .dk *::before, .dk *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
+
+/* ── Home hero nav legibility (desktop) ───────────────────────────────────────────
+   The hero gradient is near-white at the top right, so the links sit on a smoky pill and Sign in / the icon
+   buttons get the same backing. Translucent + blur (not a solid bar) so the gradient still shows through. */
+@media (min-width: 1101px) {
+  .dk .dk-nav { --nav-glass: rgba(20, 2, 3, .34); }
+  .dk .dk-nav-links {
+    gap: 2px; margin: 0 auto; padding: 5px; border-radius: var(--dk-r-pill);
+    background: var(--nav-glass); backdrop-filter: blur(12px) saturate(1.2); -webkit-backdrop-filter: blur(12px) saturate(1.2);
+  }
+  .dk .dk-nav-links a { display: block; padding: 8px 16px; border-radius: var(--dk-r-pill); font-size: 16px; font-weight: 500; color: var(--dk-white); transition: background-color .2s, color .2s; }
+  .dk .dk-nav-links a::after { display: none; }
+  .dk .dk-nav-links a:hover { background: var(--dk-white); color: var(--dk-black); }
+  .dk .dk-nav-signin, .dk .dk-nav .dk-acct-btn, .dk .dk-nav .dk-icon-btn {
+    background: var(--nav-glass); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  }
+  .dk .dk-nav-signin { height: 46px; padding: 0 18px; border-radius: var(--dk-r-pill); font-weight: 500; color: var(--dk-white); }
+  .dk .dk-nav-signin:hover { background: var(--dk-white); color: var(--dk-black); }
+  .dk .dk-nav .dk-icon-btn, .dk .dk-nav .dk-acct-btn { border-color: rgba(255, 255, 255, .4); }
+}
+
+/* Desktop navbars (home hero + sticky header): every control is 46px tall — the same as the Inquire chip button —
+   so the icon buttons, Sign in and the account pill line up as one row. */
+@media (min-width: 1101px) {
+  .dk :is(.dk-nav, .dk-hd-actions) .dk-icon-btn { width: 46px; height: 46px; }
+  .dk :is(.dk-nav, .dk-hd-actions) .dk-icon-btn > svg { width: 20px; height: 20px; }
+  .dk :is(.dk-nav, .dk-hd-actions) .dk-acct-btn { height: 46px; padding-left: 6px; }
+  .dk :is(.dk-nav, .dk-hd-actions) .dk-acct-btn .dk-avatar { width: 34px; height: 34px; }
+}
+
+/* =========================================================
+   HOME EDITORIAL SECTIONS — Balance (bento + tilt) and Promise (reveal + accordion)
+   components/dc/home/*. Content is fully visible in CSS; GSAP adds the entrance motion.
+   ========================================================= */
+/* Eyebrow with a short leading rule. */
+.dk .dk-eyebrow-line { display: inline-flex; align-items: center; gap: 12px; font-size: 13px; font-weight: 600; color: var(--dk-red); letter-spacing: .01em; }
+.dk .dk-eyebrow-line::before { content: ""; width: 28px; height: 1.5px; background: currentColor; flex: none; }
+/* Editorial heading: each line in an overflow mask so it can rise into view. */
+.dk .dk-reveal-h { margin-top: 18px; font-family: var(--dk-f-display); font-weight: 800; font-size: clamp(40px, 5.2vw, 84px); line-height: .95; letter-spacing: -0.045em; }
+.dk .dk-mask { display: block; overflow: hidden; padding-bottom: .08em; margin-bottom: -.08em; }
+.dk .dk-mask > span { display: block; white-space: nowrap; }
+
+/* ── Promise (black) ── */
+.dk .dk-pr { background: var(--dk-black); color: var(--dk-white); padding: var(--dk-section-y) 0; }
+.dk .dk-pr .dk-eyebrow-line { color: var(--dk-red-bright); }
+.dk .dk-pr-top { display: grid; grid-template-columns: 1.25fr 1fr; gap: 40px; align-items: end; margin-bottom: 60px; }
+.dk .dk-pr-intro { max-width: 500px; justify-self: end; font-size: 17px; line-height: 1.6; color: var(--dk-n-400); }
+.dk .dk-pr-list { border-top: 1px solid var(--dk-line-dark-2); }
+.dk .dk-pr-row {
+  position: relative; isolation: isolate; overflow: hidden; display: grid; grid-template-columns: 1.15fr 1fr 52px; align-items: center; gap: 24px;
+  width: 100%; min-height: 112px; padding: 0 28px; border: 0; border-bottom: 1px solid var(--dk-line-dark-2);
+  background: transparent; color: var(--dk-white); text-align: left; cursor: pointer;
+}
+.dk .dk-pr-row:focus-visible { outline: 2px solid var(--dk-white); outline-offset: -3px; border-radius: 0; }
+/* Red panel sweeps in from the left on open, out to the right on close. */
+.dk .dk-pr-sweep { position: absolute; inset: 0; z-index: -1; background: var(--dk-red); transform: scaleX(0); transform-origin: right center; transition: transform .7s cubic-bezier(.7, 0, .2, 1); }
+.dk .dk-pr-row[aria-expanded="true"] .dk-pr-sweep { transform: scaleX(1); transform-origin: left center; }
+.dk .dk-pr-title { font-family: var(--dk-f-display); font-weight: 300; font-size: clamp(28px, 3.4vw, 54px); line-height: 1.05; letter-spacing: -0.03em; color: var(--dk-n-500); transition: color .4s ease; }
+.dk .dk-pr-row[aria-expanded="true"] .dk-pr-title { color: var(--dk-white); }
+.dk .dk-pr-desc { font-size: 16px; line-height: 1.6; color: var(--dk-white); max-width: 46ch; opacity: 0; transform: translateY(14px); transition: opacity .3s ease, transform .3s ease; }
+.dk .dk-pr-row[aria-expanded="true"] .dk-pr-desc { opacity: 1; transform: none; transition: opacity .5s ease .15s, transform .5s var(--dk-ease) .15s; }
+.dk .dk-pr-icon {
+  justify-self: end; width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center;
+  border: 1.5px solid var(--dk-ph-dark); color: var(--dk-white); transition: transform .5s var(--dk-ease), background-color .3s, border-color .3s;
+}
+.dk .dk-pr-row[aria-expanded="true"] .dk-pr-icon { background: var(--dk-black); border-color: var(--dk-black); transform: rotate(-45deg); }
+@media (max-width: 980px) {
+  .dk .dk-pr-top { grid-template-columns: 1fr; gap: 20px; margin-bottom: 40px; }
+  .dk .dk-pr-intro { justify-self: start; }
+  .dk .dk-pr-row { grid-template-columns: minmax(0, 1fr) 52px; grid-template-areas: "title icon" "desc desc"; gap: 0 16px; min-height: 0; padding: 22px 18px; }
+  .dk .dk-pr-title { grid-area: title; }
+  .dk .dk-pr-icon { grid-area: icon; }
+  .dk .dk-pr-desc { grid-area: desc; display: none; margin-top: 12px; }
+  .dk .dk-pr-row[aria-expanded="true"] .dk-pr-desc { display: block; }
+}
+
+/* ── Balance (paper) ── */
+.dk .dk-bal { background: var(--dk-n-100); color: var(--dk-black); padding: var(--dk-section-y) 0; }
+.dk .dk-bal-grid { display: grid; grid-template-columns: 1.05fr 2fr; gap: 16px; align-items: center; }
+.dk .dk-bal-copy { padding-right: clamp(0px, 2vw, 32px); }
+.dk .dk-bal-copy .dk-reveal-h { font-size: clamp(36px, 3.6vw, 62px); }
+.dk .dk-bal-text { margin-top: 24px; max-width: 46ch; font-size: 17px; line-height: 1.6; color: var(--dk-n-600); }
+.dk .dk-bal-cards { position: relative; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; perspective: 1100px; }
+.dk .dk-bal-card {
+  position: relative; display: flex; align-items: center; justify-content: center; min-height: 500px; margin: 0;
+  border-radius: 30px; overflow: hidden; transform-style: preserve-3d; will-change: transform;
+}
+.dk .dk-bal-card.fire { background: var(--dk-white); box-shadow: inset 0 0 0 1px #e3e3e3; }
+.dk .dk-bal-card.gold { background: var(--dk-black); }
+.dk .dk-bal-mark {
+  position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; user-select: none;
+  font-family: var(--dk-f-display); font-weight: 800; font-size: clamp(200px, 21vw, 300px); line-height: 1;
+}
+.dk .dk-bal-card.fire .dk-bal-mark { color: rgba(225, 6, 0, .07); }
+.dk .dk-bal-card.gold .dk-bal-mark { color: rgba(255, 255, 255, .06); }
+.dk .dk-bal-fish { position: relative; z-index: 1; display: block; width: 78%; will-change: transform; }
+/* The two fish face each other across the seam (the parallax moves the wrapper, the mirror is on the image). */
+.dk .dk-bal-fish img { display: block; width: 100%; height: auto; transform: scaleX(-1); }
+.dk .dk-bal-label { position: absolute; z-index: 1; left: 28px; bottom: 26px; display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; }
+.dk .dk-bal-label::before { content: ""; width: 8px; height: 8px; border-radius: 50%; }
+.dk .dk-bal-card.fire .dk-bal-label { color: var(--dk-black); }
+.dk .dk-bal-card.fire .dk-bal-label::before { background: var(--dk-red); }
+.dk .dk-bal-card.gold .dk-bal-label { color: var(--dk-white); }
+.dk .dk-bal-card.gold .dk-bal-label::before { background: #e8b923; }
+/* Yin-yang on the seam between the cards (centre of the 2-card grid; on phones, the top edge of the gold card). */
+.dk .dk-bal-badge { position: absolute; z-index: 3; left: calc(50% - 36px); top: calc(50% - 36px); width: 72px; height: 72px; filter: drop-shadow(0 8px 18px rgba(0, 0, 0, .28)); pointer-events: none; }
+@media (max-width: 980px) {
+  .dk .dk-bal-grid { grid-template-columns: 1fr; gap: 36px; }
+  .dk .dk-bal-copy { padding-right: 0; }
+  .dk .dk-bal-copy .dk-reveal-h { font-size: clamp(36px, 7vw, 62px); }
+  .dk .dk-bal-card { min-height: 360px; }
+}
+@media (max-width: 600px) {
+  .dk .dk-bal-cards { grid-template-columns: 1fr; }
+  .dk .dk-bal-card { min-height: 320px; }
 }

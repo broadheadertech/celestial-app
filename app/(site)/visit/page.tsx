@@ -14,6 +14,7 @@ import { BrandMark } from '@/components/dc/kit/Brand';
 import Placeholder from '@/components/dc/kit/Placeholder';
 import NotchHero from '@/components/dc/kit/NotchHero';
 import { CheckIcon, WhatsAppIcon } from '@/components/dc/kit/icons';
+import { StepCalendarIcon, StepChatIcon, StepClockIcon, StepPhoneIcon } from '@/components/dc/kit/StepIcons';
 
 
 const GUEST_LABEL: Record<string, string> = { '1': 'Just me', '2': '2 of us', '3': '3 of us', '4+': '4 or more' };
@@ -271,10 +272,10 @@ export default function VisitPage() {
       <section className="dk-steps" aria-labelledby="steps-title">
         <h2 id="steps-title">What a visit looks like.</h2>
         <ol>
-          <li><h3>You book a slot</h3><p>Send the form and we confirm a private time — no overlapping viewings.</p></li>
-          <li><h3>We pour tea</h3><p>Sit with the fish. We&rsquo;ll talk bloodline, husbandry, and what suits your setup.</p></li>
-          <li><h3>Take your time</h3><p>No pressure to buy. Ask us to hold a fish while you prepare a tank.</p></li>
-          <li><h3>We stay in touch</h3><p>Bought or not, our line stays open for the life of your fish.</p></li>
+          <li><span className="dk-step-icon" aria-hidden="true"><StepCalendarIcon /></span><h3>You book a slot</h3><p>Send the form and we confirm a private time — no overlapping viewings.</p></li>
+          <li><span className="dk-step-icon" aria-hidden="true"><StepChatIcon /></span><h3>We pour tea</h3><p>Sit with the fish. We&rsquo;ll talk bloodline, husbandry, and what suits your setup.</p></li>
+          <li><span className="dk-step-icon" aria-hidden="true"><StepClockIcon /></span><h3>Take your time</h3><p>No pressure to buy. Ask us to hold a fish while you prepare a tank.</p></li>
+          <li><span className="dk-step-icon" aria-hidden="true"><StepPhoneIcon /></span><h3>We stay in touch</h3><p>Bought or not, our line stays open for the life of your fish.</p></li>
         </ol>
       </section>
     </div>
