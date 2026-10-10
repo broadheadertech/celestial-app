@@ -87,7 +87,7 @@ export default function AccountPage() {
     return (
       <main className="dk">
         <section className="dk-section">
-          <div className="dk-wrap" style={{ maxWidth: 'calc(560px + var(--dk-gutter) * 2)' }}>
+          <div className="dk-wrap form">
             <div className="dk-panel">
               <EmptyState
                 as="h1"
@@ -181,7 +181,7 @@ export default function AccountPage() {
         </div>
       </section>
 
-      <section className="dk-section" style={{ paddingTop: 40 }}>
+      <section className="dk-section tight">
         <div className="dk-wrap" id="acct-panel" role="tabpanel" aria-labelledby={`acct-tab-${tab}`}>
           {tab === 'overview' && (
             <div className="dk-stack lg">

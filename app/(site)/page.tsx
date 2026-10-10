@@ -7,7 +7,7 @@
  */
 
 import Link from 'next/link';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery } from '@/components/dc/useQuery';
 import { api } from '@/convex/_generated/api';
 import { bloodlineOf, buildChips, DcProduct, fmtPeso, gradeRank, isArowana, isFish, kindName } from '@/components/dc/fish';
@@ -15,16 +15,13 @@ import { hoursSummary, useBusiness } from '@/components/dc/business';
 import { HeroNav } from '@/components/dc/DcHeader';
 import Aquarium from '@/components/dc/Aquarium';
 import Placeholder from '@/components/dc/kit/Placeholder';
+import { BrandMark } from '@/components/dc/kit/Brand';
 import SpecimenCard from '@/components/dc/kit/SpecimenCard';
 import Chips from '@/components/dc/kit/Chips';
-import { ChipIcon, ClockIcon, HouseIcon, PhoneIcon, WaveIcon, WhatsAppIcon } from '@/components/dc/kit/icons';
+import BalanceSection from '@/components/dc/home/BalanceSection';
+import PromiseSection from '@/components/dc/home/PromiseSection';
+import { ChipIcon, ClockIcon, WhatsAppIcon } from '@/components/dc/kit/icons';
 
-const PROMISE = [
-  { t: 'Provenance', b: 'Every fish carries a microchip, a CITES certificate, and our hand-written lineage card.', icon: <ChipIcon size={16} /> },
-  { t: 'Quarantine', b: '21 days of observation in isolated systems before any specimen joins the gallery.', icon: <HouseIcon size={18} /> },
-  { t: 'Husbandry', b: 'Tank parameters monitored daily. Diet planned per specimen. We sweat the small things.', icon: <WaveIcon /> },
-  { t: 'Continuity', b: 'We answer the phone five years after the sale. Your fish has a long life to live.', icon: <PhoneIcon size={18} /> },
-];
 const initialsOf = (name: string) =>
   name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]!.toUpperCase()).join('') || '龍';
 
@@ -57,23 +54,23 @@ export default function HomePage() {
     return out;
   }, [arowana, bloodline]);
 
+  // "The whole gallery" card: a few photos of fish not already shown as cards, plus how many more are in.
+  const gallery = useMemo(() => (products ?? []).filter((p) => p.isActive && isFish(p) && p.stock > 0), [products]);
+  const galleryPreview = useMemo(() => {
+    const shown = new Set(bloodlines.map((b) => b._id));
+    const seen = new Set<string>(); // several listings can share one photo — show each photo once
+    const withPhoto = gallery.filter((p) => p.image && !seen.has(p.image) && seen.add(p.image));
+    const fresh = withPhoto.filter((p) => !shown.has(p._id));
+    return (fresh.length >= 3 ? fresh : withPhoto).slice(0, 3);
+  }, [gallery, bloodlines]);
+  const galleryMore = Math.max(0, gallery.length - galleryPreview.length);
+
   // Hero notch states: loading (empty), featured fish (real data), or nothing in stock (no invented SKU/price).
   const loadingProducts = products === undefined;
   const heroName = featured?.name || '';
   const heroSku = featured?.sku ? '#' + featured.sku : '';
   const holdHref = featured ? biz.enquireHref(featured.name, `please hold ${heroSku || 'this fish'} for me`) : '/visit';
   const enquireHero = featured ? biz.enquireHref(heroName) : null;
-
-  // Phones: a compact sticky bar repeats the primary action once the product card has scrolled out of view.
-  const notchRef = useRef<HTMLElement>(null);
-  const [notchOnScreen, setNotchOnScreen] = useState(true);
-  useEffect(() => {
-    const el = notchRef.current;
-    if (!el) return;
-    const io = new IntersectionObserver(([entry]) => setNotchOnScreen(entry.isIntersecting), { threshold: 0 });
-    io.observe(el);
-    return () => io.disconnect();
-  }, []);
 
   return (
     <main className="dk dk-home">
@@ -83,29 +80,61 @@ export default function HomePage() {
           <Aquarium />
           <HeroNav />
 
-          {/* Rotating seal: the ring text circles once (textLength fits a 2πr ≈ 232 path with a small gap). */}
-          <div className="dk-seal" role="img" aria-label="Featured this fortnight">
-            <svg className="dk-seal-ring" viewBox="0 0 104 104" aria-hidden="true" focusable="false">
-              <defs>
-                <path id="dk-seal-path" d="M 52,15 a 37,37 0 1,1 0,74 a 37,37 0 1,1 0,-74" />
-              </defs>
-              <text>
-                <textPath href="#dk-seal-path" textLength="226" lengthAdjust="spacing">Featured this fortnight •</textPath>
-              </text>
-            </svg>
-            <span className="dk-seal-core" aria-hidden="true"><span className="dk-seal-dot" /></span>
-          </div>
+          {/* Featured seal: a black stamp whose centre ("Featured / this fortnight") never moves, so it reads at a
+              glance; only the rim text turns. Links to the featured specimen once it has loaded. */}
+          {(() => {
+            const seal = (
+              <svg viewBox="0 0 120 120" aria-hidden="true" focusable="false">
+                <defs>
+                  <path id="dk-seal-path" d="M 60,14 a 46,46 0 1,1 0,92 a 46,46 0 1,1 0,-92" />
+                </defs>
+                <circle cx="60" cy="60" r="59" className="dk-seal-disc" />
+                <circle cx="60" cy="60" r="56" className="dk-seal-rim" />
+                <g className="dk-seal-spin">
+                  <text className="dk-seal-ring-text">
+                    <textPath href="#dk-seal-path" textLength="284" lengthAdjust="spacing">
+                      Hand-picked · {biz.storeName || 'Dragon’s Cave'} · Hand-picked · {biz.storeName || 'Dragon’s Cave'} ·
+                    </textPath>
+                  </text>
+                </g>
+                <circle cx="60" cy="60" r="35" className="dk-seal-inner" />
+                <circle cx="60" cy="41" r="3" className="dk-seal-dot" />
+                <text x="60" y="64" textAnchor="middle" className="dk-seal-title">Featured</text>
+                <text x="60" y="77" textAnchor="middle" className="dk-seal-sub">this fortnight</text>
+              </svg>
+            );
+            return featured ? (
+              <Link href={`/specimen-detail?id=${featured._id}`} className="dk-seal" aria-label={`Featured this fortnight: ${heroName}`}>
+                {seal}
+              </Link>
+            ) : (
+              <div className="dk-seal" role="img" aria-label="Featured this fortnight">{seal}</div>
+            );
+          })()}
 
-          <div className="dk-hero-fish">
-            <Placeholder src="/img/arowana-red.png" alt="Super Red Arowana" contain priority />
-          </div>
+          {/* With a featured fish, the fish image lives inside the notch beside its name (below). The free-floating
+              hero fish only appears when nothing is in stock. */}
+          {!featured && !loadingProducts && (
+            <div className="dk-hero-fish">
+              <Placeholder src="/img/arowana-red.png" alt="Super Red Arowana" contain priority />
+            </div>
+          )}
 
           <div className="dk-hero-copy">
             <h1><span>Living</span><span>dragons.</span></h1>
             <p className="dk-hero-lede">Museum-grade Asian arowana, the fish the old texts call a living dragon. Chosen for bloodline, raised for temperament, and kept in our gallery water until the right hands arrive.</p>
           </div>
 
-          <aside ref={notchRef} className="dk-notch dk-hero-notch" aria-label="Featured specimen">
+          {/* Phones/tablets: the featured fish fills the space between the intro and the product card (the in-notch
+              fish is hidden there). Decorative — the notch already links to the specimen. */}
+          {featured && (
+            <div className="dk-hero-fish-m" aria-hidden="true">
+              {/* eslint-disable-next-line @next/next/no-img-element -- static transparent sprite, sized by CSS */}
+              <img src="/img/arowana-red.png" alt="" decoding="async" draggable={false} />
+            </div>
+          )}
+
+          <aside className="dk-notch dk-hero-notch" aria-label="Featured specimen">
             <div>
               {featured ? (
                 <>
@@ -127,6 +156,12 @@ export default function HomePage() {
                 <h2 className="dk-spec-title">New specimens arriving soon</h2>
               ) : null}
             </div>
+            {featured && (
+              <Link href={`/specimen-detail?id=${featured._id}`} className="dk-notch-fish" aria-label={`${heroName}: view this specimen`}>
+                {/* eslint-disable-next-line @next/next/no-img-element -- static transparent sprite, sized by CSS */}
+                <img src="/img/arowana-red.png" alt="" decoding="async" draggable={false} />
+              </Link>
+            )}
             <nav className="dk-spec-links" aria-label="Specimen shortcuts">
               <Link className="dk-link-arrow" href="/catalog">All specimens</Link>
               <Link className="dk-link-arrow" href="/cave">Enter the gallery</Link>
@@ -148,38 +183,9 @@ export default function HomePage() {
         </div>
       </section>
 
-      {featured && enquireHero && (
-        <div className={`dk-hero-bar${notchOnScreen ? '' : ' show'}`} inert={notchOnScreen} aria-hidden={notchOnScreen}>
-          <div className="dk-hero-bar-info">
-            <b>{heroName}</b>
-            <span>{fmtPeso(featured.price)}</span>
-          </div>
-          <a className="dk-btn dk-btn-red sm" href={enquireHero} target={enquireHero.startsWith('http') ? '_blank' : undefined} rel="noopener">
-            Inquire on WhatsApp
-          </a>
-        </div>
-      )}
 
       {/* ══════════ BALANCE ══════════ */}
-      <section className="dk-balance" aria-labelledby="balance-title">
-        <div className="dk-wrap">
-          <div>
-            <p className="dk-eyebrow">陰陽 · Balance</p>
-            <h2 className="dk-h2" id="balance-title">Fire and gold,<br />held in balance.</h2>
-            <p className="dk-body">In feng shui the arowana carries luck through water — the red for fortune and vigour, the gold for wealth and standing. We pair the fish to the keeper, not the other way around.</p>
-          </div>
-          <div className="dk-yin-yang">
-            <figure className="dk-yy-item">
-              <Placeholder className="dk-yy-circle dk-yy-fire" src="/img/red.webp" alt="Super Red arowana" />
-              <figcaption className="dk-yy-cap">陽 · Fire</figcaption>
-            </figure>
-            <figure className="dk-yy-item">
-              <Placeholder className="dk-yy-circle dk-yy-gold" src="/img/24k-gold.webp" alt="24K Gold arowana" />
-              <figcaption className="dk-yy-cap">陰 · Gold</figcaption>
-            </figure>
-          </div>
-        </div>
-      </section>
+      <BalanceSection />
 
       {/* ══════════ BLOODLINES ══════════ */}
       <section className="dk-bloodlines" id="bloodlines" aria-labelledby="bl-title">
@@ -210,7 +216,16 @@ export default function HomePage() {
               />
             ))}
             <Link className="dk-card-gallery" href="/catalog">
-              <span className="dk-gal-mark" aria-hidden="true">財</span>
+              <BrandMark onDark className="dk-gal-logo" />
+              <span className="dk-gal-preview" aria-hidden="true">
+                {loadingProducts
+                  ? Array.from({ length: 4 }, (_, i) => <span key={i} />)
+                  : galleryPreview.map((p) => (
+                      // eslint-disable-next-line @next/next/no-img-element -- product photos are remote Convex storage URLs
+                      <img key={p._id} src={p.image} alt="" loading="lazy" decoding="async" draggable={false} />
+                    ))}
+                {!loadingProducts && galleryMore > 0 && <span className="dk-gal-more">+{galleryMore}</span>}
+              </span>
               <span className="dk-gal-title">The whole gallery</span>
               <span className="dk-gal-sub">Every specimen in the water.</span>
               <span className="dk-gal-link dk-link-arrow">Browse all</span>
@@ -220,31 +235,14 @@ export default function HomePage() {
       </section>
 
       {/* ══════════ PROVENANCE ══════════ */}
-      <section className="dk-provenance" id="story" aria-labelledby="prov-title">
-        <div className="dk-wrap">
-          <div>
-            <p className="dk-eyebrow">The Cave · Our promise</p>
-            <h2 className="dk-h2" id="prov-title">Provenance,<br />then patience.</h2>
-            <p className="dk-body">Every arowana that crosses our threshold is identified, isolated, and observed for twenty-one days before it joins the gallery. We do not sell a fish until we would keep it ourselves.</p>
-          </div>
-          <div className="dk-promises">
-            {PROMISE.map((p) => (
-              <div key={p.t} className="dk-promise">
-                <span className="dk-promise-icon">{p.icon}</span>
-                <h3>{p.t}</h3>
-                <p>{p.b}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+      <PromiseSection />
 
       {/* ══════════ VISIT ══════════ */}
       <section className="dk-visit-band" aria-labelledby="visit-band-title">
         <div className="dk-wrap">
           <div className="dk-visit-card">
             <div className="dk-visit-glow" aria-hidden="true" />
-            <Placeholder className="dk-visit-photo" onDark />
+            <Placeholder className="dk-visit-photo" onDark src="/img/aquarium/arowana-gold.webp" alt="Gold arowana" contain />
             <p className="dk-eyebrow">By appointment</p>
             <h2 className="dk-h2" id="visit-band-title">Visit the gallery.</h2>
             <p className="dk-body">By appointment only. Bring a friend. We will pour tea. Take as long as you need with the fish.</p>

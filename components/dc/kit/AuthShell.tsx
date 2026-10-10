@@ -2,12 +2,14 @@
 
 import type { ReactNode } from 'react';
 import { useBusiness } from '../business';
+import Aquarium from '../Aquarium';
 import Brand from './Brand';
 import { BackIcon } from './icons';
 
 /**
  * Split auth layout from the reference: the red gradient brand panel (with the carved corner) on the
  * left, the white form card overlapping it. Stacks into panel-then-card below 1260px.
+ * The panel carries the same living aquarium as the Home hero, behind the brand and title.
  */
 export default function AuthShell({
   title,
@@ -30,6 +32,7 @@ export default function AuthShell({
     <div className="dk dk-auth">
       <div className="dk-auth-frame">
         <div className={`dk-auth-panel${register ? ' reg' : ''}`}>
+          <Aquarium />
           <Brand name={biz.storeName} sub={subline} onDark className="dk-brand dk-auth-brand" />
           <div className="dk-auth-title">
             <h1>{title}</h1>

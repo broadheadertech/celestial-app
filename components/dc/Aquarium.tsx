@@ -78,14 +78,16 @@ export const AQUARIUM_CONFIG = {
   },
   /** Responsive tiers. */
   responsive: {
-    desktopMin: 1024,
+    desktopMin: 1025,
     tabletMin: 640,
     tablet: { fishScale: 0.8, bubbleDensity: 0.5 },
     mobile: { fishScale: 0.6, bubbleDensity: 1 / 3, fish: [0, 2, 4] },
-    /** At or below this width, fish swim only inside the vertical band of this element (the hero photo strip),
-     *  so they never drift over the product card, the seal or the headline. */
-    bandMaxWidth: 700,
-    bandSelector: '.dk-hero-fish',
+    /** At or below this width, fish swim only in the vertical band from the bottom of `bandFrom` (the intro under the headline) to
+     *  the top of `bandTo` (the product card), so they never drift over the card, the seal or the headline.
+     *  Matches the stacked hero (kit.css). Missing elements fall back to the whole tank. */
+    bandMaxWidth: 1024,
+    bandFrom: '.dk-hero-lede',
+    bandTo: '.dk-hero-notch',
   },
   /** Fade-in once the sprites have loaded (ms). */
   fadeInMs: 600,
@@ -175,15 +177,17 @@ export default function Aquarium() {
       maxY: band ? Math.max(band.top, band.bottom - s.h) : Math.max(cfg.margin, H - cfg.margin - s.h),
     });
 
-    /** The swim band on phones: the bandSelector element's top/bottom, relative to the tank. */
+    /** The swim band on phones: headline bottom → product card top, relative to the tank. */
     const measureBand = () => {
       const r = cfg.responsive;
       if (window.innerWidth > r.bandMaxWidth) return null;
-      const el = root.parentElement?.querySelector<HTMLElement>(r.bandSelector);
-      if (!el) return null;
-      const a = el.getBoundingClientRect();
+      const from = root.parentElement?.querySelector<HTMLElement>(r.bandFrom);
+      const to = root.parentElement?.querySelector<HTMLElement>(r.bandTo);
+      if (!from || !to) return null;
       const b = root.getBoundingClientRect();
-      return { top: a.top - b.top, bottom: a.bottom - b.top };
+      const top = from.getBoundingClientRect().bottom - b.top;
+      const bottom = to.getBoundingClientRect().top - b.top;
+      return bottom - top > 40 ? { top, bottom } : null;
     };
 
     const pickTarget = (s: FishState, i: number, now: number) => {
@@ -396,6 +400,11 @@ export default function Aquarium() {
       }, 150);
     });
     ro.observe(root);
+    // The swim band can shift without the card resizing (e.g. the product card fills in once data loads).
+    for (const sel of [cfg.responsive.bandFrom, cfg.responsive.bandTo]) {
+      const el = root.parentElement?.querySelector<HTMLElement>(sel);
+      if (el) ro.observe(el);
+    }
 
     document.addEventListener('visibilitychange', sync);
     reduceMq.addEventListener('change', applyMotionPref);
