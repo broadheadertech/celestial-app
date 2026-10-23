@@ -1,8 +1,14 @@
 /**
  * Pre-order rules: whether a fish can be committed to before it arrives, what deposit we ask
- * for, and how many slots are left. Pure, with no Convex imports, so the storefront shows exactly
- * what the server will charge — the server always recomputes it. Tested in tests/site/preorder.test.ts.
+ * for, and how many slots are left. The storefront shows exactly what the server will charge —
+ * the server always recomputes it. Tested in tests/site/preorder.test.ts.
+ *
+ * Also owns the `preorder` product-field validator and its normalizer, so every mutation that
+ * writes a product agrees (the same split as lib/video.ts). Both createProduct implementations
+ * must accept this field — admin.createProduct is the one the admin form actually calls.
  */
+
+import { v } from "convex/values";
 
 export type PreorderSettings = {
   enabled: boolean;
@@ -145,4 +151,65 @@ export function allocationOrder<T extends { amountPaid?: number; createdAt: numb
     if (paidA !== paidB) return paidB - paidA; // then the larger deposit
     return a.createdAt - b.createdAt; // then first come, first served
   });
+}
+
+// ---------------------------------------------------------------- the product field
+
+/**
+ * `products.preorder` as mutations accept it. `null` means "switch pre-orders off and forget the
+ * settings"; an object replaces them wholesale.
+ */
+export const preorderFieldValidator = v.optional(v.union(
+  v.null(),
+  v.object({
+    enabled: v.boolean(),
+    incomingQty: v.number(),
+    expectedFrom: v.optional(v.string()),
+    expectedTo: v.optional(v.string()),
+    depositAmount: v.optional(v.number()),
+    depositPercent: v.optional(v.number()),
+    note: v.optional(v.string()),
+  }),
+));
+
+export type PreorderInput = {
+  enabled: boolean;
+  incomingQty: number;
+  expectedFrom?: string;
+  expectedTo?: string;
+  depositAmount?: number;
+  depositPercent?: number;
+  note?: string;
+} | null | undefined;
+
+const YMD = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Validates and tidies pre-order settings before they're saved; undefined = not pre-orderable. */
+export function normalizePreorder(input: PreorderInput): PreorderSettings | undefined {
+  if (input === null || input === undefined) return undefined;
+  const incomingQty = Math.floor(input.incomingQty);
+  if (!Number.isFinite(incomingQty) || incomingQty < 0 || incomingQty > 500) {
+    throw new Error("Incoming quantity must be between 0 and 500");
+  }
+  for (const [label, value] of [["from", input.expectedFrom], ["to", input.expectedTo]] as const) {
+    if (value && !YMD.test(value)) throw new Error(`Expected arrival ${label} must be a date`);
+  }
+  if (input.expectedFrom && input.expectedTo && input.expectedTo < input.expectedFrom) {
+    throw new Error("The expected arrival window ends before it starts");
+  }
+  if (input.depositPercent !== undefined && (input.depositPercent < 0 || input.depositPercent > 100)) {
+    throw new Error("Deposit percentage must be between 0 and 100");
+  }
+  if (input.depositAmount !== undefined && input.depositAmount < 0) {
+    throw new Error("Deposit must be \u20b10 or more");
+  }
+  return {
+    enabled: input.enabled,
+    incomingQty,
+    expectedFrom: input.expectedFrom || undefined,
+    expectedTo: input.expectedTo || undefined,
+    depositAmount: input.depositAmount && input.depositAmount > 0 ? Math.round(input.depositAmount) : undefined,
+    depositPercent: input.depositPercent && input.depositPercent > 0 ? input.depositPercent : undefined,
+    note: input.note?.trim().slice(0, 200) || undefined,
+  };
 }

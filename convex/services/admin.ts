@@ -4,6 +4,7 @@ import { getReservationUser } from "../lib/reservationUser";
 import { uniqueProductSlug } from "../lib/slug";
 import { isListedPublicly } from "../lib/purchaseMode";
 import { normalizeVideos, productVideoValidator } from "../lib/video";
+import { normalizePreorder, preorderFieldValidator } from "../lib/preorder";
 import { mutation, query, type QueryCtx } from "../_generated/server";
 import { Doc, Id } from "../_generated/dataModel";
 import { hashPassword } from "./auth";
@@ -345,6 +346,9 @@ export const createProduct = mutation({
     visibility: v.optional(v.union(v.literal("public"), v.literal("internal"))),
     videos: v.optional(v.array(productVideoValidator)),
     displayName: v.optional(v.string()),
+    // This is the createProduct the admin product form calls, so it has to accept every field
+    // the form sends — including pre-order settings.
+    preorder: preorderFieldValidator,
     userId: v.optional(v.id("users")), // acting admin (for audit) — excluded from the product doc
   },
   handler: async (ctx, args) => {
@@ -357,6 +361,8 @@ export const createProduct = mutation({
       purchaseMode: rawFields.purchaseMode === "auto" ? undefined : rawFields.purchaseMode,
       videos: normalizeVideos(rawFields.videos),
       displayName: rawFields.displayName?.trim().slice(0, 120) || undefined,
+      // `null` from the form means "not pre-orderable"; the schema wants the field absent.
+      preorder: normalizePreorder(rawFields.preorder),
     };
 
     // Generate batch code: BATCH-YYYYMMDD-RANDOM

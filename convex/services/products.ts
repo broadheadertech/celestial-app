@@ -6,6 +6,7 @@ import type { WithoutSystemFields } from "convex/server";
 import { recordAudit } from "./audit";
 import { getViewer, isStaffRole, requireStaff } from "../lib/authz";
 import { isListedPublicly, resolvePurchaseMode } from "../lib/purchaseMode";
+import { normalizePreorder, preorderFieldValidator } from "../lib/preorder";
 import { uniqueProductSlug } from "../lib/slug";
 import { normalizeVideos, productVideoValidator } from "../lib/video";
 import { logStockMovement } from "../lib/stockLog";
@@ -16,53 +17,7 @@ const PURCHASE_MODE = v.optional(v.union(v.literal("enquire"), v.literal("cart")
 const VISIBILITY = v.optional(v.union(v.literal("public"), v.literal("internal")));
 const VIDEOS = v.optional(v.array(productVideoValidator));
 const DISPLAY_NAME = v.optional(v.string());
-/** Pre-order settings (convex/lib/preorder.ts). `null` switches pre-orders off and clears them. */
-const PREORDER = v.optional(v.union(
-  v.null(),
-  v.object({
-    enabled: v.boolean(),
-    incomingQty: v.number(),
-    expectedFrom: v.optional(v.string()),
-    expectedTo: v.optional(v.string()),
-    depositAmount: v.optional(v.number()),
-    depositPercent: v.optional(v.number()),
-    note: v.optional(v.string()),
-  }),
-));
-
-type PreorderInput = { enabled: boolean; incomingQty: number; expectedFrom?: string; expectedTo?: string; depositAmount?: number; depositPercent?: number; note?: string } | null;
-
-const YMD = /^\d{4}-\d{2}-\d{2}$/;
-
-/** Validates and tidies pre-order settings before they're saved. */
-function normalizePreorder(input: PreorderInput) {
-  if (input === null) return undefined;
-  const incomingQty = Math.floor(input.incomingQty);
-  if (!Number.isFinite(incomingQty) || incomingQty < 0 || incomingQty > 500) {
-    throw new Error("Incoming quantity must be between 0 and 500");
-  }
-  for (const [label, value] of [["from", input.expectedFrom], ["to", input.expectedTo]] as const) {
-    if (value && !YMD.test(value)) throw new Error(`Expected arrival ${label} must be a date`);
-  }
-  if (input.expectedFrom && input.expectedTo && input.expectedTo < input.expectedFrom) {
-    throw new Error("The expected arrival window ends before it starts");
-  }
-  if (input.depositPercent !== undefined && (input.depositPercent < 0 || input.depositPercent > 100)) {
-    throw new Error("Deposit percentage must be between 0 and 100");
-  }
-  if (input.depositAmount !== undefined && input.depositAmount < 0) {
-    throw new Error("Deposit must be ₱0 or more");
-  }
-  return {
-    enabled: input.enabled,
-    incomingQty,
-    expectedFrom: input.expectedFrom || undefined,
-    expectedTo: input.expectedTo || undefined,
-    depositAmount: input.depositAmount && input.depositAmount > 0 ? Math.round(input.depositAmount) : undefined,
-    depositPercent: input.depositPercent && input.depositPercent > 0 ? input.depositPercent : undefined,
-    note: input.note?.trim().slice(0, 200) || undefined,
-  };
-}
+const PREORDER = preorderFieldValidator;
 
 /** Trims a display name; empty clears it (falls back to the internal name). */
 function cleanDisplayName(value: string | undefined): string | undefined {
