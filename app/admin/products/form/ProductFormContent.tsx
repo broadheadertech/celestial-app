@@ -14,6 +14,8 @@ import {
 } from 'lucide-react';
 import { api } from '@/convex/_generated/api';
 import ProductVideosField from '@/components/admin/ProductVideosField';
+import ProductPhotosField from '@/components/admin/ProductPhotosField';
+import { coverOf, galleryFrom } from '@/lib/photoOrder';
 import type { ProductVideo } from '@/components/dc/video';
 import { Id } from '@/convex/_generated/dataModel';
 import { useAuthStore } from '@/store/auth';
@@ -153,7 +155,6 @@ export function ProductFormContentInner({ editProductId, onSuccess, isDrawer }: 
 
   // State
   const [formData, setFormData] = useState<ProductFormData>(initialFormData);
-  const [uploadingImages, setUploadingImages] = useState<UploadingImage[]>([]);
   const [uploadingCertificates, setUploadingCertificates] = useState<UploadingImage[]>([]);
   const [formLoading, setFormLoading] = useState(false);
 
@@ -251,8 +252,10 @@ export function ProductFormContentInner({ editProductId, onSuccess, isDrawer }: 
         originalPrice: existingProduct.originalPrice?.toString() || '',
         categoryId: existingProduct.categoryId,
         category: category?.name || '',
-        image: existingProduct.image,
-        images: existingProduct.images || [existingProduct.image],
+        // One ordered list with the display picture first (lib/photoOrder.ts), which also
+        // repairs older rows whose `image` wasn't in `images`.
+        image: coverOf(galleryFrom(existingProduct)),
+        images: galleryFrom(existingProduct),
         certificateImages: certificateImages,
         stock: existingProduct.stock.toString(),
         badge: existingProduct.badge || '',
@@ -336,7 +339,8 @@ export function ProductFormContentInner({ editProductId, onSuccess, isDrawer }: 
     }
   };
 
-  const handleImagePicker = (type: 'product' | 'certificate' = 'product') => {
+  // Product photos are handled by ProductPhotosField; this is the certificates picker.
+  const handleImagePicker = (type: 'certificate' = 'certificate') => {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'image/*';
@@ -352,43 +356,19 @@ export function ProductFormContentInner({ editProductId, onSuccess, isDrawer }: 
           uploading: true
         };
 
-        // Add to uploading state
-        if (type === 'certificate') {
-          setUploadingCertificates(prev => [...prev, uploadingImage]);
-        } else {
-          setUploadingImages(prev => [...prev, uploadingImage]);
-        }
+        setUploadingCertificates(prev => [...prev, uploadingImage]);
 
         try {
-          // Upload to Convex
           const uploadedUrl = await uploadImageToConvex(file);
-
-          // Update form data with uploaded URL
-          if (type === 'certificate') {
-            setFormData(prev => ({
-              ...prev,
-              certificateImages: [...prev.certificateImages, uploadedUrl]
-            }));
-            setUploadingCertificates(prev => prev.filter(img => img.uri !== uploadingImage.uri));
-          } else {
-            setFormData(prev => ({
-              ...prev,
-              image: prev.image || uploadedUrl,
-              images: [...prev.images, uploadedUrl]
-            }));
-            setUploadingImages(prev => prev.filter(img => img.uri !== uploadingImage.uri));
-          }
-
+          setFormData(prev => ({
+            ...prev,
+            certificateImages: [...prev.certificateImages, uploadedUrl]
+          }));
           showConfirmation('Success', 'Image uploaded successfully!', 'success');
         } catch (err) {
           showConfirmation('Upload Failed', err instanceof Error && err.message.startsWith('HEIC') ? err.message : 'Failed to upload image. Please try again.', 'error');
-
-          // Remove from uploading state
-          if (type === 'certificate') {
-            setUploadingCertificates(prev => prev.filter(img => img.uri !== uploadingImage.uri));
-          } else {
-            setUploadingImages(prev => prev.filter(img => img.uri !== uploadingImage.uri));
-          }
+        } finally {
+          setUploadingCertificates(prev => prev.filter(img => img.uri !== uploadingImage.uri));
         }
       }
     };
@@ -411,7 +391,7 @@ export function ProductFormContentInner({ editProductId, onSuccess, isDrawer }: 
     }
 
     // Validate image
-    if (!formData.image) {
+    if (!coverOf(formData.images)) {
       showConfirmation('Missing Image', 'Please add at least one product image', 'warning');
       return;
     }
@@ -457,8 +437,8 @@ export function ProductFormContentInner({ editProductId, onSuccess, isDrawer }: 
         originalPrice: formData.originalPrice ? parseFloat(formData.originalPrice) : undefined,
         categoryId,
         certificate: certificateString,
-        image: formData.image,
-        images: formData.images.length > 0 ? formData.images : [formData.image],
+        image: coverOf(formData.images),
+        images: formData.images,
         stock: parseInt(formData.stock) || 0,
         badge: formData.badge.trim() || undefined,
         productStatus: formData.status,
@@ -1083,58 +1063,12 @@ export function ProductFormContentInner({ editProductId, onSuccess, isDrawer }: 
 
         {/* Right Column: Images & Certificates */}
         <div>
-        {/* Product Images */}
-        <div className="mb-6">
-          <h2 className="text-lg font-bold text-white mb-4">Product Images</h2>
-
-          <button
-            onClick={() => handleImagePicker('product')}
-            className="w-full border-2 border-dashed border-primary/30 rounded-lg p-8 flex flex-col items-center justify-center mb-4 hover:border-primary/50 transition-colors"
-            disabled={uploadingImages.length > 0}
-          >
-            <Camera className={`w-8 h-8 mb-2 ${uploadingImages.length > 0 ? 'text-muted' : 'text-primary'}`} />
-            <span className={`text-sm ${uploadingImages.length > 0 ? 'text-muted' : 'text-primary'}`}>
-              {uploadingImages.length > 0 ? 'Uploading...' : 'Add Product Image'}
-            </span>
-          </button>
-
-          {/* Uploading Images */}
-          {uploadingImages.map((uploadingImg, index) => (
-            <div key={`uploading-${index}`} className="mb-4 relative">
-              <img
-                src={uploadingImg.uri}
-                alt="Uploading"
-                className="w-full h-48 rounded-lg object-cover opacity-50"
-              />
-              <div className="absolute inset-0 flex items-center justify-center">
-                <span className="text-primary font-medium">Uploading...</span>
-              </div>
-            </div>
-          ))}
-
-          {/* Uploaded Images */}
-          {formData.images.map((imageUrl, index) => (
-            <div key={`uploaded-${index}`} className="mb-4 relative">
-              <img
-                src={imageUrl}
-                alt={`Product ${index + 1}`}
-                className="w-full h-48 rounded-lg object-cover"
-              />
-              <button
-                onClick={() => {
-                  setFormData(prev => ({
-                    ...prev,
-                    images: prev.images.filter((_, i) => i !== index),
-                    image: prev.images.length === 1 ? '' : (index === 0 ? prev.images[1] : prev.image)
-                  }));
-                }}
-                className="absolute top-2 right-2 w-8 h-8 rounded-full bg-red-500 flex items-center justify-center hover:bg-red-600 transition-colors"
-              >
-                <X className="w-4 h-4 text-white" />
-              </button>
-            </div>
-          ))}
-        </div>
+        {/* Product photos — ordered gallery, first photo is the display picture */}
+        <ProductPhotosField
+          value={formData.images}
+          onChange={(photos) => setFormData((prev) => ({ ...prev, images: photos, image: coverOf(photos) }))}
+          onError={(message) => showConfirmation('Photos', message, 'warning')}
+        />
 
         {/* Videos */}
         <ProductVideosField

@@ -111,6 +111,9 @@ export default function SpecimenView() {
   );
 }
 
+// Enough for a full gallery: 12 photos + 5 videos (see ProductPhotosField / ProductVideosField).
+const MAX_THUMBS = 18;
+
 /** Small play glyph for video thumbs / the "Watch video" button. */
 const PlayGlyph = ({ size = 10 }: { size?: number }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z" fill="currentColor" /></svg>
@@ -289,7 +292,7 @@ function SpecimenInner() {
         <div className="dk-row wrap" style={{ alignItems: 'center' }}>
           {media.length > 1 && (
             <div className="dk-thumbs">
-              {media.slice(0, 8).map((m, i) => {
+              {media.slice(0, MAX_THUMBS).map((m, i) => {
                 const selected = m === active;
                 const thumb = m.type === 'image' ? m.src : videoThumb(m.video);
                 return (
