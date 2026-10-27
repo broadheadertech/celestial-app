@@ -255,6 +255,93 @@ export function venuePageLd(
   }) as Json;
 }
 
+/**
+ * Certified Ka-Dragon — the customer gallery, as Review entries about the shop.
+ *
+ * These are reviews of the *business*, not of individual products. That distinction matters:
+ * attaching ratings to products would be fabricating per-product review data (every product
+ * carries rating 0), which is exactly the thing Google issues manual actions for. A rating is
+ * only emitted when the testimonial actually carries one.
+ */
+export function reviewGalleryLd(
+  reviews: { clientName?: string; quote?: string; rating?: number; productName?: string }[],
+  b: BusinessLike,
+  opts: { siteUrl: string; path: string; name: string; description?: string },
+): Json | undefined {
+  const { siteUrl, path, name, description } = opts;
+  const usable = (reviews ?? []).filter((r) => (r.clientName || '').trim() && (r.quote || '').trim());
+  if (!usable.length) return undefined;
+
+  return compact({
+    '@context': 'https://schema.org',
+    '@type': 'CollectionPage',
+    name,
+    description,
+    url: abs(siteUrl, path),
+    isPartOf: { '@id': `${siteUrl}/#website` },
+    about: { '@id': `${siteUrl}/#business` },
+    mainEntity: {
+      '@type': 'ItemList',
+      numberOfItems: usable.length,
+      itemListElement: usable.map((r, i) => ({
+        '@type': 'ListItem',
+        position: i + 1,
+        item: compact({
+          '@type': 'Review',
+          author: { '@type': 'Person', name: (r.clientName || '').trim() },
+          reviewBody: (r.quote || '').trim(),
+          itemReviewed: { '@id': `${siteUrl}/#business` },
+          about: (r.productName || '').trim() || undefined,
+          reviewRating:
+            typeof r.rating === 'number' && r.rating > 0
+              ? { '@type': 'Rating', ratingValue: Math.max(1, Math.min(5, Math.round(r.rating))), bestRating: 5 }
+              : undefined,
+        }),
+      })),
+    },
+    publisher: { '@id': `${siteUrl}/#business` },
+  }) as Json;
+}
+
+/**
+ * Drago-knows — the care-guide blog. A Blog with its posts as BlogPosting keeps the care
+ * content attributable to the shop, which is what makes an answer engine willing to cite it
+ * when someone asks how to keep an arowana.
+ */
+export function blogLd(
+  posts: { slug?: string; title?: string; excerpt?: string; kicker?: string; coverImageUrl?: string; authorName?: string; publishedAt?: number }[],
+  b: BusinessLike,
+  opts: { siteUrl: string; path: string; name: string; description?: string; limit?: number },
+): Json {
+  const { siteUrl, path, name, description, limit = 50 } = opts;
+  const listed = (posts ?? []).filter((p) => p.slug && p.title).slice(0, limit);
+
+  return compact({
+    '@context': 'https://schema.org',
+    '@type': 'Blog',
+    '@id': `${siteUrl}${path}#blog`,
+    name,
+    description,
+    url: abs(siteUrl, path),
+    inLanguage: 'en-PH',
+    isPartOf: { '@id': `${siteUrl}/#website` },
+    publisher: { '@id': `${siteUrl}/#business` },
+    blogPost: listed.map((p) =>
+      compact({
+        '@type': 'BlogPosting',
+        headline: p.title,
+        description: p.excerpt,
+        url: `${siteUrl}${path}/article?slug=${encodeURIComponent(p.slug!)}`,
+        image: p.coverImageUrl,
+        articleSection: p.kicker,
+        datePublished: p.publishedAt ? new Date(p.publishedAt).toISOString() : undefined,
+        author: p.authorName ? { '@type': 'Person', name: p.authorName } : { '@id': `${siteUrl}/#business` },
+        publisher: { '@id': `${siteUrl}/#business` },
+      }),
+    ),
+  }) as Json;
+}
+
 /** A listing page as a CollectionPage wrapping an ItemList, so engines can enumerate the stock. */
 export function collectionLd(
   products: ProductLike[],

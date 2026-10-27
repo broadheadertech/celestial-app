@@ -1138,7 +1138,20 @@
 .dk .dk-f-text { margin-top: 16px; font-size: 14px; line-height: 22px; }
 .dk .dk-f-text p + p { margin-top: 12px; }
 .dk .dk-f-text a { text-decoration: underline; text-underline-offset: 3px; }
-.dk .dk-f-btns { margin-top: 16px; display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
+.dk .dk-f-btns { margin-top: 16px; display: flex; flex-direction: column; align-items: flex-start; gap: 12px; min-width: 0; }
+/* A footer button is as wide as its label, and "Message us on Messenger" is wider than the
+   column it sits in — it used to run past the edge with the arrow chip clipped off. Cap it to
+   the column and let a long label wrap onto a second line; the pill grows instead of spilling.
+   The chip is a flex item and the arrow is centred on 50%, so both stay put at any height. */
+.dk .dk-f-btns .dk-btn {
+  max-width: 100%;
+  height: auto;
+  min-height: var(--_h);
+  padding-top: 9px; padding-bottom: 9px;
+  white-space: normal;
+  line-height: 1.25;
+  text-align: left;
+}
 .dk-footer:is([data-theme="cream"], [data-theme="light"]) .dk-btn-outline-light { color: var(--dk-black); border-color: var(--dk-black); }
 .dk-footer:is([data-theme="cream"], [data-theme="light"]) .dk-btn-outline-light:hover { background: var(--dk-black); color: var(--dk-white); }
 .dk .dk-footer-bottom { margin-top: clamp(24px, 2.6vw, 38px); padding-top: clamp(20px, 2vw, 30px); border-top: 1px solid var(--dk-line-dark); display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }

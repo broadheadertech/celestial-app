@@ -31,7 +31,10 @@ export default function DcFooter() {
                 <li><Link href="/">Home</Link></li>
                 <li><Link href="/catalog">The Catalog</Link></li>
                 <li><Link href="/shop">Shop all products</Link></li>
+                <li><Link href="/merch">Dragon Merch</Link></li>
                 <li><Link href="/cave">The Cave &mdash; visit &amp; book</Link></li>
+                <li><Link href="/drago-knows">Drago-knows &mdash; care guides</Link></li>
+                <li><Link href="/ka-dragon">Certified Ka-Dragon</Link></li>
                 <li><Link href="/home-service">Home service</Link></li>
                 <li><Link href="/contact">Contact</Link></li>
                 <li><Link href="/track">Track an order</Link></li>

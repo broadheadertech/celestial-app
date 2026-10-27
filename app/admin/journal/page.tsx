@@ -93,7 +93,7 @@ function JournalAdminContent() {
         >
           <Info className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: 'var(--indigo)' }} />
           <p>
-            Published posts appear on the website at <span className="font-mono-tabular">/journal</span>, newest first.
+            Published posts appear on the website at <span className="font-mono-tabular">/drago-knows</span>, newest first.
             Drafts stay hidden until you publish them.
           </p>
         </div>
@@ -114,7 +114,7 @@ function JournalAdminContent() {
             </h3>
             <p className="text-sm max-w-md mx-auto mb-4" style={{ color: 'var(--ink-3)' }}>
               Write care guides, bloodline notes and stories from the gallery. Published posts appear on the website at
-              /journal; until then the page shows a &ldquo;coming soon&rdquo; message.
+              /drago-knows; until then the page shows a &ldquo;coming soon&rdquo; message.
             </p>
             <div className="inline-flex">{addButton}</div>
           </div>
@@ -251,7 +251,7 @@ function PostCard({
             <span className="flex-1" />
             {p.isPublished && (
               <a
-                href={`/journal/article?slug=${encodeURIComponent(p.slug)}`}
+                href={`/drago-knows/article?slug=${encodeURIComponent(p.slug)}`}
                 target="_blank"
                 rel="noopener"
                 className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[11px] font-bold border"

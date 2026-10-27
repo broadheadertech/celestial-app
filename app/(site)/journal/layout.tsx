@@ -1,10 +1,10 @@
 import type { Metadata } from 'next';
 
-// Server layout so this client-rendered page still gets its own title/description.
+// Retired: the journal is Drago-knows now. Kept as a redirect, not indexed.
 export const metadata: Metadata = {
   title: 'Journal',
-  description: 'Notes on arowana care, bloodlines and keeping exotic fish.',
-  alternates: { canonical: '/journal' },
+  alternates: { canonical: '/drago-knows' },
+  robots: { index: false, follow: true },
 };
 
 export default function Layout({ children }: { children: React.ReactNode }) {

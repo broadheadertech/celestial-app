@@ -28,6 +28,8 @@ const uncachedFetch: typeof fetch = (input, init) =>
 export type BuildCatalogProduct = FunctionReturnType<typeof api.services.products.getCatalogProducts>[number];
 export type BuildBusiness = FunctionReturnType<typeof api.services.business.getBusinessProfile>;
 export type BuildFaq = FunctionReturnType<typeof api.services.faqs.listPublished>[number];
+export type BuildTestimonial = FunctionReturnType<typeof api.services.testimonials.listPublished>[number];
+export type BuildPost = FunctionReturnType<typeof api.services.journal.listPublished>[number];
 
 /**
  * Runs one public query against Convex at build time, or resolves to null if it can't. Every
@@ -53,6 +55,8 @@ async function buildQuery<T>(label: string, run: (client: ConvexHttpClient) => P
 let catalog: Promise<BuildCatalogProduct[] | null> | undefined;
 let business: Promise<BuildBusiness | null> | undefined;
 let faqs: Promise<BuildFaq[] | null> | undefined;
+let testimonials: Promise<BuildTestimonial[] | null> | undefined;
+let posts: Promise<BuildPost[] | null> | undefined;
 
 /**
  * The public catalog as of this build (sitemap, per-product share pages). Fetched once per
@@ -78,4 +82,16 @@ export function getBuildBusiness(): Promise<BuildBusiness | null> {
 export function getBuildFaqs(): Promise<BuildFaq[] | null> {
   faqs ??= buildQuery('faqs', (c) => c.query(api.services.faqs.listPublished, {}));
   return faqs;
+}
+
+/** Published testimonials as of this build — the Certified Ka-Dragon gallery. */
+export function getBuildTestimonials(): Promise<BuildTestimonial[] | null> {
+  testimonials ??= buildQuery('testimonials', (c) => c.query(api.services.testimonials.listPublished, {}));
+  return testimonials;
+}
+
+/** Published Drago-knows posts as of this build, for the Blog structured data. */
+export function getBuildPosts(): Promise<BuildPost[] | null> {
+  posts ??= buildQuery('posts', (c) => c.query(api.services.journal.listPublished, {}));
+  return posts;
 }

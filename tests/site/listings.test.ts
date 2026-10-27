@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { allProductsList, availableOnly, catalogList, caveList, shopList } from '@/components/dc/listings';
+import {
+  allProductsList,
+  availableOnly,
+  catalogList,
+  caveList,
+  merchList,
+  shopList,
+} from '@/components/dc/listings';
 
 /**
  * These filters are used twice — by the client listing pages and by the build-time
@@ -95,6 +102,31 @@ describe('allProductsList', () => {
 
   it('does not care about stock — the availability filter is a separate choice', () => {
     expect(allProductsList([p({ name: 'SOLD FISH', stock: 0 })])).toHaveLength(1);
+  });
+});
+
+describe('merchList', () => {
+  it('takes only the Merch category, case-insensitively', () => {
+    const items = merchList([
+      p({ name: 'CAVE TEE', categoryName: 'Merch' }),
+      p({ name: 'CAVE MUG', categoryName: 'merch' }),
+      p({ name: 'RETURN PUMP', categoryName: 'Accessories' }),
+    ]);
+    expect(items.map((i) => i.name)).toEqual(['CAVE TEE', 'CAVE MUG']);
+  });
+
+  it('does not guess merch from the product name', () => {
+    // "STRIP STICKER 5FT" is a tank measuring strip, not merchandise — only the category decides.
+    expect(merchList([p({ name: 'STRIP STICKER 5FT', categoryName: 'Accessories' })])).toHaveLength(0);
+    expect(merchList([p({ name: 'MERCH TSHIRT', categoryName: 'Accessories' })])).toHaveLength(0);
+  });
+
+  it('excludes inactive merch', () => {
+    expect(merchList([p({ name: 'OLD TEE', categoryName: 'Merch', isActive: false })])).toHaveLength(0);
+  });
+
+  it('keeps sold-out merch, so the lookbook still shows the range', () => {
+    expect(merchList([p({ name: 'CAVE TEE', categoryName: 'Merch', stock: 0 })])).toHaveLength(1);
   });
 });
 

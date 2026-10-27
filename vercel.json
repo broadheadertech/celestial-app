@@ -2,7 +2,9 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "redirects": [
     { "source": "/visit", "destination": "/cave", "permanent": true },
-    { "source": "/about", "destination": "/cave", "permanent": true }
+    { "source": "/about", "destination": "/cave", "permanent": true },
+    { "source": "/journal", "destination": "/drago-knows", "permanent": true },
+    { "source": "/journal/article", "destination": "/drago-knows/article", "permanent": true }
   ],
   "rewrites": [
     { "source": "/specimen/:slug", "destination": "/specimen-detail" }

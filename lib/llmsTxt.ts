@@ -80,10 +80,16 @@ export function buildLlmsTxt(opts: {
   out.push(
     `- [The Cave](${siteUrl}/cave): the shop itself — address, opening hours, how we work, and the form to book a private viewing.`,
   );
+  out.push(
+    `- [Drago-knows](${siteUrl}/drago-knows): fishkeeping care guides — arowana husbandry, water chemistry, filtration, feeding, tankmates and disease.`,
+  );
+  out.push(`- [Dragon Merch](${siteUrl}/merch): branded shirts, mugs and decals.`);
+  out.push(
+    `- [Certified Ka-Dragon](${siteUrl}/ka-dragon): customers who took a fish home, in their own words.`,
+  );
   out.push(`- [Home service](${siteUrl}/home-service): tank setup and maintenance visits.`);
   out.push(`- [Contact](${siteUrl}/contact): enquiries and frequently asked questions.`);
   out.push(`- [Track an order](${siteUrl}/track): order, reservation and booking lookup by reference.`);
-  out.push(`- [Journal](${siteUrl}/journal): care notes and shop news.`);
   out.push('');
 
   if (arowana.length) {

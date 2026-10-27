@@ -22,7 +22,7 @@ const FOOTER_LINKS: Record<string, { label: string; href: string }[]> = {
   Studio: [
     { label: 'The Cave', href: '/cave' },
     { label: 'The Cave', href: '/cave' },
-    { label: 'Journal', href: '/journal' },
+    { label: 'Drago-knows', href: '/drago-knows' },
     { label: 'Contact', href: '/contact' },
   ],
   Account: [

@@ -271,6 +271,9 @@ export default function HomePage() {
           <div className="dk-wrap">
             <p className="dk-eyebrow">From our keepers</p>
             <h2 className="dk-h2" id="tm-title">Dragons in good hands.</h2>
+            <Link href="/ka-dragon" className="dk-link-arrow" style={{ marginBottom: 24, color: 'var(--dk-red)' }}>
+              See every Certified Ka-Dragon
+            </Link>
             <div className="dk-tm-grid">
               {testimonials.map((t) => (
                 <figure key={t._id} className="dk-tm">

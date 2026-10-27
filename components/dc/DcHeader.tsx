@@ -16,7 +16,9 @@ type HeaderTheme = 'light' | 'dark' | 'mist';
 const NAV = [
   { key: 'catalog', href: '/catalog', label: 'Catalog' },
   { key: 'shop', href: '/shop', label: 'Shop' },
+  { key: 'merch', href: '/merch', label: 'Merch' },
   { key: 'cave', href: '/cave', label: 'The Cave' },
+  { key: 'knows', href: '/drago-knows', label: 'Drago-knows' },
   { key: 'service', href: '/home-service', label: 'Home service' },
 ] as const;
 
@@ -24,6 +26,9 @@ function activeKey(pathname: string) {
   if (pathname === '/cave') return 'cave';
   if (pathname.startsWith('/catalog')) return 'catalog';
   if (pathname.startsWith('/shop')) return 'shop';
+  if (pathname.startsWith('/merch')) return 'merch';
+  if (pathname.startsWith('/drago-knows')) return 'knows';
+  if (pathname.startsWith('/ka-dragon')) return 'kadragon';
   if (pathname.startsWith('/home-service')) return 'service';
   return 'home';
 }
@@ -152,7 +157,10 @@ function MobileMenu({ active }: { active: string }) {
     <nav id="dk-mobile-nav" className="dk-mnav" aria-label="Menu">
       <Link href="/catalog" aria-current={active === 'catalog' ? 'page' : undefined}>Catalog &mdash; arowana</Link>
       <Link href="/shop" aria-current={active === 'shop' ? 'page' : undefined}>Shop &mdash; all products</Link>
+      <Link href="/merch" aria-current={active === 'merch' ? 'page' : undefined}>Dragon Merch</Link>
       <Link href="/cave" aria-current={active === 'cave' ? 'page' : undefined}>The Cave &mdash; visit &amp; book</Link>
+      <Link href="/drago-knows" aria-current={active === 'knows' ? 'page' : undefined}>Drago-knows &mdash; care guides</Link>
+      <Link href="/ka-dragon" aria-current={active === 'kadragon' ? 'page' : undefined}>Certified Ka-Dragon</Link>
       <Link href="/home-service" aria-current={active === 'service' ? 'page' : undefined}>Home service</Link>
       <Link href="/contact">Contact</Link>
       <Link href="/track">Track an order</Link>

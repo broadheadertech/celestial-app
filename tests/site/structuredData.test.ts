@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   bestPhone,
+  blogLd,
   breadcrumbLd,
   collectionLd,
   compact,
@@ -9,6 +10,7 @@ import {
   openingHours,
   productLd,
   productSummary,
+  reviewGalleryLd,
   venuePageLd,
   websiteLd,
   type BusinessLike,
@@ -221,6 +223,93 @@ describe('faqPageLd', () => {
       { question: 'Half one', answer: '  ' },
     ]);
     expect((ld!.mainEntity as unknown[]).length).toBe(1);
+  });
+});
+
+describe('reviewGalleryLd', () => {
+  const reviews = [
+    { clientName: 'Juan dela Cruz', quote: 'Settled in beautifully.', rating: 5, productName: 'Super Red' },
+    { clientName: 'No Quote', quote: '   ' },
+    { clientName: '', quote: 'No name' },
+  ];
+  const ld = reviewGalleryLd(reviews, business, {
+    siteUrl: SITE,
+    path: '/ka-dragon',
+    name: 'Certified Ka-Dragon',
+  })!;
+
+  it('is undefined when nothing is publishable', () => {
+    expect(reviewGalleryLd([], business, { siteUrl: SITE, path: '/ka-dragon', name: 'x' })).toBeUndefined();
+  });
+
+  it('keeps only entries with both a name and a quote', () => {
+    expect((ld.mainEntity as Record<string, unknown>).numberOfItems).toBe(1);
+  });
+
+  it('reviews the business, not a product — product review data would be fabricated', () => {
+    const item = ((ld.mainEntity as Record<string, unknown>).itemListElement as Record<string, unknown>[])[0]
+      .item as Record<string, unknown>;
+    expect(item['@type']).toBe('Review');
+    expect(item.itemReviewed).toEqual({ '@id': `${SITE}/#business` });
+    expect(item.author).toEqual({ '@type': 'Person', name: 'Juan dela Cruz' });
+  });
+
+  it('only emits a rating when the testimonial actually carries one', () => {
+    const rated = reviewGalleryLd([{ clientName: 'A', quote: 'Great', rating: 4 }], business, {
+      siteUrl: SITE,
+      path: '/ka-dragon',
+      name: 'x',
+    })!;
+    const unrated = reviewGalleryLd([{ clientName: 'B', quote: 'Great' }], business, {
+      siteUrl: SITE,
+      path: '/ka-dragon',
+      name: 'x',
+    })!;
+    const itemOf = (x: Record<string, unknown>) =>
+      ((x.mainEntity as Record<string, unknown>).itemListElement as Record<string, unknown>[])[0].item as Record<
+        string,
+        unknown
+      >;
+    expect(itemOf(rated).reviewRating).toEqual({ '@type': 'Rating', ratingValue: 4, bestRating: 5 });
+    expect(itemOf(unrated)).not.toHaveProperty('reviewRating');
+  });
+});
+
+describe('blogLd', () => {
+  const posts = [
+    {
+      slug: 'water-changes',
+      title: 'How often to change arowana water',
+      excerpt: 'Weekly, and why.',
+      kicker: 'Water',
+      publishedAt: Date.UTC(2026, 9, 1),
+      authorName: 'Shop',
+    },
+    { slug: 'no-title' },
+  ];
+  const ld = blogLd(posts, business, { siteUrl: SITE, path: '/drago-knows', name: 'Drago-knows' });
+
+  it('is a Blog published by the shop', () => {
+    expect(ld['@type']).toBe('Blog');
+    expect(ld.publisher).toEqual({ '@id': `${SITE}/#business` });
+  });
+
+  it('skips posts with no title and links each one by slug', () => {
+    const entries = ld.blogPost as Record<string, unknown>[];
+    expect(entries).toHaveLength(1);
+    expect(entries[0].url).toBe(`${SITE}/drago-knows/article?slug=water-changes`);
+    expect(entries[0].articleSection).toBe('Water');
+  });
+
+  it('writes the publish date as an ISO string', () => {
+    const entries = ld.blogPost as Record<string, unknown>[];
+    expect(entries[0].datePublished).toBe(new Date(Date.UTC(2026, 9, 1)).toISOString());
+  });
+
+  it('is still valid with no posts yet, so the empty blog is announced', () => {
+    const empty = blogLd([], business, { siteUrl: SITE, path: '/drago-knows', name: 'Drago-knows' });
+    expect(empty['@type']).toBe('Blog');
+    expect(empty).not.toHaveProperty('blogPost');
   });
 });
 

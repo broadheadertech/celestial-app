@@ -257,7 +257,7 @@ function JournalForm({ post, onClose }: { post: Doc<'journalPosts'> | null; onCl
                         <span style={{ color: 'var(--red-hi)' }}>{slugError}</span>
                       ) : (
                         <span className="break-all">
-                          /journal/article?slug={slug || (post ? post.slug : 'generated-from-title')}
+                          /drago-knows/article?slug={slug || (post ? post.slug : 'generated-from-title')}
                           {!slugTouched && ' · follows the title (made unique if taken)'}
                           {slugTouched && !f.slug && post && ' · empty keeps the current slug'}
                           {slugTouched && !f.slug && !post && ' · empty generates one from the title'}
@@ -339,7 +339,7 @@ function JournalForm({ post, onClose }: { post: Doc<'journalPosts'> | null; onCl
               <div className="min-w-0">
                 <p className="text-sm font-semibold">Published</p>
                 <p className="text-[11px] mt-0.5" style={{ color: 'var(--ink-3)' }}>
-                  {f.isPublished ? 'Visible at /journal' : 'Draft — hidden from the website'}
+                  {f.isPublished ? 'Visible at /drago-knows' : 'Draft — hidden from the website'}
                 </p>
               </div>
               <Switch checked={f.isPublished} onChange={(v) => set('isPublished', v)} label="Published" />
@@ -423,7 +423,7 @@ function JournalForm({ post, onClose }: { post: Doc<'journalPosts'> | null; onCl
   );
 }
 
-/** Renders the post the way /journal/article shows it, on the storefront's cream palette. */
+/** Renders the post the way /drago-knows/article shows it, on the storefront's cream palette. */
 function PreviewPane({ f }: { f: { title: string; kicker: string; excerpt: string; body: string; coverImageUrl: string; authorName: string } }) {
   return (
     <div

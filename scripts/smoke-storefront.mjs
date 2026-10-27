@@ -13,7 +13,22 @@ import path from 'node:path';
 const ROOT = path.resolve('out');
 const PORT = Number(process.env.SMOKE_PORT || 4179);
 const DEBUG_PORT = PORT + 1;
-const PAGES = ['/', '/catalog', '/cave', '/shop', '/visit', '/contact', '/track', '/checkout', '/journal'];
+// /visit and /journal are kept in the list on purpose: they are redirect stubs now, and this
+// checks they still render and bounce cleanly rather than erroring.
+const PAGES = [
+  '/',
+  '/catalog',
+  '/shop',
+  '/merch',
+  '/cave',
+  '/drago-knows',
+  '/ka-dragon',
+  '/contact',
+  '/track',
+  '/checkout',
+  '/visit',
+  '/journal',
+];
 // Extra paths to check, e.g. SMOKE_EXTRA=/specimen/some-slug,/specimen/another
 for (const extra of (process.env.SMOKE_EXTRA || '').split(',').map((p) => p.trim()).filter(Boolean)) PAGES.push(extra);
 const VIEWPORTS = [
@@ -132,7 +147,28 @@ for (const vp of VIEWPORTS) {
       expression: `(() => { const scope = document.querySelector('.dc-scope'); const L = (c) => { const m = /oklch\\(\\s*([\\d.]+)/.exec(c || ''); if (!m) return null; const v = parseFloat(m[1]); return v > 1 ? v / 100 : v; }; return { vw: document.documentElement.clientWidth, sw: document.documentElement.scrollWidth, h1: !!document.querySelector('h1'), title: document.title, inkL: scope ? L(getComputedStyle(scope).getPropertyValue('--ink')) : null }; })()`,
     });
     const info = res.result?.result?.value ?? {};
+    // A pill button must never run past the box it sits in: that clips its arrow chip and looks
+    // broken, without necessarily making the whole document scroll sideways. The footer's
+    // "Message us on Messenger" button used to do exactly this.
+    const spillRes = await send('Runtime.evaluate', {
+      returnByValue: true,
+      expression: `(() => {
+        let worst = null;
+        for (const b of document.querySelectorAll('.dk-btn')) {
+          const parent = b.parentElement;
+          if (!parent) continue;
+          if (getComputedStyle(parent).overflowX !== 'visible') continue;
+          const br = b.getBoundingClientRect(), pr = parent.getBoundingClientRect();
+          if (!br.width) continue;
+          const over = Math.round(Math.max(br.right - pr.right, pr.left - br.left));
+          if (over > 2 && (!worst || over > worst.over)) worst = { over, label: (b.textContent || '').trim().slice(0, 40) };
+        }
+        return worst;
+      })()`,
+    });
+    const spill = spillRes.result?.result?.value ?? null;
     if (info.sw > info.vw + 1) problems.push(`horizontal overflow: ${info.sw}px content in ${info.vw}px viewport`);
+    if (spill) problems.push(`button overflows its container by ${spill.over}px: "${spill.label}"`);
     if (!info.h1 && page !== '/checkout') problems.push('no <h1> rendered');
     // Storefront text colour token must be dark (readable on the cream background) in every admin theme.
     if (info.inkL !== null && info.inkL > 0.5) problems.push(`--ink is light (L=${info.inkL}) — storefront inheriting admin dark theme`);

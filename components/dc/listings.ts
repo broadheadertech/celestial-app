@@ -34,6 +34,18 @@ export function shopList<T extends { isActive?: boolean; stock: number; purchase
 }
 
 /**
+ * Dragon Merch: branded goods — shirts, mugs, stickers. Driven by a category literally named
+ * "Merch" rather than by guessing from product names, because "STRIP STICKER 5FT" could as
+ * easily be a tank measuring strip as merchandise. Create the category in Admin → Categories
+ * and move the branded products into it; until then the merch page shows its empty state.
+ */
+export function merchList<T extends { isActive?: boolean; categoryName?: string }>(
+  products: readonly T[],
+): T[] {
+  return products.filter((p) => !!p.isActive && (p.categoryName || '').trim().toLowerCase() === 'merch');
+}
+
+/**
  * Everything the Shop page can show. The Shop is now the one place every product lives — live
  * fish and hard goods together — with filters to separate them, so this is just "publicly
  * listed and active"; the public catalog query has already excluded internal products.
