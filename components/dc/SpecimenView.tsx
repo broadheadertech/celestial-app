@@ -367,7 +367,7 @@ function SpecimenInner() {
             <MessengerIcon size={16} /> Messenger
           </MessengerButton>
         )}
-        <Link href="/visit" className="dk-btn dk-btn-outline-dark">Book a viewing</Link>
+        <Link href="/cave" className="dk-btn dk-btn-outline-dark">Book a viewing</Link>
       </div>
       <p className="dk-small dk-muted">{inStock ? 'Available now — ask us to hold it while you prepare your tank.' : 'Not available right now — message us to join the waitlist.'}</p>
     </>

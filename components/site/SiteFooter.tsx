@@ -20,8 +20,8 @@ const FOOTER_LINKS: Record<string, { label: string; href: string }[]> = {
     { label: 'Medicine', href: '/shop' },
   ],
   Studio: [
-    { label: 'About', href: '/about' },
-    { label: 'Visit', href: '/visit' },
+    { label: 'The Cave', href: '/cave' },
+    { label: 'The Cave', href: '/cave' },
     { label: 'Journal', href: '/journal' },
     { label: 'Contact', href: '/contact' },
   ],

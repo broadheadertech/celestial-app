@@ -74,9 +74,12 @@ export function buildLlmsTxt(opts: {
 
   out.push('## Key pages', '');
   out.push(`- [The Catalog](${siteUrl}/catalog): Asian arowana currently on display.`);
-  out.push(`- [The Cave](${siteUrl}/cave): other exotic fish — discus, stingrays, cichlids, predators.`);
-  out.push(`- [Shop](${siteUrl}/shop): aquarium food, lighting, tanks and accessories, orderable online.`);
-  out.push(`- [Book a viewing](${siteUrl}/visit): see a specimen in person before committing.`);
+  out.push(
+    `- [Shop](${siteUrl}/shop): every product in one place — live fish, tanks, filtration, food and lighting, filterable by category.`,
+  );
+  out.push(
+    `- [The Cave](${siteUrl}/cave): the shop itself — address, opening hours, how we work, and the form to book a private viewing.`,
+  );
   out.push(`- [Home service](${siteUrl}/home-service): tank setup and maintenance visits.`);
   out.push(`- [Contact](${siteUrl}/contact): enquiries and frequently asked questions.`);
   out.push(`- [Track an order](${siteUrl}/track): order, reservation and booking lookup by reference.`);

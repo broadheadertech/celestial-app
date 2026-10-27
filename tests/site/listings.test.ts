@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { catalogList, caveList, shopList } from '@/components/dc/listings';
+import { allProductsList, availableOnly, catalogList, caveList, shopList } from '@/components/dc/listings';
 
 /**
  * These filters are used twice — by the client listing pages and by the build-time
@@ -73,5 +73,39 @@ describe('shopList', () => {
 
   it('excludes products with no purchase mode set, since the page requires cart explicitly', () => {
     expect(shopList([p({ name: 'MYSTERY ITEM', categoryName: 'Food' })])).toHaveLength(0);
+  });
+});
+
+/**
+ * The Shop is now the single product surface — live fish and hard goods together — so these two
+ * decide what that page can show.
+ */
+describe('allProductsList', () => {
+  it('keeps live fish and hard goods side by side', () => {
+    const items = allProductsList([
+      p({ name: 'SUPER RED AROWANA', purchaseMode: 'enquire' }),
+      p({ name: 'RETURN PUMP', categoryName: 'Accessories', purchaseMode: 'cart' }),
+    ]);
+    expect(items).toHaveLength(2);
+  });
+
+  it('still excludes anything inactive', () => {
+    expect(allProductsList([p({ name: 'OLD STOCK', isActive: false })])).toHaveLength(0);
+  });
+
+  it('does not care about stock — the availability filter is a separate choice', () => {
+    expect(allProductsList([p({ name: 'SOLD FISH', stock: 0 })])).toHaveLength(1);
+  });
+});
+
+describe('availableOnly', () => {
+  it('keeps what is in stock or genuinely incoming, drops what is gone', () => {
+    const items = availableOnly([
+      p({ name: 'IN STOCK', stock: 2 }),
+      p({ name: 'INCOMING', stock: 0, preorder: { enabled: true, incomingQty: 5 } }),
+      p({ name: 'SOLD', stock: 0 }),
+      p({ name: 'PREORDER WITH NOTHING COMING', stock: 0, preorder: { enabled: true, incomingQty: 0 } }),
+    ]);
+    expect(items.map((i) => i.name)).toEqual(['IN STOCK', 'INCOMING']);
   });
 });

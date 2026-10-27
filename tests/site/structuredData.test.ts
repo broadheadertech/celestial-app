@@ -9,6 +9,7 @@ import {
   openingHours,
   productLd,
   productSummary,
+  venuePageLd,
   websiteLd,
   type BusinessLike,
   type ProductLike,
@@ -220,6 +221,32 @@ describe('faqPageLd', () => {
       { question: 'Half one', answer: '  ' },
     ]);
     expect((ld!.mainEntity as unknown[]).length).toBe(1);
+  });
+});
+
+describe('venuePageLd', () => {
+  const ld = venuePageLd(business, {
+    siteUrl: SITE,
+    path: '/cave',
+    name: 'The Cave — Visit us in Malolos City',
+    description: 'Address, hours and viewing bookings.',
+  });
+
+  it('is an AboutPage, not a product listing', () => {
+    expect(ld['@type']).toBe('AboutPage');
+    expect(ld).not.toHaveProperty('mainEntity.@type', 'ItemList');
+  });
+
+  it('points at the shop entity instead of restating the address', () => {
+    expect(ld.mainEntity).toEqual({ '@id': `${SITE}/#business` });
+    expect(ld).not.toHaveProperty('address');
+  });
+
+  it('advertises booking a viewing as an action against the shop', () => {
+    const action = ld.potentialAction as Record<string, unknown>;
+    expect(action['@type']).toBe('ReserveAction');
+    expect(action.location).toEqual({ '@id': `${SITE}/#business` });
+    expect(JSON.stringify(action.target)).toContain('/cave');
   });
 });
 

@@ -226,6 +226,35 @@ export function faqPageLd(faqs: { question?: string; answer?: string }[]): Json 
   }) as Json;
 }
 
+/**
+ * The venue page (The Cave). It isn't a product listing — it answers "who are you and where
+ * are you" — so it points at the PetStore the site layout already declares rather than
+ * restating the address, and an engine can follow the @id to the hours, map and socials.
+ */
+export function venuePageLd(
+  b: BusinessLike,
+  opts: { siteUrl: string; path: string; name: string; description?: string },
+): Json {
+  const { siteUrl, path, name, description } = opts;
+  return compact({
+    '@context': 'https://schema.org',
+    '@type': 'AboutPage',
+    name,
+    description,
+    url: abs(siteUrl, path),
+    isPartOf: { '@id': `${siteUrl}/#website` },
+    mainEntity: { '@id': `${siteUrl}/#business` },
+    // Booking a viewing is the page's purpose, so say so in a way an engine can act on.
+    potentialAction: {
+      '@type': 'ReserveAction',
+      name: 'Book a viewing',
+      target: { '@type': 'EntryPoint', urlTemplate: abs(siteUrl, path) },
+      location: { '@id': `${siteUrl}/#business` },
+    },
+    about: b.storeName,
+  }) as Json;
+}
+
 /** A listing page as a CollectionPage wrapping an ItemList, so engines can enumerate the stock. */
 export function collectionLd(
   products: ProductLike[],

@@ -11,11 +11,12 @@ import { BagIcon, CaretIcon, CloseIcon, MenuIcon, SearchIcon, SignInIcon } from 
 
 type HeaderTheme = 'light' | 'dark' | 'mist';
 
+// Catalog = the arowana showcase, Shop = every product behind filters, The Cave = the venue
+// (address, hours, booking). /visit and /about redirect into The Cave.
 const NAV = [
   { key: 'catalog', href: '/catalog', label: 'Catalog' },
-  { key: 'cave', href: '/cave', label: 'The Cave' },
   { key: 'shop', href: '/shop', label: 'Shop' },
-  { key: 'visit', href: '/visit', label: 'Visit' },
+  { key: 'cave', href: '/cave', label: 'The Cave' },
   { key: 'service', href: '/home-service', label: 'Home service' },
 ] as const;
 
@@ -23,15 +24,14 @@ function activeKey(pathname: string) {
   if (pathname === '/cave') return 'cave';
   if (pathname.startsWith('/catalog')) return 'catalog';
   if (pathname.startsWith('/shop')) return 'shop';
-  if (pathname.startsWith('/visit')) return 'visit';
   if (pathname.startsWith('/home-service')) return 'service';
   return 'home';
 }
 
-/** Header colourway per page, as in the reference: Shop is dark, Visit is misty, the rest light. */
+/** Header colourway per page, as in the reference: Shop is dark, The Cave is misty, the rest light. */
 function themeFor(pathname: string): HeaderTheme {
   if (pathname.startsWith('/shop')) return 'dark';
-  if (pathname.startsWith('/visit')) return 'mist';
+  if (pathname.startsWith('/cave')) return 'mist';
   return 'light';
 }
 
@@ -150,10 +150,9 @@ function EnquireLink({ className }: { className: string }) {
 function MobileMenu({ active }: { active: string }) {
   return (
     <nav id="dk-mobile-nav" className="dk-mnav" aria-label="Menu">
-      <Link href="/catalog" aria-current={active === 'catalog' ? 'page' : undefined}>Catalog</Link>
-      <Link href="/cave" aria-current={active === 'cave' ? 'page' : undefined}>The Cave</Link>
-      <Link href="/shop" aria-current={active === 'shop' ? 'page' : undefined}>Shop gear &amp; food</Link>
-      <Link href="/visit" aria-current={active === 'visit' ? 'page' : undefined}>Visit &amp; Book</Link>
+      <Link href="/catalog" aria-current={active === 'catalog' ? 'page' : undefined}>Catalog &mdash; arowana</Link>
+      <Link href="/shop" aria-current={active === 'shop' ? 'page' : undefined}>Shop &mdash; all products</Link>
+      <Link href="/cave" aria-current={active === 'cave' ? 'page' : undefined}>The Cave &mdash; visit &amp; book</Link>
       <Link href="/home-service" aria-current={active === 'service' ? 'page' : undefined}>Home service</Link>
       <Link href="/contact">Contact</Link>
       <Link href="/track">Track an order</Link>

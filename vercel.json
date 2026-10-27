@@ -1,5 +1,9 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "redirects": [
+    { "source": "/visit", "destination": "/cave", "permanent": true },
+    { "source": "/about", "destination": "/cave", "permanent": true }
+  ],
   "rewrites": [
     { "source": "/specimen/:slug", "destination": "/specimen-detail" }
   ]

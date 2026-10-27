@@ -1,10 +1,10 @@
 import type { Metadata } from 'next';
 
-// Server layout so this client-rendered page still gets its own title/description.
+// Retired: visiting and booking moved into The Cave. Kept as a redirect, not indexed.
 export const metadata: Metadata = {
-  title: 'Visit & Book a Viewing',
-  description: 'Book a private viewing at our gallery. See opening hours, location and what a visit looks like.',
-  alternates: { canonical: '/visit' },
+  title: 'Visit',
+  alternates: { canonical: '/cave' },
+  robots: { index: false, follow: true },
 };
 
 export default function Layout({ children }: { children: React.ReactNode }) {

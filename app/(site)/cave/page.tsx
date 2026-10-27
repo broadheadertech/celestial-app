@@ -1,196 +1,161 @@
 'use client';
 
 /**
- * The Cave — design-reference/dragoncave-site.html (The Cave), wired to real Convex data.
- * "Beyond the dragons, the rest of the water": in-stock non-arowana fish.
+ * The Cave — the shop itself: where it is, when it is open, how to book a viewing, and how we
+ * work. One page for "who are you and where are you", because that is one question.
+ *
+ * It used to be a second product listing (the non-arowana fish), which read as a third shop
+ * alongside /catalog and /shop. Those fish now live in /shop behind the "Live fish" filter;
+ * /catalog stays as the arowana showcase. /visit and /about both redirect here.
+ *
+ * Every fact comes from Admin → Business Details via useBusiness() — nothing is hardcoded, and
+ * a detail that isn't filled in hides its line rather than showing a placeholder.
  */
 
-import { useMemo, useState } from 'react';
-import { useQuery } from '@/components/dc/useQuery';
-import { api } from '@/convex/_generated/api';
-import { buildChips, DcProduct, familyOf, fmtPeso, kindName } from '@/components/dc/fish';
-import { caveList } from '@/components/dc/listings';
-import { useBusiness } from '@/components/dc/business';
-import VideoBadge from '@/components/dc/VideoBadge';
-import PreorderBadge from '@/components/dc/PreorderBadge';
-import { incomingLabel, isIncoming } from '@/components/dc/preorder';
-import CatalogSearchBar from '@/components/dc/CatalogSearchBar';
-import RehomedStrip from '@/components/dc/RehomedStrip';
-import { matchesSearch, sortProducts, type CatalogSort } from '@/components/dc/catalogFilters';
-import Chips from '@/components/dc/kit/Chips';
-import SpecimenCard from '@/components/dc/kit/SpecimenCard';
-import NotchHero from '@/components/dc/kit/NotchHero';
-import EmptyState from '@/components/dc/kit/EmptyState';
+import Link from 'next/link';
+import { hoursSummary, useBusiness } from '@/components/dc/business';
+import ViewingBooking from '@/components/dc/ViewingBooking';
+import { BrandMark } from '@/components/dc/kit/Brand';
 import Placeholder from '@/components/dc/kit/Placeholder';
-import { ChatIcon, ChipIcon, ClockIcon, PhoneIcon } from '@/components/dc/kit/icons';
+import NotchHero from '@/components/dc/kit/NotchHero';
+import { ChipIcon, ClockIcon, PhoneIcon } from '@/components/dc/kit/icons';
 
-/** Families shown as photo tiles in the hero — the biggest ones that have a photo. */
-const MOSAIC_SIZE = 4;
+/** How we work — process we can stand behind, not biography. */
+const DISCIPLINES = [
+  {
+    title: 'Source',
+    body: 'Direct relationships with breeders rather than brokers. We see the parent fish before we bid on a fry.',
+    icon: <ChipIcon size={14} />,
+  },
+  {
+    title: 'Quarantine',
+    body: '21 days observed in isolation, water tested daily. Nothing joins the gallery tanks uncleared.',
+    icon: <ClockIcon size={16} />,
+  },
+  {
+    title: 'Husbandry',
+    body: 'A diet plan per specimen and tank parameters logged twice a day, so a fish leaves here settled.',
+    icon: <ChipIcon size={14} />,
+  },
+  {
+    title: 'Continuity',
+    body: 'We answer the phone years after the sale. Your fish has a long life to live, and we are still your second opinion.',
+    icon: <PhoneIcon size={16} />,
+  },
+];
 
 export default function CavePage() {
-  const products = useQuery(api.services.products.getCatalogProducts, {}) as DcProduct[] | undefined;
   const biz = useBusiness();
-  const [family, setFamily] = useState('all');
-  const [grade, setGrade] = useState('all');
-  const [query, setQuery] = useState('');
-  const [sort, setSort] = useState<CatalogSort>('featured');
+  const [hoursDays, hoursTime] = hoursSummary(biz.hours);
 
-  const cave = useMemo(
-    () => caveList(products ?? []),
-    [products],
-  );
-  const familyChips = useMemo(() => buildChips(cave, (p) => familyOf(kindName(p))), [cave]);
-  const gradeChips = useMemo(() => ['all', ...Array.from(new Set(cave.filter((p) => p.grade).map((p) => p.grade!)))], [cave]);
-
-  const items = useMemo(
-    () =>
-      sortProducts(
-        cave.filter(
-          (p) =>
-            (family === 'all' || familyOf(kindName(p)) === family) &&
-            (grade === 'all' || p.grade === grade) &&
-            matchesSearch(p, query, familyOf(kindName(p))),
-        ),
-        sort,
-      ),
-    [cave, family, grade, query, sort],
-  );
-  const loading = products === undefined;
-  const familyCount = familyChips.length - 1;
-
-  /** Hero tiles: one per family (largest first), each with a representative photo and how many are in. */
-  const mosaic = useMemo(() => {
-    const byFamily = new Map<string, { family: string; count: number; image?: string }>();
-    for (const p of cave) {
-      const fam = familyOf(kindName(p));
-      const entry = byFamily.get(fam) ?? { family: fam, count: 0 };
-      entry.count += 1;
-      if (!entry.image && p.image) entry.image = p.image;
-      byFamily.set(fam, entry);
-    }
-    return [...byFamily.values()].filter((e) => e.image).sort((a, b) => b.count - a.count).slice(0, MOSAIC_SIZE);
-  }, [cave]);
-
-  /** A hero tile filters the grid to its family and brings the grid into view. */
-  const showFamily = (fam: string) => {
-    setFamily(fam);
-    setGrade('all');
-    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    document.getElementById('cave-grid')?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
-  };
+  // Only the facts that are actually on file get a column.
+  const heroFacts = [
+    ['Address', biz.address, biz.city],
+    ['Hours', hoursDays, hoursTime],
+    ['Phone', biz.phone, biz.landline],
+  ].filter(([, value]) => value) as [string, string, string][];
 
   return (
-    <div className="dk dk-cave">
+    <div className="dk dk-cave dk-visit">
       {/* HERO */}
       <NotchHero
-        tone="light"
-        notchHeight={100}
-        notchLabel="Reserve"
+        tone="white"
+        behind="var(--dk-n-100)"
+        className="dk-visit-hero"
+        notchWide
+        notchHeight={110}
+        notchLabel="Address and hours"
         notch={
-          <a className="dk-btn dk-btn-red" href={biz.generalHref} target={biz.generalHref.startsWith('http') ? '_blank' : undefined} rel="noopener">
-            <ChatIcon />Message us to reserve
-          </a>
-        }
-        aside={
-          <div className="dk-cave-mosaic" aria-label="Browse by family">
-            {mosaic.length > 0
-              ? mosaic.map((m) => (
-                  <button key={m.family} type="button" className="dk-cave-tile" onClick={() => showFamily(m.family)} aria-label={`Show ${m.family} (${m.count})`}>
-                    {/* eslint-disable-next-line @next/next/no-img-element -- product photos are remote Convex storage URLs */}
-                    <img src={m.image} alt="" loading="lazy" decoding="async" draggable={false} />
-                    <span className="dk-cave-tile-label" aria-hidden="true">{m.family}<span>{m.count}</span></span>
-                  </button>
-                ))
-              : Array.from({ length: MOSAIC_SIZE }, (_, i) => <Placeholder key={i} className="dk-cave-tile" />)}
-          </div>
-        }
-      >
-        <div className="dk-cave-copy">
-          <p className="dk-eyebrow">The cave · Beyond the dragons</p>
-          <h1>The wider<br />water.</h1>
-          <p className="dk-lede">Beyond the dragons, the rest of the water monster-tank centrepieces, ancient oddballs, and quiet exotics. Each grown on in our own systems and released only when it is ready to keep.</p>
-          <div className="dk-stats dk-cave-stats">
-            <div className="dk-stat"><b>{loading ? '—' : cave.length}</b><span>In the cave now</span></div>
-            <div className="dk-stat"><b>{loading ? '—' : familyCount}</b><span>Families</span></div>
-            <div className="dk-stat"><b>21</b><span>Days in quarantine</span></div>
-          </div>
-          <a className="dk-btn dk-btn-outline-dark dk-cave-browse" href="#cave-grid">Browse the cave</a>
-        </div>
-      </NotchHero>
-
-      {/* PROMISE */}
-      <section className="dk-cave-promise" aria-labelledby="cave-promise-title">
-        <div className="dk-wrap">
-          <div className="dk-cp-grid">
-            <div>
-              <p className="dk-eyebrow">The cave · Our promise</p>
-              <h2 id="cave-promise-title">Provenance,<br />then patience.</h2>
-            </div>
-            <div className="dk-cp-item"><span className="dk-promise-icon"><ChipIcon size={14} /></span><h3>Provenance</h3><p>Chipped where required, papered, and logged before it reaches the floor.</p></div>
-            <div className="dk-cp-item"><span className="dk-promise-icon"><ClockIcon size={16} /></span><h3>Quarantine</h3><p>21 days observed in isolation. Nothing joins the tanks uncleared.</p></div>
-            <div className="dk-cp-item"><span className="dk-promise-icon"><PhoneIcon size={16} /></span><h3>Continuity</h3><p>We answer the phone years after. Your fish has a long life to live.</p></div>
-          </div>
-        </div>
-      </section>
-
-      {/* TOOLBAR */}
-      <section className="dk-toolbar" id="cave-grid">
-        <div className="dk-wrap">
-          <CatalogSearchBar query={query} onQuery={setQuery} sort={sort} onSort={setSort} placeholder="Search by name, family, grade…" searchLabel="Search the cave" />
-          <div className="dk-tb-row dk-tb-row-2">
-            <div className="dk-tb-chips">
-              <Chips label="Filter by family" visibleLabel="Family" options={familyChips} value={family} onChange={setFamily} renderLabel={(c) => (c === 'all' ? 'All' : c)} />
-              {gradeChips.length > 1 && (
-                <Chips label="Filter by grade" visibleLabel="Grade" options={gradeChips} value={grade} onChange={setGrade} renderLabel={(c) => (c === 'all' ? 'All' : c)} />
-              )}
-            </div>
-            {!loading && <p className="dk-tb-count" aria-live="polite">Showing {items.length} of {cave.length}</p>}
-          </div>
-        </div>
-      </section>
-
-      {/* GRID */}
-      <section className="dk-catalog" aria-label="Cave catalog">
-        <div className="dk-wrap">
-          <div className="dk-cards">
-            {items.map((item) => (
-              <SpecimenCard
-                key={item._id}
-                href={`/specimen-detail?id=${item._id}`}
-                image={item.image}
-                name={item.name}
-                category={familyOf(kindName(item))}
-                price={fmtPeso(item.price)}
-                priceStyle="cut"
-                action={{ href: biz.enquireHref(item.name, item.tankNumber || String(item.sku || '')), label: 'Reserve' }}
-                overlay={
-                  <>
-                    {item.videos?.length ? <VideoBadge count={item.videos.length} /> : null}
-                    {isIncoming(item) ? <PreorderBadge label={incomingLabel(item)} /> : null}
-                  </>
-                }
-              />
+          <div className="dk-stats">
+            {heroFacts.map(([heading, primary, secondary]) => (
+              <div key={heading}>
+                <p className="dk-meta-label">{heading}</p>
+                <p className="dk-meta-val">
+                  {primary}
+                  {heading === 'Hours' ? (
+                    <>
+                      <br />
+                      <a href="#hours">See hours</a>
+                    </>
+                  ) : (
+                    secondary && (
+                      <>
+                        <br />
+                        {secondary}
+                      </>
+                    )
+                  )}
+                </p>
+              </div>
             ))}
           </div>
+        }
+        aside={
+          <figure className="dk-specimen dk-dark">
+            <BrandMark onDark />
+            <Placeholder src="/img/arowana-red.png" alt="Super Red arowana" contain />
+            <figcaption className="dk-specimen-cap">
+              The gallery{biz.city && <> &middot; {biz.city}</>}
+            </figcaption>
+          </figure>
+        }
+      >
+        <p className="dk-eyebrow">The cave · By appointment</p>
+        <h1>Where the fish live.</h1>
+        <p className="dk-lede">
+          {biz.storeName}
+          {biz.city ? ` is in ${biz.city}` : ''}. We see one visitor at a time, so the tanks are
+          yours &mdash; we&rsquo;ll pour tea and you can take as long as you need with the fish.
+          There&rsquo;s never any pressure to buy.
+        </p>
+      </NotchHero>
 
-          {!loading && items.length === 0 && (
-            <EmptyState
-              title="Nothing in the cave matches those filters"
-              actions={(query || family !== 'all' || grade !== 'all') ? (
-                <button type="button" className="dk-btn dk-btn-outline-dark" onClick={() => { setQuery(''); setFamily('all'); setGrade('all'); }}>
-                  Clear search &amp; filters
-                </button>
-              ) : undefined}
-            >
-              Message us — we often have unlisted fish in quarantine.
-            </EmptyState>
-          )}
-          {loading && <div className="dk-empty" role="status">Loading the cave…</div>}
+      {/* BOOKING + MAP + HOURS + WHAT A VISIT LOOKS LIKE */}
+      <ViewingBooking />
+
+      {/* HOW WE WORK */}
+      <section className="dk-section alt" aria-labelledby="cave-disciplines">
+        <div className="dk-wrap">
+          <div className="dk-sec-head">
+            <div>
+              <p className="dk-eyebrow">Four disciplines</p>
+              <h2 id="cave-disciplines" className="dk-h2">How we work.</h2>
+            </div>
+          </div>
+          <div className="dk-grid-4">
+            {DISCIPLINES.map((d) => (
+              <div key={d.title} className="dk-panel">
+                <span className="dk-promise-icon">{d.icon}</span>
+                <h3 className="dk-h4" style={{ marginTop: 12 }}>
+                  {d.title}
+                </h3>
+                <p className="dk-small dk-muted" style={{ marginTop: 12 }}>
+                  {d.body}
+                </p>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
-      <RehomedStrip arowana={false} />
+      {/* WHAT TO SEE */}
+      <section className="dk-section" aria-labelledby="cave-browse">
+        <div className="dk-wrap narrow" style={{ textAlign: 'center' }}>
+          <h2 id="cave-browse" className="dk-h2">See what is in the water.</h2>
+          <p className="dk-lede dk-muted" style={{ maxWidth: 520, margin: '16px auto 0' }}>
+            The arowana are in the Catalog. Everything else we keep &mdash; the rest of the fish,
+            tanks, filtration, food and lighting &mdash; is in the Shop.
+          </p>
+          <div className="dk-actions" style={{ justifyContent: 'center', marginTop: 28 }}>
+            <Link href="/catalog" className="dk-btn dk-btn-red">
+              The Catalog
+            </Link>
+            <Link href="/shop" className="dk-btn dk-btn-outline-dark">
+              Shop everything
+            </Link>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }
-

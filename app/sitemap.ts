@@ -5,17 +5,16 @@ export const dynamic = 'force-static';
 
 const BASE = 'https://dc.broadheader.com';
 
+// /visit and /about are 308 redirects into /cave (see vercel.json) and are deliberately absent.
 const PAGES: [string, number][] = [
   ['', 1],
   ['/catalog', 0.9],
+  ['/shop', 0.9],
   ['/cave', 0.8],
-  ['/shop', 0.8],
-  ['/visit', 0.7],
   ['/home-service', 0.7],
   ['/contact', 0.5],
-  ['/track', 0.3],
-  ['/about', 0.4],
   ['/journal', 0.4],
+  ['/track', 0.3],
 ];
 
 /**

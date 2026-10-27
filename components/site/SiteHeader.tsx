@@ -13,8 +13,8 @@ const NAV_LINKS = [
   { href: '/cave', label: 'The Cave' },
   { href: '/shop', label: 'Shop' },
   { href: '/journal', label: 'Journal' },
-  { href: '/about', label: 'About' },
-  { href: '/visit', label: 'Visit' },
+  { href: '/cave', label: 'The Cave' },
+  { href: '/cave', label: 'The Cave' },
 ];
 
 export default function SiteHeader() {
@@ -139,7 +139,7 @@ export default function SiteHeader() {
               )}
             </button>
             <Link
-              href="/visit"
+              href="/cave"
               className="b b-primary b-sm hidden lg:inline-flex"
               style={{ marginLeft: 8 }}
             >
@@ -245,7 +245,7 @@ export default function SiteHeader() {
             </nav>
             <div className="p-4 border-t" style={{ borderColor: 'var(--line)' }}>
               <Link
-                href="/visit"
+                href="/cave"
                 onClick={() => setMobileOpen(false)}
                 className="b b-primary b-lg w-full justify-center"
               >

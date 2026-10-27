@@ -1,29 +1,43 @@
 import type { Metadata } from 'next';
 import JsonLd from '@/components/dc/JsonLd';
-import { caveList } from '@/components/dc/listings';
-import { getBuildCatalog } from '@/lib/buildCatalog';
-import { collectionLd } from '@/lib/structuredData';
+import { getBuildBusiness } from '@/lib/buildCatalog';
+import { venuePageLd, type BusinessLike } from '@/lib/structuredData';
 
 const SITE_URL = 'https://dc.broadheader.com';
-const TITLE = 'The Cave — Exotic Fish';
-const DESCRIPTION =
-  'Discus, stingrays, cichlids, predators and oddballs from our gallery water. Enquire about any specimen.';
+const FALLBACK_BUSINESS: BusinessLike = { storeName: "Dragon's Cave" };
 
-// Server layout so this client-rendered page still gets its own title/description.
-export const metadata: Metadata = {
-  title: TITLE,
-  description: DESCRIPTION,
-  alternates: { canonical: '/cave' },
-};
+/**
+ * The Cave is the venue page now — address, hours, booking and how we work — so its title and
+ * description are built from Business Details rather than describing a fish listing. The old
+ * /visit and /about pages redirect here.
+ */
+export async function generateMetadata(): Promise<Metadata> {
+  const business = (await getBuildBusiness()) ?? FALLBACK_BUSINESS;
+  const city = (business.city || '').trim();
+  const name = business.storeName || FALLBACK_BUSINESS.storeName;
 
-/** Same listing as the page, emitted as CollectionPage/ItemList for search and answer engines. */
+  return {
+    title: city ? `The Cave — Visit us in ${city}` : 'The Cave — Visit us',
+    description:
+      `Where to find ${name}, our opening hours, and how to book a private viewing. ` +
+      'See the fish in person before you commit — by appointment, no pressure to buy.',
+    alternates: { canonical: '/cave' },
+  };
+}
+
 export default async function Layout({ children }: { children: React.ReactNode }) {
-  const products = caveList((await getBuildCatalog()) ?? []);
+  const business = (await getBuildBusiness()) ?? FALLBACK_BUSINESS;
+  const city = (business.city || '').trim();
 
   return (
     <>
       <JsonLd
-        data={collectionLd(products, { siteUrl: SITE_URL, path: '/cave', name: TITLE, description: DESCRIPTION })}
+        data={venuePageLd(business, {
+          siteUrl: SITE_URL,
+          path: '/cave',
+          name: city ? `The Cave — Visit us in ${city}` : 'The Cave — Visit us',
+          description: `Address, opening hours and viewing bookings for ${business.storeName || 'the shop'}.`,
+        })}
       />
       {children}
     </>

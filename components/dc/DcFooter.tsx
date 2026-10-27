@@ -13,7 +13,7 @@ export default function DcFooter() {
   const biz = useBusiness();
   const [days, time] = hoursSummary(biz.hours);
   const waHref = biz.wa(`Hi ${biz.storeName} — I'd like to enquire about your arowana.`);
-  const theme = pathname.startsWith('/visit') ? 'cream' : 'dark';
+  const theme = pathname.startsWith('/cave') ? 'cream' : 'dark';
 
   return (
     <>
@@ -30,9 +30,8 @@ export default function DcFooter() {
               <ul className="dk-f-links">
                 <li><Link href="/">Home</Link></li>
                 <li><Link href="/catalog">The Catalog</Link></li>
-                <li><Link href="/cave">The Cave</Link></li>
-                <li><Link href="/shop">Shop gear &amp; food</Link></li>
-                <li><Link href="/visit">Visit &amp; Book</Link></li>
+                <li><Link href="/shop">Shop all products</Link></li>
+                <li><Link href="/cave">The Cave &mdash; visit &amp; book</Link></li>
                 <li><Link href="/home-service">Home service</Link></li>
                 <li><Link href="/contact">Contact</Link></li>
                 <li><Link href="/track">Track an order</Link></li>
@@ -50,7 +49,7 @@ export default function DcFooter() {
                 )}
                 {biz.loaded && (
                   <p>
-                    {days} &middot; {time ? <Link href="/visit#hours">{time}</Link> : <Link href="/visit#hours">See hours</Link>}
+                    {days} &middot; {time ? <Link href="/cave#hours">{time}</Link> : <Link href="/cave#hours">See hours</Link>}
                     {biz.hoursNote && <><br />{biz.hoursNote}</>}
                   </p>
                 )}

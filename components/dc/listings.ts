@@ -26,9 +26,27 @@ export function caveList<T extends Classifiable & Stocked>(products: readonly T[
   return products.filter((p) => !!p.isActive && isFish(p) && isListable(p) && !isArowana(kindName(p)));
 }
 
-/** Shop: non-livestock gear that can actually be bought through the cart, in stock now. */
+/** Gear only: non-livestock that can actually be bought through the cart, in stock now. */
 export function shopList<T extends { isActive?: boolean; stock: number; purchaseMode?: string }>(
   products: readonly T[],
 ): T[] {
   return products.filter((p) => !!p.isActive && p.stock > 0 && p.purchaseMode === 'cart');
+}
+
+/**
+ * Everything the Shop page can show. The Shop is now the one place every product lives — live
+ * fish and hard goods together — with filters to separate them, so this is just "publicly
+ * listed and active"; the public catalog query has already excluded internal products.
+ */
+export function allProductsList<T extends { isActive?: boolean }>(products: readonly T[]): T[] {
+  return products.filter((p) => !!p.isActive);
+}
+
+/**
+ * Narrowed to what a customer can actually act on: in stock, or an incoming pre-order. Over half
+ * the public catalog sits at zero stock, so the Shop defaults to this and offers the full list
+ * behind a filter rather than opening on a page of sold-out specimens.
+ */
+export function availableOnly<T extends Stocked>(products: readonly T[]): T[] {
+  return products.filter((p) => isListable(p));
 }
