@@ -5,25 +5,44 @@ import DcFooter from '@/components/dc/DcFooter';
 import { DC_CSS } from '@/components/dc/styles';
 import '@/components/dc/kit.css';
 import CartDrawer from '@/components/site/CartDrawer';
+import JsonLd from '@/components/dc/JsonLd';
+import { getBuildBusiness } from '@/lib/buildCatalog';
+import { localBusinessLd, websiteLd, type BusinessLike } from '@/lib/structuredData';
 
 const SITE_URL = 'https://dc.broadheader.com';
 
-export const metadata: Metadata = {
-  metadataBase: new URL(SITE_URL),
-  title: {
-    default: "Dragon's Cave — Premium Asian Arowana in Quezon City",
-    template: "%s · Dragon's Cave",
-  },
-  description:
-    "Premium Asian arowana and exotic fish, chosen for bloodline and quarantined before sale. Browse the gallery, book a viewing, or shop aquarium food, lights and gear.",
-  openGraph: {
-    type: 'website',
-    siteName: "Dragon's Cave",
-    locale: 'en_PH',
-    images: [{ url: '/img/red.webp', width: 900, height: 600, alt: 'Super Red arowana' }],
-  },
-  twitter: { card: 'summary_large_image' },
-};
+/** Used only if Convex is unreachable during the build, so the shell still has a sane title. */
+const FALLBACK_BUSINESS: BusinessLike = { storeName: "Dragon's Cave", tagline: 'Home of Premium Arowanas' };
+
+/**
+ * The store name and town come from Business Details at build time rather than being hardcoded —
+ * the title used to claim Quezon City while the shop's address was in Bulacan, which is exactly
+ * the sort of thing local search and answer engines take at face value.
+ */
+export async function generateMetadata(): Promise<Metadata> {
+  const business = (await getBuildBusiness()) ?? FALLBACK_BUSINESS;
+  const name = (business.storeName || FALLBACK_BUSINESS.storeName)!;
+  const tagline = (business.tagline || FALLBACK_BUSINESS.tagline)!;
+  const city = (business.city || '').trim();
+
+  return {
+    metadataBase: new URL(SITE_URL),
+    title: {
+      default: `${name} — ${tagline}${city ? ` in ${city}` : ''}`,
+      template: `%s · ${name}`,
+    },
+    description:
+      'Premium Asian arowana and exotic fish, chosen for bloodline and quarantined before sale. ' +
+      `Browse the gallery, book a viewing, or shop aquarium food, lights and gear${city ? ` — ${city}, Philippines` : ''}.`,
+    openGraph: {
+      type: 'website',
+      siteName: name,
+      locale: 'en_PH',
+      images: [{ url: '/img/red.webp', width: 900, height: 600, alt: 'Super Red arowana' }],
+    },
+    twitter: { card: 'summary_large_image' },
+  };
+}
 
 // The storefront allows pinch-zoom (the root layout disables it for the app screens).
 export const viewport: Viewport = {
@@ -39,7 +58,9 @@ export const viewport: Viewport = {
  * Uses the design's own header/footer (not the app's SiteHeader) so every
  * (site) page reads exactly like the shared design.
  */
-export default function SiteLayout({ children }: { children: ReactNode }) {
+export default async function SiteLayout({ children }: { children: ReactNode }) {
+  const business = (await getBuildBusiness()) ?? FALLBACK_BUSINESS;
+
   return (
     <div
       className="dc-scope"
@@ -54,6 +75,14 @@ export default function SiteLayout({ children }: { children: ReactNode }) {
       }}
     >
       <style dangerouslySetInnerHTML={{ __html: DC_CSS }} />
+      {/* Shop + site identity on every storefront page — the anchor the per-page Product,
+          CollectionPage and FAQPage blocks refer back to by @id. */}
+      <JsonLd
+        data={[
+          localBusinessLd(business, { siteUrl: SITE_URL, logoPath: '/img/logo.png' }),
+          websiteLd(business, { siteUrl: SITE_URL }),
+        ]}
+      />
       <DcHeader />
       <div style={{ flex: 1 }}>{children}</div>
       <DcFooter />

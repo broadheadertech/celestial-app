@@ -186,7 +186,7 @@ function AdminProductsContent() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [selectedStatus, setSelectedStatus] = useState('all');
-  const [photoFilter, setPhotoFilter] = useState<'all' | 'missing' | 'single' | 'oversized'>('all');
+  const [contentFilter, setContentFilter] = useState<'all' | 'missing' | 'single' | 'oversized' | 'nodesc'>('all');
   const [errorMessage, setErrorMessage] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
@@ -285,19 +285,20 @@ function AdminProductsContent() {
       });
     }
 
-    // Apply photo filter
-    if (photoFilter !== 'all') {
+    // Apply the content-gap filter (photos, or a missing description)
+    if (contentFilter !== 'all') {
       const oversizedIds = new Set((oversizedPhotos ?? []).map((p) => p.productId));
       filtered = filtered.filter((product) => {
         const count = photoCount(product);
-        if (photoFilter === 'missing') return count === 0;
-        if (photoFilter === 'single') return count === 1;
+        if (contentFilter === 'missing') return count === 0;
+        if (contentFilter === 'single') return count === 1;
+        if (contentFilter === 'nodesc') return !(product.description || '').trim();
         return oversizedIds.has(product._id);
       });
     }
 
     return filtered;
-  }, [searchQuery, selectedCategory, selectedStatus, photoFilter, oversizedPhotos, categoryMap, products]);
+  }, [searchQuery, selectedCategory, selectedStatus, contentFilter, oversizedPhotos, categoryMap, products]);
 
   // Pagination logic
   const totalPages = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE);
@@ -310,7 +311,7 @@ function AdminProductsContent() {
   // Reset to page 1 when filters change
   useMemo(() => {
     setCurrentPage(1);
-  }, [searchQuery, selectedCategory, selectedStatus, photoFilter]);
+  }, [searchQuery, selectedCategory, selectedStatus, contentFilter]);
 
   // Calculate local stats from filtered data
   const localStats = useMemo(() => {
@@ -352,7 +353,7 @@ function AdminProductsContent() {
     { key: 'low_stock', label: 'Low Stock', count: localStats.lowStock },
   ], [localStats]);
 
-  const photoFilters = useMemo(() => {
+  const contentFilters = useMemo(() => {
     const list = products ?? [];
     const oversizedIds = new Set((oversizedPhotos ?? []).map((p) => p.productId));
     return [
@@ -360,6 +361,13 @@ function AdminProductsContent() {
       { key: 'missing' as const, label: 'No photo', count: list.filter((p) => photoCount(p) === 0).length },
       { key: 'single' as const, label: 'Only 1 photo', count: list.filter((p) => photoCount(p) === 1).length },
       { key: 'oversized' as const, label: 'Over 1 MB', count: list.filter((p) => oversizedIds.has(p._id)).length },
+      // A missing description leaves the storefront with only a derived one-liner, and gives
+      // search and AI answer engines almost nothing to quote about the specimen.
+      {
+        key: 'nodesc' as const,
+        label: 'No description',
+        count: list.filter((p) => !(p.description || '').trim()).length,
+      },
     ];
   }, [products, oversizedPhotos]);
 
@@ -436,7 +444,7 @@ function AdminProductsContent() {
     setSearchQuery('');
     setSelectedCategory('All');
     setSelectedStatus('all');
-    setPhotoFilter('all');
+    setContentFilter('all');
     setShowFilters(false);
     setCurrentPage(1);
   };
@@ -696,14 +704,14 @@ function AdminProductsContent() {
             <button
               onClick={() => setShowFilters(!showFilters)}
               className={`px-3 sm:px-4 py-2 sm:py-3 rounded-lg border transition-all flex items-center gap-1.5 sm:gap-2 flex-shrink-0 active:scale-95 touch-manipulation ${
-                showFilters || selectedCategory !== 'All' || selectedStatus !== 'all' || photoFilter !== 'all'
+                showFilters || selectedCategory !== 'All' || selectedStatus !== 'all' || contentFilter !== 'all'
                   ? 'bg-primary border-primary text-white'
                   : 'bg-secondary/60 border-white/10 text-white hover:bg-secondary/80'
               }`}
             >
               <Filter className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               <span className="text-xs sm:text-sm font-medium hidden xs:inline">Filters</span>
-              {(selectedCategory !== 'All' || selectedStatus !== 'all' || photoFilter !== 'all') && (
+              {(selectedCategory !== 'All' || selectedStatus !== 'all' || contentFilter !== 'all') && (
                 <span className="w-2 h-2 rounded-full bg-white flex-shrink-0" />
               )}
             </button>
@@ -750,7 +758,7 @@ function AdminProductsContent() {
             <div className="flex items-center justify-between">
               <h3 className="text-xs sm:text-sm font-medium text-white">Filters</h3>
               <div className="flex items-center gap-2">
-                {(selectedCategory !== 'All' || selectedStatus !== 'all' || photoFilter !== 'all') && (
+                {(selectedCategory !== 'All' || selectedStatus !== 'all' || contentFilter !== 'all') && (
                   <button
                     onClick={clearFilters}
                     className="text-xs text-primary hover:text-primary/80 transition-colors touch-manipulation"
@@ -814,21 +822,21 @@ function AdminProductsContent() {
               </div>
 
               <div>
-                <label className="block text-xs sm:text-sm font-medium text-white mb-2">Photos</label>
+                <label className="block text-xs sm:text-sm font-medium text-white mb-2">Content gaps</label>
                 <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1 sm:flex-wrap">
-                  {photoFilters.map((filter) => (
+                  {contentFilters.map((filter) => (
                     <button
                       key={filter.key}
-                      onClick={() => setPhotoFilter(filter.key)}
+                      onClick={() => setContentFilter(filter.key)}
                       className={`flex-shrink-0 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm border flex items-center gap-1.5 sm:gap-2 transition-all active:scale-95 touch-manipulation whitespace-nowrap ${
-                        photoFilter === filter.key
+                        contentFilter === filter.key
                           ? 'bg-info border-info text-white'
                           : 'bg-secondary/60 border-white/10 text-white/70 hover:text-white hover:border-primary/20'
                       }`}
                     >
                       <span>{filter.label}</span>
                       <div className={`px-1.5 py-0.5 rounded text-[10px] sm:text-xs font-medium ${
-                        photoFilter === filter.key ? 'bg-white/20 text-white' : 'bg-primary/10 text-primary'
+                        contentFilter === filter.key ? 'bg-white/20 text-white' : 'bg-primary/10 text-primary'
                       }`}>
                         {filter.count}
                       </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Mail, MapPin, MessageCircle, Phone } from 'lucide-react';
 import { useMutation } from 'convex/react';
 import { useQuery } from '@/components/dc/useQuery';
@@ -40,20 +40,8 @@ export default function ContactPage() {
   // Admin → FAQs; the section is hidden when nothing is published.
   const faqs = useQuery(api.services.faqs.listPublished, {});
 
-  // FAQPage structured data so search engines can show the answers.
-  useEffect(() => {
-    if (!faqs?.length) return;
-    const script = document.createElement('script');
-    script.type = 'application/ld+json';
-    script.id = 'faq-jsonld';
-    script.textContent = JSON.stringify({
-      '@context': 'https://schema.org',
-      '@type': 'FAQPage',
-      mainEntity: faqs.map((f) => ({ '@type': 'Question', name: f.question, acceptedAnswer: { '@type': 'Answer', text: f.answer } })),
-    });
-    document.head.appendChild(script);
-    return () => script.remove();
-  }, [faqs]);
+  // FAQPage structured data is rendered server-side in ./layout.tsx — crawlers never ran the
+  // useEffect that used to build it here.
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

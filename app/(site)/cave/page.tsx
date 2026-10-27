@@ -8,11 +8,12 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@/components/dc/useQuery';
 import { api } from '@/convex/_generated/api';
-import { buildChips, DcProduct, familyOf, fmtPeso, isArowana, isFish, kindName } from '@/components/dc/fish';
+import { buildChips, DcProduct, familyOf, fmtPeso, kindName } from '@/components/dc/fish';
+import { caveList } from '@/components/dc/listings';
 import { useBusiness } from '@/components/dc/business';
 import VideoBadge from '@/components/dc/VideoBadge';
 import PreorderBadge from '@/components/dc/PreorderBadge';
-import { incomingLabel, isIncoming, isListable } from '@/components/dc/preorder';
+import { incomingLabel, isIncoming } from '@/components/dc/preorder';
 import CatalogSearchBar from '@/components/dc/CatalogSearchBar';
 import RehomedStrip from '@/components/dc/RehomedStrip';
 import { matchesSearch, sortProducts, type CatalogSort } from '@/components/dc/catalogFilters';
@@ -35,7 +36,7 @@ export default function CavePage() {
   const [sort, setSort] = useState<CatalogSort>('featured');
 
   const cave = useMemo(
-    () => (products ?? []).filter((p) => p.isActive && isFish(p) && isListable(p) && !isArowana(kindName(p))),
+    () => caveList(products ?? []),
     [products],
   );
   const familyChips = useMemo(() => buildChips(cave, (p) => familyOf(kindName(p))), [cave]);

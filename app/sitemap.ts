@@ -35,12 +35,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     return entries;
   }
   for (const p of products) {
-    if (!p.slug || p.stock <= 0) continue;
+    if (!p.slug) continue;
+    // Out-of-stock specimens stay listed: their pages are real, prerendered content and more than
+    // half the public catalog sits at zero stock, so skipping them hid most of the site from
+    // search. They rank lower and are crawled less often than what is actually available.
+    const available = p.stock > 0;
     entries.push({
       url: `${BASE}/specimen/${p.slug}`,
       lastModified: new Date(p.updatedAt),
-      changeFrequency: 'weekly',
-      priority: 0.6,
+      changeFrequency: available ? 'weekly' : 'monthly',
+      priority: available ? 0.6 : 0.4,
     });
   }
   return entries;

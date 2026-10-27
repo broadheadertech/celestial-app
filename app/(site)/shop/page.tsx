@@ -9,6 +9,7 @@ import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { useQuery } from '@/components/dc/useQuery';
 import { api } from '@/convex/_generated/api';
+import { shopList } from '@/components/dc/listings';
 import type { FunctionReturnType } from 'convex/server';
 import { useSiteCart } from '@/store/siteCart';
 import { useBusiness } from '@/components/dc/business';
@@ -36,7 +37,7 @@ export default function ShopPage() {
 
   // Only products set to "Add to cart" in the admin (live fish are enquiry-only).
   const gearProducts = useMemo(
-    () => (products ?? []).filter((p) => p.isActive && p.stock > 0 && p.purchaseMode === 'cart'),
+    () => shopList(products ?? []),
     [products],
   );
 

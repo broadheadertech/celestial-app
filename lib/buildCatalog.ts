@@ -26,8 +26,33 @@ const uncachedFetch: typeof fetch = (input, init) =>
   });
 
 export type BuildCatalogProduct = FunctionReturnType<typeof api.services.products.getCatalogProducts>[number];
+export type BuildBusiness = FunctionReturnType<typeof api.services.business.getBusinessProfile>;
+export type BuildFaq = FunctionReturnType<typeof api.services.faqs.listPublished>[number];
+
+/**
+ * Runs one public query against Convex at build time, or resolves to null if it can't. Every
+ * caller degrades instead of failing the build, so a Convex blip never breaks a deploy.
+ */
+async function buildQuery<T>(label: string, run: (client: ConvexHttpClient) => Promise<T>): Promise<T | null> {
+  const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
+  if (!convexUrl) return null;
+  try {
+    // Bypass Next's patched fetch: its build-time data cache would reuse the answer from an
+    // older build (locally and in Vercel's build cache), and `no-store` isn't allowed here.
+    const client = new ConvexHttpClient(convexUrl, { fetch: uncachedFetch });
+    return await Promise.race([
+      run(client),
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 15_000)),
+    ]);
+  } catch (error) {
+    console.warn(`[build ${label}] could not load:`, error);
+    return null;
+  }
+}
 
 let catalog: Promise<BuildCatalogProduct[] | null> | undefined;
+let business: Promise<BuildBusiness | null> | undefined;
+let faqs: Promise<BuildFaq[] | null> | undefined;
 
 /**
  * The public catalog as of this build (sitemap, per-product share pages). Fetched once per
@@ -35,21 +60,22 @@ let catalog: Promise<BuildCatalogProduct[] | null> | undefined;
  * failing the build.
  */
 export function getBuildCatalog(): Promise<BuildCatalogProduct[] | null> {
-  catalog ??= (async () => {
-    const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
-    if (!convexUrl) return null;
-    try {
-      // Bypass Next's patched fetch: its build-time data cache would reuse the catalog from an
-      // older build (locally and in Vercel's build cache), and `no-store` isn't allowed here.
-      const client = new ConvexHttpClient(convexUrl, { fetch: uncachedFetch });
-      return await Promise.race([
-        client.query(api.services.products.getCatalogProducts, {}),
-        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 15_000)),
-      ]);
-    } catch (error) {
-      console.warn('[build catalog] could not load products:', error);
-      return null;
-    }
-  })();
+  catalog ??= buildQuery('catalog', (c) => c.query(api.services.products.getCatalogProducts, {}));
   return catalog;
+}
+
+/**
+ * Business Details as of this build, for the LocalBusiness JSON-LD and the site title/description.
+ * Baked in at build time because the storefront pages are a static export and link/AI crawlers
+ * never run the client query that the visible UI uses.
+ */
+export function getBuildBusiness(): Promise<BuildBusiness | null> {
+  business ??= buildQuery('business', (c) => c.query(api.services.business.getBusinessProfile, {}));
+  return business;
+}
+
+/** Published FAQs as of this build, for server-rendered FAQPage structured data. */
+export function getBuildFaqs(): Promise<BuildFaq[] | null> {
+  faqs ??= buildQuery('faqs', (c) => c.query(api.services.faqs.listPublished, {}));
+  return faqs;
 }
