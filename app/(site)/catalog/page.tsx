@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * The Catalog — in-stock arowana ("the dragons") from the Fish category, wired to real Convex data.
+ * The Bloodlines (/catalog) — in-stock arowana ("the dragons") from the Fish category, wired to real Convex data.
  * No page of its own in design-reference/dragoncave-site.html, so it reuses The Cave's toolbar,
  * chips and specimen cards under a compact page head.
  */
@@ -68,7 +68,7 @@ export default function CatalogPage() {
           </div>
         }
       >
-        <p className="dk-eyebrow">The catalog</p>
+        <p className="dk-eyebrow">The bloodlines</p>
         <h1 className="dk-h1">The living gallery.</h1>
         <p className="dk-lede">Each fish is held in our gallery water until the right collector takes it home. Message us for a full video and lineage card.</p>
       </NotchHero>
@@ -76,7 +76,7 @@ export default function CatalogPage() {
       {/* TOOLBAR */}
       <section className="dk-toolbar">
         <div className="dk-wrap">
-          <CatalogSearchBar query={query} onQuery={setQuery} sort={sort} onSort={setSort} placeholder="Search by name, bloodline, grade…" searchLabel="Search the catalog" />
+          <CatalogSearchBar query={query} onQuery={setQuery} sort={sort} onSort={setSort} placeholder="Search by name, bloodline, grade…" searchLabel="Search the bloodlines" />
           <div className="dk-tb-row dk-tb-row-2">
             <div className="dk-tb-chips">
               <Chips label="Filter by bloodline" visibleLabel="Bloodline" options={bloodlineChips} value={bloodline} onChange={setBloodline} renderLabel={(c) => (c === 'all' ? 'All' : c)} />

@@ -11,10 +11,11 @@ import { BagIcon, CaretIcon, CloseIcon, MenuIcon, SearchIcon, SignInIcon } from 
 
 type HeaderTheme = 'light' | 'dark' | 'mist';
 
-// Catalog = the arowana showcase, Shop = every product behind filters, The Cave = the venue
+// The Bloodlines (/catalog) = the arowana showcase, Shop = every product behind filters,
+// The Cave = the venue
 // (address, hours, booking). /visit and /about redirect into The Cave.
 const NAV = [
-  { key: 'catalog', href: '/catalog', label: 'Catalog' },
+  { key: 'catalog', href: '/catalog', label: 'The Bloodlines' },
   { key: 'shop', href: '/shop', label: 'Shop' },
   { key: 'merch', href: '/merch', label: 'Merch' },
   { key: 'cave', href: '/cave', label: 'The Cave' },
@@ -155,7 +156,7 @@ function EnquireLink({ className }: { className: string }) {
 function MobileMenu({ active }: { active: string }) {
   return (
     <nav id="dk-mobile-nav" className="dk-mnav" aria-label="Menu">
-      <Link href="/catalog" aria-current={active === 'catalog' ? 'page' : undefined}>Catalog &mdash; arowana</Link>
+      <Link href="/catalog" aria-current={active === 'catalog' ? 'page' : undefined}>The Bloodlines &mdash; arowana</Link>
       <Link href="/shop" aria-current={active === 'shop' ? 'page' : undefined}>Shop &mdash; all products</Link>
       <Link href="/merch" aria-current={active === 'merch' ? 'page' : undefined}>Dragon Merch</Link>
       <Link href="/cave" aria-current={active === 'cave' ? 'page' : undefined}>The Cave &mdash; visit &amp; book</Link>

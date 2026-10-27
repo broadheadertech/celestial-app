@@ -5,7 +5,7 @@ import { getBuildCatalog } from '@/lib/buildCatalog';
 import { collectionLd } from '@/lib/structuredData';
 
 const SITE_URL = 'https://dc.broadheader.com';
-const TITLE = 'The Catalog — Asian Arowana';
+const TITLE = 'The Bloodlines — Asian Arowana';
 const DESCRIPTION =
   'Asian arowana on display now: Super Red, Crossback, Red Tail Gold and more. Every specimen chipped, certified and quarantined.';
 

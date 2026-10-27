@@ -29,7 +29,7 @@ export default function DcFooter() {
               <p className="dk-f-head">Explore</p>
               <ul className="dk-f-links">
                 <li><Link href="/">Home</Link></li>
-                <li><Link href="/catalog">The Catalog</Link></li>
+                <li><Link href="/catalog">The Bloodlines</Link></li>
                 <li><Link href="/shop">Shop all products</Link></li>
                 <li><Link href="/merch">Dragon Merch</Link></li>
                 <li><Link href="/cave">The Cave &mdash; visit &amp; book</Link></li>

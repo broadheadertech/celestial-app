@@ -143,12 +143,12 @@ export default function CavePage() {
         <div className="dk-wrap narrow" style={{ textAlign: 'center' }}>
           <h2 id="cave-browse" className="dk-h2">See what is in the water.</h2>
           <p className="dk-lede dk-muted" style={{ maxWidth: 520, margin: '16px auto 0' }}>
-            The arowana are in the Catalog. Everything else we keep &mdash; the rest of the fish,
+            The arowana are in The Bloodlines. Everything else we keep &mdash; the rest of the fish,
             tanks, filtration, food and lighting &mdash; is in the Shop.
           </p>
           <div className="dk-actions" style={{ justifyContent: 'center', marginTop: 28 }}>
             <Link href="/catalog" className="dk-btn dk-btn-red">
-              The Catalog
+              The Bloodlines
             </Link>
             <Link href="/shop" className="dk-btn dk-btn-outline-dark">
               Shop everything

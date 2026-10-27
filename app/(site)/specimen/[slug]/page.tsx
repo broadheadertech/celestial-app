@@ -3,6 +3,7 @@ import SpecimenView from '@/components/dc/SpecimenView';
 import JsonLd from '@/components/dc/JsonLd';
 import { getBuildBusiness, getBuildCatalog } from '@/lib/buildCatalog';
 import { breadcrumbLd, productLd, productSummary, type BusinessLike } from '@/lib/structuredData';
+import { isArowana, isFish, kindName } from '@/components/dc/fish';
 
 /**
  * Readable product URLs, prerendered per product at build time so link previews on
@@ -64,10 +65,13 @@ export default async function SpecimenSlugPage({ params }: { params: Promise<{ s
   const product = (await getBuildCatalog())?.find((p) => p.slug === slug);
   const business = (await getBuildBusiness()) ?? FALLBACK_BUSINESS;
 
-  // Live fish sit under Catalog/Cave; everything else is shop stock. kindName-level accuracy
-  // isn't needed here — the crumb only has to match where the product is actually linked from.
-  const isFish = (product?.categoryName || '').toLowerCase() === 'fish';
-  const section = isFish ? { name: 'Catalog', path: '/catalog' } : { name: 'Shop', path: '/shop' };
+  // The crumb has to name the page the product is actually listed on: only arowana are in The
+  // Bloodlines, and everything else — other fish included — is in the Shop. Classification uses
+  // the internal name via kindName(), per the storefront rules.
+  const inBloodlines = product ? isFish(product) && isArowana(kindName(product)) : false;
+  const section = inBloodlines
+    ? { name: 'The Bloodlines', path: '/catalog' }
+    : { name: 'Shop', path: '/shop' };
 
   return (
     <>

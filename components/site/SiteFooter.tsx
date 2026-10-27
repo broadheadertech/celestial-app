@@ -5,7 +5,7 @@ import { ArrowRight } from 'lucide-react';
 import { DragonsCaveMark } from './ArowanaSilhouette';
 
 const FOOTER_LINKS: Record<string, { label: string; href: string }[]> = {
-  Catalog: [
+  'The Bloodlines': [
     { label: 'Asian Red', href: '/catalog' },
     { label: 'Crossback Gold', href: '/catalog' },
     { label: 'Red Tail Gold', href: '/catalog' },

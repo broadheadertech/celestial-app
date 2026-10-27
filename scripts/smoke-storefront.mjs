@@ -150,18 +150,35 @@ for (const vp of VIEWPORTS) {
     // A pill button must never run past the box it sits in: that clips its arrow chip and looks
     // broken, without necessarily making the whole document scroll sideways. The footer's
     // "Message us on Messenger" button used to do exactly this.
+    // Measured twice, after the webfonts have settled: a fallback font is a different width, so
+    // measuring mid-swap reports overflow that isn't really there. Only a button that overflows
+    // in both passes counts, which keeps this from flaking on a cold run.
     const spillRes = await send('Runtime.evaluate', {
       returnByValue: true,
-      expression: `(() => {
+      awaitPromise: true,
+      expression: `(async () => {
+        const measure = () => {
+          const found = new Map();
+          for (const b of document.querySelectorAll('.dk-btn')) {
+            const parent = b.parentElement;
+            if (!parent) continue;
+            if (getComputedStyle(parent).overflowX !== 'visible') continue;
+            const br = b.getBoundingClientRect(), pr = parent.getBoundingClientRect();
+            if (!br.width) continue;
+            const over = Math.round(Math.max(br.right - pr.right, pr.left - br.left));
+            if (over > 2) found.set((b.textContent || '').trim().slice(0, 40), over);
+          }
+          return found;
+        };
+        try { await document.fonts.ready; } catch (e) {}
+        const first = measure();
+        if (!first.size) return null;
+        await new Promise((r) => setTimeout(r, 400));
+        const second = measure();
         let worst = null;
-        for (const b of document.querySelectorAll('.dk-btn')) {
-          const parent = b.parentElement;
-          if (!parent) continue;
-          if (getComputedStyle(parent).overflowX !== 'visible') continue;
-          const br = b.getBoundingClientRect(), pr = parent.getBoundingClientRect();
-          if (!br.width) continue;
-          const over = Math.round(Math.max(br.right - pr.right, pr.left - br.left));
-          if (over > 2 && (!worst || over > worst.over)) worst = { over, label: (b.textContent || '').trim().slice(0, 40) };
+        for (const [label, over] of second) {
+          if (!first.has(label)) continue;
+          if (!worst || over > worst.over) worst = { over, label };
         }
         return worst;
       })()`,

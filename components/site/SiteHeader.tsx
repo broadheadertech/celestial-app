@@ -9,7 +9,7 @@ import { useSiteCart } from '@/store/siteCart';
 import { useTheme } from '@/store/theme';
 
 const NAV_LINKS = [
-  { href: '/catalog', label: 'Catalog' },
+  { href: '/catalog', label: 'The Bloodlines' },
   { href: '/cave', label: 'The Cave' },
   { href: '/shop', label: 'Shop' },
   { href: '/drago-knows', label: 'Drago-knows' },

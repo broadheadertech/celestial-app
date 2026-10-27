@@ -73,7 +73,7 @@ export function buildLlmsTxt(opts: {
   out.push('');
 
   out.push('## Key pages', '');
-  out.push(`- [The Catalog](${siteUrl}/catalog): Asian arowana currently on display.`);
+  out.push(`- [The Bloodlines](${siteUrl}/catalog): Asian arowana currently on display, by bloodline.`);
   out.push(
     `- [Shop](${siteUrl}/shop): every product in one place — live fish, tanks, filtration, food and lighting, filterable by category.`,
   );
